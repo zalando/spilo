@@ -15,4 +15,4 @@ Currently the following scenarios are supported:
 TODO
 ====
 - [ ] Periodically one of the cluster members must check cluster health and remove unhealthy members from it.
-- [ ] Periodically one of the cluster members should update SRV record in a predifined zone via AWS api.
+- [ ] Periodically one of the cluster members should update SRV record in a predefined zone via AWS api.
