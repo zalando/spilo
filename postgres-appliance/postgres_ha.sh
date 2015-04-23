@@ -4,13 +4,12 @@ PATH=$PATH:/usr/lib/postgresql/${PGVERSION}/bin
 
 function write_postgres_yaml
 {
-  local SCOPE=$1
   cat >> postgres.yml <<__EOF__
 loop_wait: 10
 etcd:
   scope: $SCOPE
   ttl: 30
-  host: 127.0.0.1:4001
+  host: 127.0.0.1:8080
 postgresql:
   name: postgresql-${hostname}
   listen: 0.0.0.0:5432
@@ -33,12 +32,16 @@ __EOF__
 # get governor code
 git clone https://github.com/compose/governor.git
 
+write_postgres_yaml
+
 # start etcd proxy
 # for the -proxy on TDB the url of the etcd cluster
-etcd --data-dir=data/etcd &
+if [ "$DEBUG" -eq 1 ]
+then
+  exec /bin/bash
+fi
+etcd -name "proxy-$SCOPE" -proxy on -bind-addr 127.0.0.1:8080 --data-dir=data/etcd -initial-cluster $ETCD_CLUSTER &
 
-write_postgres_yaml "$@"
-#exec "/bin/bash"
 exec governor/governor.py "/home/postgres/postgres.yml"
 
 

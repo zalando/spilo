@@ -1,4 +1,4 @@
-FROM ubuntu:14.04
+FROM zalando/ubuntu:14.04.1-1
 MAINTAINER Oleksii Kliukin <oleksii.kliukin@zalando.de>
 
 # Add PGDG repositories
@@ -45,10 +45,12 @@ ADD postgres_ha.sh /home/postgres/
 RUN chown postgres:postgres /home/postgres/postgres_ha.sh
 RUN chmod 700 /home/postgres/postgres_ha.sh
 
+ENV ETCD_CLUSTER "default=http://127.0.0.1:7001"
+ENV SCOPE "batman"
+ENV DEBUG 0
 # run subsequent commands as user postgres
 USER postgres
 WORKDIR /home/postgres
 ENTRYPOINT ["/bin/bash", "/home/postgres/postgres_ha.sh"]
-CMD ["batman"]
 EXPOSE 5432
 
