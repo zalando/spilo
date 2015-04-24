@@ -18,7 +18,7 @@ postgresql:
   replication:
     username: standby
     password: standby
-    network: 0.0.0.0/0
+    network: samenet
   parameters:
     archive_mode: "on"
     wal_level: hot_standby
@@ -27,6 +27,7 @@ postgresql:
     wal_keep_segments: 8
     archive_timeout: 1800s
     max_replication_slots: 5
+    hot_standby: "on"
 __EOF__
 }
 
