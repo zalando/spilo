@@ -99,17 +99,18 @@ Architecture: PostgreSQL High Available cluster
 
 
 etcd proxy
-====
+----
 We assume a Higly Available etcd-cluster to be available for spilo when it is bootstrapped; we will use a etcd-proxy running on localhost to be a bridge between a HA-cluster member and the etcd-cluster.
 
 HAProxy
-====
+----
+As Yx
 
 Governor
-====
+----
 
 PostgreSQL
-====
+----
 
 
 

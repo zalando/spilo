@@ -1,3 +1,0 @@
-[submodule "postgres-appliance/governor"]
-	path = postgres-appliance/governor
-	url = https://github.com/zalando/governor
