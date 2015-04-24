@@ -14,7 +14,7 @@ etcd:
 postgresql:
   name: postgresql_${HOSTNAME}
   listen: ${local_address}:5432
-  data_dir: $PGDATA/data
+  data_dir: $PGDATA
   replication:
     username: standby
     password: standby
@@ -42,7 +42,7 @@ if [ "$DEBUG" -eq 1 ]
 then
   exec /bin/bash
 fi
-etcd -name "proxy-$SCOPE" -proxy on -bind-addr 127.0.0.1:8080 --data-dir=data/etcd -initial-cluster $ETCD_CLUSTER &
+etcd -name "proxy-$SCOPE" -proxy on -bind-addr 127.0.0.1:8080 --data-dir=etcd -initial-cluster $ETCD_CLUSTER &
 
 exec governor/governor.py "/home/postgres/postgres.yml"
 
