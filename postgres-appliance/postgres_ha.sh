@@ -2,8 +2,30 @@
 
 PATH=$PATH:/usr/lib/postgresql/${PGVERSION}/bin
 
+
+function patch_governor
+{
+#!/bin/bash
+cat << EOF |patch governor/helpers/postgresql.py
+diff --git a/helpers/postgresql.py b/helpers/postgresql.py
+index b6c52c1..4d3bfb1 100644
+--- a/helpers/postgresql.py
++++ b/helpers/postgresql.py
+@@ -146,6 +146,8 @@ class Postgresql:
+         f = open("%s/pg_hba.conf" % self.data_dir, "a")
+         f.write("host replication %(username)s %(network)s md5" %
+                 {"username": self.replication["username"], "network": self.replication["network"]})
++        # allow TCP connections from the host's own address
++        f.write("\nhost postgres postgres %(network)s/32 trust\n" % {"network": self.host})
+         f.close()
+ 
+     def write_recovery_conf(self, leader_hash):
+EOF
+}
+
 function write_postgres_yaml
 {
+  local_address=$(cat /etc/hosts |grep ${HOSTNAME}|cut -f1)
   cat >> postgres.yml <<__EOF__
 loop_wait: 10
 etcd:
@@ -11,8 +33,8 @@ etcd:
   ttl: 30
   host: 127.0.0.1:8080
 postgresql:
-  name: postgresql-${hostname}
-  listen: 0.0.0.0:5432
+  name: postgresql_${HOSTNAME}
+  listen: ${local_address}:5432
   data_dir: $PGDATA/data
   replication:
     username: standby
@@ -31,6 +53,8 @@ __EOF__
 
 # get governor code
 git clone https://github.com/compose/governor.git
+
+patch_governor
 
 write_postgres_yaml
 
