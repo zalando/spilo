@@ -14,7 +14,7 @@ Architecture: VPC
 	|                                                               |
 	|                 etcd                                          |
 	|                   O            DNS Service Record (SRV)       |
-	|         +-----> O   O +-------> _etcd+server._tcp.example.com |
+	|         +-----> O   O +-------> _etcd-server._tcp.example.com |
 	|         |        O O<+                                        |
 	|         |        ^   |                                        |
 	|         |        |   |            +-----+                     |
