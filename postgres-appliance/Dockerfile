@@ -45,9 +45,9 @@ ADD postgres_ha.sh /home/postgres/
 RUN chown postgres:postgres /home/postgres/postgres_ha.sh
 RUN chmod 700 /home/postgres/postgres_ha.sh
 
-ENV ETCD_ADDRESS ""
-ENV ETCD_DISCOVERY_URL "postgres.acid.zalan.do"
-ENV SCOPE "test"
+ENV ETCD_ADDRESS=""
+ENV ETCD_DISCOVERY_URL postgres.acid.zalan.do
+ENV SCOPE test
 ENV DEBUG 0
 # run subsequent commands as user postgres
 USER postgres
