@@ -11,8 +11,5 @@ Currently the following scenarios are supported:
 - Starting up of the new cluster. etcd.py will figure out that this is the new cluster and run etcd daemon with necessary options.
 - If the new EC2 instance is spawned within existing autoscaling group etcd.py will take care about adding this instance into already existing cluster and apply needed options to etcd daemon.
 - If something happened with etcd (crached or exited), etcd.py will remove data directory and then remove and add this instance from/into existing cluster. (Not sure that this is the good strategy)
-
-TODO
-====
-- [ ] Periodically one of the cluster members must check cluster health and remove unhealthy members from it.
-- [ ] Periodically one of the cluster members should update SRV record in a predefined zone via AWS api.
+- Periodically leader performs cluster health check and remove cluster members which are not members of autoscaling group
+- Also it creates or updates SRV record in a given zone via AWS api.
