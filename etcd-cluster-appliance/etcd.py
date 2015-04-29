@@ -10,7 +10,9 @@ import logging
 import os
 import requests
 import shutil
+import signal
 import subprocess
+import sys
 import time
 
 from boto.ec2.instance import Instance
@@ -389,7 +391,7 @@ class HouseKeeper(Thread):
             members[m.addr] = m
 
         for m in autoscaling_members:
-            members.pop(m.private_ip_address)
+            members.pop(m.private_ip_address, None)
 
         for m in members.values():
             self.me.delete_member(m)
@@ -445,15 +447,36 @@ class HouseKeeper(Thread):
             time.sleep(self.NAPTIME)
 
 
+def sigterm_handler(signo, stack_frame):
+    sys.exit()
+
+
 def main():
     hosted_zone = os.environ.get('HOSTED_ZONE', None)
     manager = EtcdManager()
-    house_keeper = HouseKeeper(manager, hosted_zone)
-    house_keeper.start()
-    manager.run()
+    try:
+        house_keeper = HouseKeeper(manager, hosted_zone)
+        house_keeper.start()
+        manager.run()
+    finally:
+        logging.info('Trying to remove myself from cluster...')
+        try:
+            cluster = EtcdCluster(manager)
+            cluster.load_members()
+            if cluster.accessible_member:
+                if cluster.me:
+                    if not cluster.accessible_member.delete_member(cluster.me):
+                        logging.error('Can not remove myself from cluster')
+                else:
+                    logging.error('Can not find me in existing cluster')
+            else:
+                logging.error('Cluster does not have accessible member')
+        except:
+            logging.exception()
 
 
 if __name__ == '__main__':
+    signal.signal(signal.SIGTERM, sigterm_handler)
     logging.basicConfig(format='%(levelname)-6s %(asctime)s - %(message)s', level=logging.DEBUG)
     os.chdir(os.path.dirname(os.path.realpath(__file__)))
     main()
