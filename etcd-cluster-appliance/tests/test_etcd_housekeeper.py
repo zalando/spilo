@@ -4,6 +4,7 @@
 import boto
 import unittest
 import requests
+import subprocess
 
 from etcd import EtcdManager, HouseKeeper
 from boto.route53.record import Record
@@ -47,6 +48,18 @@ def boto_route53_connect_to_region(region):
     return MockRoute53Connection()
 
 
+class Popen:
+
+    def __init__(self, args, **kwargs):
+        if args[1] != 'cluster-health':
+            raise Exception()
+        self.stdout = ['cluster is healthy', 'member 15a694aa6a6003f4 is healthy',
+                       'member effbc38ed2b11107 is unhealthy']
+
+    def wait(self):
+        pass
+
+
 class TestHouseKeeper(unittest.TestCase):
 
     def __init__(self, method_name='runTest'):
@@ -86,5 +99,9 @@ class TestHouseKeeper(unittest.TestCase):
         self.assertEqual(self.keeper.update_srv_record(autoscaling_members), None)
         self.keeper.hosted_zone = 'test2'
         self.assertEqual(self.keeper.update_srv_record(autoscaling_members), None)
+
+    def test_cluster_unhealthy(self):
+        subprocess.Popen = Popen
+        self.assertEqual(self.keeper.cluster_unhealthy(), True)
 
 
