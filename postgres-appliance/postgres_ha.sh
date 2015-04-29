@@ -7,6 +7,7 @@ function write_postgres_yaml
   local_address=$(cat /etc/hosts |grep ${HOSTNAME}|cut -f1)
   cat >> postgres.yml <<__EOF__
 loop_wait: 10
+aws_use_host_address: "on"
 etcd:
   scope: $SCOPE
   ttl: 30
