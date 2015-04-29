@@ -1,55 +1,19 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import json
 import unittest
 import requests
 
 from etcd import EtcdMember
 from boto.ec2.instance import Instance
 
-
-class MockResponse:
-
-    def __init__(self):
-        self.status_code = 200
-        self.content = '{}'
-
-    def json(self):
-        return json.loads(self.content)
-
-
-def requests_post(url, **kwargs):
-    response = MockResponse()
-    data = json.loads(kwargs['data'])
-    if data['peerURLs'][0] == 'http://127.0.0.2:2380':
-        response.status_code = 201
-        response.content = '{{"id":"ifoobar","name":"","peerURLs":["{}"],"clientURLs":[""]}}'.format(data['peerURLs'
-                ][0])
-    else:
-        response.status_code = 403
-    return response
-
-
-def requests_get(url, **kwargs):
-    response = MockResponse()
-    if 'stats/self' in url:
-        response.content = '{"leaderInfo":{"leader":"deadbeef"}}'
-    elif url.endswith('v2/members'):
-        response.content = '{"members":[]}'
-    return response
-
-
-def requests_delete(url, **kwargs):
-    response = MockResponse()
-    return response
+from test_etcd_manager import requests_post, requests_delete, requests_get
 
 
 class TestEtcdMember(unittest.TestCase):
 
     def __init__(self, method_name='runTest'):
         self.setUp = self.set_up
-        self.tearDown = self.tear_down
         super(TestEtcdMember, self).__init__(method_name)
 
     def set_up(self):
@@ -73,11 +37,6 @@ class TestEtcdMember(unittest.TestCase):
             'peerURLs': ['http://127.0.0.2:{}'.format(EtcdMember.DEFAULT_PEER_PORT)],
         }
         self.etcd_member = EtcdMember(self.etcd)
-
-    def tear_down(self):
-        requests.post = self.old_requests_post
-        requests.get = self.old_requests_get
-        requests.delete = self.old_requests_delete
 
     def test_get_addr_from_urls(self):
         self.assertEqual(self.ec2_member.get_addr_from_urls(['http://1.2:3']), '1.2')
@@ -104,7 +63,7 @@ class TestEtcdMember(unittest.TestCase):
             'peerURLs': ['http://127.0.0.2:{}'.format(EtcdMember.DEFAULT_PEER_PORT)],
         })
         self.assertEqual(self.ec2_member.add_member(member), True)
-        member.addr = '127.0.0.3'
+        member.addr = '127.0.0.4'
         self.assertEqual(self.ec2_member.add_member(member), False)
 
     def test_is_leader(self):
@@ -112,7 +71,7 @@ class TestEtcdMember(unittest.TestCase):
 
     def test_delete_member(self):
         member = EtcdMember({
-            'id': 'asdjfhg',
+            'id': 'ifoobari7',
             'name': 'i-sadfjhg',
             'clientURLs': ['http://127.0.0.2:{}'.format(EtcdMember.DEFAULT_CLIENT_PORT)],
             'peerURLs': ['http://127.0.0.2:{}'.format(EtcdMember.DEFAULT_PEER_PORT)],
@@ -120,9 +79,11 @@ class TestEtcdMember(unittest.TestCase):
         self.assertEqual(self.ec2_member.delete_member(member), False)
 
     def test_get_leader(self):
-        self.assertEqual(self.ec2_member.get_leader(), 'deadbeef')
+        self.ec2_member.addr = '127.0.0.7'
+        self.assertEqual(self.ec2_member.get_leader(), 'ifoobari1')
 
     def test_get_members(self):
+        self.ec2_member.addr = '127.0.0.7'
         self.assertEqual(self.ec2_member.get_members(), [])
 
 
