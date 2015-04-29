@@ -12,7 +12,7 @@ SenzaComponents:
         2379: 2379
         2380: 2380
       runtime: Docker
-      source: pierone.stups.zalan.do/acid/etcd-cluster:{{Arguments.ImageVersion}}
+      source: {{Arguments.DockerImage}}
       environment:
         HOSTED_ZONE: '{{Arguments.HostedZone}}'
     Type: Senza::TaupageAutoScalingGroup
@@ -24,8 +24,8 @@ SenzaInfo:
   Parameters:
   - HostedZone:
       Description: AWS Hosted Zone to work with
-  - ImageVersion:
-      Description: Docker image version of etcd-cluster.
+  - DockerImage:
+      Description: Docker image of etcd-cluster.
   StackName: etcd-cluster
 Resources:
   EtcdRole:
