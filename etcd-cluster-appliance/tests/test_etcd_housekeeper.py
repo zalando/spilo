@@ -1,29 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import json
+import boto
 import unittest
 import requests
 
 from etcd import EtcdManager, HouseKeeper
-from boto.ec2.instance import Instance
+from boto.route53.record import Record
 
-
-class MockResponse:
-
-    def __init__(self):
-        self.status_code = 200
-        self.content = '{}'
-
-    def json(self):
-        return json.loads(self.content)
-
-
-def requests_get(url, **kwargs):
-    response = MockResponse()
-    response.content = \
-        '{"leaderInfo":{"leader":"ifoobari1"}, "members":[{"id":"ifoobari1","name":"i-deadbeef1","peerURLs":["http://127.0.0.1:2380"],"clientURLs":["http://127.0.0.1:2379"]},{"id":"ifoobari2","name":"i-deadbeef2","peerURLs":["http://127.0.0.2:2380"],"clientURLs":["http://127.0.0.2:2379"]},{"id":"ifoobari3","name":"i-deadbeef3","peerURLs":["http://127.0.0.3:2380"],"clientURLs":["ttp://127.0.0.3:2379"]},{"id":"ifoobari4","name":"i-deadbeef4","peerURLs":["http://127.0.0.4:2380"],"clientURLs":[]}]}'
-    return response
+from test_etcd_manager import boto_ec2_connect_to_region, requests_get, requests_delete, MockResponse
 
 
 def requests_put(url, **kwargs):
@@ -32,24 +17,34 @@ def requests_put(url, **kwargs):
     return response
 
 
-def requests_delete(url, **kwargs):
-    response = MockResponse()
-    response.status_code = 204
-    return response
+class MockZone:
+
+    def __init__(self, name):
+        self.name = name
+
+    def get_records(self):
+        if self.name != 'test.':
+            return []
+        r = Record()
+        r.name = '_etcd-server._tcp.cluster.' + self.name
+        r.type = 'SRV'
+        return [r]
+
+    def add_record(self, type, name, value):
+        pass
+
+    def update_record(self, old, new_value):
+        pass
 
 
-def generate_instance(id, ip):
-    i = Instance()
-    i.id = id
-    i.private_ip_address = ip
-    i.private_dns_name = 'ip-{}.eu-west-1.compute.internal'.format(ip.replace('.', '-'))
-    i.tags = {'aws:cloudformation:stack-name': 'etc-cluster', 'aws:autoscaling:groupName': 'etc-cluster-postgres'}
-    return i
+class MockRoute53Connection:
+
+    def get_zone(self, zone):
+        return (None if zone == 'bla' else MockZone(zone))
 
 
-def manager_get_autoscaling_members():
-    return [generate_instance('i-deadbeef1', '127.0.0.1'), generate_instance('i-deadbeef2', '127.0.0.2'),
-            generate_instance('i-deadbeef3', '127.0.0.3')]
+def boto_route53_connect_to_region(region):
+    return MockRoute53Connection()
 
 
 class TestHouseKeeper(unittest.TestCase):
@@ -62,7 +57,10 @@ class TestHouseKeeper(unittest.TestCase):
         requests.get = requests_get
         requests.put = requests_put
         requests.delete = requests_delete
+        boto.ec2.connect_to_region = boto_ec2_connect_to_region
+        boto.route53.connect_to_region = boto_route53_connect_to_region
         self.manager = EtcdManager()
+        self.manager.get_my_instace()
         self.manager.instance_id = 'i-deadbeef3'
         self.manager.region = 'eu-west-1'
         self.keeper = HouseKeeper(self.manager, 'test.')
@@ -78,7 +76,15 @@ class TestHouseKeeper(unittest.TestCase):
         self.assertEqual(self.keeper.acquire_lock(), True)
 
     def test_remove_unhealthy_members(self):
-        autoscaling_members = manager_get_autoscaling_members()
+        autoscaling_members = self.manager.get_autoscaling_members()
         self.assertEqual(self.keeper.remove_unhealthy_members(autoscaling_members), None)
+
+    def test_update_srv_record(self):
+        autoscaling_members = self.manager.get_autoscaling_members()
+        self.assertEqual(self.keeper.update_srv_record(autoscaling_members), None)
+        self.keeper.hosted_zone = 'bla'
+        self.assertEqual(self.keeper.update_srv_record(autoscaling_members), None)
+        self.keeper.hosted_zone = 'test2'
+        self.assertEqual(self.keeper.update_srv_record(autoscaling_members), None)
 
 
