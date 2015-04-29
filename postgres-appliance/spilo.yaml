@@ -1,0 +1,38 @@
+
+# basic information for generating and executing this definition
+SenzaInfo:
+  StackName: spilo
+  Parameters:
+    - EtcdDiscoveryUrl:
+        Description: "Discovery URL for the etcd service"
+    - ImageVersion:
+        Description: "Docker image version of spilo."
+
+# a list of senza components to apply to the definition
+SenzaComponents:
+
+  # this basic configuration is required for the other components
+  - Configuration:
+      Type: Senza::StupsAutoConfiguration # auto-detect network setup
+
+  # will create a launch configuration and auto scaling group with scaling triggers
+  - AppServer:
+      Type: Senza::TaupageAutoScalingGroup
+      Autoscaling:
+        Minumum: 3
+        Maximum: 3
+        MetricType: CPU
+      InstanceType: t2.micro
+      SecurityGroups:
+        - app-spilo
+      IamRoles:
+        - app-spilo
+      TaupageConfig:
+        runtime: Docker
+        source: "{{Arguments.ImageVersion}}"
+        ports:
+          5432: 5432
+        environment:
+          SCOPE: "{{Arguments.version}}"
+          ETCD_DISCOVERY_URL: "{{Arguments.EtcdDiscoveryUrl}}"
+    root: true
