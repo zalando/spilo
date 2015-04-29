@@ -379,7 +379,7 @@ class HouseKeeper(Thread):
         return changed
 
     def cluster_unhealthy(self):
-        process = subprocess.Popen([self.manager.ETCD_BINARY + 'ctl'], stdout=subprocess.PIPE)
+        process = subprocess.Popen([self.manager.ETCD_BINARY + 'ctl', 'cluster-health'], stdout=subprocess.PIPE)
         ret = any([True for line in process.stdout if 'is unhealthy' in line])
         process.wait()
         return ret

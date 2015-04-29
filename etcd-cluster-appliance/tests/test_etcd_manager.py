@@ -20,6 +20,36 @@ class MockResponse:
         return json.loads(self.content)
 
 
+def requests_post(url, **kwargs):
+    response = MockResponse()
+    data = json.loads(kwargs['data'])
+    if data['peerURLs'][0] in ['http://127.0.0.2:2380', 'http://127.0.0.3:2380']:
+        response.status_code = 201
+        response.content = '{{"id":"ifoobar","name":"","peerURLs":["{}"],"clientURLs":[""]}}'.format(data['peerURLs'
+                ][0])
+    else:
+        response.status_code = 403
+    return response
+
+
+def requests_get(url, **kwargs):
+    if url == 'http://127.0.0.1:2379/v2/stats/self':
+        raise Exception()
+    response = MockResponse()
+    if url == 'http://127.0.0.7:2379/v2/members':
+        response.content = '{"members":[]}'
+    else:
+        response.content = \
+            '{"region":"eu-west-1", "instanceId": "i-deadbeef3", "leaderInfo":{"leader":"ifoobari1"}, "members":[{"id":"ifoobari1","name":"i-deadbeef1","peerURLs":["http://127.0.0.1:2380"],"clientURLs":["http://127.0.0.1:2379"]},{"id":"ifoobari2","name":"i-deadbeef2","peerURLs":["http://127.0.0.2:2380"],"clientURLs":["http://127.0.0.2:2379"]},{"id":"ifoobari3","name":"i-deadbeef3","peerURLs":["http://127.0.0.3:2380"],"clientURLs":["ttp://127.0.0.3:2379"]},{"id":"ifoobari4","name":"i-deadbeef4","peerURLs":["http://127.0.0.4:2380"],"clientURLs":[]}]}'
+    return response
+
+
+def requests_delete(url, **kwargs):
+    response = MockResponse()
+    response.status_code = (500 if url.endswith('/v2/members/ifoobari7') else 204)
+    return response
+
+
 class MockReservation:
 
     def __init__(self, instance):
@@ -40,13 +70,6 @@ class MockEc2Connection:
         return [MockReservation(self.generate_instance('i-deadbeef1', '127.0.0.1')),
                 MockReservation(self.generate_instance('i-deadbeef2', '127.0.0.2')),
                 MockReservation(self.generate_instance('i-deadbeef3', '127.0.0.3'))]
-
-
-def requests_get(url, **kwargs):
-    response = MockResponse()
-    if 'instance-identity' in url:
-        response.content = '{"region":"eu-west-1", "instanceId": "i-deadbeef3"}'
-    return response
 
 
 def boto_ec2_connect_to_region(region):
