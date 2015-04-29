@@ -7,6 +7,7 @@ function write_postgres_yaml
   local_address=$(cat /etc/hosts |grep ${HOSTNAME}|cut -f1)
   cat >> postgres.yml <<__EOF__
 loop_wait: 10
+aws_use_host_address: "on"
 etcd:
   scope: $SCOPE
   ttl: 30
@@ -18,7 +19,7 @@ postgresql:
   replication:
     username: standby
     password: standby
-    network: samenet
+    network: 0.0.0.0/0
   parameters:
     archive_mode: "on"
     wal_level: hot_standby
@@ -38,11 +39,15 @@ write_postgres_yaml
 
 # start etcd proxy
 # for the -proxy on TDB the url of the etcd cluster
-if [ "$DEBUG" -eq 1 ]
+[ "$DEBUG" -eq 1 ] && exec /bin/bash
+
+if [[ -n $ETCD_ADDRESS ]]
 then
-  exec /bin/bash
+  # address is still useful for local debugging
+  etcd -name "proxy-$SCOPE" -proxy on -bind-addr 127.0.0.1:8080 --data-dir=etcd -initial-cluster $ETCD_ADDRESS &
+else
+  etcd -name "proxy-$SCOPE" -proxy on -bind-addr 127.0.0.1:8080 --data-dir=etcd -discovery-srv $ETCD_DISCOVERY_URL &
 fi
-etcd -name "proxy-$SCOPE" -proxy on -bind-addr 127.0.0.1:8080 --data-dir=etcd -initial-cluster $ETCD_CLUSTER &
 
 exec governor/governor.py "/home/postgres/postgres.yml"
 
