@@ -26,7 +26,7 @@ SenzaComponents:
     SecurityGroups:
       - app-spilo
     IamRoles:
-      - app-spilo
+      - Ref: PostgresS3AccessRole
     TaupageConfig:
       runtime: Docker
       source: "{{Arguments.ImageVersion}}"
@@ -36,3 +36,24 @@ SenzaComponents:
         SCOPE: "{{Arguments.version}}"
         ETCD_DISCOVERY_URL: "{{Arguments.EtcdDiscoveryUrl}}"
       root: true
+
+Resources:
+  PostgresS3AccessRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: ec2.amazonaws.com
+          Action: sts:AssumeRole
+      Path: /
+      Policies:
+      - PolicyName: AmazonEC2ReadOnlyAccess
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+          - Effect: Allow
+            Action: "s3:*"
+            Resource: "*"
