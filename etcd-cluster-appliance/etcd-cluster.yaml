@@ -1,0 +1,64 @@
+SenzaComponents:
+- Configuration:
+    Type: Senza::StupsAutoConfiguration
+- AppServer:
+    IamRoles:
+    - Ref: EtcdRole
+    InstanceType: t2.micro
+    SecurityGroups:
+    - app-etcd-cluster
+    TaupageConfig:
+      ports:
+        2379: 2379
+        2380: 2380
+      runtime: Docker
+      source: {{Arguments.DockerImage}}
+      environment:
+        HOSTED_ZONE: '{{Arguments.HostedZone}}'
+    Type: Senza::TaupageAutoScalingGroup
+    AutoScaling:
+        Minimum: 3
+        Maximum: 3
+        MetricType: CPU
+SenzaInfo:
+  Parameters:
+  - DockerImage:
+      Description: Docker image of etcd-cluster.
+  - HostedZone:
+      Description: AWS Hosted Zone to work with
+  StackName: etcd-cluster
+Resources:
+  EtcdRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: ec2.amazonaws.com
+          Action: sts:AssumeRole
+      Path: /
+      Policies:
+      - PolicyName: AmazonEC2ReadOnlyAccess
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+          - Effect: Allow
+            Action: ec2:Describe*
+            Resource: "*"
+          - Effect: Allow
+            Action: autoscaling:Describe*
+            Resource: "*"
+      - PolicyName: AmazonRoute53Access
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+          - Effect: Allow
+            Action:
+            - route53:ListHostedZones
+            - route53:ChangeResourceRecordSets
+            - route53:GetHostedZone
+            - route53:ListResourceRecordSets
+            - route53:GetChange
+            Resource: [ "*" ]
