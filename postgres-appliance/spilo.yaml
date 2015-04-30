@@ -35,4 +35,4 @@ SenzaComponents:
         environment:
           SCOPE: "{{Arguments.version}}"
           ETCD_DISCOVERY_URL: "{{Arguments.EtcdDiscoveryUrl}}"
-    root: true
+        root: true
