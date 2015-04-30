@@ -1,10 +1,8 @@
 Docker image to run the postgres appliance.
 
 It consists of PostgreSQL itself, managed by governor,
-etcd proxy and haproxy.
+and etcd proxy.
 
-At the moment, etcd is a stand-alone service (and not a proxy),
-and haproxy is not used altogether (although installed on the machine).
 
 At the moment, is just a dockerized version of HA template:
 https://github.com/compose/governor
