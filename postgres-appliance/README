@@ -9,3 +9,11 @@ https://github.com/compose/governor
 with dependencies installed.
 
 This is an early stage image not meant for production yet. 
+
+One can run a HA cluster with 3 nodes using senza, i.e.
+
+senza create spilo.yaml cluster_name etcd_discovery_url docker_image_path:version,
+i.e. to create a cluster called lambda:
+
+senza create spilo.yaml lambda etcd.acid.example.com yourname/spilo:0.6-SNAPSHOT
+
