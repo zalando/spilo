@@ -20,6 +20,11 @@ postgresql:
     username: standby
     password: standby
     network: 0.0.0.0/0
+  superuser:
+    password: zalando
+  admin:
+    username: admin
+    password: admin
   parameters:
     archive_mode: "on"
     wal_level: hot_standby

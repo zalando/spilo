@@ -31,6 +31,13 @@ RUN apt-get install python-psycopg2 -y
 # Set /home/postgres as a login directory for the PostgreSQL user.
 RUN usermod -d /home/postgres -m postgres
 
+# install WAL-e
+RUN apt-get install build-essential -y
+RUN apt-get install python-pip -y
+RUN apt-get install python-dev libxml2-dev libxslt-dev libffi-dev lzop pv -y
+RUN pip install six --upgrade
+RUN pip install wal-e
+
 ENV ETCDVERSION 2.0.9
 # install etcd
 RUN apt-get install curl -y

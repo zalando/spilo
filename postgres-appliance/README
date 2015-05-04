@@ -1,13 +1,19 @@
 Docker image to run the postgres appliance.
 
 It consists of PostgreSQL itself, managed by governor,
-etcd proxy and haproxy.
+and etcd proxy.
 
-At the moment, etcd is a stand-alone service (and not a proxy),
-and haproxy is not used altogether (although installed on the machine).
 
 At the moment, is just a dockerized version of HA template:
 https://github.com/compose/governor
 with dependencies installed.
 
 This is an early stage image not meant for production yet. 
+
+One can run a HA cluster with 3 nodes using senza, i.e.
+
+senza create spilo.yaml cluster_name etcd_discovery_url docker_image_path:version,
+i.e. to create a cluster called lambda:
+
+senza create spilo.yaml lambda etcd.acid.example.com yourname/spilo:0.6-SNAPSHOT
+

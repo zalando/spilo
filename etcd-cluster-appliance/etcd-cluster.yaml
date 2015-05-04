@@ -22,10 +22,10 @@ SenzaComponents:
         MetricType: CPU
 SenzaInfo:
   Parameters:
-  - DockerImage:
-      Description: Docker image of etcd-cluster.
   - HostedZone:
       Description: AWS Hosted Zone to work with
+  - DockerImage:
+      Description: Docker image of etcd-cluster.
   StackName: etcd-cluster
 Resources:
   EtcdRole:
