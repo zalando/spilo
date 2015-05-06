@@ -43,9 +43,6 @@ ENV ETCDVERSION 2.0.9
 RUN apt-get install curl -y
 RUN curl -L https://github.com/coreos/etcd/releases/download/v${ETCDVERSION}/etcd-v${ETCDVERSION}-linux-amd64.tar.gz -o etcd-v${ETCDVERSION}-linux-amd64.tar.gz && tar vzxf etcd-v${ETCDVERSION}-linux-amd64.tar.gz && cp etcd-v${ETCDVERSION}-linux-amd64/etcd* /bin/
 
-# install haproxy
-RUN apt-get install haproxy
-
 ENV PATH $PATH:/usr/lib/postgresql-${PGVERSION}/bin
 
 ADD postgres_ha.sh /home/postgres/
