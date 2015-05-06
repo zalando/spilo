@@ -12,7 +12,7 @@ SenzaComponents:
         2379: 2379
         2380: 2380
       runtime: Docker
-      source: {{Arguments.DockerImage}}
+      source: '{{Arguments.DockerImage}}'
       environment:
         HOSTED_ZONE: '{{Arguments.HostedZone}}'
     Type: Senza::TaupageAutoScalingGroup
