@@ -22,7 +22,7 @@ If you already have other spilo-instances running, you may reuse the already run
 The following prerequisites need to be met.
 
 * `stups-senza`
-* A [Senza Definition](http://stups.readthedocs.org/en/latest/components/senza.html#senza-definition), use the provided `etcd-appliance` as an example.
+* A [Senza Definition](http://stups.readthedocs.org/en/latest/components/senza.html#senza-definition), use the provided `etcd-appliance.yaml` as an example.
 * The Security Group defined in the Senza Definition needs to be created
 
 To deploy the etcd-appliance, use the following:
@@ -48,6 +48,8 @@ Deploying Spilo using senza
 
 * Have some global idea about the usage characteristics of the appliance
 * Have unique name for the cluster
+
+To deploy the appliance using senza, do the following:
 
 	senza create [OPTIONS] CLUSTER_NAME ETCD_DISCOVERY_URL DOCKER_IMAGE:IMAGE_TAG
 
