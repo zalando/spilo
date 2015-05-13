@@ -33,8 +33,7 @@ RUN usermod -d /home/postgres -m postgres
 
 # install WAL-e
 RUN apt-get install build-essential -y
-RUN apt-get install python-pip -y
-RUN apt-get install python-dev libxml2-dev libxslt-dev libffi-dev lzop pv -y
+RUN apt-get install python-pip python-dev libxml2-dev libxslt-dev libffi-dev lzop pv daemontools -y
 RUN pip install six --upgrade
 RUN pip install wal-e
 
@@ -49,9 +48,9 @@ ADD postgres_ha.sh /home/postgres/
 RUN chown postgres:postgres /home/postgres/postgres_ha.sh
 RUN chmod 700 /home/postgres/postgres_ha.sh
 
-ENV ETCD_ADDRESS=""
 ENV ETCD_DISCOVERY_URL postgres.acid.example.com
 ENV SCOPE test
+ENV WAL_S3_BUCKET spilo-example-com
 ENV DEBUG 0
 # run subsequent commands as user postgres
 USER postgres
