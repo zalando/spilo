@@ -36,13 +36,13 @@ Example:
 Argument   		   | Value
 -------------------|-------
 Definition         | etcd-appliance.yaml
-Hosted zone 	   | acid.example.com
+Hosted zone 	   | repository.example.com
 Version 		   | 1
-Docker repository  | pierone.stups.zalan.do
-Docker image       | acid/etcd-appliance
+Docker repository  | docker.registry.example.com
+Docker image       | repository/etcd-appliance
 Image tag          | 0.2-SNAPSHOT
 
-	senza create etcd-cluster.yaml 1 acid.example.com pierone.stups.zalan.do/acid/etcd-appliance:0.2-SNAPSHOT
+	senza create etcd-cluster.yaml 1 repository.example.com docker.registry.example.com/repository/etcd-appliance:0.2-SNAPSHOT
 
 Deploying Spilo using senza
 ===========================
@@ -69,23 +69,11 @@ Argument   		   | Value
 -------------------|-------
 Definition		   | spilo.yaml
 Cluster Name	   | pompeii
-Docker repository  | pierone.stups.zalan.do
-Docker image       | acid/spilo
+Docker repository  | docker.registry.example.com
+Docker image       | repository/spilo
 Image tag          | 0.7-SNAPSHOT
 
-	senza create spilo.yaml pompeii pierone.stups.zalan.do/acid/spilo:0.7-SNAPSHOT
+	senza create spilo.yaml pompeii docker.registry.example.com/repository/spilo:0.7-SNAPSHOT
 
 You can now monitor the progress using:
 	senza watch -n 2 DEFINITION.yaml CLUSTER_NAME
-
-Connecting to the master
-========================
-You can now try to connect to the cluster (internally) using the generated dns-name, CLUSTER\_NAME.example.com.
-
-When using the odd bastion host, you could create a tunnel to connect to the cluster as follows
-
-	ssh -f -N -L 6543:CLUSTER_NAME.example.com:5432 odd.acid.zalan.do
-
-You should be able to connect using psql locally:
-
-	psql -h localhost -p 6543
