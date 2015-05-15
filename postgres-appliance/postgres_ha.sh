@@ -15,7 +15,7 @@ etcd:
 postgresql:
   name: postgresql_${HOSTNAME}
   listen: 0.0.0.0:5432
-  connect_address: {aws_private_ip}:5432
+  connect_address: ${aws_private_ip}:5432
   data_dir: $PGDATA
   replication:
     username: standby
