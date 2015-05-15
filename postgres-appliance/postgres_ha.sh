@@ -5,6 +5,7 @@ WALE_ENV_DIR=/home/postgres/etc/wal-e.d/env
 
 SSL_CERTIFICATE="/home/postgres/dummy.crt"
 SSL_PRIVATE_KEY="/home/postgres/dummy.key"
+BACKUP_INTERVAL=300
 
 function write_postgres_yaml
 {
@@ -61,7 +62,39 @@ write_archive_command_environment
 # for the -proxy on TDB the url of the etcd cluster
 [ "$DEBUG" -eq 1 ] && exec /bin/bash
 
-etcd -name "proxy-$SCOPE" -proxy on --data-dir=etcd -discovery-srv $ETCD_DISCOVERY_URL &
+# resurrect etcd if it's gone
+(
+  while true
+  do
+    etcd -name "proxy-$SCOPE" -proxy on  --data-dir=etcd -discovery-srv $ETCD_DISCOVERY_URL
+  done
+) &
+
+# run wal-e s3 backup periodically
+# XXX: for debugging purposes, it's running every 5 minutes
+(
+  RETRY=1
+  while true
+  do
+    sleep 5
+
+    CURRENT_TS=$(date +%s)
+    pg_isready >/dev/null 2>&2 || continue
+    IN_RECOVERY=$(psql -tqAc "select pg_is_in_recovery()")
+
+    [[ $IN_RECOVERY != "f" ]] && echo "still in recovery" && continue
+    # get the time since the last backup
+    LAST_BACKUP_TS=$(envdir ${WALE_ENV_DIR} wal-e --aws-instance-profile  backup-list LATEST 2>/dev/null|tail -n1|awk '{print $2}'|xargs date +%s --date)
+    ELAPSED_TIME=$((CURRENT_TS-LAST_BACKUP_TS))
+    ([[ $RETRY != 0 ]] || [[ $ELAPSED_TIME -lt $BACKUP_INTERVAL ]]) && continue
+    # leave only 2 base backups before creating a new one
+    envdir ${WALE_ENV_DIR} wal-e --aws-instance-profile delete --confirm retain 2
+    # push a new base backup
+    echo "producing a new backup at $(date)"
+    envdir ${WALE_ENV_DIR} wal-e --aws-instance-profile backup-push ${PGDATA}
+    RETRY=$?
+  done
+) &
 
 exec governor/governor.py "/home/postgres/postgres.yml"
 
