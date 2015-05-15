@@ -45,7 +45,7 @@ RUN curl -L https://github.com/coreos/etcd/releases/download/v${ETCDVERSION}/etc
 ENV PATH $PATH:/usr/lib/postgresql-${PGVERSION}/bin
 
 ADD postgres_ha.sh /home/postgres/
-RUN chown postgres:postgres /home/postgres/postgres_ha.sh
+RUN chown postgres:postgres /home/postgres -R
 RUN chmod 700 /home/postgres/postgres_ha.sh
 
 ENV ETCD_DISCOVERY_URL postgres.acid.example.com
