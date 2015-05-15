@@ -5,17 +5,17 @@ WALE_ENV_DIR=/home/postgres/etc/wal-e.d/env
 
 function write_postgres_yaml
 {
-  local_address=$(cat /etc/hosts |grep ${HOSTNAME}|cut -f1)
+  aws_private_ip=$(curl -s http://169.254.169.254/latest/meta-data/local-ipv4)
   cat >> postgres.yml <<__EOF__
 loop_wait: 10
-aws_use_host_address: "on"
 etcd:
   scope: $SCOPE
   ttl: 30
   host: 127.0.0.1:8080
 postgresql:
   name: postgresql_${HOSTNAME}
-  listen: ${local_address}:5432
+  listen: 0.0.0.0:5432
+  connect_address: {aws_private_ip}:5432
   data_dir: $PGDATA
   replication:
     username: standby
