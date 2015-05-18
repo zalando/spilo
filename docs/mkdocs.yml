@@ -1,0 +1,8 @@
+pages:
+- ['README.md', 'Introduction']
+- ['DESIGN.md', 'Design']
+- ['user-guide/prerequisites.md', 'User Guide', 'Prerequisites for deployment']
+- ['user-guide/deploy_etcd.md', 'User Guide', 'Deploying etcd']
+- ['user-guide/deploy_spilo.md', 'User Guide', 'Deploying spilo']
+- ['components/Governor.md', 'Components', 'Governor']
+- ['components/etcd-proxy.md', 'Components', 'Etcd proxy']
