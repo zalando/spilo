@@ -22,7 +22,7 @@ If you already have other spilo-instances running, you may reuse the already run
 The following prerequisites need to be met.
 
 * `stups-senza`
-* A [Senza Definition](http://stups.readthedocs.org/en/latest/components/senza.html#senza-definition), use the provided `etcd-appliance.yaml` as an example.
+* A [Senza Definition](http://stups.readthedocs.org/en/latest/components/senza.html#senza-definition), use the provided [etcd-appliance.yaml](https://github.com/zalando/spilo/blob/master/etcd-cluster-appliance/etcd-cluster.yaml) as an example.
 * The Security Group defined in the Senza Definition needs to be created
 
 To deploy the etcd-appliance, use the following:
