@@ -83,7 +83,7 @@ write_archive_command_environment
     # get the time since the last backup
     LAST_BACKUP_TS=$(envdir ${WALE_ENV_DIR} wal-e --aws-instance-profile  backup-list LATEST 2>/dev/null|tail -n1|awk '{print $2}'|xargs date +%s --date)
     ELAPSED_TIME=$((CURRENT_TS-LAST_BACKUP_TS))
-    ([[ $RETRY != 0 ]] || [[ $ELAPSED_TIME -lt $BACKUP_INTERVAL ]]) && continue
+    ([[ $RETRY = 0 ]] && [[ $ELAPSED_TIME -lt $BACKUP_INTERVAL ]]) && continue
     # leave only 2 base backups before creating a new one
     envdir ${WALE_ENV_DIR} wal-e --aws-instance-profile delete --confirm retain 2
     # push a new base backup
