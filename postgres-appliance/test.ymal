@@ -21,10 +21,6 @@ SenzaComponents:
         Maximum: 3
         MetricType: CPU
       InstanceType: t2.micro
-      ElasticLoadBalancer: PostgresLoadBalancer
-      HealthCheckType: EC2
-      LoadBalancerNames:
-        - Ref: PostgresLoadBalancer
       SecurityGroups:
         - app-spilo
       IamRoles:
@@ -37,44 +33,21 @@ SenzaComponents:
           8008: 8008
         environment:
           SCOPE: "{{Arguments.version}}"
-          ETCD_DISCOVERY_URL: "postgres.acid.zalan.do"
+          ETCD_DISCOVERY_URL: "postgres.acid.example.com"
           WAL_S3_BUCKET: "zalando-spilo-app"
         root: True
 Resources:
-  PostgresRoute53Record:
-    Type: AWS::Route53::RecordSet
-    Properties:
-      Type: CNAME
-      TTL: 20
-      HostedZoneName: acid.zalan.do.
-      Name: "{{Arguments.version}}.acid.zalan.do."
-      ResourceRecords:
-        - Fn::GetAtt:
-           - PostgresLoadBalancer
-           - DNSName
   PostgresLoadBalancer:
     Type: AWS::ElasticLoadBalancing::LoadBalancer
     Properties:
-      CrossZone: true
-      HealthCheck:
-        HealthyThreshold: 2
-        Interval: 5
-        Target: HTTP:8008/pg_master
-        Timeout: 3
-        UnhealthyThreshold: 2
-      Listeners:
-        - InstancePort: 5432
-          LoadBalancerPort: 5432
-          Protocol: TCP
-      LoadBalancerName: "spilo-{{Arguments.version}}"
-      SecurityGroups:
-        - sg-d8005dbd
-      Scheme: internet-facing
+      Scheme: internal
       Subnets:
         Fn::FindInMap:
           - LoadBalancerSubnets
           - Ref: AWS::Region
           - Subnets
+         
+    
   PostgresS3AccessRole:
     Type: AWS::IAM::Role
     Properties:

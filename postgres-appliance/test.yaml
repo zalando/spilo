@@ -1,0 +1,38 @@
+
+# basic information for generating and executing this definition
+SenzaInfo:
+  StackName: hello-world
+  Parameters:
+    - ImageVersion:
+        Description: "Docker image version of hello-world."
+
+# a list of senza components to apply to the definition
+SenzaComponents:
+
+  # this basic configuration is required for the other components
+  - Configuration:
+      Type: Senza::StupsAutoConfiguration # auto-detect network setup
+
+  # will create a launch configuration and auto scaling group with scaling triggers
+  - AppServer:
+      Type: Senza::TaupageAutoScalingGroup
+      InstanceType: t2.micro
+      SecurityGroups:
+        - app-hello-world
+      IamRoles:
+        - app-hello-world
+      ElasticLoadBalancer: AppLoadBalancer
+      TaupageConfig:
+        runtime: Docker
+        source: "stups/hello-world:{{Arguments.ImageVersion}}"
+        ports:
+          8080: 8080
+        mint_bucket: "zalando-stups-mint-263820974194-eu-west-1"
+
+  # creates an ELB entry and Route53 domains to this ELB
+  - AppLoadBalancer:
+      Type: Senza::WeightedDnsElasticLoadBalancer
+      HTTPPort: 8080
+      HealthCheckPath: /
+      SecurityGroups:
+        - app-hello-world-lb

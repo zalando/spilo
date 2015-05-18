@@ -3,6 +3,9 @@
 PATH=$PATH:/usr/lib/postgresql/${PGVERSION}/bin
 WALE_ENV_DIR=/home/postgres/etc/wal-e.d/env
 
+SSL_CERTIFICATE="/home/postgres/dummy.crt"
+SSL_PRIVATE_KEY="/home/postgres/dummy.key"
+
 function write_postgres_yaml
 {
   aws_private_ip=$(curl -s http://169.254.169.254/latest/meta-data/local-ipv4)
@@ -35,6 +38,7 @@ postgresql:
     archive_timeout: 1800s
     max_replication_slots: 5
     hot_standby: "on"
+	ssl: "on"
   recovery_conf:
     restore_command: "envdir ${WALE_ENV_DIR} wal-e --aws-instance-profile wal-fetch \"%f\" \"%p\" -p 1"
 __EOF__
