@@ -2,6 +2,8 @@
 
 PATH=$PATH:/usr/lib/postgresql/${PGVERSION}/bin
 WALE_ENV_DIR=/home/postgres/etc/wal-e.d/env
+# the governor needs to know about it as well
+export WALE_ENV_DIR
 
 SSL_CERTIFICATE="/home/postgres/dummy.crt"
 SSL_PRIVATE_KEY="/home/postgres/dummy.key"
