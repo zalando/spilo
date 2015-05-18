@@ -2,6 +2,8 @@
 
 PATH=$PATH:/usr/lib/postgresql/${PGVERSION}/bin
 WALE_ENV_DIR=/home/postgres/etc/wal-e.d/env
+# the governor needs to know about it as well
+export WALE_ENV_DIR
 
 BACKUP_INTERVAL=60
 BACKUP_HOUR='*'
