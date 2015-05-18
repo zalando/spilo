@@ -1,8 +1,8 @@
 pages:
 - ['docs/README.md', 'Introduction']
 - ['docs/DESIGN.md', 'Design']
-- ['docs/user-guide/00_prerequisites.md', 'User Guide', 'Prerequisites for deployment']
-- ['docs/user-guide/05_deploy_etcd.md', 'User Guide', 'Deploying etcd']
-- ['docs/user-guide/10_deploy_spilo.md', 'User Guide', 'Deploying spilo']
-- ['docs/components/05_governor.md', 'Components', 'Governor']
-- ['docs/components/20_etcd-proxy.md', 'Components', 'Etcd proxy']
+- ['docs/user-guide/prerequisites.md', 'User Guide', 'Prerequisites for deployment']
+- ['docs/user-guide/deploy_etcd.md', 'User Guide', 'Deploying etcd']
+- ['docs/user-guide/deploy_spilo.md', 'User Guide', 'Deploying spilo']
+- ['docs/components/governor.md', 'Components', 'Governor']
+- ['docs/components/etcd-proxy.md', 'Components', 'Etcd proxy']
