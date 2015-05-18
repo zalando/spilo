@@ -256,7 +256,7 @@ class EtcdCluster:
 
 class EtcdManager:
 
-    ETCD_BINARY = './etcd'
+    ETCD_BINARY = '/bin/etcd'
     DATA_DIR = 'data'
     NAPTIME = 5
 
@@ -478,5 +478,4 @@ def main():
 if __name__ == '__main__':
     signal.signal(signal.SIGTERM, sigterm_handler)
     logging.basicConfig(format='%(levelname)-6s %(asctime)s - %(message)s', level=logging.DEBUG)
-    os.chdir(os.path.dirname(os.path.realpath(__file__)))
     main()
