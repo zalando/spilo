@@ -3,7 +3,8 @@
 PATH=$PATH:/usr/lib/postgresql/${PGVERSION}/bin
 WALE_ENV_DIR=/home/postgres/etc/wal-e.d/env
 
-BACKUP_INTERVAL=300
+BACKUP_INTERVAL=60
+BACKUP_HOUR='*'
 
 function write_postgres_yaml
 {
@@ -76,10 +77,14 @@ write_archive_command_environment
     sleep 5
 
     CURRENT_TS=$(date +%s)
+    CURRENT_HOUR=$(date +%H)
     pg_isready >/dev/null 2>&2 || continue
     IN_RECOVERY=$(psql -tqAc "select pg_is_in_recovery()")
 
     [[ $IN_RECOVERY != "f" ]] && echo "still in recovery" && continue
+    # produce backup only at a given hour, unless it's set to *, which means
+    # that only backup_interval is taken into account
+    [[ $BACKUP_HOUR != '*' ]] && [[ $CURRENT_HOUR != $BACKUP_HOUR ]] && continue
     # get the time since the last backup
     LAST_BACKUP_TS=$(envdir ${WALE_ENV_DIR} wal-e --aws-instance-profile  backup-list LATEST 2>/dev/null|tail -n1|awk '{print $2}'|xargs date +%s --date)
     ELAPSED_TIME=$((CURRENT_TS-LAST_BACKUP_TS))
