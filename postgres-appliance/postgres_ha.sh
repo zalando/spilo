@@ -1,20 +1,21 @@
 #!/bin/bash
 
 PATH=$PATH:/usr/lib/postgresql/${PGVERSION}/bin
+WALE_ENV_DIR=/home/postgres/etc/wal-e.d/env
 
 function write_postgres_yaml
 {
-  local_address=$(cat /etc/hosts |grep ${HOSTNAME}|cut -f1)
+  aws_private_ip=$(curl -s http://169.254.169.254/latest/meta-data/local-ipv4)
   cat >> postgres.yml <<__EOF__
 loop_wait: 10
-aws_use_host_address: "on"
 etcd:
   scope: $SCOPE
   ttl: 30
   host: 127.0.0.1:8080
 postgresql:
   name: postgresql_${HOSTNAME}
-  listen: ${local_address}:5432
+  listen: 0.0.0.0:5432
+  connect_address: ${aws_private_ip}:5432
   data_dir: $PGDATA
   replication:
     username: standby
@@ -28,13 +29,21 @@ postgresql:
   parameters:
     archive_mode: "on"
     wal_level: hot_standby
-    archive_command: /bin/true
+    archive_command: "envdir ${WALE_ENV_DIR} wal-e --aws-instance-profile wal-push \"%p\" -p 1"
     max_wal_senders: 5
     wal_keep_segments: 8
     archive_timeout: 1800s
     max_replication_slots: 5
     hot_standby: "on"
+  recovery_conf:
+    restore_command: "envdir ${WALE_ENV_DIR} wal-e --aws-instance-profile wal-fetch \"%f\" \"%p\" -p 1"
 __EOF__
+}
+
+function write_archive_command_environment
+{
+  mkdir -p ${WALE_ENV_DIR}
+  echo "s3://${WAL_S3_BUCKET}/spilo/${SCOPE}/wal/" > ${WALE_ENV_DIR}/WALE_S3_PREFIX
 }
 
 # get governor code
@@ -42,17 +51,13 @@ git clone https://github.com/zalando/governor.git
 
 write_postgres_yaml
 
+write_archive_command_environment
+
 # start etcd proxy
 # for the -proxy on TDB the url of the etcd cluster
 [ "$DEBUG" -eq 1 ] && exec /bin/bash
 
-if [[ -n $ETCD_ADDRESS ]]
-then
-  # address is still useful for local debugging
-  etcd -name "proxy-$SCOPE" -proxy on -bind-addr 127.0.0.1:8080 --data-dir=etcd -initial-cluster $ETCD_ADDRESS &
-else
-  etcd -name "proxy-$SCOPE" -proxy on -bind-addr 127.0.0.1:8080 --data-dir=etcd -discovery-srv $ETCD_DISCOVERY_URL &
-fi
+etcd -name "proxy-$SCOPE" -proxy on -bind-addr 127.0.0.1:8080 --data-dir=etcd -discovery-srv $ETCD_DISCOVERY_URL &
 
 exec governor/governor.py "/home/postgres/postgres.yml"
 

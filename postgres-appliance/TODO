@@ -9,7 +9,7 @@ Done:
 Done:
    run etcd proxy instead of full-scale etcd
 
-Cancelled, since we are not going to use haproxye:
+Cancelled, since we are not going to use haproxy:
   configure haproxy to fetch information from
   the etcd-proxy and point to the acting master
 
