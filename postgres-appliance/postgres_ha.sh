@@ -14,7 +14,7 @@ loop_wait: 10
 etcd:
   scope: $SCOPE
   ttl: 30
-  host: 127.0.0.1:8080
+  host: 127.0.0.1:2379
 postgresql:
   name: postgresql_${HOSTNAME}
   listen: 0.0.0.0:5432
@@ -61,7 +61,7 @@ write_archive_command_environment
 # for the -proxy on TDB the url of the etcd cluster
 [ "$DEBUG" -eq 1 ] && exec /bin/bash
 
-etcd -name "proxy-$SCOPE" -proxy on -bind-addr 127.0.0.1:8080 --data-dir=etcd -discovery-srv $ETCD_DISCOVERY_URL &
+etcd -name "proxy-$SCOPE" -proxy on --data-dir=etcd -discovery-srv $ETCD_DISCOVERY_URL &
 
 exec governor/governor.py "/home/postgres/postgres.yml"
 
