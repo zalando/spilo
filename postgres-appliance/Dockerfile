@@ -58,6 +58,6 @@ ENV DEBUG 0
 # run subsequent commands as user postgres
 USER postgres
 WORKDIR /home/postgres
-#ENTRYPOINT ["/bin/bash", "/home/postgres/postgres_ha.sh"]
+ENTRYPOINT ["/bin/bash", "/home/postgres/postgres_ha.sh"]
 EXPOSE 5432
 
