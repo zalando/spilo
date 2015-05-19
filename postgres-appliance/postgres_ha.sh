@@ -38,7 +38,7 @@ postgresql:
     archive_timeout: 1800s
     max_replication_slots: 5
     hot_standby: "on"
-	ssl: "on"
+    ssl: "off"
   recovery_conf:
     restore_command: "envdir ${WALE_ENV_DIR} wal-e --aws-instance-profile wal-fetch \"%f\" \"%p\" -p 1"
 __EOF__
