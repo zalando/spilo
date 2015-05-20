@@ -2,8 +2,6 @@
 
 PATH=$PATH:/usr/lib/postgresql/${PGVERSION}/bin
 WALE_ENV_DIR=/home/postgres/etc/wal-e.d/env
-# the governor needs to know about it as well
-export WALE_ENV_DIR
 
 SSL_CERTIFICATE="/home/postgres/dummy.crt"
 SSL_PRIVATE_KEY="/home/postgres/dummy.key"
@@ -33,6 +31,10 @@ postgresql:
   admin:
     username: admin
     password: admin
+  wal_e:
+    env_dir: $WALE_ENV_DIR
+    threshold_megabytes: 10
+    threshold_backup_size_percentage: 1
   parameters:
     archive_mode: "on"
     wal_level: hot_standby
@@ -42,7 +44,7 @@ postgresql:
     archive_timeout: 1800s
     max_replication_slots: 5
     hot_standby: "on"
-	ssl: "on"
+    ssl: "off"
   recovery_conf:
     restore_command: "envdir ${WALE_ENV_DIR} wal-e --aws-instance-profile wal-fetch \"%f\" \"%p\" -p 1"
 __EOF__
