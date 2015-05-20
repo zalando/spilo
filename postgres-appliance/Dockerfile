@@ -42,19 +42,23 @@ ENV ETCDVERSION 2.0.9
 RUN apt-get install curl -y
 RUN curl -L https://github.com/coreos/etcd/releases/download/v${ETCDVERSION}/etcd-v${ETCDVERSION}-linux-amd64.tar.gz -o etcd-v${ETCDVERSION}-linux-amd64.tar.gz && tar vzxf etcd-v${ETCDVERSION}-linux-amd64.tar.gz && cp etcd-v${ETCDVERSION}-linux-amd64/etcd* /bin/
 
+# Install debug tooling
+RUN apt-get install vim -y
+
 ENV PATH $PATH:/usr/lib/postgresql-${PGVERSION}/bin
 
+# Copy the snakeoil certificates for usage as dummy certificates
+RUN cp /etc/ssl/private/ssl-cert-snakeoil.key /home/postgres/dummy.key && cp /etc/ssl/certs/ssl-cert-snakeoil.pem /home/postgres/dummy.crt
+
 ADD postgres_ha.sh  /home/postgres/
-ADD certs/dummy.key /home/postgres/
-ADD certs/dummy.crt /home/postgres/
 RUN chown postgres:postgres /home/postgres -R
 RUN chmod 700 /home/postgres/postgres_ha.sh
-RUN chmod 700 /home/postgres/dummy.key
 
 ENV ETCD_DISCOVERY_URL postgres.acid.example.com
 ENV SCOPE test
 ENV WAL_S3_BUCKET spilo-example-com
 ENV DEBUG 0
+ENV LC_ALL en_US.utf-8
 # run subsequent commands as user postgres
 USER postgres
 WORKDIR /home/postgres
