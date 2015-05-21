@@ -98,6 +98,6 @@ Governor
 
 PostgreSQL
 ----
-
+We use stock PostgreSQL (9.4) packages managed by Governor. New replicas are created from the existing master using pg_basebackup. New replication slot is registered on a master for a new replica to make sure that WAL segments required to restore it from pg_basebackup will be retained. Currently, the appliance also ships WAL segment to AWS S3 using WAL-E (this can be changed in the senza template), and is also capable of bring up replica from the base backup on S3 produced by WAL-E. Currently, S3 will only be used if the amount of WAL files archived since the latest base backup does not exceed a certain configurable threshold (10GB by default) or 30% of the base backup size, otherwise, pg_basebackup will kick in. The rationale is that we do not want to wait very long for the replica to restore all the pending WAL files, which might happen if there are too many of them.
 
 
