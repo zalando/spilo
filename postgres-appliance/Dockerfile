@@ -58,6 +58,10 @@ ENV ETCD_DISCOVERY_URL postgres.acid.example.com
 ENV SCOPE test
 ENV WAL_S3_BUCKET spilo-example-com
 ENV DEBUG 0
+# Shoud be 3am by GMT+2 aka Berlin Summer Time
+ENV BACKUP_HOUR 1
+ENV WALE_BACKUP_THRESHOLD_MEGABYTES 1024
+ENV WALE_BACKUP_THRESHOLD_PERCENTAGE 30
 ENV LC_ALL en_US.utf-8
 # run subsequent commands as user postgres
 USER postgres
