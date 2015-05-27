@@ -9,17 +9,24 @@ BACKUP_INTERVAL=3600
 
 function write_postgres_yaml
 {
-  aws_private_ip=$(curl -s http://169.254.169.254/latest/meta-data/local-ipv4)
+  local aws_private_ip=$(curl -s http://169.254.169.254/latest/meta-data/local-ipv4)
+  local pg_port=5432
+  local api_port=8008
+  local etcd_client_port=2379
+
   cat >> postgres.yml <<__EOF__
 loop_wait: 10
+restapi:
+  listen: 0.0.0.0:${api_port}
+  connect_address: ${aws_private_ip}:${api_port}
 etcd:
   scope: $SCOPE
   ttl: 30
-  host: 127.0.0.1:2379
+  host: 127.0.0.1:${etcd_client_port}
 postgresql:
   name: postgresql_${HOSTNAME}
-  listen: 0.0.0.0:5432
-  connect_address: ${aws_private_ip}:5432
+  listen: 0.0.0.0:${pg_port}
+  connect_address: ${aws_private_ip}:${pg_port}
   data_dir: $PGDATA
   replication:
     username: standby
