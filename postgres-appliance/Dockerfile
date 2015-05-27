@@ -43,7 +43,7 @@ RUN apt-get install curl -y
 RUN curl -L https://github.com/coreos/etcd/releases/download/v${ETCDVERSION}/etcd-v${ETCDVERSION}-linux-amd64.tar.gz -o etcd-v${ETCDVERSION}-linux-amd64.tar.gz && tar vzxf etcd-v${ETCDVERSION}-linux-amd64.tar.gz && cp etcd-v${ETCDVERSION}-linux-amd64/etcd* /bin/
 
 # Install debug tooling
-RUN apt-get install vim -y
+RUN apt-get install vim jq -y
 
 ENV PATH $PATH:/usr/lib/postgresql-${PGVERSION}/bin
 
