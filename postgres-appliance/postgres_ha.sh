@@ -75,8 +75,14 @@ write_archive_command_environment
 # for the -proxy on TDB the url of the etcd cluster
 [ "$DEBUG" -eq 1 ] && exec /bin/bash
 
+function noterm
+{
+	echo "Received TERM signal, but not doing anything"
+}
+
 # resurrect etcd if it's gone
 (
+  trap noterm SIGTERM
   while true
   do
     etcd -name "proxy-$SCOPE" -proxy on  --data-dir=etcd -discovery-srv $ETCD_DISCOVERY_URL
