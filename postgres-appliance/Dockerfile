@@ -27,8 +27,8 @@ RUN apt-get install postgresql-${PGVERSION} postgresql-${PGVERSION}-dbg postgres
 # Remove the default cluster, which Debian stupidly starts right after installation of the packages
 RUN pg_dropcluster --stop ${PGVERSION} main
 
-# install psycopg2
-RUN apt-get install python-psycopg2 -y
+# install psycopg2 and requests (for governor)
+RUN apt-get install python-psycopg2 python-requests -y
 
 # Set PGHOME as a login directory for the PostgreSQL user.
 RUN usermod -d $PGHOME -m postgres
@@ -39,10 +39,10 @@ RUN apt-get install python-pip python-dev libxml2-dev libxslt-dev libffi-dev lzo
 RUN pip install six --upgrade
 RUN pip install wal-e
 
-ENV ETCDVERSION 2.0.9
+ENV ETCDVERSION 2.0.11
 # install etcd
 RUN apt-get install curl -y
-RUN curl -L https://github.com/coreos/etcd/releases/download/v${ETCDVERSION}/etcd-v${ETCDVERSION}-linux-amd64.tar.gz -o etcd-v${ETCDVERSION}-linux-amd64.tar.gz && tar vzxf etcd-v${ETCDVERSION}-linux-amd64.tar.gz && cp etcd-v${ETCDVERSION}-linux-amd64/etcd* /bin/
+RUN RUN curl -L https://github.com/coreos/etcd/releases/download/v${ETCDVERSION}/etcd-v${ETCDVERSION}-linux-amd64.tar.gz | tar xz -C /bin --strip=1 --wildcards --no-anchored etcd etcdctl
 
 # Install debug tooling
 RUN apt-get install vim jq -y
