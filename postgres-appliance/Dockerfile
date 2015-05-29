@@ -28,7 +28,7 @@ RUN apt-get install postgresql-${PGVERSION} postgresql-${PGVERSION}-dbg postgres
 RUN pg_dropcluster --stop ${PGVERSION} main
 
 # install psycopg2 and requests (for governor)
-RUN apt-get install python-psycopg2 python-requests -y
+RUN apt-get install python-psycopg2 -y
 
 # Set PGHOME as a login directory for the PostgreSQL user.
 RUN usermod -d $PGHOME -m postgres
@@ -36,13 +36,16 @@ RUN usermod -d $PGHOME -m postgres
 # install WAL-e
 RUN apt-get install build-essential gdb strace -y
 RUN apt-get install python-pip python-dev libxml2-dev libxslt-dev libffi-dev lzop pv daemontools -y
+RUN pip install pip --upgrade
+# WAL-e requests a relatively new version of requests
+RUN pip install requests --upgrade
 RUN pip install six --upgrade
 RUN pip install wal-e
 
 ENV ETCDVERSION 2.0.11
 # install etcd
 RUN apt-get install curl -y
-RUN RUN curl -L https://github.com/coreos/etcd/releases/download/v${ETCDVERSION}/etcd-v${ETCDVERSION}-linux-amd64.tar.gz | tar xz -C /bin --strip=1 --wildcards --no-anchored etcd etcdctl
+RUN curl -L https://github.com/coreos/etcd/releases/download/v${ETCDVERSION}/etcd-v${ETCDVERSION}-linux-amd64.tar.gz | tar xz -C /bin --strip=1 --wildcards --no-anchored etcd etcdctl
 
 # Install debug tooling
 RUN apt-get install vim jq -y
