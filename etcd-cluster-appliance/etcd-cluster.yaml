@@ -15,6 +15,7 @@ SenzaComponents:
       source: '{{Arguments.DockerImage}}'
       environment:
         HOSTED_ZONE: '{{Arguments.HostedZone}}'
+      mint_bucket: '{{Arguments.MintBucket}}'
     Type: Senza::TaupageAutoScalingGroup
     AutoScaling:
         Minimum: 3
@@ -26,6 +27,8 @@ SenzaInfo:
       Description: AWS Hosted Zone to work with
   - DockerImage:
       Description: Docker image of etcd-cluster.
+  - MintBucket:
+      Description: The mint S3 bucket for OAuth 2.0 credentials
   StackName: etcd-cluster
 Resources:
   EtcdRole:
@@ -50,6 +53,9 @@ Resources:
           - Effect: Allow
             Action: autoscaling:Describe*
             Resource: "*"
+          - Effect: Allow
+            Action: "s3:GetObject"
+            Resource: ["arn:aws:s3:::{{Arguments.MintBucket}}/*"]
       - PolicyName: AmazonRoute53Access
         PolicyDocument:
           Version: "2012-10-17"
