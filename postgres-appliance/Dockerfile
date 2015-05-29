@@ -37,10 +37,10 @@ RUN apt-get install python-pip python-dev libxml2-dev libxslt-dev libffi-dev lzo
 RUN pip install six --upgrade
 RUN pip install wal-e
 
-ENV ETCDVERSION 2.0.9
+ENV ETCDVERSION 2.0.11
 # install etcd
 RUN apt-get install curl -y
-RUN curl -L https://github.com/coreos/etcd/releases/download/v${ETCDVERSION}/etcd-v${ETCDVERSION}-linux-amd64.tar.gz -o etcd-v${ETCDVERSION}-linux-amd64.tar.gz && tar vzxf etcd-v${ETCDVERSION}-linux-amd64.tar.gz && cp etcd-v${ETCDVERSION}-linux-amd64/etcd* /bin/
+RUN RUN curl -L https://github.com/coreos/etcd/releases/download/v${ETCDVERSION}/etcd-v${ETCDVERSION}-linux-amd64.tar.gz | tar xz -C /bin --strip=1 --wildcards --no-anchored etcd etcdctl
 
 # Install debug tooling
 RUN apt-get install vim jq -y
