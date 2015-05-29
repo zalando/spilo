@@ -1,10 +1,10 @@
 #!/bin/bash
 
 PATH=$PATH:/usr/lib/postgresql/${PGVERSION}/bin
-WALE_ENV_DIR=/home/postgres/etc/wal-e.d/env
+WALE_ENV_DIR=$PGHOME/etc/wal-e.d/env
 
-SSL_CERTIFICATE="/home/postgres/dummy.crt"
-SSL_PRIVATE_KEY="/home/postgres/dummy.key"
+SSL_CERTIFICATE="$PGHOME/dummy.crt"
+SSL_PRIVATE_KEY="$PGHOME/dummy.key"
 BACKUP_INTERVAL=3600
 
 function write_postgres_yaml
@@ -51,8 +51,8 @@ postgresql:
     max_replication_slots: 5
     hot_standby: "on"
     ssl: "on"
-    ssl_cert_file: "/home/postgres/dummy.crt"
-    ssl_key_file: "/home/postgres/dummy.key"
+    ssl_cert_file: "$SSL_CERTIFICATE"
+    ssl_key_file: "$SSL_PRIVATE_KEY"
   recovery_conf:
     restore_command: "envdir ${WALE_ENV_DIR} wal-e --aws-instance-profile wal-fetch \"%f\" \"%p\" -p 1"
 __EOF__
@@ -71,10 +71,6 @@ write_postgres_yaml
 
 write_archive_command_environment
 
-# start etcd proxy
-# for the -proxy on TDB the url of the etcd cluster
-[ "$DEBUG" -eq 1 ] && exec /bin/bash
-
 function noterm
 {
 	echo "Received TERM signal, but not doing anything"
@@ -90,7 +86,6 @@ function noterm
 ) &
 
 # run wal-e s3 backup periodically
-# XXX: for debugging purposes, it's running every 5 minutes
 (
   INITIAL=1
   RETRY=0
@@ -150,7 +145,8 @@ function noterm
   done
 ) &
 
-exec governor/governor.py "/home/postgres/postgres.yml"
+[[ "$DEBUG" == 1 ]] && exec /bin/bash
+exec governor/governor.py "$PGHOME/postgres.yml"
 
 
 
