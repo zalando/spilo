@@ -1,8 +1,14 @@
+site_name: Spilo PostgreSQL appliance
+repo_url: https://github.com/zalando/spilo/
+
 pages:
-- ['docs/README.md', 'Introduction']
-- ['docs/DESIGN.md', 'Design']
-- ['docs/user-guide/prerequisites.md', 'User Guide', 'Prerequisites for deployment']
-- ['docs/user-guide/deploy_etcd.md', 'User Guide', 'Deploying etcd']
-- ['docs/user-guide/deploy_spilo.md', 'User Guide', 'Deploying spilo']
-- ['docs/components/governor.md', 'Components', 'Governor']
-- ['docs/components/etcd-proxy.md', 'Components', 'Etcd proxy']
+- Introduction:
+  - 'Overview': 'README.md'
+  - 'Design': 'DESIGN.md'
+- User guide:
+  - 'Prerequisites for deployment': 'user-guide/prerequisites.md'
+  - 'Deploying etcd': 'docs/user-guide/deploy_etcd.md'
+  - 'Deploying spilo': 'docs/user-guide/deploy_spilo.md'
+- Components:
+  - 'Governor': 'docs/components/governor.md'
+  - 'Etcd proxy': 'docs/components/etcd-proxy.md'
