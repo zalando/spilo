@@ -7,8 +7,8 @@ pages:
   - 'Design': 'DESIGN.md'
 - User guide:
   - 'Prerequisites for deployment': 'user-guide/prerequisites.md'
-  - 'Deploying etcd': 'docs/user-guide/deploy_etcd.md'
-  - 'Deploying spilo': 'docs/user-guide/deploy_spilo.md'
+  - 'Deploying etcd': 'user-guide/deploy_etcd.md'
+  - 'Deploying spilo': 'user-guide/deploy_spilo.md'
 - Components:
-  - 'Governor': 'docs/components/governor.md'
-  - 'Etcd proxy': 'docs/components/etcd-proxy.md'
+  - 'Governor': 'components/governor.md'
+  - 'Etcd proxy': 'components/etcd-proxy.md'
