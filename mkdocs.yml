@@ -1,0 +1,11 @@
+site_name: Spilo PostgreSQL appliance
+repo_url: https://github.com/zalando/spilo/
+theme: readthedocs
+
+pages:
+  - Introduction: index.md
+  - Design: DESIGN.md
+  - User Guide:
+    - Prerequisites: user-guide/prerequisites.md
+    - Deploy spilo: user-guide/deploy_spilo.md
+    - Deploy etcd: user-guide/deploy_etcd.md
