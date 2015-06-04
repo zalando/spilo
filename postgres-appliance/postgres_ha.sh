@@ -30,6 +30,7 @@ postgresql:
   data_dir: $PGDATA
   pg_hba:
   - hostssl all all 0.0.0.0/0 md5
+  - host    all all 0.0.0.0/0 md5
   replication:
     username: standby
     password: standby
