@@ -97,13 +97,13 @@ class TestHouseKeeper(unittest.TestCase):
         autoscaling_members = self.manager.get_autoscaling_members()
         self.assertEqual(self.keeper.remove_unhealthy_members(autoscaling_members), None)
 
-    def test_update_srv_record(self):
+    def test_update_route53_records(self):
         autoscaling_members = self.manager.get_autoscaling_members()
-        self.assertEqual(self.keeper.update_srv_record(autoscaling_members), None)
+        self.assertEqual(self.keeper.update_route53_records(autoscaling_members), None)
         self.keeper.hosted_zone = 'bla'
-        self.assertEqual(self.keeper.update_srv_record(autoscaling_members), None)
+        self.assertEqual(self.keeper.update_route53_records(autoscaling_members), None)
         self.keeper.hosted_zone = 'test2'
-        self.assertEqual(self.keeper.update_srv_record(autoscaling_members), None)
+        self.assertEqual(self.keeper.update_route53_records(autoscaling_members), None)
 
     def test_cluster_unhealthy(self):
         self.assertEqual(self.keeper.cluster_unhealthy(), True)

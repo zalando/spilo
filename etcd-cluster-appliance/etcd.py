@@ -26,7 +26,7 @@ else:
 
 class EtcdMember:
 
-    API_TIMEOUT = 3
+    API_TIMEOUT = 3.1
     API_VERSION = '/v2/'
     DEFAULT_CLIENT_PORT = 2379
     DEFAULT_PEER_PORT = 2380
@@ -72,9 +72,8 @@ class EtcdMember:
         for url in urls:
             url = urlparse(url)
             if url and url.netloc:
-                arr = url.netloc.split(':', 1)
-                # TODO: check that arr[0] contains ip
-                return arr[0]
+                # TODO: check that hostname contains ip
+                return url.hostname
         return None
 
     def set_info_from_etcd(self, info):
@@ -389,10 +388,7 @@ class HouseKeeper(Thread):
         return ret
 
     def remove_unhealthy_members(self, autoscaling_members):
-        members = {}
-        for m in self.members.values():
-            m = EtcdMember(m)
-            members[m.addr] = m
+        members = dict((m.addr, m) for m in map(EtcdMember, self.members.values()))
 
         for m in autoscaling_members:
             members.pop(m.private_ip_address, None)
@@ -400,35 +396,34 @@ class HouseKeeper(Thread):
         for m in members.values():
             self.me.delete_member(m)
 
-    def update_srv_record(self, autoscaling_members):
-        stack_version = self.manager.me.cluster_token.split('-')[-1]
-        record_name = '.'.join(['_etcd-server._tcp', stack_version, self.hosted_zone])
-        record_type = 'SRV'
+    @staticmethod
+    def update_record(zone, record_type, record_name, new_value):
+        records = zone.get_records()
+        old_records = [r for r in records if r.type.upper() == record_type and r.name.lower().startswith(record_name)]
 
+        if len(old_records) == 0:
+            return zone.add_record(record_type, record_name, new_value)
+
+        if set(old_records[0].resource_records) != set(new_value):
+            return zone.update_record(old_records[0], new_value)
+
+    def update_route53_records(self, autoscaling_members):
         conn = boto.route53.connect_to_region('universal')
         zone = conn.get_zone(self.hosted_zone)
         if not zone:
             return
 
-        old_record = None
-        for r in zone.get_records():
-            if r.type.upper() == record_type and r.name.lower().startswith(record_name):
-                old_record = r
-                break
+        stack_version = self.manager.me.cluster_token.split('-')[-1]
+        members = dict((m.addr, m) for m in map(EtcdMember, self.members.values()))
 
-        members = {}
-        for m in self.members.values():
-            m = EtcdMember(m)
-            members[m.addr] = m
+        record_name = '.'.join(['_etcd-server._tcp', stack_version, self.hosted_zone])
+        new_record = [' '.join(map(str, [1, 1, members[i.private_ip_address].peer_port, i.private_dns_name])) for i in
+                      autoscaling_members if i.private_ip_address in members]
+        self.update_record(zone, 'SRV', record_name, new_record)
 
-        new_value = [' '.join(map(str, [1, 1, members[i.private_ip_address].peer_port, i.private_dns_name])) for i in
-                     autoscaling_members if i.private_ip_address in members]
-
-        if old_record:
-            if set(old_record.resource_records) != set(new_value):
-                zone.update_record(old_record, new_value)
-        else:
-            zone.add_record(record_type, record_name, new_value)
+        record_name = '.'.join(['etcd-server', stack_version, self.hosted_zone])
+        new_record = [i.private_ip_address for i in autoscaling_members if i.private_ip_address in members]
+        self.update_record(zone, 'A', record_name, new_record)
 
     def run(self):
         update_required = False
@@ -440,7 +435,7 @@ class HouseKeeper(Thread):
                         autoscaling_members = self.manager.get_autoscaling_members()
                         if autoscaling_members:
                             self.remove_unhealthy_members(autoscaling_members)
-                            self.update_srv_record(autoscaling_members)
+                            self.update_route53_records(autoscaling_members)
                             update_required = False
                 else:
                     self.members = {}
