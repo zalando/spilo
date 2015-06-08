@@ -1,13 +1,12 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
 import boto.ec2
 import json
-import unittest
+import os
 import requests
+import time
+import unittest
 
-from etcd import EtcdManager
 from boto.ec2.instance import Instance
+from etcd import EtcdManager
 
 
 class MockResponse:
@@ -26,7 +25,7 @@ def requests_post(url, **kwargs):
     if data['peerURLs'][0] in ['http://127.0.0.2:2380', 'http://127.0.0.3:2380']:
         response.status_code = 201
         response.content = '{{"id":"ifoobar","name":"","peerURLs":["{}"],"clientURLs":[""]}}'.format(data['peerURLs'
-                ][0])
+                                                                                                          ][0])
     else:
         response.status_code = 403
     return response
@@ -41,6 +40,12 @@ def requests_get(url, **kwargs):
     else:
         response.content = \
             '{"region":"eu-west-1", "instanceId": "i-deadbeef3", "leaderInfo":{"leader":"ifoobari1"}, "members":[{"id":"ifoobari1","name":"i-deadbeef1","peerURLs":["http://127.0.0.1:2380"],"clientURLs":["http://127.0.0.1:2379"]},{"id":"ifoobari2","name":"i-deadbeef2","peerURLs":["http://127.0.0.2:2380"],"clientURLs":["http://127.0.0.2:2379"]},{"id":"ifoobari3","name":"i-deadbeef3","peerURLs":["http://127.0.0.3:2380"],"clientURLs":["ttp://127.0.0.3:2379"]},{"id":"ifoobari4","name":"i-deadbeef4","peerURLs":["http://127.0.0.4:2380"],"clientURLs":[]}]}'
+    return response
+
+
+def requests_get_bad_status(url, **kwargs):
+    response = requests_get(url, **kwargs)
+    response.status_code = 404
     return response
 
 
@@ -76,6 +81,10 @@ def boto_ec2_connect_to_region(region):
     return MockEc2Connection()
 
 
+def raise_exception(_):
+    raise Exception()
+
+
 class TestEtcdManager(unittest.TestCase):
 
     def __init__(self, method_name='runTest'):
@@ -93,4 +102,28 @@ class TestEtcdManager(unittest.TestCase):
         self.assertEqual(self.manager.instance_id, 'i-deadbeef3')
         self.assertEqual(self.manager.region, 'eu-west-1')
 
+    def test_clean_data_dir(self):
+        self.manager.clean_data_dir()
+        os.mkdir(self.manager.DATA_DIR)
+        self.manager.clean_data_dir()
+        open(self.manager.DATA_DIR, 'w').close()
+        self.manager.clean_data_dir()
+        os.symlink('foo', self.manager.DATA_DIR)
+        old_unlink = os.unlink
+        os.unlink = raise_exception
+        self.manager.clean_data_dir()
+        os.unlink = old_unlink
+        self.manager.clean_data_dir()
 
+    def test_load_my_identities(self):
+        requests.get = requests_get_bad_status
+        self.assertRaises(Exception, self.manager.load_my_identities)
+
+    def test_run(self):
+        os.execv = raise_exception
+        os.fork = lambda: 0
+        time.sleep = raise_exception
+        self.assertRaises(Exception, self.manager.run)
+        os.fork = lambda: 1
+        os.waitpid = lambda a, b: (1, 0)
+        self.assertRaises(Exception, self.manager.run)

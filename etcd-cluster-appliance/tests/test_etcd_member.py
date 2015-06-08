@@ -1,11 +1,8 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
-import unittest
 import requests
+import unittest
 
-from etcd import EtcdMember
 from boto.ec2.instance import Instance
+from etcd import EtcdMember
 
 from test_etcd_manager import requests_post, requests_delete, requests_get
 
@@ -85,5 +82,3 @@ class TestEtcdMember(unittest.TestCase):
     def test_get_members(self):
         self.ec2_member.addr = '127.0.0.7'
         self.assertEqual(self.ec2_member.get_members(), [])
-
-

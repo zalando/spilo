@@ -17,7 +17,11 @@ import time
 
 from boto.ec2.instance import Instance
 from threading import Thread
-from urlparse import urlparse
+
+if sys.hexversion >= 0x03000000:
+    from urllib.parse import urlparse
+else:
+    from urlparse import urlparse
 
 
 class EtcdMember:
@@ -302,11 +306,11 @@ class EtcdManager:
 
     def clean_data_dir(self):
         path = self.DATA_DIR
-        if not os.path.exists(path):
-            return
         try:
             if os.path.islink(path):
                 os.unlink(path)
+            elif not os.path.exists(path):
+                return
             elif os.path.isfile(path):
                 os.remove(path)
             elif os.path.isdir(path):
@@ -472,7 +476,7 @@ def main():
             else:
                 logging.error('Cluster does not have accessible member')
         except:
-            logging.exception()
+            logging.exception('Failed to remove myself from cluster')
 
 
 if __name__ == '__main__':

@@ -1,13 +1,11 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
 import boto
-import unittest
 import requests
 import subprocess
+import time
+import unittest
 
-from etcd import EtcdManager, HouseKeeper
 from boto.route53.record import Record
+from etcd import EtcdManager, HouseKeeper
 
 from test_etcd_manager import boto_ec2_connect_to_region, requests_get, requests_delete, MockResponse
 
@@ -16,6 +14,10 @@ def requests_put(url, **kwargs):
     response = MockResponse()
     response.status_code = 201
     return response
+
+
+def raise_exception(*args, **kwargs):
+    raise Exception()
 
 
 class MockZone:
@@ -67,6 +69,7 @@ class TestHouseKeeper(unittest.TestCase):
         super(TestHouseKeeper, self).__init__(method_name)
 
     def set_up(self):
+        subprocess.Popen = Popen
         requests.get = requests_get
         requests.put = requests_put
         requests.delete = requests_delete
@@ -81,6 +84,8 @@ class TestHouseKeeper(unittest.TestCase):
 
     def test_members_changed(self):
         self.assertEqual(self.members_changed, True)
+        self.keeper.members['blabla'] = True
+        self.assertEqual(self.keeper.members_changed(), True)
 
     def test_is_leader(self):
         self.assertEqual(self.keeper.is_leader(), True)
@@ -101,7 +106,12 @@ class TestHouseKeeper(unittest.TestCase):
         self.assertEqual(self.keeper.update_srv_record(autoscaling_members), None)
 
     def test_cluster_unhealthy(self):
-        subprocess.Popen = Popen
         self.assertEqual(self.keeper.cluster_unhealthy(), True)
 
-
+    def test_run(self):
+        time.sleep = raise_exception
+        self.assertRaises(Exception, self.keeper.run)
+        self.keeper.manager.etcd_pid = 1
+        self.assertRaises(Exception, self.keeper.run)
+        self.keeper.is_leader = raise_exception
+        self.assertRaises(Exception, self.keeper.run)

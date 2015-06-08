@@ -1,9 +1,6 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
 import boto.ec2
-import unittest
 import requests
+import unittest
 
 from etcd import EtcdCluster, EtcdManager
 
@@ -49,8 +46,7 @@ class TestEtcdCluster(unittest.TestCase):
             '-advertise-client-urls',
             'http://127.0.0.3:2379',
             '-initial-cluster',
-            'i-deadbeef1=http://127.0.0.1:2380,i-deadbeef2=http://127.0.0.2:2380,i-deadbeef3=http://127.0.0.3:2380,i-deadbeef4=http://127.0.0.4:2380'
-                ,
+            'i-deadbeef1=http://127.0.0.1:2380,i-deadbeef2=http://127.0.0.2:2380,i-deadbeef3=http://127.0.0.3:2380,i-deadbeef4=http://127.0.0.4:2380',
             '-initial-cluster-token',
             'etc-cluster',
             '-initial-cluster-state',
@@ -66,5 +62,3 @@ class TestEtcdCluster(unittest.TestCase):
         self.assertRaises(Exception, self.cluster.register_me)
         self.cluster.accessible_member = None
         self.assertEqual(self.cluster.register_me()[17], 'new')
-
-
