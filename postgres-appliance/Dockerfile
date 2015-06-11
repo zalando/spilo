@@ -60,7 +60,7 @@ RUN chown postgres:postgres $PGHOME -R
 RUN chown postgres:postgres /postgres_ha.sh
 RUN chmod 700 /postgres_ha.sh
 
-ENV ETCD_DISCOVERY_URL postgres.acid.example.com
+ENV ETCD_DISCOVERY_DOMAIN postgres.acid.example.com
 ENV SCOPE test
 ENV WAL_S3_BUCKET spilo-example-com
 ENV DEBUG 0

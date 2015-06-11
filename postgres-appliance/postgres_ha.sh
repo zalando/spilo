@@ -22,7 +22,7 @@ restapi:
 etcd:
   scope: $SCOPE
   ttl: 30
-  discovery_srv: ${ETCD_DISCOVERY_URL}
+  discovery_srv: ${ETCD_DISCOVERY_DOMAIN}
 postgresql:
   name: postgresql_${HOSTNAME}
   listen: 0.0.0.0:${pg_port}
