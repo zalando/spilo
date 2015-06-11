@@ -27,8 +27,8 @@ RUN apt-get install postgresql-${PGVERSION} postgresql-${PGVERSION}-dbg postgres
 # Remove the default cluster, which Debian stupidly starts right after installation of the packages
 RUN pg_dropcluster --stop ${PGVERSION} main
 
-# install psycopg2 and requests (for governor)
-RUN apt-get install python-psycopg2 -y
+# install psycopg2 and dnspython (for governor)
+RUN apt-get install python-psycopg2 python-dnspython -y
 
 # Set PGHOME as a login directory for the PostgreSQL user.
 RUN usermod -d $PGHOME -m postgres
