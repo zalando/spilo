@@ -15,7 +15,14 @@ SenzaComponents:
       source: '{{Arguments.DockerImage}}'
       environment:
         HOSTED_ZONE: '{{Arguments.HostedZone}}'
+      mounts:
+        /home/etcd:
+          partition: none
+          filesystem: tmpfs
+          erase_on_boot: false
+          options: size=512m
       mint_bucket: '{{Arguments.MintBucket}}'
+      scalyr_account_key: ''
     Type: Senza::TaupageAutoScalingGroup
     AutoScaling:
         Minimum: 3
