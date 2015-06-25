@@ -15,7 +15,14 @@ SenzaComponents:
       source: '{{Arguments.DockerImage}}'
       environment:
         HOSTED_ZONE: '{{Arguments.HostedZone}}'
+      mounts:
+        /home/etcd:
+          partition: none
+          filesystem: tmpfs
+          erase_on_boot: false
+          options: size=512m
       mint_bucket: '{{Arguments.MintBucket}}'
+      scalyr_account_key: '{{Arguments.ScalyrAccountKey}}'
     Type: Senza::TaupageAutoScalingGroup
     AutoScaling:
         Minimum: 3
@@ -29,6 +36,8 @@ SenzaInfo:
       Description: Docker image of etcd-cluster.
   - MintBucket:
       Description: The mint S3 bucket for OAuth 2.0 credentials
+  - ScalyrAccountKey:
+      Description: scalyr account key
   StackName: etcd-cluster
 Resources:
   EtcdRole:
