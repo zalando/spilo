@@ -6,7 +6,9 @@ SenzaComponents:
     - Ref: EtcdRole
     InstanceType: t2.micro
     SecurityGroups:
-    - app-etcd-cluster
+    - Fn::GetAtt:
+      - EtcdSecurityGroup
+      - GroupId
     TaupageConfig:
       ports:
         2379: 2379
@@ -25,9 +27,9 @@ SenzaComponents:
       scalyr_account_key: '{{Arguments.ScalyrAccountKey}}'
     Type: Senza::TaupageAutoScalingGroup
     AutoScaling:
-        Minimum: 3
-        Maximum: 3
-        MetricType: CPU
+      Minimum: 3
+      Maximum: 3
+      MetricType: CPU
 SenzaInfo:
   Parameters:
   - HostedZone:
@@ -40,6 +42,19 @@ SenzaInfo:
       Description: scalyr account key
   StackName: etcd-cluster
 Resources:
+  EtcdSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Etcd Appliance Security Group
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        FromPort: 2379
+        ToPort: 2380
+        CidrIp: 0.0.0.0/0
   EtcdRole:
     Type: AWS::IAM::Role
     Properties:
