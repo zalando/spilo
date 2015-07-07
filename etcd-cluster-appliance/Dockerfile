@@ -2,7 +2,7 @@ FROM zalando/ubuntu:14.04.1-1
 
 ENV USER etcd
 ENV HOME /home/${USER}
-ENV ETCDVERSION 2.0.12
+ENV ETCDVERSION 2.0.13
 
 ## Install python
 RUN apt-get update && apt-get -y install python python-boto
