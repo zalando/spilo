@@ -22,7 +22,7 @@ restapi:
 etcd:
   scope: $SCOPE
   ttl: 30
-  host: 127.0.0.1:${etcd_client_port}
+  discovery_srv: ${ETCD_DISCOVERY_DOMAIN}
 postgresql:
   name: postgresql_${HOSTNAME}
   listen: 0.0.0.0:${pg_port}
@@ -73,20 +73,6 @@ git clone https://github.com/zalando/patroni.git
 write_postgres_yaml
 
 write_archive_command_environment
-
-function noterm
-{
-	echo "Received TERM signal, but not doing anything"
-}
-
-# resurrect etcd if it's gone
-(
-  trap noterm SIGTERM
-  while true
-  do
-    etcd -name "proxy-$SCOPE" -proxy on  --data-dir=etcd -discovery-srv $ETCD_DISCOVERY_URL
-  done
-) &
 
 # run wal-e s3 backup periodically
 (
