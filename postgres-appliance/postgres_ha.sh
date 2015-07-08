@@ -67,8 +67,8 @@ function write_archive_command_environment
   echo "s3://${WAL_S3_BUCKET}/spilo/${SCOPE}/wal/" > ${WALE_ENV_DIR}/WALE_S3_PREFIX
 }
 
-# get governor code
-git clone https://github.com/zalando/governor.git
+# get patroni code
+git clone https://github.com/zalando/patroni.git
 
 write_postgres_yaml
 
@@ -149,7 +149,7 @@ function noterm
 ) &
 
 [[ "$DEBUG" == 1 ]] && exec /bin/bash
-exec governor/governor.py "$PGHOME/postgres.yml"
+exec patroni/patroni.py "$PGHOME/postgres.yml"
 
 
 
