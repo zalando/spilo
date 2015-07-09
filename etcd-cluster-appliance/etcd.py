@@ -202,7 +202,7 @@ class EtcdCluster:
         self.accessible_member = None
         self.leader = None
         leader = None
-        ec2_members = map(EtcdMember, self.manager.get_autoscaling_members())
+        ec2_members = list(map(EtcdMember, self.manager.get_autoscaling_members()))
         etcd_members = []
         for member in ec2_members:
             if member.instance_id != self.manager.instance_id:
