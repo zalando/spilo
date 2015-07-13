@@ -42,7 +42,10 @@ RUN pip install requests --upgrade
 RUN pip install six --upgrade
 RUN pip install wal-e
 
-ENV ETCDVERSION 2.0.11
+# Install kazoo for ZooKeeper
+RUN pip install kazoo
+
+ENV ETCDVERSION 2.0.13
 # install etcd
 RUN apt-get install curl -y
 RUN curl -L https://github.com/coreos/etcd/releases/download/v${ETCDVERSION}/etcd-v${ETCDVERSION}-linux-amd64.tar.gz | tar xz -C /bin --strip=1 --wildcards --no-anchored etcd etcdctl

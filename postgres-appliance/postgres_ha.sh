@@ -12,17 +12,47 @@ function write_postgres_yaml
   local aws_private_ip=$(curl -s http://169.254.169.254/latest/meta-data/local-ipv4)
   local pg_port=5432
   local api_port=8008
-  local etcd_client_port=2379
 
   cat >> postgres.yml <<__EOF__
-loop_wait: 10
+ttl: &ttl 30
+loop_wait: &loop_wait 10
+scope: &scope $SCOPE
 restapi:
   listen: 0.0.0.0:${api_port}
   connect_address: ${aws_private_ip}:${api_port}
+__EOF__
+
+  if [[ -n $ZOOKEEPER_HOSTS || -n $EXHIBITOR_HOSTS && -n $EXHIBITOR_PORT ]]; then
+    cat >> postgres.yml <<__EOF__
+zookeeper:
+  scope: *scope
+  session_timeout: *ttl
+  reconnect_timeout: *loop_wait
+__EOF__
+
+    [[ -n $ZOOKEEPER_HOSTS ]] && echo "  hosts: ${ZOOKEEPER_HOSTS}" >> postgres.yml
+
+    if [[ -n $EXHIBITOR_HOSTS && -n $EXHIBITOR_PORT ]]; then
+      cat >> postgres.yml <<__EOF__
+  exhibitor:
+    poll_interval: 300
+    port: ${EXHIBITOR_PORT}
+    hosts: ${EXHIBITOR_HOSTS}
+__EOF__
+    fi
+  elif [[ -n $ETCD_DISCOVERY_DOMAIN ]]; then
+    cat >> postgres.yml <<__EOF__
 etcd:
-  scope: $SCOPE
-  ttl: 30
+  scope: *scope
+  ttl: *ttl
   discovery_srv: ${ETCD_DISCOVERY_DOMAIN}
+__EOF__
+  else
+    >&2 echo "Can not find suitable distributed configuration store."
+    exit 1
+  fi
+
+  cat >> postgres.yml <<__EOF__
 postgresql:
   name: postgresql_${HOSTNAME}
   listen: 0.0.0.0:${pg_port}
@@ -67,10 +97,10 @@ function write_archive_command_environment
   echo "s3://${WAL_S3_BUCKET}/spilo/${SCOPE}/wal/" > ${WALE_ENV_DIR}/WALE_S3_PREFIX
 }
 
+write_postgres_yaml
+
 # get patroni code
 git clone https://github.com/zalando/patroni.git
-
-write_postgres_yaml
 
 write_archive_command_environment
 
