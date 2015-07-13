@@ -13,3 +13,9 @@ Currently the following scenarios are supported:
 - If something happened with etcd (crached or exited), etcd.py will remove data directory and then remove and add this instance from/into existing cluster. (Not sure that this is the good strategy)
 - Periodically leader performs cluster health check and remove cluster members which are not members of autoscaling group
 - Also it creates or updates SRV record in a given zone via AWS api.
+
+Usage
+=====
+
+    senza create etcd-cluster.yaml STACK_VERSION HOSTED_ZONE DOCKER_IMAGE MINT_BUCKET SCALYR_KEY
+    senza create etcd-cluster.yaml 1 myteam.example.org pierone.example.org/myteam/etcd:0.1-SNAPSHOT zalando-stups-mint-123456789123-eu-west-1 abc123def
