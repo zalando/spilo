@@ -32,7 +32,7 @@ __EOF__
 
     [[ -n $ZOOKEEPER_HOSTS ]] && echo "  hosts: ${ZOOKEEPER_HOSTS}" >> postgres.yml
 
-    if [[ $EXHIBITOR_HOSTS && -n $EXHIBITOR_PORT ]]; then
+    if [[ -n $EXHIBITOR_HOSTS && -n $EXHIBITOR_PORT ]]; then
       cat >> postgres.yml <<__EOF__
   exhibitor:
     poll_interval: 300
