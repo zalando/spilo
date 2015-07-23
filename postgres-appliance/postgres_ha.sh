@@ -55,6 +55,7 @@ __EOF__
   cat >> postgres.yml <<__EOF__
 postgresql:
   name: postgresql_${HOSTNAME}
+  scope: *scope
   listen: 0.0.0.0:${pg_port}
   connect_address: ${aws_private_ip}:${pg_port}
   data_dir: $PGDATA
