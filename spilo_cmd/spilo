@@ -1,0 +1,257 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+import argparse
+import ConfigParser
+import logging
+import threading
+import json
+import os
+import sys
+import socket
+import signal
+import time
+import yaml
+import subprocess
+
+def signal_handler(signal, frame):
+    global psql
+
+    print "CTRL-C pressed"
+
+    if psql is not None:
+        logging.debug("Terminating psql")
+        psql.send_signal(signal.SIGINT)
+        psql.wait()
+
+    close_tunnel()
+
+    os.system('stty sane')
+    sys.exit(0)
+
+def get_args():
+    argp = \
+        argparse.ArgumentParser(description='Commandline wrapper to connect to spilo. Any commandline parameters that are not recognized are passed on to psql'
+                                )
+
+    argp.add_argument('-v', '--verbose', dest='loglevel', help='set loglevel to DEBUG', action='store_const',
+                      const=logging.DEBUG)
+    argp.add_argument('--log_level', '--loglevel', dest='loglevel', help='Set the log level.')
+    argp.add_argument('--odd-host', dest='odd_host', help='Odd SSH bastion hostname')
+    argp.add_argument('--odd-user', dest='user_name', help='Username to use for OAuth2 authentication')
+    argp.add_argument('--config-file', dest='odd_config_file', help='Alternative odd config file')
+
+    group = argp.add_mutually_exclusive_group()
+
+    group.add_argument('--connect', dest='connect', help='Connect to specified Spilo cluster using psql',
+                       action='store_true')
+    group.add_argument('--hc','--healthcheck', dest='healthcheck', help='Display health status of Spilo', action='store_true')
+    group.add_argument('--tunnel', dest='tunnel', help='Create a tunnel only and output connection information',
+                       action='store_true')
+
+    argp.add_argument('-p', '--port', dest='pg_port', help='The PostgreSQL listening port')
+
+    argp.set_defaults(loglevel='WARNING')
+    argp.set_defaults(healthcheck=False)
+    argp.set_defaults(tunnel=False)
+    argp.set_defaults(connect=False)
+
+    argp.set_defaults(pg_port=5432)
+
+    args, remainder = argp.parse_known_args()
+    args = vars(args)
+
+    if len(remainder) < 1:
+        raise Exception('No cluster name specified')
+
+    args['cluster'] = remainder.pop(0)
+
+    # # If no action is specified, we assume connect
+    if not args['healthcheck'] and not args['tunnel']:
+        args['connect'] = True
+
+    return args, remainder
+
+
+def pretty(something):
+    return json.dumps(something, sort_keys=True, indent=4)
+
+def build_ssh_cmd(config):
+    ssh_cmd = ['ssh']
+    if config.get('user_name') is not None:
+        ssh_cmd.append('{}@{}'.format(config['user_name'], config['odd_host']))
+    else:
+        ssh_cmd.append(config['odd_host'])
+
+    return ssh_cmd
+
+def open_tunnel(config):
+    global tunnel
+    global tunnel_port
+
+    sock = socket.socket()
+    sock.bind(('', 0))
+    tunnel_port = sock.getsockname()[1]
+    logging.debug('Found free port number: {}'.format(tunnel_port))
+
+    ssh_cmd = build_ssh_cmd(config)
+
+    DEVNULL = open(os.devnull, 'wb')
+
+    logging.debug('Testing if ssh access even works')
+    test = subprocess.check_output(ssh_cmd + ['printf t3st'], shell=False, stderr=DEVNULL)
+    if test != 't3st':
+        logging.error('Could not setup a working tunnel. You may need to request access using piu')
+        raise Exception(test)
+
+    ssh_cmd.append('-L')
+    sock.close()
+    ssh_cmd.append('{}:{}:{}'.format(tunnel_port, config['pg_service'].get('host') or config['cluster'], config['pg_service'].get('port') or config['pg_port']))
+
+    ssh_cmd.append('-N')
+
+    logging.info('Setting up tunnel command: {}'.format(ssh_cmd))
+
+    tunnel = subprocess.Popen(ssh_cmd, shell=False, stderr=DEVNULL, stdin=DEVNULL)
+
+
+def close_tunnel():
+    global tunnel
+
+    logging.info('Terminating tunnel')
+
+    tunnel.send_signal(signal.SIGINT)
+    tunnel.wait()
+
+def load_pg_service(config):
+    """ Load the services from the pg_service file """
+
+    pg_service_dir = os.environ.get('PGSERVICEFILE') or os.environ.get('PGSYSCONFDIR')
+    if pg_service_dir is None:
+        pg_service_file = os.path.expanduser('~/.pg_service.conf')
+    else:
+        pg_service_file = os.path.expanduser(pg_service_dir + '/pg_service.conf')
+
+    if not os.path.isfile(pg_service_file):
+        logging.info("Connection Service File does not exist (checked {})".format(pg_service_file))
+        return dict()
+
+    logging.debug('Reading configuration from pg_service_file {}'.format(pg_service_file))
+    cp = ConfigParser.ConfigParser()
+    cp.read(pg_service_file)
+
+    pg_service = dict()
+
+    if cp.has_section(config['cluster']):
+        pg_service = dict(cp.items(config['cluster']))
+
+        logging.debug('Using section in pg_service_file: {}'.format(pretty(pg_service)))
+    else:
+        logging.debug('Could not find section [{}] in pg_service_file'.format(config['cluster']))
+
+    return pg_service
+        
+def load_odd_config(args):
+    """ Load the odd config from a default file, or a specified file and override options with provided values"""
+
+    filename = args.get('odd_config_file')
+
+    if filename is None and os.path.isfile(os.path.expanduser('~/.config/piu/piu.yaml')):
+        filename = os.path.expanduser('~/.config/piu/piu.yaml')
+
+    if filename is not None:
+        with open(filename, 'r') as cf:
+            odd_config = yaml.load(cf)
+        logging.debug('Loaded odd config from file {}: {}'.format(filename, pretty(odd_config)))
+
+    for key in odd_config:
+        args[key] = args.get(key) or odd_config[key]
+
+    return args
+
+
+def execute_psql(config, remainder):
+    global tunnel_port
+    global psql
+
+    psql_cmd = [
+        'psql',
+        '--host',
+        'localhost',
+        '--port',
+        str(tunnel_port)
+    ]
+
+    logging.debug(pretty(config))
+    logging.debug(config['pg_service'])
+
+    parameters = list()
+    for key, value in config['pg_service'].iteritems():
+        if key not in ['host', 'hostaddr', 'port']:
+            parameters.append('{}={}'.format(key,value))
+
+    if len(parameters) > 0:
+        psql_cmd.append(' '.join(parameters))
+
+    psql_cmd.extend(remainder)
+
+    logging.debug('psql command: {}'.format(psql_cmd))
+    psql = subprocess.call(psql_cmd, shell=False)
+
+def healthcheck(config):
+    ssh_cmd = build_ssh_cmd(config)
+    remote_host = config['pg_service'].get('host') or config['cluster']
+    ssh_cmd.append('curl -s http://{}:8008'.format(remote_host))
+    
+    DEVNULL = open(os.devnull, 'wb')
+    logging.debug("Doing healthcheck using command: {}".format(ssh_cmd))
+    status = subprocess.check_output(ssh_cmd, shell=False, stderr=DEVNULL)
+    status = json.loads(status)
+    print pretty(status)
+
+
+def main():
+    global tunnel_port
+    global psql
+
+    psql = None
+
+    config, remainder = get_args()
+    logging.basicConfig(format='%(asctime)s - %(threadName)s - %(levelname)s - %(message)s', level=config['loglevel'])
+    config = load_odd_config(config)
+
+    config['pg_service'] = dict(load_pg_service(config))
+
+    logging.debug('Configuration: {}'.format(pretty(config)))
+    logging.debug('Remaining arguments: {}'.format(remainder))
+
+    signal.signal(signal.SIGINT, signal_handler)
+
+    if config['connect']:
+        open_tunnel(config)
+        time.sleep(1)
+        execute_psql(config, remainder)
+        close_tunnel()
+        return
+
+    if config['healthcheck']:
+        healthcheck(config)
+        return
+
+    if config['tunnel']:
+        open_tunnel(config)
+        print 'You can now open a connection to the {} cluster using the following connection information:'.format(config['cluster'
+                ])
+        print 'press CTRL+C to terminate the tunnel'
+        print ''
+        print 'psql --host localhost --port {} {}'.format(tunnel_port, ' '.join(remainder))
+        while True:
+            try:
+                time.sleep(30)
+            except KeyboardInterrupt:
+                break
+        close_tunnel()
+
+
+if __name__ == '__main__':
+    main()
