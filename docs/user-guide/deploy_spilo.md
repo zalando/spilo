@@ -30,7 +30,9 @@ Docker repository  | docker.registry.example.com
 Docker image       | repository/spilo
 Image tag          | 0.7-SNAPSHOT
 
-	senza create spilo.yaml pompeii docker.registry.example.com/repository/spilo:0.7-SNAPSHOT
+	senza create spilo.yaml pompeii os-registry.stups.zalan.do/acid/spilo:0.20-SNAPSHOT
+	
+The address in the example above contains a fully-functional image of spilo, although, you can use another one if you build the spilo image yourself and pushed it to a different docker registry.
 
 You can now monitor the progress using:
 	senza watch -n 2 DEFINITION.yaml CLUSTER_NAME
