@@ -58,13 +58,10 @@ def get_args():
 
     argp.set_defaults(pg_port=5432)
 
+    argp.add_argument('cluster', help='The Spilo cluster to connect to, can also be a pg_service name')
+
     args, remainder = argp.parse_known_args()
     args = vars(args)
-
-    if len(remainder) < 1:
-        raise Exception('No cluster name specified')
-
-    args['cluster'] = remainder.pop(0)
 
     # # If no action is specified, we assume connect
     if not args['healthcheck'] and not args['tunnel']:
@@ -76,6 +73,26 @@ def get_args():
 def pretty(something):
     return json.dumps(something, sort_keys=True, indent=4)
 
+def build_psql_cmd(config):
+    global tunnel_port
+
+    psql_cmd = [
+        'psql',
+        '--host',
+        'localhost',
+        '--port',
+        str(tunnel_port)
+    ]
+
+    if len(config['pg_service']) > 0:
+        psql_cmd += ['service={}'.format(config['cluster'])]
+
+    psql_cmd.extend(config['unparsed_args'])
+
+    logging.debug('psql command: {}'.format(psql_cmd))
+
+    return psql_cmd
+
 def build_ssh_cmd(config):
     ssh_cmd = ['ssh']
     if config.get('user_name') is not None:
@@ -85,13 +102,14 @@ def build_ssh_cmd(config):
 
     return ssh_cmd
 
-def open_tunnel(config):
+def open_tunnel(config, port=None):
     global tunnel
     global tunnel_port
 
+    ## We open a socket and let the system choose a port which is free for us
     sock = socket.socket()
     sock.bind(('', 0))
-    tunnel_port = sock.getsockname()[1]
+    tunnel_port = int(sock.getsockname()[1])
     logging.debug('Found free port number: {}'.format(tunnel_port))
 
     ssh_cmd = build_ssh_cmd(config)
@@ -104,16 +122,42 @@ def open_tunnel(config):
         logging.error('Could not setup a working tunnel. You may need to request access using piu')
         raise Exception(test)
 
+    ## We will close the opened socket as late as possible, to prevent other processes from occupying this port
     ssh_cmd.append('-L')
+    port = port or config['pg_port'] or config['pg_service'].get('port')
     sock.close()
-    ssh_cmd.append('{}:{}:{}'.format(tunnel_port, config['pg_service'].get('host') or config['cluster'], config['pg_service'].get('port') or config['pg_port']))
+    ssh_cmd.append('{}:{}:{}'.format(tunnel_port, config['pg_service'].get('host') or config['cluster'], port))
 
     ssh_cmd.append('-N')
 
     logging.info('Setting up tunnel command: {}'.format(ssh_cmd))
 
     tunnel = subprocess.Popen(ssh_cmd, shell=False, stderr=DEVNULL, stdin=DEVNULL)
+    tunnel.poll()
+    if tunnel.returncode is not None:
+        raise Exception('Tunnel not running anymore, exitcode tunnel: {}'.format(tunnel.returncode))
+        
 
+    ## Wait for the tunnel to be available
+    sock   = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    conn_test = ('127.0.0.1', tunnel_port)
+    result = sock.connect_ex(conn_test)
+
+    timeout = 5
+    epoch_time = time.time()
+    threshold_time = time.time() + timeout
+
+    ## Loop until connection is established
+    while result <> 0:
+        time.sleep(0.1)
+        result = sock.connect_ex(conn_test)
+        if time.time() > threshold_time:
+            raise Exception("Tunnel was not established within timeout of {} seconds".format(timeout))
+            break
+
+    sock.close()
+
+    logging.debug("Established connectivity on tunnel after {} seconds".format(time.time() - epoch_time))
 
 def close_tunnel():
     global tunnel
@@ -126,12 +170,21 @@ def close_tunnel():
 def load_pg_service(config):
     """ Load the services from the pg_service file """
 
-    pg_service_dir = os.environ.get('PGSERVICEFILE') or os.environ.get('PGSYSCONFDIR')
-    if pg_service_dir is None:
-        pg_service_file = os.path.expanduser('~/.pg_service.conf')
-    else:
-        pg_service_file = os.path.expanduser(pg_service_dir + '/pg_service.conf')
+    ## First check for explicitly specified service files
+    pg_service_file = config.get('pg_service_file') or os.environ.get('PGSERVICEFILE')
 
+    ## Check the PGSYSCONFDIR
+    if pg_service_file is None:
+        pg_service_dir = os.environ.get('PGSYSCONFDIR')
+        if pg_service_dir is not None:
+            pg_service_file = os.path.join(pg_service_dir, 'pg_service.conf')
+
+    if pg_service_file is None:
+        pg_service_file = os.path.join('~', '.pg_service.conf')
+
+    pg_service_file = os.path.expanduser(pg_service_file)
+    logging.debug('Using pg_service_file: {}'.format(pg_service_file))
+    
     if not os.path.isfile(pg_service_file):
         logging.info("Connection Service File does not exist (checked {})".format(pg_service_file))
         return dict()
@@ -142,61 +195,67 @@ def load_pg_service(config):
 
     pg_service = dict()
 
-    if cp.has_section(config['cluster']):
-        pg_service = dict(cp.items(config['cluster']))
-
-        logging.debug('Using section in pg_service_file: {}'.format(pretty(pg_service)))
-    else:
-        logging.debug('Could not find section [{}] in pg_service_file'.format(config['cluster']))
+    for section in [config['cluster'], 'spilo', 'default']:
+        if cp.has_section(section):
+            logging.debug('Using section {} in pg_service_file'.format(section))
+            pg_service = dict(cp.items(section))
+            break
 
     return pg_service
         
-def load_odd_config(args):
+def load_odd_config(config):
     """ Load the odd config from a default file, or a specified file and override options with provided values"""
 
-    filename = args.get('odd_config_file')
+    if config.get('odd_config_file') is not None:
+        filename = config.get('odd_config_file')
+    elif sys.platform == 'darwin':
+        filename = '~/Library/Application Support/piu/piu.yaml'
+    else:
+        filename = '~/.config/piu/piu.yaml'
 
-    if filename is None and os.path.isfile(os.path.expanduser('~/.config/piu/piu.yaml')):
-        filename = os.path.expanduser('~/.config/piu/piu.yaml')
+    filename = os.path.expanduser(filename)
+    logging.debug("Using {} as the piu config file".format(filename))
 
-    if filename is not None:
+    if os.path.isfile(filename):
         with open(filename, 'r') as cf:
             odd_config = yaml.load(cf)
         logging.debug('Loaded odd config from file {}: {}'.format(filename, pretty(odd_config)))
+    else:
+        odd_config = dict()
 
+    ## Merge dicts, config has precedence as it is explicitly specified by the user
     for key in odd_config:
-        args[key] = args.get(key) or odd_config[key]
+        config[key] = config.get(key) or odd_config[key]
 
-    return args
+    return config
+
+def tunnel(config):
+    open_tunnel(config)
+    print 'You can now open a connection to the {} cluster using the following connection information:'.format(config['cluster'
+            ])
+    print ''
+    print ' '.join(build_psql_cmd(config))
+    print ''
+    print 'press CTRL+C to terminate the tunnel'
+    while True:
+        try:
+            time.sleep(30)
+            tunnel.poll()
+            if tunnel.returncode is not None:
+                raise Exception('Tunnel terminated with exitcode {}'.format(tunnel.returncode))
+        except KeyboardInterrupt:
+            break
+    close_tunnel()
 
 
-def execute_psql(config, remainder):
+def execute_psql(config):
     global tunnel_port
     global psql
 
-    psql_cmd = [
-        'psql',
-        '--host',
-        'localhost',
-        '--port',
-        str(tunnel_port)
-    ]
-
-    logging.debug(pretty(config))
-    logging.debug(config['pg_service'])
-
-    parameters = list()
-    for key, value in config['pg_service'].iteritems():
-        if key not in ['host', 'hostaddr', 'port']:
-            parameters.append('{}={}'.format(key,value))
-
-    if len(parameters) > 0:
-        psql_cmd.append(' '.join(parameters))
-
-    psql_cmd.extend(remainder)
+    psql_cmd = build_psql_cmd(config)
 
     logging.debug('psql command: {}'.format(psql_cmd))
-    psql = subprocess.call(psql_cmd, shell=False)
+    psql = subprocess.call(psql_cmd, shell=False, stdin=sys.stdin)
 
 def healthcheck(config):
     ssh_cmd = build_ssh_cmd(config)
@@ -209,6 +268,15 @@ def healthcheck(config):
     status = json.loads(status)
     print pretty(status)
 
+def connect(config):
+    global tunnel_port
+
+    open_tunnel(config)
+
+
+    execute_psql(config)
+    close_tunnel()
+    return
 
 def main():
     global tunnel_port
@@ -216,22 +284,20 @@ def main():
 
     psql = None
 
-    config, remainder = get_args()
+    config, config['unparsed_args'] = get_args()
+    config['unparsed_args'] = config['unparsed_args']
     logging.basicConfig(format='%(asctime)s - %(threadName)s - %(levelname)s - %(message)s', level=config['loglevel'])
     config = load_odd_config(config)
 
-    config['pg_service'] = dict(load_pg_service(config))
+    config['pg_service'] = load_pg_service(config)
 
     logging.debug('Configuration: {}'.format(pretty(config)))
-    logging.debug('Remaining arguments: {}'.format(remainder))
+    logging.debug('Remaining arguments: {}'.format(config['unparsed_args']))
 
     signal.signal(signal.SIGINT, signal_handler)
 
     if config['connect']:
-        open_tunnel(config)
-        time.sleep(1)
-        execute_psql(config, remainder)
-        close_tunnel()
+        connect(config)
         return
 
     if config['healthcheck']:
@@ -239,19 +305,8 @@ def main():
         return
 
     if config['tunnel']:
-        open_tunnel(config)
-        print 'You can now open a connection to the {} cluster using the following connection information:'.format(config['cluster'
-                ])
-        print 'press CTRL+C to terminate the tunnel'
-        print ''
-        print 'psql --host localhost --port {} {}'.format(tunnel_port, ' '.join(remainder))
-        while True:
-            try:
-                time.sleep(30)
-            except KeyboardInterrupt:
-                break
-        close_tunnel()
-
+        tunnel(config)
+        return
 
 if __name__ == '__main__':
     main()
