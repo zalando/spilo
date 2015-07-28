@@ -15,7 +15,6 @@ import time
 import yaml
 import subprocess
 
-from psycopg2.extras import RealDictCursor
 
 def signal_handler(signal, frame):
     global psql
@@ -26,11 +25,12 @@ def signal_handler(signal, frame):
     for p in [psql, tunnel]:
         if p is not None:
             if p.returncode is None:
-                logging.warning("Terminating process with pid={}".format(p.pid))
+                logging.warning('Terminating process with pid={}'.format(p.pid))
                 p.kill()
 
     os.system('stty sane')
     sys.exit(1)
+
 
 def get_args():
     argp = \
@@ -49,7 +49,8 @@ def get_args():
 
     group.add_argument('--connect', dest='connect', help='Connect to specified Spilo cluster using psql',
                        action='store_true')
-    group.add_argument('--hc','--healthcheck', dest='healthcheck', help='Display health status of Spilo', action='store_true')
+    group.add_argument('--hc', '--healthcheck', dest='healthcheck', help='Display health status of Spilo',
+                       action='store_true')
     group.add_argument('--tunnel', dest='tunnel', help='Create a tunnel only and output connection information',
                        action='store_true')
 
@@ -78,6 +79,7 @@ def get_args():
 def pretty(something):
     return json.dumps(something, sort_keys=True, indent=4)
 
+
 def build_psql_cmd(config):
     global tunnel_port
 
@@ -86,7 +88,7 @@ def build_psql_cmd(config):
         '--host',
         'localhost',
         '--port',
-        str(tunnel_port)
+        str(tunnel_port),
     ]
 
     if config.get('pg_service_section') is not None:
@@ -98,6 +100,7 @@ def build_psql_cmd(config):
 
     return psql_cmd
 
+
 def build_ssh_cmd(config):
     ssh_cmd = ['ssh']
     if config.get('user_name') is not None:
@@ -107,11 +110,12 @@ def build_ssh_cmd(config):
 
     return ssh_cmd
 
+
 def open_tunnel(config, port=None):
     global tunnel
     global tunnel_port
 
-    ## We open a socket and let the system choose a port which is free for us
+    # # We open a socket and let the system choose a port which is free for us
     sock = socket.socket()
     sock.bind(('', 0))
     tunnel_port = int(sock.getsockname()[1])
@@ -127,7 +131,7 @@ def open_tunnel(config, port=None):
         logging.error('Could not setup a working tunnel. You may need to request access using piu')
         raise Exception(test)
 
-    ## We will close the opened socket as late as possible, to prevent other processes from occupying this port
+    # # We will close the opened socket as late as possible, to prevent other processes from occupying this port
     ssh_cmd.append('-L')
     port = port or config['pg_port'] or config['pg_service'].get('port')
     sock.close()
@@ -141,28 +145,28 @@ def open_tunnel(config, port=None):
     tunnel.poll()
     if tunnel.returncode is not None:
         raise Exception('Tunnel not running anymore, exitcode tunnel: {}'.format(tunnel.returncode))
-        
 
-    ## Wait for the tunnel to be available
-    sock   = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    conn_test = ('127.0.0.1', tunnel_port)
+    # # Wait for the tunnel to be available
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    conn_test = '127.0.0.1', tunnel_port
     result = sock.connect_ex(conn_test)
 
     timeout = 5
     epoch_time = time.time()
     threshold_time = time.time() + timeout
 
-    ## Loop until connection is established
-    while result <> 0:
+    # # Loop until connection is established
+    while result != 0:
         time.sleep(0.1)
         result = sock.connect_ex(conn_test)
         if time.time() > threshold_time:
-            raise Exception("Tunnel was not established within timeout of {} seconds".format(timeout))
+            raise Exception('Tunnel was not established within timeout of {} seconds'.format(timeout))
             break
 
     sock.close()
 
-    logging.debug("Established connectivity on tunnel after {} seconds".format(time.time() - epoch_time))
+    logging.debug('Established connectivity on tunnel after {} seconds'.format(time.time() - epoch_time))
+
 
 def close_tunnel():
     global tunnel
@@ -172,13 +176,14 @@ def close_tunnel():
     tunnel.send_signal(signal.SIGINT)
     tunnel.wait()
 
+
 def load_pg_service(config):
     """ Load the services from the pg_service file """
 
-    ## First check for explicitly specified service files
+    # # First check for explicitly specified service files
     pg_service_file = config.get('pg_service_file') or os.environ.get('PGSERVICEFILE')
 
-    ## Check the PGSYSCONFDIR
+    # # Check the PGSYSCONFDIR
     if pg_service_file is None:
         pg_service_dir = os.environ.get('PGSYSCONFDIR')
         if pg_service_dir is not None:
@@ -189,9 +194,9 @@ def load_pg_service(config):
 
     pg_service_file = os.path.expanduser(pg_service_file)
     logging.debug('Using pg_service_file: {}'.format(pg_service_file))
-    
+
     if not os.path.isfile(pg_service_file):
-        logging.info("Connection Service File does not exist (checked {})".format(pg_service_file))
+        logging.info('Connection Service File does not exist (checked {})'.format(pg_service_file))
         return dict()
 
     logging.debug('Reading configuration from pg_service_file {}'.format(pg_service_file))
@@ -208,7 +213,8 @@ def load_pg_service(config):
             break
 
     return pg_service
-        
+
+
 def load_odd_config(config):
     """ Load the odd config from a default file, or a specified file and override options with provided values"""
 
@@ -220,7 +226,7 @@ def load_odd_config(config):
         filename = '~/.config/piu/piu.yaml'
 
     filename = os.path.expanduser(filename)
-    logging.debug("Using {} as the piu config file".format(filename))
+    logging.debug('Using {} as the piu config file'.format(filename))
 
     if os.path.isfile(filename):
         with open(filename, 'r') as cf:
@@ -229,11 +235,12 @@ def load_odd_config(config):
     else:
         odd_config = dict()
 
-    ## Merge dicts, config has precedence as it is explicitly specified by the user
+    # # Merge dicts, config has precedence as it is explicitly specified by the user
     for key in odd_config:
         config[key] = config.get(key) or odd_config[key]
 
     return config
+
 
 def tunnel(config):
     open_tunnel(config)
@@ -261,21 +268,22 @@ def execute_psql(config):
     psql_cmd = build_psql_cmd(config)
 
     logging.debug('psql command: {}'.format(psql_cmd))
- 
+
     psql = subprocess.Popen(psql_cmd)
     while psql.returncode is None:
         try:
             psql.wait()
         except KeyboardInterrupt:
-            logging.debug("Caught KeyboardInterrupt from user")
+            logging.debug('Caught KeyboardInterrupt from user')
             psql.send_signal(signal.SIGINT)
 
-    logging.info("psql terminated with exitcode {}".format(psql.returncode))
+    logging.info('psql terminated with exitcode {}'.format(psql.returncode))
+
 
 def get_connection(config):
     global tunnel_port
 
-    conn_parameters = {'host':'localhost', 'port':tunnel_port}
+    conn_parameters = {'host': 'localhost', 'port': tunnel_port}
 
     if config.get('pg_service_section') is not None:
         conn_parameters['service'] = config['pg_service_section']
@@ -284,19 +292,20 @@ def get_connection(config):
 
     return conn
 
+
 def healthcheck(config):
     open_tunnel(config)
     naptime = float(config['watch'])
 
-
     conn = get_connection(config)
     conn.set_session(readonly=True, autocommit=True)
-    cursor=conn.cursor(cursor_factory=RealDictCursor)
+    cursor = conn.cursor()
     cursor.execute('select rolsuper from pg_roles where rolname=current_user')
     row = cursor.fetchone()
 
-    if row['rolsuper']:
-        healthcheck_sql = """
+    if row[0]:
+        healthcheck_sql = \
+            """
                     WITH repslots AS (
                         SELECT pid,
                                usename,
@@ -305,19 +314,23 @@ def healthcheck(config):
                           FROM pg_stat_replication
                     )"""
     else:
-        healthcheck_sql = """
+        healthcheck_sql = \
+            """
                     WITH repslots AS (
                         SELECT pid,
                                usename
                           FROM pg_stat_replication
                     )"""
-    healthcheck_sql += """        
-                    SELECT to_char(pg_postmaster_start_time(), 'YYYY-MM-DD HH24:MI:SS.MS TZ') AS postmaster_start_time,
-                           (clock_timestamp() - pg_postmaster_start_time())::text AS uptime,
+    healthcheck_sql += \
+        """
+                    , mainquery AS (
+                    SELECT pg_postmaster_start_time() AS postmaster_start_time,
+                           (clock_timestamp() - pg_postmaster_start_time()) AS uptime,
                            pg_current_xlog_location(),
                            (SELECT ('x'||substr(pg_xlogfile_name('0/00000000'), 1, 8))::bit(32)::int) AS current_timeline,
                            (SELECT json_agg(repslots) FROM repslots) AS slaves,
                            (select setting::int - count(*) from pg_replication_slots join pg_settings on (name='max_replication_slots') group by setting) AS remaining_replication_slots
+                    ) SELECT row_to_json(mainquery) FROM mainquery
                                   """
     conn = None
     while True:
@@ -325,15 +338,15 @@ def healthcheck(config):
             if conn is None:
                 conn = get_connection(config)
                 conn.set_session(readonly=True, autocommit=True)
-                cursor=conn.cursor(cursor_factory=RealDictCursor)
+                cursor = conn.cursor()
 
             cursor.execute(healthcheck_sql)
             row = cursor.fetchone()
-            healthcheck = dict(row)
+            healthcheck = row[0]
             print pretty(healthcheck)
             if naptime is None:
                 break
-        except (psycopg2.OperationalError, psycopg2.DatabaseError) as e:
+        except (psycopg2.OperationalError, psycopg2.DatabaseError), e:
             logging.warning('Connection error occured, will keep retrying, {}'.format(e.pgerror or ''))
             logging.debug('', exc_info=True)
             conn = None
@@ -347,6 +360,7 @@ def healthcheck(config):
     close_tunnel()
     return
 
+
 def connect(config):
     global tunnel_port
 
@@ -355,6 +369,7 @@ def connect(config):
     close_tunnel()
 
     return
+
 
 def main():
     global tunnel_port
@@ -371,7 +386,7 @@ def main():
     logging.debug('Configuration: {}'.format(pretty(config)))
     logging.debug('Remaining arguments: {}'.format(config['unparsed_args']))
 
-    #signal.signal(signal.SIGINT, signal_handler)
+    # signal.signal(signal.SIGINT, signal_handler)
 #    signal.signal(signal.SIGTERM, signal_handler)
 
     if config['connect']:
@@ -385,6 +400,7 @@ def main():
     if config['tunnel']:
         tunnel(config)
         return
+
 
 if __name__ == '__main__':
     main()
