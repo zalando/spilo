@@ -6,6 +6,7 @@ import ConfigParser
 import logging
 import threading
 import json
+import psycopg2
 import os
 import sys
 import socket
@@ -14,20 +15,22 @@ import time
 import yaml
 import subprocess
 
+from psycopg2.extras import RealDictCursor
+
 def signal_handler(signal, frame):
     global psql
-
-    print "CTRL-C pressed"
-
-    if psql is not None:
-        logging.debug("Terminating psql")
-        psql.send_signal(signal.SIGINT)
-        psql.wait()
+    global tunnel
 
     close_tunnel()
 
+    for p in [psql, tunnel]:
+        if p is not None:
+            if p.returncode is None:
+                logging.warning("Terminating process with pid={}".format(p.pid))
+                p.kill()
+
     os.system('stty sane')
-    sys.exit(0)
+    sys.exit(1)
 
 def get_args():
     argp = \
@@ -40,6 +43,7 @@ def get_args():
     argp.add_argument('--odd-host', dest='odd_host', help='Odd SSH bastion hostname')
     argp.add_argument('--odd-user', dest='user_name', help='Username to use for OAuth2 authentication')
     argp.add_argument('--config-file', dest='odd_config_file', help='Alternative odd config file')
+    argp.add_argument('--watch', dest='watch', help='Repeat the action every WATCH seconds')
 
     group = argp.add_mutually_exclusive_group()
 
@@ -55,6 +59,7 @@ def get_args():
     argp.set_defaults(healthcheck=False)
     argp.set_defaults(tunnel=False)
     argp.set_defaults(connect=False)
+    argp.set_defaults(watch=None)
 
     argp.set_defaults(pg_port=5432)
 
@@ -84,8 +89,8 @@ def build_psql_cmd(config):
         str(tunnel_port)
     ]
 
-    if len(config['pg_service']) > 0:
-        psql_cmd += ['service={}'.format(config['cluster'])]
+    if config.get('pg_service_section') is not None:
+        psql_cmd += ['service={}'.format(config['pg_service_section'])]
 
     psql_cmd.extend(config['unparsed_args'])
 
@@ -199,6 +204,7 @@ def load_pg_service(config):
         if cp.has_section(section):
             logging.debug('Using section {} in pg_service_file'.format(section))
             pg_service = dict(cp.items(section))
+            config['pg_service_section'] = section
             break
 
     return pg_service
@@ -255,27 +261,99 @@ def execute_psql(config):
     psql_cmd = build_psql_cmd(config)
 
     logging.debug('psql command: {}'.format(psql_cmd))
-    psql = subprocess.call(psql_cmd, shell=False, stdin=sys.stdin)
+ 
+    psql = subprocess.Popen(psql_cmd)
+    while psql.returncode is None:
+        try:
+            psql.wait()
+        except KeyboardInterrupt:
+            logging.debug("Caught KeyboardInterrupt from user")
+            psql.send_signal(signal.SIGINT)
+
+    logging.info("psql terminated with exitcode {}".format(psql.returncode))
+
+def get_connection(config):
+    global tunnel_port
+
+    conn_parameters = {'host':'localhost', 'port':tunnel_port}
+
+    if config.get('pg_service_section') is not None:
+        conn_parameters['service'] = config['pg_service_section']
+
+    conn = psycopg2.connect(**conn_parameters)
+
+    return conn
 
 def healthcheck(config):
-    ssh_cmd = build_ssh_cmd(config)
-    remote_host = config['pg_service'].get('host') or config['cluster']
-    ssh_cmd.append('curl -s http://{}:8008'.format(remote_host))
-    
-    DEVNULL = open(os.devnull, 'wb')
-    logging.debug("Doing healthcheck using command: {}".format(ssh_cmd))
-    status = subprocess.check_output(ssh_cmd, shell=False, stderr=DEVNULL)
-    status = json.loads(status)
-    print pretty(status)
+    open_tunnel(config)
+    naptime = float(config['watch'])
+
+
+    conn = get_connection(config)
+    conn.set_session(readonly=True, autocommit=True)
+    cursor=conn.cursor(cursor_factory=RealDictCursor)
+    cursor.execute('select rolsuper from pg_roles where rolname=current_user')
+    row = cursor.fetchone()
+
+    if row['rolsuper']:
+        healthcheck_sql = """
+                    WITH repslots AS (
+                        SELECT pid,
+                               usename,
+                               client_addr,
+                               backend_start
+                          FROM pg_stat_replication
+                    )"""
+    else:
+        healthcheck_sql = """
+                    WITH repslots AS (
+                        SELECT pid,
+                               usename
+                          FROM pg_stat_replication
+                    )"""
+    healthcheck_sql += """        
+                    SELECT to_char(pg_postmaster_start_time(), 'YYYY-MM-DD HH24:MI:SS.MS TZ') AS postmaster_start_time,
+                           (clock_timestamp() - pg_postmaster_start_time())::text AS uptime,
+                           pg_current_xlog_location(),
+                           (SELECT ('x'||substr(pg_xlogfile_name('0/00000000'), 1, 8))::bit(32)::int) AS current_timeline,
+                           (SELECT json_agg(repslots) FROM repslots) AS slaves,
+                           (select setting::int - count(*) from pg_replication_slots join pg_settings on (name='max_replication_slots') group by setting) AS remaining_replication_slots
+                                  """
+    conn = None
+    while True:
+        try:
+            if conn is None:
+                conn = get_connection(config)
+                conn.set_session(readonly=True, autocommit=True)
+                cursor=conn.cursor(cursor_factory=RealDictCursor)
+
+            cursor.execute(healthcheck_sql)
+            row = cursor.fetchone()
+            healthcheck = dict(row)
+            print pretty(healthcheck)
+            if naptime is None:
+                break
+        except (psycopg2.OperationalError, psycopg2.DatabaseError) as e:
+            logging.warning('Connection error occured, will keep retrying, {}'.format(e.pgerror or ''))
+            logging.debug('', exc_info=True)
+            conn = None
+            time.sleep(5)
+
+        time.sleep(naptime)
+
+    cursor.close()
+    conn.close()
+
+    close_tunnel()
+    return
 
 def connect(config):
     global tunnel_port
 
     open_tunnel(config)
-
-
     execute_psql(config)
     close_tunnel()
+
     return
 
 def main():
@@ -285,7 +363,6 @@ def main():
     psql = None
 
     config, config['unparsed_args'] = get_args()
-    config['unparsed_args'] = config['unparsed_args']
     logging.basicConfig(format='%(asctime)s - %(threadName)s - %(levelname)s - %(message)s', level=config['loglevel'])
     config = load_odd_config(config)
 
@@ -294,7 +371,8 @@ def main():
     logging.debug('Configuration: {}'.format(pretty(config)))
     logging.debug('Remaining arguments: {}'.format(config['unparsed_args']))
 
-    signal.signal(signal.SIGINT, signal_handler)
+    #signal.signal(signal.SIGINT, signal_handler)
+#    signal.signal(signal.SIGTERM, signal_handler)
 
     if config['connect']:
         connect(config)
