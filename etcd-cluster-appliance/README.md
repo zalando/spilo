@@ -28,6 +28,7 @@ A cluster can be creating by issuing such a command:
     senza create etcd-cluster.yaml STACK_VERSION APP_ID HOSTED_ZONE DOCKER_IMAGE MINT_BUCKET SCALYR_KEY
 
 For example, if you made are making an etcd cluster to be used by a service called `foo`, you could issue the following:
+
     senza create etcd-cluster.yaml for-foo \
                                    elephant-etcd \
                                    elephant.example.org \
@@ -35,11 +36,11 @@ For example, if you made are making an etcd cluster to be used by a service call
                                    zalando-stups-mint-123456789123-eu-west-1 abc123def
 
 The idea is to have a single application ID, here it is `elephant-etcd`, and then create different versions, i.e. 
-different clusters by varying the STACK_VERSION parameter depending on the purpose you want to use that specific cluster
-for.
+different clusters by varying the `STACK_VERSION` parameter depending on the purpose you want to use that specific 
+cluster for.
 
 ## Step 3: Confirm successful cluster creation
-The resulting cluster should have created:
+Running this `senza create` command should have created:
 - the required amount of EC2 instances
     - with stack name `elephant-etcd`
     - with instance name `elephant-etcd-for-foo`
