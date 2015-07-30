@@ -19,7 +19,7 @@ Usage
 
 ## Step 1: Define an application
 Before starting with clusters, you will need to define an application under whose name your clusters will be created.
-This is done in `Kio`_ or its graphical interface `Yourturn`_. Assuming for the example that the application is being
+This is done in [Kio](https://github.com/zalando-stups/kio) or its graphical interface [Yourturn](https://github.com/zalando-stups/yourturn). Assuming for the example that the application is being
 created under the team `elephant`, we might choose this app ID: `elephant-etcd`.
 
 ## Step 2: Create an etcd cluster
@@ -49,8 +49,4 @@ Running this `senza create` command should have created:
 - DNS records
     - an A record of the form `for-foo.elephant.example.org.`
     - a SRV record of the form `_etcd-server._tcp.for-foo.elephant.example.org.`
-
-
-.. _Kio: https://github.com/zalando-stups/kio
-.. _Yourturn: https://github.com/zalando-stups/yourturn
 
