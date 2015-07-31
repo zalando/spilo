@@ -10,6 +10,7 @@ SenzaComponents:
       - EtcdSecurityGroup
       - GroupId
     TaupageConfig:
+      application_id: "{{Arguments.ApplicationId}}"
       ports:
         2379: 2379
         2380: 2380
@@ -32,6 +33,8 @@ SenzaComponents:
       MetricType: CPU
 SenzaInfo:
   Parameters:
+  - ApplicationId:
+      Description: Name of your etcd application from Kio/Yourturn
   - HostedZone:
       Description: AWS Hosted Zone to work with
   - DockerImage:
