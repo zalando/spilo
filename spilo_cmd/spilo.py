@@ -1,9 +1,11 @@
 import click
 import atexit
 import getpass
+import collections
 import logging
 import re
 import sys
+import boto
 import os
 import prettytable
 import json
@@ -14,6 +16,15 @@ import yaml
 import configparser
 
 from clickclick import AliasedGroup, OutputFormat
+from clickclick.console import print_table
+import senza.cli
+from senza.cli import get_region, check_credentials, get_stacks, resources, handle_exceptions, get_instance_health
+
+STYLES = senza.cli.STYLES
+TITLES = senza.cli.TITLES
+
+STYLES['MASTER'] = {'fg':'green'}
+STYLES['SLAVE']  = {'fg':'yellow'}
 
 processed = False
 PIUCONFIG = '~/.config/piu/piu.yaml'
@@ -27,6 +38,8 @@ option_odd_host  = click.option('--odd-host',         help='Odd SSH bastion host
 option_odd_user  = click.option('--odd-user',         help='Username to use for OAuth2 authentication')
 option_odd_config_file = click.option('--odd-config-file',  help='Alternative odd config file', type=click.Path(exists=False), default=os.path.expanduser(PIUCONFIG))
 option_pg_service_file = click.option('--pg_service-file',  help='The PostgreSQL service file', envvar='PGSERVICEFILE', type=click.Path(exists=True))
+option_region   = click.option('--region', envvar='AWS_DEFAULT_REGION', metavar='AWS_REGION_ID',
+                             help='AWS region ID (e.g. eu-west-1)')
 
 cluster_argument = click.argument('cluster')
 
@@ -67,6 +80,10 @@ def process_options(opts):
 
     logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s', level=options['loglevel'])   
     pg_service_name, pg_service = get_pg_service()
+
+    if (pg_service_name or 'default') != 'default':
+        options['cluster'] = pg_service['host']
+
     odd_config = load_odd_config()
 
 def cleanup():
@@ -97,7 +114,6 @@ def libpq_parameters():
 @click.argument('psql_arguments', nargs=-1, metavar='[-- [psql OPTIONS]]')
 def connect(**options):
     """Connects to the the cluster specified using psql"""
-
     process_options(options)
 
     tunnel_pid = open_tunnel()
@@ -121,14 +137,116 @@ def healthcheck(**options):
     """Does a healthcheck on the given cluster"""
     pass
 
-@cli.command('list', short_help='List something')
+@cli.command('list', short_help='List available spilos')
 @option_log_level
+@option_region
+@click.option('--tunnel', help='List only the established tunnels', is_flag=True, default=False)
+@click.option('--details', help='Show more details', is_flag=True, default=False)
 @click.argument('clusters', nargs=-1)
-def _list(**options):
+def list_spilos(**options):
     process_options(options)
 
-    list_tunnels(options['clusters'])
+    if options['tunnel']:
+        spilos = list()
+    else:
+        spilos = get_spilos(region=options['region'], clusters=options['clusters'], details=options['details'])
 
+    processes = get_my_processes(options['clusters'])
+
+    print_spilos(spilos)
+
+def print_spilos(spilos):
+    if len(spilos) == 0:
+        return
+    
+    columns = ['cluster','dns','instance_id','private_ip','role']
+    if spilos[0].instances is None:
+        columns = ['cluster','dns']
+
+    pretty_rows = list()
+
+    for s in spilos:
+        row = [s.version, s.route53]
+        pretty_row = {'cluster':s.version,'dns':s.route53}
+
+        if s.instances is not None:
+            for i in s.instances:
+                pretty_row.update(i)
+                pretty_rows.append(pretty_row.copy())
+
+                ## Do not repeat general cluster information
+                pretty_row = {'cluster':'', 'dns':''}
+
+
+    print_table(columns, pretty_rows, styles=STYLES, titles=TITLES)
+    
+        
+def get_spilos(region, clusters=None, details=False):
+    if len(clusters) == 0:
+        clusters=None
+    if isinstance(clusters, str):
+        clusters = [clusters]
+
+    region = get_region(region)
+    check_credentials(region)
+    conn = boto.ec2.connect_to_region(region)
+    cf = boto.cloudformation.connect_to_region(region)
+    elb = boto.ec2.elb.connect_to_region(region)
+
+    spilos = list()
+
+    Spilo = collections.namedtuple('Spilo', 'stack_name, version, route53, elb, instances')
+
+    for stack in get_stacks(stack_refs=None, region=region, all=True):
+        if 'COMPLETE' in stack.stack_status and 'DELETE' not in stack.stack_status and 'ROLLBACK' not in stack.stack_status:
+            resources = cf.describe_stack_resources(stack.stack_name)
+
+            lb = None          
+            route53 = None
+            stack_name = None
+            instances = None
+
+            ## We know it is a Spilo if it has a PostgresRoute53Record, so only those stacks are investigated further 
+            for resource in resources:
+                if resource.logical_resource_id == 'PostgresRoute53Record' and resource.resource_status=='CREATE_COMPLETE':
+                    route53    = resource.physical_resource_id
+                    stack_name = resource.stack_name 
+                if resource.logical_resource_id == 'PostgresLoadBalancer':
+                    lb  = resource.physical_resource_id
+                    if details:
+                        instances_info   = conn.get_only_instances(filters={'tag:aws:cloudformation:stack-id': stack.stack_id})
+                        instances_health = elb.describe_instance_health(stack.stack_name)
+
+                        instances = list()
+                        for ii in instances_info:
+                            for ih in instances_health:
+                                if ih.instance_id == ii.id:
+                                    instance = {'instance_id':ii.id, 'private_ip':ii.private_ip_address}
+                                    if ih.state == 'InService':
+                                        instance['role'] = 'MASTER'
+                                    else:
+                                        instance['role'] = 'SLAVE'
+
+                                    instances.append(instance)
+
+                        instances.sort(key=lambda k: k['role'])
+            
+            if lb is not None:
+                matches = None
+                if clusters is None:
+                    matches = True
+                elif any([re.search(c, resource.stack_name) for c in clusters]):
+                    matches = True
+                elif any([re.search(c, route53) for c in clusters]):
+                    matches = True
+                else:
+                    matches = False
+
+                if matches:
+                    spilos.append( Spilo(stack_name=resource.stack_name, version=stack.version, elb=lb, instances=instances, route53=route53) )
+
+    return spilos
+    
 def list_tunnels(cluster_names=None):
     logging.debug('Cluster names: {}'.format(cluster_names))
 
@@ -149,7 +267,7 @@ def list_tunnels(cluster_names=None):
 
     print(table)
 
-def get_my_processes(cluster_names=None):
+def get_my_processes(cluster_names=None, commands=None):
     if isinstance(cluster_names, str):
         cluster_names = [cluster_names]
 
@@ -205,11 +323,13 @@ def get_my_processes(cluster_names=None):
                 process['service'] = match.group(1)
 
             logging.debug("Process: {}".format(process))        
-            if cluster_names is None or len(cluster_names) == 0 or any(process['cluster'].startswith(cn) for cn in cluster_names):
-                processes.append(process)
+            if cluster_names is None or len(cluster_names) == 0 or any([re.search(cn, process['cluster']) for cn in cluster_names]):
+                if commands is None or len(commands) == 0 or any(process['process'] == com for com in commands):
+                    processes.append(process)
 
         else:
-            logging.debug("Disregarding line: {}".format(line))
+            #logging.debug("Disregarding line: {}".format(line))
+            pass
 
     for p in processes:
         p['dsn'] = '"host=localhost port={} service={}"'.format(p['pgport'], p['service'])
@@ -226,6 +346,7 @@ def get_my_processes(cluster_names=None):
 @option_odd_config_file
 @option_odd_user
 @option_odd_host
+@option_region
 @option_log_level
 def tunnel(**options):
     """Sets up a tunnel to use for connecting to Spilo"""
@@ -334,7 +455,26 @@ def load_odd_config():
     return odd_config
 
 def open_tunnel():
-    p = get_my_processes(cluster_names=options['cluster'])
+    cluster = '^'+options['cluster']
+    p = get_my_processes(cluster_names=cluster, commands=['ssh'])
+    if len(p) == 1:
+        logging.info("Found a tunnel which is available: {}".format(pretty(p)))
+        tunnels['postgres'] = p[0]['pgport']
+        tunnels['patroni']  = p[0]['patroniport']
+        return
+        
+
+    spilos = get_spilos(options['region'], [cluster])
+
+    if len(spilos) == 0:
+        raise Exception('Could not find a spilo cluster beginning with {}'.format(options['cluster']))
+
+    if len(spilos) > 1:
+        raise Exception('Multiple candidates starting with {}: {}'.format(options['cluster'], pretty(spilos)))
+
+    cluster = spilos[0]
+
+    p = get_my_processes(cluster_names=cluster)
     if len(p) > 0:
         logging.info("Found a tunnel which is available: {}".format(pretty(p)))
         tunnels['postgres'] = p[0]['pgport']
@@ -422,4 +562,4 @@ def open_tunnel():
     return tunnel.pid
 
 if __name__ == '__main__':
-    cli()
+    handle_exceptions(cli)()
