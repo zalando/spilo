@@ -55,6 +55,7 @@ __EOF__
   cat >> postgres.yml <<__EOF__
 postgresql:
   name: postgresql_${HOSTNAME}
+  scope: *scope
   listen: 0.0.0.0:${pg_port}
   connect_address: ${aws_private_ip}:${pg_port}
   data_dir: $PGDATA
@@ -74,6 +75,11 @@ postgresql:
     env_dir: $WALE_ENV_DIR
     threshold_megabytes: ${WALE_BACKUP_THRESHOLD_MEGABYTES}
     threshold_backup_size_percentage: ${WALE_BACKUP_THRESHOLD_PERCENTAGE}
+  callbacks:
+    on_start: patroni/scripts/aws.py
+    on_stop: patroni/scripts/aws.py
+    on_restart: patroni/scripts/aws.py
+    on_role_change: patroni/scripts/aws.py
   parameters:
     archive_mode: "on"
     wal_level: hot_standby
