@@ -1,7 +1,6 @@
 #!/bin/bash
 
 PATH=$PATH:/usr/lib/postgresql/${PGVERSION}/bin
-WALE_ENV_DIR=$PGHOME/etc/wal-e.d/env
 
 SSL_CERTIFICATE="$PGHOME/dummy.crt"
 SSL_PRIVATE_KEY="$PGHOME/dummy.key"
