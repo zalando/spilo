@@ -107,7 +107,7 @@ function write_archive_command_environment
 write_postgres_yaml
 
 # get patroni code
-git clone https://github.com/zalando/patroni.git
+git clone -b feature/external_backup https://github.com/zalando/patroni.git
 
 write_archive_command_environment
 
