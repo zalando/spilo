@@ -77,19 +77,17 @@ def process_options(opts):
     global odd_config
     global processed
 
-    if processed:
-        logging.debug('We have already processed options')
+    if processed or opts is None:
         return
-
-    processed = True
 
     options = opts
 
-    logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s', level=options['loglevel'])
+    logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s', level=options.get('loglevel', 'WARNING'))
     pg_service_name, pg_service = get_pg_service()
 
     odd_config = load_odd_config()
 
+    processed = True
 
 def cleanup():
     for name, process in managed_processes.items():
@@ -166,7 +164,8 @@ def list_spilos(**options):
     processes = get_my_processes()
 
     for _ in watching(w=False, watch=options['watch']):
-        spilos = update_spilo_info(spilos)
+        if options['details']:
+            spilos = update_spilo_info(spilos)
         print_spilos(spilos)
 
 
@@ -189,7 +188,7 @@ def print_spilos(spilos):
 
     for s in spilos:
         pretty_row = {'cluster': s.version}
-        pretty_row['dns'] = ', '.join(s.dns)
+        pretty_row['dns'] = ', '.join(s.dns or list())
 
         if s.instances is not None:
             for i in s.instances:
@@ -308,8 +307,6 @@ def get_spilos(region, clusters=None, details=False):
                             dns.append(record['name'][:-1])
 
                 if clusters is None or re_search(clusters, dns) or re_search(clusters, stack.version):
-                    if details:
-                        instances = get_stack_instance_details(stack)
                     if len(dns) > 1:
                         dns.pop(0)
                     spilos.append(Spilo(stack_name=resource.stack_name, version=stack.version, elb=elb,
@@ -529,7 +526,6 @@ export PGPORT={port}
 
     sys.exit(0)
 
-
 def pretty(something):
     return json.dumps(something, sort_keys=True, indent=4)
 
@@ -546,7 +542,7 @@ def get_pg_service():
 
     filenames = list()
 
-    if options['pg_service_file'] is not None:
+    if options.get('pg_service_file') is not None:
         filenames.append(options['pg_service_file'])
     else:
         filenames.append('~/.pg_service.conf')
@@ -560,7 +556,7 @@ def get_pg_service():
     logging.debug(pretty(options))
 
     defaults = dict()
-    defaults['port'] = options['port']
+    defaults['port'] = options.get('port', 5432)
     defaults['host'] = options['cluster']
 
     parser = configparser.ConfigParser(defaults=defaults)
@@ -580,15 +576,12 @@ def get_pg_service():
 
 
 def load_odd_config():
-    if options.get('odd_config_file') is None:
-        return dict()
+    odd_config = {'user_name':None, 'odd_host':None}
 
-    if os.path.isfile(options['odd_config_file']):
+    if options.get('odd_config_file') is not None and os.path.isfile(options['odd_config_file']):
         with open(options['odd_config_file'], 'r') as f:
             odd_config = yaml.load(f)
         logging.debug('Loaded odd configuration from {}:\n{}'.format(options['odd_config_file'], pretty(odd_config)))
-    else:
-        odd_config = dict()
 
     return odd_config
 
@@ -641,7 +634,13 @@ def get_tunnel(service_name=None, reuse=True, create=True):
     if odd_config['user_name'] is not None:
         ssh_cmd += ['{}@{}'.format(odd_config['user_name'], odd_config['odd_host'])]
     else:
-        ssh_cmd += [odd_config['odd_host']]
+        ssh_cmd += odd_config.get('odd_host') or ''
+    
+    env = os.environ.copy()
+    env['SPILOCLUSTER'] = spilo.version or ''
+    env['SPILOHOST']    = spilo.dns[0]
+    env['SPILOSERVICE'] = pg_service_name or ''
+    env['SPILOVPCID']   = spilo.vpc_id  or ''
 
     logging.debug('Testing ssh access using cmd:{}'.format(ssh_cmd))
     test = subprocess.check_output(ssh_cmd + ['printf t3st'], shell=False, stderr=subprocess.DEVNULL)
@@ -649,11 +648,6 @@ def get_tunnel(service_name=None, reuse=True, create=True):
         logging.error('Could not setup a working tunnel. You may need to request access using piu')
         raise Exception(str(test))
 
-    env = os.environ.copy()
-    env['SPILOCLUSTER'] = spilo.version or ''
-    env['SPILOHOST']    = spilo.dns[0]
-    env['SPILOSERVICE'] = pg_service_name or ''
-    env['SPILOVPCID']   = spilo.vpc_id  or ''
 
     # # We will close the opened socket as late as possible, to prevent other processes from occupying this port
     patroni_socket.close()
