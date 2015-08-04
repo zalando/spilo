@@ -12,7 +12,7 @@ function write_postgres_yaml
   local pg_port=5432
   local api_port=8008
 
-  cat >> postgres.yml <<__EOF__
+  cat > postgres.yml <<__EOF__
 ttl: &ttl 30
 loop_wait: &loop_wait 10
 scope: &scope $SCOPE
@@ -105,8 +105,11 @@ function write_archive_command_environment
 
 write_postgres_yaml
 
-# get patroni code
-git clone -b feature/external_backup https://github.com/zalando/patroni.git
+if [[ ! -d "patroni" ]]
+then
+    # get patroni code
+    git clone -b feature/external_backup https://github.com/zalando/patroni.git
+fi
 
 write_archive_command_environment
 
