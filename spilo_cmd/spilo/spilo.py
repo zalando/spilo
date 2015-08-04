@@ -11,6 +11,7 @@ import boto
 import os
 import prettytable
 import json
+import signal
 import dateutil
 import time
 import socket
@@ -34,6 +35,8 @@ STYLES['REPLICA'] = {'fg': 'yellow'}
 
 ec2 = None
 Spilo = collections.namedtuple('Spilo', 'stack_name, version, dns, elb, instances, vpc_id, stack')
+tunnels = {'patroni':None, 'postgres':None}
+managed_processes = dict()
 
 processed = False
 PIUCONFIG = '~/.config/piu/piu.yaml'
@@ -43,14 +46,13 @@ PIUCONFIG = os.path.expanduser(PIUCONFIG)
 
 option_port = click.option('-p', '--port', type=click.INT, help='The PostgreSQL port', envvar='PGPORT', default=5432)
 option_log_level = click.option('--log-level', '--loglevel', help='Set the log level.', default='WARNING')
-option_odd_host = click.option('--odd-host', help='Odd SSH bastion hostname')
-option_odd_user = click.option('--odd-user', help='Username to use for OAuth2 authentication')
 option_odd_config_file = click.option('--odd-config-file', help='Alternative odd config file',
                                       type=click.Path(exists=False), default=os.path.expanduser(PIUCONFIG))
 option_pg_service_file = click.option('--pg_service-file', help='The PostgreSQL service file', envvar='PGSERVICEFILE',
                                       type=click.Path(exists=True))
 option_region = click.option('--region', envvar='AWS_DEFAULT_REGION', metavar='AWS_REGION_ID',
                              help='AWS region ID (e.g. eu-west-1)')
+option_reuse = click.option('--reuse/--no-reuse', default=True, help='Reuse an already exisiting tunnel')
 
 cluster_argument = click.argument('cluster')
 
@@ -60,13 +62,6 @@ def cli():
     """
     Spilo can connect to your Spilo cluster running inside a vpc. It does this using the stups infrastructure.
     """
-
-    global processes
-    global tunnels
-    global options
-
-    processes = dict()
-    tunnels = dict()
 
     # # Ensure all are spawned processes will be cleaned in the end
     atexit.register(cleanup)
@@ -93,17 +88,14 @@ def process_options(opts):
     logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s', level=options['loglevel'])
     pg_service_name, pg_service = get_pg_service()
 
-    if (pg_service_name or 'default') != 'default':
-        options['cluster'] = pg_service['host']
-
     odd_config = load_odd_config()
 
 
 def cleanup():
-    for name in processes:
-        if processes[name].returncode is None:
-            logging.info('Terminating process {} (pid={})'.format(name, processes[name].pid))
-            processes[name].kill()
+    for name, process in managed_processes.items():
+        if process.returncode is None:
+            logging.info('Terminating process {} (pid={})'.format(name, process.pid))
+            process.kill()
     os.system('stty sane')
 
 
@@ -123,9 +115,8 @@ def libpq_parameters():
 @option_port
 @option_pg_service_file
 @option_odd_config_file
-@option_odd_user
-@option_odd_host
 @option_region
+@option_reuse
 @option_log_level
 @click.argument('psql_arguments', nargs=-1, metavar='[-- [psql OPTIONS]]')
 def connect(**options):
@@ -133,7 +124,7 @@ def connect(**options):
 
     process_options(options)
 
-    tunnel_pid = open_tunnel()
+    tunnel_pid = get_tunnel(options['cluster'], options['reuse'])
 
     psql_cmd = ['psql', libpq_parameters()[1]]
     psql_cmd.extend(options['psql_arguments'])
@@ -141,7 +132,7 @@ def connect(**options):
     logging.debug('psql command: {}'.format(psql_cmd))
 
     psql = subprocess.Popen(psql_cmd)
-    processes['psql'] = psql
+    managed_processes['psql'] = psql
     psql.wait()
 
 
@@ -172,7 +163,7 @@ def list_spilos(**options):
     else:
         spilos = get_spilos(region=options['region'], clusters=options['clusters'], details=options['details'])
 
-    processes = get_my_processes(options['clusters'])
+    processes = get_my_processes()
 
     for _ in watching(w=False, watch=options['watch']):
         spilos = update_spilo_info(spilos)
@@ -348,7 +339,7 @@ def get_stack_instance_details(stack):
 
                 instances.append(instance)
 
-    instances.sort(key=lambda k: k['role'])
+    instances.sort(key=lambda k: (k['role'], k['instance_id']))
 
     return instances
 
@@ -367,46 +358,28 @@ def parse_time(s: str) -> float:
     except:
         return None
 
-def list_tunnels(cluster_names=None):
-    logging.debug('Cluster names: {}'.format(cluster_names))
-
-    processes = get_my_processes(cluster_names)
+def list_tunnels(cluster):
+    processes = get_my_processes()
     processes.sort(key=lambda k: k['cluster'])
-
-    if len(processes) == 0:
-        return
 
     columns = [
         'pid',
-        'process',
-        'cluster',
-        'pgport',
-        'patroniport',
+        'host',
+        'service',
         'dsn',
     ]
-    table = prettytable.PrettyTable(columns)
-    table.align['cluster'] = 'r'
-    table.align['pid'] = 'r'
-    table.align['pgport'] = 'r'
-    table.align['patroniport'] = 'r'
-    for p in processes:
-        table.add_row([p[c] for c in columns])
 
-    print(table)
+    rows = list()
+    if cluster is not None:
+        for p in processes:
+            if re.search(cluster, p['host']) or re.search(cluster, p.get('service', '')):
+                rows.append(p)
+    else:
+        rows = processes
 
-def get_my_processes(cluster_names=None, commands=None):
-    if cluster_names is not None and len(cluster_names) == 0:
-        cluster_names = None
-    if isinstance(cluster_names, str):
-        cluster_names = [cluster_names]
+    print_table(columns, rows, styles=STYLES, titles=TITLES)
 
-    if commands is not None and len(commands) == 0:
-        commands = None
-    if isinstance(commands, str):
-        commands = [commands]
-
-    logging.debug('Cluster names: {}'.format(cluster_names))
-
+def get_my_processes():
     # # We do not use psutil for processes, as environment variables of processes is not
     # # available from it. We will just use good old ps for the task
 
@@ -424,17 +397,17 @@ def get_my_processes(cluster_names=None, commands=None):
     ps_output = subprocess.check_output(ps_cmd, shell=False, stderr=subprocess.DEVNULL, env={'LANG': 'C'}).splitlines()
     ps_output.reverse()
 
-    logging.debug('Examining {} processes'.format(len(ps_output)))
-
     processes = list()
 
-    process_re = re.compile('^\s*(\d+)\s+([^\s]+).*SPILOCLUSTER=([^\s]+)')
+    process_re = re.compile('^\s*(\d+)\s+([^\s]+).*SPILOCLUSTER=([^\s]*)')
     pgport_re = re.compile('SPILOPGPORT=(\d+)')
     patroniport_re = re.compile('SPILOPATRONIPORT=(\d+)')
-    service_re = re.compile('SPILOSERVICE=(\w+)')
+    service_re  = re.compile('SPILOSERVICE=(\w*)')
+    host_re = re.compile('SPILOHOST=([^\s]*)')
+    vpc_re    = re.compile('SPILOVPCID=([^\s]*)')
 
-    # # We cannot disable the header on every ps (Mac OS X for example), the first line is a header)
-    line = ps_output.pop().decode('utf-8')
+    # # We cannot disable the header on every ps (Mac OS X for example), the first line is a header
+    line = ps_output.pop()
     while len(ps_output) > 0:
         line = ps_output.pop().decode('utf-8')
 
@@ -459,18 +432,32 @@ def get_my_processes(cluster_names=None, commands=None):
             if match:
                 process['patroniport'] = match.group(1)
 
+            match = host_re.search(line)
+            if match:
+                process['host'] = match.group(1)
+
+            match = vpc_re.search(line)
+            if match:
+                process['vpc_id'] = match.group(1)
+
             match = service_re.search(line)
             if match:
                 process['service'] = match.group(1)
 
             logging.debug('Process: {}'.format(process))
+
+            service_dsn = process.get('service')
+            if service_dsn is None:
+                service_dsn = ''
+            else:
+                service_dsn = ' service={}'.format(service_dsn)           
+ 
+            process['dsn'] = '"host=localhost port={}{}"'.format(process['pgport'], service_dsn)
+            processes.append(process)
         else:
 
             # logging.debug("Disregarding line: {}".format(line))
             pass
-
-    for p in processes:
-        p['dsn'] = '"host=localhost port={} service={}"'.format(p['pgport'], p['service'])
 
     logging.debug('Processes : {}'.format(pretty(processes)))
     return processes
@@ -478,14 +465,15 @@ def get_my_processes(cluster_names=None, commands=None):
 
 @cli.command('tunnel', short_help='Create a tunnel')
 @click.option('--background/--no-background', default=True, help='Push the tunnel in the background')
-@cluster_argument
+@click.option('--kill', help='Kill the tunnel for the specified cluster', is_flag=True)
+@click.option('--list', help='List all the tunnels that are available', is_flag=True)
+@option_reuse
 @option_port
 @option_pg_service_file
 @option_odd_config_file
-@option_odd_user
-@option_odd_host
 @option_region
 @option_log_level
+@cluster_argument
 def tunnel(**options):
     """Sets up a tunnel to use for connecting to Spilo"""
 
@@ -493,7 +481,24 @@ def tunnel(**options):
 
     process_options(options)
 
-    tunnel_pid = open_tunnel()
+    if options['list']:
+        list_tunnels(options['cluster'])
+        sys.exit(0)
+
+    if options['kill']:
+        pid = get_tunnel(options['cluster'], reuse=True, create=False)
+        if pid is None:
+            logging.warning("There was no tunnel to kill")
+        else:
+            print("Terminating process with pid={}".format(pid))
+            os.kill(int(pid), signal.SIGKILL)
+        sys.exit(0)
+
+    tunnel_pid = get_tunnel(options['cluster'], options['reuse'])
+
+    if tunnel_pid is None:
+        raise Exception('Tunnel was requested but no pid was returned')
+    
 
     if pg_service_name is None:
         pg_service_env = ''
@@ -521,8 +526,6 @@ export PGPORT={port}
 
 """.format(pid=tunnel_pid,
             cluster=options['cluster'], dsn=libpq_parameters()[1], port=tunnels['postgres'], pgservice=pg_service_env))
-
-    list_tunnels(options['cluster'])
 
     sys.exit(0)
 
@@ -587,39 +590,41 @@ def load_odd_config():
     else:
         odd_config = dict()
 
-    odd_config['user_name'] = options.get('odd_user') or odd_config.get('user_name')
-    odd_config['odd_host'] = options.get('odd_host') or odd_config.get('odd_host')
-
     return odd_config
 
 
-def open_tunnel():
-    cluster = '^' + options['cluster']
-    p = get_my_processes(cluster_names=cluster + '$', commands=['ssh'])
-    if len(p) == 1:
-        logging.info('Found a tunnel which is available: {}'.format(pretty(p)))
-        tunnels['postgres'] = p[0]['pgport']
-        tunnels['patroni'] = p[0]['patroniport']
+def get_tunnel(service_name=None, reuse=True, create=True):
+    if service_name is None:
         return
 
-    spilos = get_spilos(options['region'], [cluster])
+    processes = get_my_processes()
 
-    if len(spilos) == 0:
-        raise Exception('Could not find a spilo cluster beginning with {}'.format(options['cluster']))
+    processes = [p for p in processes if service_name in p['host']]
 
-    if len(spilos) > 1:
-        print_spilos(spilos)
-        raise Exception('Multiple candidates starting with {}'.format(options['cluster']))
+    if reuse and len(processes) > 0:
+        logging.info('Found a tunnel which is available: {}'.format(pretty(processes)))
+        tunnels['postgres'] = processes[0]['pgport']
+        tunnels['patroni'] = processes[0]['patroniport']
+        return processes[0]['pid']
 
-    p = get_my_processes(cluster_names=cluster)
-    if len(p) > 0:
-        logging.info('Found a tunnel which is available: {}'.format(pretty(p)))
-        tunnels['postgres'] = p[0]['pgport']
-        tunnels['patroni'] = p[0]['patroniport']
-        return p[0]['pid']
+    if not create:
+        return None
 
-    cluster = spilos[0]
-    logging.info("Didn't find a tunnel available")
+    if service_name == pg_service_name:
+        host  = pg_service.get('hostaddr') or pg_service.get('host') or pg_service_name
+        spilo = Spilo(stack_name=None, version=None, dns=[host], elb=None, instances=None, vpc_id=None, stack=None)
+    else:
+        spilos = get_spilos(options['region'], [service_name])
+        if len(spilos) == 0:
+            raise Exception('Could not find a spilo cluster beginning with {}'.format(options['cluster']))
+
+        if len(spilos) > 1:
+            logging.error('Multiple candidates starting with {}:\n'.format(options['cluster']))
+            print_spilos(spilos)
+            sys.exit(1)
+        spilo = spilos[0]
+    
+
     # # We open 2 sockets and let the OS pick a free port for us
     # # later on we will use these ports for portforwarding
     pg_socket = socket.socket()
@@ -645,9 +650,10 @@ def open_tunnel():
         raise Exception(str(test))
 
     env = os.environ.copy()
-    env['SPILOCLUSTER'] = options['cluster']
-    env['SPILOSERVICE'] = pg_service_name
-    env['SPILOVPCID'] = cluster.vpc_id
+    env['SPILOCLUSTER'] = spilo.version or ''
+    env['SPILOHOST']    = spilo.dns[0]
+    env['SPILOSERVICE'] = pg_service_name or ''
+    env['SPILOVPCID']   = spilo.vpc_id  or ''
 
     # # We will close the opened socket as late as possible, to prevent other processes from occupying this port
     patroni_socket.close()
@@ -658,16 +664,16 @@ def open_tunnel():
 
     env['SPILOPGPORT'] = str(tunnels['postgres'])
     port = str(pg_service['port'] or options['port'])
-    ssh_cmd.append('{}:{}:{}'.format(tunnels['postgres'], cluster.elb['dns_name'], str(port)))
+    ssh_cmd.append('{}:{}:{}'.format(tunnels['postgres'], spilo.dns[0], str(port)))
 
     ssh_cmd.append('-L')
     env['SPILOPATRONIPORT'] = str(tunnels['patroni'])
     port = 8008
-    ssh_cmd.append('{}:{}:{}'.format(tunnels['patroni'], pg_service['host'], str(port)))
+    ssh_cmd.append('{}:{}:{}'.format(tunnels['patroni'], spilo.dns[0], str(port)))
 
     ssh_cmd.append('-N')
 
-    logging.info('Setting up tunnel command: {}'.format(ssh_cmd))
+    logging.info('Setting up tunnel command: {}, env={}'.format(ssh_cmd, pretty(env)))
 
     tunnel = subprocess.Popen(ssh_cmd, shell=False, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL, env=env)
     tunnel.poll()
@@ -696,7 +702,7 @@ def open_tunnel():
     logging.debug('Established connectivity on tunnel after {} seconds'.format(time.time() - epoch_time))
 
     if not options.get('background', False):
-        processes['tunnel'] = tunnel
+        managed_processes['tunnel'] = tunnel
 
     return tunnel.pid
 
