@@ -108,7 +108,7 @@ write_postgres_yaml
 if [[ ! -d "patroni" ]]
 then
     # get patroni code
-    git clone -b feature/external_backup https://github.com/zalando/patroni.git
+    git clone https://github.com/zalando/patroni.git
 fi
 
 write_archive_command_environment
