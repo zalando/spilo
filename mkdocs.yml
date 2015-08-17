@@ -10,3 +10,6 @@ pages:
     - Deploy spilo: user-guide/deploy_spilo.md
     - Deploy etcd: user-guide/deploy_etcd.md
     - Connect to spilo: user-guide/connect_spilo.md
+  - Administrator Guide:
+    - Sizing spilo: admin-guide/sizing.md
+    - Scaling up or down: admin-guide/scaling.md
