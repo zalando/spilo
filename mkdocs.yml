@@ -9,3 +9,4 @@ pages:
     - Prerequisites: user-guide/prerequisites.md
     - Deploy spilo: user-guide/deploy_spilo.md
     - Deploy etcd: user-guide/deploy_etcd.md
+    - Connect to spilo: user-guide/connect_spilo.md
