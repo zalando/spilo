@@ -34,7 +34,6 @@ STYLES['MASTER'] = {'fg': 'green'}
 STYLES['REPLICA'] = {'fg': 'yellow'}
 
 ec2 = None
-Spilo = collections.namedtuple('Spilo', 'stack_name, version, dns, elb, instances, vpc_id, stack')
 tunnels = {'patroni':None, 'postgres':None}
 managed_processes = dict()
 
@@ -55,6 +54,10 @@ option_region = click.option('--region', envvar='AWS_DEFAULT_REGION', metavar='A
 option_reuse = click.option('--reuse/--no-reuse', default=True, help='Reuse an already exisiting tunnel')
 
 cluster_argument = click.argument('cluster')
+
+
+class Spilo(collections.namedtuple('Spilo', 'stack_name, version, dns, elb, instances, vpc_id, stack')):
+    pass
 
 
 @click.group(cls=AliasedGroup)
@@ -233,6 +236,8 @@ def get_spilo_resources(stack, cloud_formation_connection):
             if resource.logical_resource_id == 'PostgresLoadBalancer':
                 return resources
 
+        
+
     logging.debug('Stack {} is not a spilo appliance'.format(stack.stack_name))
     return None
 
@@ -276,6 +281,10 @@ def get_spilos(region, clusters=None, details=False):
             cname_records.append({'name': rr.name, 'resource_records': rr.resource_records})
 
     spilos = list()
+
+    # # How to recognize a Spilo: There are a few things we can use to determine which stack is a spilo
+    # # The name itself is very volatile, therefore not a good candidate.
+    # # Stacks containing a PostgresLoadBalancer are deemed to be a spilo, q:x
 
 
     # # We try to do as little work as possible. Therefore we try to filter out non-matching stacks asap
