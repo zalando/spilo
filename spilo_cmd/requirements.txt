@@ -1,0 +1,6 @@
+clickclick>=0.9
+boto>=2.37.0
+PyYAML
+stups-pierone>=0.7
+stups-senza>=0.6
+boto3>=1.0.1
