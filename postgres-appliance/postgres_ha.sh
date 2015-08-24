@@ -1,7 +1,6 @@
 #!/bin/bash
 
 PATH=$PATH:/usr/lib/postgresql/${PGVERSION}/bin
-WALE_ENV_DIR=$PGHOME/etc/wal-e.d/env
 
 SSL_CERTIFICATE="$PGHOME/dummy.crt"
 SSL_PRIVATE_KEY="$PGHOME/dummy.key"
@@ -75,6 +74,7 @@ postgresql:
     env_dir: $WALE_ENV_DIR
     threshold_megabytes: ${WALE_BACKUP_THRESHOLD_MEGABYTES}
     threshold_backup_size_percentage: ${WALE_BACKUP_THRESHOLD_PERCENTAGE}
+  restore: patroni/scripts/restore.py
   callbacks:
     on_start: patroni/scripts/aws.py
     on_stop: patroni/scripts/aws.py
