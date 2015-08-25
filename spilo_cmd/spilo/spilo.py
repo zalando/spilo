@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import click
 import atexit
@@ -236,10 +236,9 @@ def get_spilo_resources(stack, cloud_formation_connection):
             if resource.logical_resource_id == 'PostgresLoadBalancer':
                 return resources
 
-        
-
     logging.debug('Stack {} is not a spilo appliance'.format(stack.stack_name))
     return None
+
 
 def update_spilo_info(spilos):
     global ec2
@@ -248,9 +247,10 @@ def update_spilo_info(spilos):
     new_spilos = list()
 
     for old_spilo in spilos:
-        new_spilos.append( Spilo(old_spilo.stack_name, old_spilo.version, old_spilo.dns, old_spilo.elb, get_stack_instance_details(old_spilo.stack), old_spilo.vpc_id, old_spilo.stack) )
-        
-    return new_spilos    
+        new_spilos.append(Spilo(old_spilo.stack_name, old_spilo.version, old_spilo.dns, old_spilo.elb,
+                          get_stack_instance_details(old_spilo.stack), old_spilo.vpc_id, old_spilo.stack))
+    return new_spilos
+
 
 def get_spilos(region, clusters=None, details=False):
     global ec2
@@ -285,7 +285,6 @@ def get_spilos(region, clusters=None, details=False):
     # # How to recognize a Spilo: There are a few things we can use to determine which stack is a spilo
     # # The name itself is very volatile, therefore not a good candidate.
     # # Stacks containing a PostgresLoadBalancer are deemed to be a spilo, q:x
-
 
     # # We try to do as little work as possible. Therefore we try to filter out non-matching stacks asap
     stacks = list()
@@ -322,6 +321,7 @@ def get_spilos(region, clusters=None, details=False):
                                   instances=instances, dns=dns, vpc_id=vpc_id, stack=stack))
 
     return spilos
+
 
 def get_stack_instance_details(stack):
     global ec2
@@ -364,6 +364,7 @@ def parse_time(s: str) -> float:
     except:
         return None
 
+
 def list_tunnels(cluster):
     processes = get_my_processes()
     processes.sort(key=lambda k: k['cluster'])
@@ -385,6 +386,7 @@ def list_tunnels(cluster):
 
     print_table(columns, rows, styles=STYLES, titles=TITLES)
 
+
 def get_my_processes():
     # # We do not use psutil for processes, as environment variables of processes is not
     # # available from it. We will just use good old ps for the task
@@ -400,7 +402,8 @@ def get_my_processes():
         'pid,command',
     ]
 
-    ps_output = subprocess.check_output(ps_cmd, shell=False, stderr=subprocess.DEVNULL, env={'LANG': 'C'}).splitlines()
+    ps_output = subprocess.check_output(ps_cmd, shell=False, stderr=subprocess.DEVNULL,
+                                        env={'LANG': 'C'}).splitlines()
     ps_output.reverse()
 
     processes = list()
@@ -408,9 +411,9 @@ def get_my_processes():
     process_re = re.compile('^\s*(\d+)\s+([^\s]+).*SPILOCLUSTER=([^\s]*)')
     pgport_re = re.compile('SPILOPGPORT=(\d+)')
     patroniport_re = re.compile('SPILOPATRONIPORT=(\d+)')
-    service_re  = re.compile('SPILOSERVICE=(\w*)')
+    service_re = re.compile('SPILOSERVICE=(\w*)')
     host_re = re.compile('SPILOHOST=([^\s]*)')
-    vpc_re    = re.compile('SPILOVPCID=([^\s]*)')
+    vpc_re = re.compile('SPILOVPCID=([^\s]*)')
 
     # # We cannot disable the header on every ps (Mac OS X for example), the first line is a header
     line = ps_output.pop()
@@ -456,8 +459,8 @@ def get_my_processes():
             if service_dsn is None:
                 service_dsn = ''
             else:
-                service_dsn = ' service={}'.format(service_dsn)           
- 
+                service_dsn = ' service={}'.format(service_dsn)
+
             process['dsn'] = '"host=localhost port={}{}"'.format(process['pgport'], service_dsn)
             processes.append(process)
         else:
@@ -504,7 +507,6 @@ def tunnel(**options):
 
     if tunnel_pid is None:
         raise Exception('Tunnel was requested but no pid was returned')
-    
 
     if pg_service_name is None:
         pg_service_env = ''
@@ -531,9 +533,10 @@ export PGPORT={port}
 {pgservice}
 
 """.format(pid=tunnel_pid,
-            cluster=options['cluster'], dsn=libpq_parameters()[1], port=tunnels['postgres'], pgservice=pg_service_env))
+           cluster=options['cluster'], dsn=libpq_parameters()[1], port=tunnels['postgres'], pgservice=pg_service_env))
 
     sys.exit(0)
+
 
 def pretty(something):
     return json.dumps(something, sort_keys=True, indent=4)
@@ -613,7 +616,7 @@ def get_tunnel(service_name=None, reuse=True, create=True):
         return None
 
     if service_name == pg_service_name:
-        host  = pg_service.get('hostaddr') or pg_service.get('host') or pg_service_name
+        host = pg_service.get('hostaddr') or pg_service.get('host') or pg_service_name
         spilo = Spilo(stack_name=None, version=None, dns=[host], elb=None, instances=None, vpc_id=None, stack=None)
     else:
         spilos = get_spilos(options['region'], [service_name])
@@ -625,7 +628,6 @@ def get_tunnel(service_name=None, reuse=True, create=True):
             print_spilos(spilos)
             sys.exit(1)
         spilo = spilos[0]
-    
 
     # # We open 2 sockets and let the OS pick a free port for us
     # # later on we will use these ports for portforwarding
@@ -644,12 +646,12 @@ def get_tunnel(service_name=None, reuse=True, create=True):
         ssh_cmd += ['{}@{}'.format(odd_config['user_name'], odd_config['odd_host'])]
     else:
         ssh_cmd += odd_config.get('odd_host') or ''
-    
+
     env = os.environ.copy()
     env['SPILOCLUSTER'] = spilo.version or ''
-    env['SPILOHOST']    = spilo.dns[0]
+    env['SPILOHOST'] = spilo.dns[0]
     env['SPILOSERVICE'] = pg_service_name or ''
-    env['SPILOVPCID']   = spilo.vpc_id  or ''
+    env['SPILOVPCID'] = spilo.vpc_id or ''
 
     logging.debug('Testing ssh access using cmd:{}'.format(ssh_cmd))
     test = subprocess.check_output(ssh_cmd + ['printf t3st'], shell=False, stderr=subprocess.DEVNULL)
@@ -658,7 +660,7 @@ def get_tunnel(service_name=None, reuse=True, create=True):
         raise Exception(str(test))
 
 
-    # # We will close the opened socket as late as possible, to prevent other processes from occupying this port
+    # We will close the opened socket as late as possible, to prevent other processes from occupying this port
     patroni_socket.close()
     pg_socket.close()
 
