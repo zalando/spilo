@@ -2,7 +2,7 @@ import collections
 
 from click.testing import CliRunner
 
-from spilo.spilo import cli, process_options, print_spilos, tunnel, get_tunnel
+from spilo.spilo import cli, process_options, print_spilos, tunnel
 
 Spilo = collections.namedtuple('Spilo', 'stack_name, version, dns, elb, instances, vpc_id, stack')
 
