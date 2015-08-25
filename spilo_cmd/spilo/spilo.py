@@ -395,7 +395,7 @@ def get_my_processes():
         'ps',
         'e',
         '-eww',
-        '-u',
+        '-U',
         getpass.getuser(),
         '-A',
         '-o',
