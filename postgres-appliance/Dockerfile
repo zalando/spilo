@@ -43,7 +43,7 @@ RUN pip install six --upgrade
 RUN pip install wal-e
 
 # Install kazoo for ZooKeeper
-RUN pip install kazoo
+RUN pip install kazoo python-etcd
 
 ENV ETCDVERSION 2.0.13
 # install etcd

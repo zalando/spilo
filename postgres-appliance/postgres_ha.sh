@@ -39,6 +39,13 @@ __EOF__
     hosts: ${EXHIBITOR_HOSTS}
 __EOF__
     fi
+  elif [[ -n $ETCD_HOST ]]; then
+    cat >> postgres.yml <<__EOF__
+etcd:
+  scope: *scope
+  ttl: *ttl
+  host: ${ETCD_HOST}
+__EOF__
   elif [[ -n $ETCD_DISCOVERY_DOMAIN ]]; then
     cat >> postgres.yml <<__EOF__
 etcd:
