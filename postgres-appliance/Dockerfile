@@ -60,12 +60,13 @@ RUN cp /etc/ssl/private/ssl-cert-snakeoil.key $PGHOME/dummy.key && cp /etc/ssl/c
 
 # Install Patroni
 ENV PATRONIVERSION 0.1
+WORKDIR $PGHOME
 RUN git clone https://github.com/zalando/patroni.git
-WORKDIR /patroni
+WORKDIR $PGHOME/patroni
 RUN git checkout tags/v${PATRONIVERSION}
 
 ADD postgres_ha.sh /
-RUN chown postgres:postgres $PGHOME /patroni -R
+RUN chown postgres:postgres $PGHOME -R
 RUN chown postgres:postgres /postgres_ha.sh
 RUN chmod 700 /postgres_ha.sh
 
