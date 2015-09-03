@@ -58,8 +58,14 @@ ENV PATH $PATH:/usr/lib/postgresql-${PGVERSION}/bin
 # Copy the snakeoil certificates for usage as dummy certificates
 RUN cp /etc/ssl/private/ssl-cert-snakeoil.key $PGHOME/dummy.key && cp /etc/ssl/certs/ssl-cert-snakeoil.pem $PGHOME/dummy.crt
 
+# Install Patroni
+ENV PATRONIVERSION 0.1
+RUN git clone https://github.com/zalando/patroni.git
+WORKDIR /patroni
+RUN git checkout tags/v${PATRONIVERSION}
+
 ADD postgres_ha.sh /
-RUN chown postgres:postgres $PGHOME -R
+RUN chown postgres:postgres $PGHOME /patroni -R
 RUN chown postgres:postgres /postgres_ha.sh
 RUN chmod 700 /postgres_ha.sh
 

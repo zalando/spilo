@@ -111,13 +111,6 @@ function write_archive_command_environment
 }
 
 write_postgres_yaml
-
-if [[ ! -d "patroni" ]]
-then
-    # get patroni code
-    git clone https://github.com/zalando/patroni.git
-fi
-
 write_archive_command_environment
 
 # run wal-e s3 backup periodically
