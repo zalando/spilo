@@ -10,7 +10,6 @@ SenzaComponents:
       - EtcdSecurityGroup
       - GroupId
     TaupageConfig:
-      application_id: "{{Arguments.ApplicationId}}"
       ports:
         2379: 2379
         2380: 2380
@@ -24,7 +23,6 @@ SenzaComponents:
           filesystem: tmpfs
           erase_on_boot: false
           options: size=512m
-      mint_bucket: '{{Arguments.MintBucket}}'
       scalyr_account_key: '{{Arguments.ScalyrAccountKey}}'
     Type: Senza::TaupageAutoScalingGroup
     AutoScaling:
@@ -33,14 +31,10 @@ SenzaComponents:
       MetricType: CPU
 SenzaInfo:
   Parameters:
-  - ApplicationId:
-      Description: Name of your etcd application from Kio/Yourturn
   - HostedZone:
       Description: AWS Hosted Zone to work with
   - DockerImage:
       Description: Docker image of etcd-cluster.
-  - MintBucket:
-      Description: The mint S3 bucket for OAuth 2.0 credentials
   - ScalyrAccountKey:
       Description: scalyr account key
   StackName: etcd-cluster
@@ -80,9 +74,6 @@ Resources:
           - Effect: Allow
             Action: autoscaling:Describe*
             Resource: "*"
-          - Effect: Allow
-            Action: "s3:GetObject"
-            Resource: ["arn:aws:s3:::{{Arguments.MintBucket}}/*"]
       - PolicyName: AmazonRoute53Access
         PolicyDocument:
           Version: "2012-10-17"

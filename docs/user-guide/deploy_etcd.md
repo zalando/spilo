@@ -6,13 +6,10 @@ The following prerequisites need to be met.
 * `stups-senza`
 * A [Senza Definition](http://stups.readthedocs.org/en/latest/components/senza.html#senza-definition)
 * A template can be found here: [etcd-appliance.yaml](https://github.com/zalando/spilo/blob/master/etcd-cluster-appliance/etcd-cluster.yaml)
-* The Security Group defined in the Senza Definition needs to be created
-* The appliction\_id `etcd-cluster` needs to be registered in yourturn
-* The S3 mint bucket needs to be added to the Access Control
 
 To deploy the etcd-appliance, use the following:
 
-	senza create DEFINITION.yaml VERSION HOSTED_ZONE DOCKER_IMAGE MINT_BUCKET
+	senza create DEFINITION.yaml VERSION HostedZone=<HOSTED_ZONE> DockerImage=<DOCKER_IMAGE> ScalyrAccountKey=<SCALAR_KEY>
 
 This will create and execute a cloud formation template for you.
 
@@ -23,8 +20,17 @@ Argument   		   | Value
 Definition         | etcd-appliance.yaml
 Hosted zone 	   | team.example.com
 Version 		   | release
-Docker repository  | docker.registry.example.com
-Docker image       | repository/etcd-appliance
-Image tag          | 0.2-SNAPSHOT
+Docker repository  | os-registry.stups.zalan.do
+DockerImage       | acid/etcd-cluster
+Image tag          | 2.0.13-p1
+Scalyr Key         | mykey
 
-	senza create etcd-cluster.yaml release team.example.com docker.registry.example.com/repository/etcd-appliance:0.2-SNAPSHOT bytes-other-12345690-us-west-1
+	senza create etcd-cluster.yaml release HostedZone=team.example.com DockerImage=os-registry.stups.zalan.do/acid/etcd-cluster:2.0.13-p1 ScalyrAccountKey=mykey
+
+The etcd appliance will create 2 dns-records within the specified HostedZone, they will reflect changes within
+the cluster:
+
+- `_etcd-server._tcp.<Version>.<HostedZone>`  a `SRV` record for discovery purposes
+- `etcd-server.<Version>.<HostedZone>`: an `A` record 
+
+If you want your own specific dns-record to point to etcd, create a `CNAME` which points to the `A` record.
