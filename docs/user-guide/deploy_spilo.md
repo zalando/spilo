@@ -4,8 +4,6 @@ Prerequisites
 * Have an etcd-cluster available
 * Have some global idea about the usage characteristics of the appliance
 * Have unique name for the cluster
-* The appliction\_id `spilo` (you can change this though) needs to be registered in yourturn
-* The S3 mint bucket needs to be added to the Access Control
 
 You can use senza init to create a senza definition for the spilo appliance,
 the `ETCD_DISCOVERY_DOMAIN` should point to `HOSTED_ZONE` from the etcd-appliance that you want to use.
