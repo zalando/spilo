@@ -24,7 +24,7 @@ Argument   		   | Value
 -------------------|-------
 Definition		   | spilo.yaml
 Cluster Name	   | pompeii
-Docker repository  | os-registry.stups.acid.zalan.do
+Docker repository  | os-registry.stups.zalan.do
 Docker image       | spilo-9.4 
 Image tag          | 0.1-p1
 
