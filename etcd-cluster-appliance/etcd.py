@@ -223,45 +223,20 @@ class EtcdCluster:
             if self.manager.instance_id in [m.instance_id, m.name]:
                 self.me = m
 
-    def is_new_cluster(self):
-        return self.accessible_member is None or self.me.id and self.me.name and len(self.me.client_urls) == 0
-
-    def initialize_new_cluster(self):
-        peers = ','.join(['{}={}'.format(m.instance_id or m.name, m.get_peer_url()) for m in self.members
-                         if m.instance_id or m.peer_urls])
-        logging.debug('Initializing new cluster with members %s', peers)
-        return self.me.etcd_arguments(self.manager.DATA_DIR, peers, 'new')
-
-    def register_me(self):
-        if self.is_new_cluster():
-            return self.initialize_new_cluster()
-
-        logging.debug('Trying to register myself in existing cluster')
-
-        if not self.leader or not self.accessible_member:
-            raise Exception('Etcd cluster does not have leader yet. Can not add myself')
-
-        add_member = False
-        if len(self.me.client_urls) > 0:
-            if not self.accessible_member.delete_member(self.me):
-                raise Exception('Can not remove my old instance from etcd cluster')
-            add_member = True
-        elif not self.me.id:
-            add_member = True
-
-        if add_member and not self.accessible_member.add_member(self.me):
-            raise Exception('Can not register myself in etcd cluster')
-
-        peers = ','.join(['{}={}'.format(m.instance_id or m.name, m.get_peer_url()) for m in self.members
-                         if m.peer_urls])
-        return self.me.etcd_arguments(self.manager.DATA_DIR, peers, 'existing')
+    def is_healthy(self):
+        for m in self.members:
+            if not m.instance_id:
+                logging.warning('Member id=%s name=%s is not part of ASG', m.id, m.name)
+                logging.warning('Will wait until it would be removed from cluster')
+                return False
+        return True
 
 
 class EtcdManager:
 
     ETCD_BINARY = '/bin/etcd'
     DATA_DIR = 'data'
-    NAPTIME = 5
+    NAPTIME = 30
 
     def __init__(self):
         self.region = None
@@ -317,23 +292,54 @@ class EtcdManager:
         except:
             logging.exception('Can not remove %s', path)
 
+    def register_me(self, cluster):
+        cluster_state = 'existing'
+        include_ec2_instances = remove_member = add_member = False
+        data_exists = os.path.exists(self.DATA_DIR)
+        if cluster.accessible_member is None:
+            include_ec2_instances = True
+            cluster_state = 'existing' if data_exists else 'new'
+        elif len(cluster.me.client_urls) > 0:
+            remove_member = add_member = not data_exists
+        else:
+            if cluster.me.id:
+                cluster_state = 'new' if cluster.me.name else 'existing'
+            else:
+                add_member = True
+            self.clean_data_dir()
+
+        if add_member or remove_member:
+            if not cluster.leader:
+                raise Exception('Etcd cluster does not have leader yet. Can not add myself')
+            if remove_member and not cluster.accessible_member.delete_member(cluster.me):
+                raise Exception('Can not remove my old instance from etcd cluster')
+            time.sleep(self.NAPTIME)
+            if add_member and not cluster.accessible_member.add_member(cluster.me):
+                raise Exception('Can not register myself in etcd cluster')
+            time.sleep(self.NAPTIME)
+
+        peers = ','.join(['{}={}'.format(m.instance_id or m.name, m.get_peer_url()) for m in cluster.members
+                         if (include_ec2_instances and m.instance_id) or m.peer_urls])
+
+        return cluster.me.etcd_arguments(self.DATA_DIR, peers, cluster_state)
+
     def run(self):
         cluster = EtcdCluster(self)
         while True:
             try:
                 cluster.load_members()
 
-                args = cluster.register_me()
+                if cluster.is_healthy():
+                    args = self.register_me(cluster)
 
-                self.etcd_pid = os.fork()
-                if self.etcd_pid == 0:
-                    self.clean_data_dir()
-                    os.execv(self.ETCD_BINARY, [self.ETCD_BINARY] + args)
+                    self.etcd_pid = os.fork()
+                    if self.etcd_pid == 0:
+                        os.execv(self.ETCD_BINARY, [self.ETCD_BINARY] + args)
 
-                logging.warning('Started new etcd process with pid: %s and args: %s', self.etcd_pid, args)
-                pid, status = os.waitpid(self.etcd_pid, 0)
-                logging.warning('Porcess %s finished with exit code %s', pid, status >> 8)
-                self.etcd_pid = 0
+                    logging.info('Started new etcd process with pid: %s and args: %s', self.etcd_pid, args)
+                    pid, status = os.waitpid(self.etcd_pid, 0)
+                    logging.warning('Process %s finished with exit code %s', pid, status >> 8)
+                    self.etcd_pid = 0
             except KeyboardInterrupt:
                 logging.warning('Got keyboard interrupt, exiting...')
                 break
@@ -418,6 +424,11 @@ class HouseKeeper(Thread):
 
         record_name = '.'.join(['_etcd-server._tcp', stack_version, self.hosted_zone])
         new_record = [' '.join(map(str, [1, 1, members[i.private_ip_address].peer_port, i.private_dns_name])) for i in
+                      autoscaling_members if i.private_ip_address in members]
+        self.update_record(zone, 'SRV', record_name, new_record)
+
+        record_name = '.'.join(['_etcd._tcp', stack_version, self.hosted_zone])
+        new_record = [' '.join(map(str, [1, 1, members[i.private_ip_address].client_port, i.private_dns_name])) for i in
                       autoscaling_members if i.private_ip_address in members]
         self.update_record(zone, 'SRV', record_name, new_record)
 

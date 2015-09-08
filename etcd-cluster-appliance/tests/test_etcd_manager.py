@@ -31,6 +31,18 @@ def requests_post(url, **kwargs):
     return response
 
 
+def requests_get_healthy(url, **kwargs):
+    if url == 'http://127.0.0.1:2379/v2/stats/self':
+        raise Exception()
+    response = MockResponse()
+    if url == 'http://127.0.0.7:2379/v2/members':
+        response.content = '{"members":[]}'
+    else:
+        response.content = \
+            '{"region":"eu-west-1", "instanceId": "i-deadbeef3", "leaderInfo":{"leader":"ifoobari1"}, "members":[{"id":"ifoobari1","name":"i-deadbeef1","peerURLs":["http://127.0.0.1:2380"],"clientURLs":["http://127.0.0.1:2379"]},{"id":"ifoobari2","name":"i-deadbeef2","peerURLs":["http://127.0.0.2:2380"],"clientURLs":["http://127.0.0.2:2379"]},{"id":"ifoobari3","name":"i-deadbeef3","peerURLs":["http://127.0.0.3:2380"],"clientURLs":["ttp://127.0.0.3:2379"]}]}'
+    return response
+
+
 def requests_get(url, **kwargs):
     if url == 'http://127.0.0.1:2379/v2/stats/self':
         raise Exception()
@@ -123,6 +135,8 @@ class TestEtcdManager(unittest.TestCase):
         os.execv = raise_exception
         os.fork = lambda: 0
         time.sleep = raise_exception
+        self.assertRaises(Exception, self.manager.run)
+        requests.get = requests_get_healthy
         self.assertRaises(Exception, self.manager.run)
         os.fork = lambda: 1
         os.waitpid = lambda a, b: (1, 0)
