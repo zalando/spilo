@@ -20,12 +20,12 @@ Argument   		   | Value
 Definition         | etcd-appliance.yaml
 Hosted zone 	   | team.example.com
 Version 		   | release
-Docker repository  | os-registry.stups.zalan.do
+Docker repository  | registry.opensource.zalan.do
 DockerImage       | acid/etcd-cluster
-Image tag          | 2.0.13-p1
+Image tag          | 2.0.13-p3
 Scalyr Key         | mykey
 
-	senza create etcd-cluster.yaml release HostedZone=team.example.com DockerImage=os-registry.stups.zalan.do/acid/etcd-cluster:2.0.13-p1 ScalyrAccountKey=mykey
+	senza create etcd-cluster.yaml release HostedZone=team.example.com DockerImage=registry.opensource.zalan.do/acid/etcd-cluster:2.0.13-p3 ScalyrAccountKey=mykey
 
 The etcd appliance will create 2 dns-records within the specified HostedZone, they will reflect changes within
 the cluster:

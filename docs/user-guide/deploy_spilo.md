@@ -24,11 +24,11 @@ Argument   		   | Value
 -------------------|-------
 Definition		   | spilo.yaml
 Cluster Name	   | pompeii
-Docker repository  | os-registry.stups.zalan.do
+Docker repository  | registry.opensource.zalan.do
 Docker image       | spilo-9.4 
 Image tag          | 0.1-p1
 
-	senza create spilo.yaml pompeii os-registry.stups.zalan.do/acid/spilo-9.4:0.1-p1
+	senza create spilo.yaml pompeii registry.opensource.zalan.do/acid/spilo-9.4:0.1-p1
 	
 The address in the example above contains a fully-functional image of spilo, although, you can use another one if you build the spilo image yourself and pushed it to a different docker registry.
 
