@@ -645,7 +645,7 @@ def get_tunnel(service_name=None, reuse=True, create=True):
     if odd_config.get('user_name') is not None:
         ssh_cmd += ['{}@{}'.format(odd_config['user_name'], odd_config['odd_host'])]
     else:
-        ssh_cmd += odd_config.get('odd_host') or ''
+        ssh_cmd += [odd_config.get('odd_host') or '']
 
     env = os.environ.copy()
     env['SPILOCLUSTER'] = spilo.version or ''
