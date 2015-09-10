@@ -106,8 +106,11 @@ __EOF__
 
 function write_archive_command_environment
 {
+  # get current AWS  region
+  region=$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone|head -c -1)
   mkdir -p ${WALE_ENV_DIR}
   echo "s3://${WAL_S3_BUCKET}/spilo/${SCOPE}/wal/" > ${WALE_ENV_DIR}/WALE_S3_PREFIX
+  echo "https+path://s3-$region.amazonaws.com:443" > ${WALE_ENV_DIR}/WALE_S3_ENDPOINT
 }
 
 write_postgres_yaml
