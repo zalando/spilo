@@ -21,8 +21,8 @@ RUN apt-get install python python-yaml -y
 ## Make sure we have a en_US.UTF-8 locale available
 RUN localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8
 
-# Install PostgreSQL 9.4 binaries, contrib, pgq, plproxy and pgq
-RUN apt-get install postgresql-${PGVERSION} postgresql-${PGVERSION}-dbg postgresql-server-dev-${PGVERSION} postgresql-client-${PGVERSION} postgresql-contrib-${PGVERSION} postgresql-${PGVERSION}-plproxy postgresql-${PGVERSION}-pgq3 postgresql-${PGVERSION}-postgis -y
+# Install PostgreSQL 9.4 binaries, contrib, pgq, plproxy, pgq and plpython
+RUN apt-get install postgresql-${PGVERSION} postgresql-${PGVERSION}-dbg postgresql-server-dev-${PGVERSION} postgresql-client-${PGVERSION} postgresql-contrib-${PGVERSION} postgresql-${PGVERSION}-plproxy postgresql-${PGVERSION}-pgq3 postgresql-${PGVERSION}-postgis postgresql-plpython3-${PGVERSION} postgresql-plpython-${PGVERSION} -y
 
 # Remove the default cluster, which Debian stupidly starts right after installation of the packages
 RUN pg_dropcluster --stop ${PGVERSION} main
