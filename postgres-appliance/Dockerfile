@@ -59,7 +59,7 @@ ENV PATH $PATH:/usr/lib/postgresql-${PGVERSION}/bin
 RUN cp /etc/ssl/private/ssl-cert-snakeoil.key $PGHOME/dummy.key && cp /etc/ssl/certs/ssl-cert-snakeoil.pem $PGHOME/dummy.crt
 
 # Install Patroni
-ENV PATRONIVERSION 0.1
+ENV PATRONIVERSION 0.3
 WORKDIR $PGHOME
 RUN git clone https://github.com/zalando/patroni.git
 WORKDIR $PGHOME/patroni
