@@ -96,6 +96,8 @@ postgresql:
     archive_timeout: 1800s
     max_replication_slots: 5
     hot_standby: "on"
+    tcp_keepalives_idle: 900
+    tcp_keepalives_interval: 100
     ssl: "on"
     ssl_cert_file: "$SSL_CERTIFICATE"
     ssl_key_file: "$SSL_PRIVATE_KEY"
