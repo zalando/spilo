@@ -8,6 +8,10 @@ import logging
 import re
 import sys
 import boto
+import boto.cloudformation
+import boto.ec2
+import boto.ec2.elb
+import boto.route53
 import os
 import prettytable
 import json
@@ -228,8 +232,9 @@ def re_search(needles=None, haystacks=None):
 
 
 def get_spilo_resources(stack, cloud_formation_connection):
-    if 'COMPLETE' in stack.stack_status and 'DELETE' not in stack.stack_status and 'ROLLBACK' not in stack.stack_status:
-        resources = cloud_formation_connection.describe_stack_resources(stack.stack_name)
+    status = stack.stack['StackStatus']
+    if 'COMPLETE' in status and 'DELETE' not in status and 'ROLLBACK' not in status:
+        resources = cloud_formation_connection.describe_stack_resources(stack.stack['StackName'])
 
         # # We know it is a Spilo if it has a PostgresLoadBalancer
         for resource in resources:
