@@ -87,6 +87,9 @@ postgresql:
     on_stop: patroni/patroni/scripts/aws.py
     on_restart: patroni/patroni/scripts/aws.py
     on_role_change: patroni/patroni/scripts/aws.py
+  pg_rewind:
+    username: postgres
+    password: zalando
   parameters:
     archive_mode: "on"
     wal_level: hot_standby
@@ -99,6 +102,7 @@ postgresql:
     ssl: "on"
     ssl_cert_file: "$SSL_CERTIFICATE"
     ssl_key_file: "$SSL_PRIVATE_KEY"
+    wal_log_hints: 'on'
   recovery_conf:
     restore_command: "envdir ${WALE_ENV_DIR} wal-e --aws-instance-profile wal-fetch \"%f\" \"%p\" -p 1"
 __EOF__
