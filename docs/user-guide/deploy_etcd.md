@@ -11,6 +11,11 @@ To deploy the etcd-appliance, use the following:
 
 	senza create DEFINITION.yaml VERSION HostedZone=<HOSTED_ZONE> DockerImage=<DOCKER_IMAGE> ScalyrAccountKey=<SCALAR_KEY>
 
+For a current view of available Docker images, look at the Docker registry with your own tooling.
+We advise not to use a `SNAPSHOT` or `latest` version, as they are mutable.
+
+[https://registry.opensource.zalan.do/v1/repositories/acid/etcd-cluster/tags](https://registry.opensource.zalan.do/v1/repositories/acid/etcd-cluster/tags)
+
 This will create and execute a cloud formation template for you.
 
 Example:
@@ -22,10 +27,10 @@ Hosted zone 	   | team.example.com
 Version 		   | release
 Docker repository  | registry.opensource.zalan.do
 DockerImage       | acid/etcd-cluster
-Image tag          | 2.2.0-p4
+Image tag          | 2.2.1-p6
 Scalyr Key         | mykey
 
-	senza create etcd-cluster.yaml release HostedZone=team.example.com DockerImage=registry.opensource.zalan.do/acid/etcd-cluster:2.2.0-p4 ScalyrAccountKey=mykey
+	senza create etcd-cluster.yaml release HostedZone=team.example.com DockerImage=registry.opensource.zalan.do/acid/etcd-cluster:2.2.1-p6 ScalyrAccountKey=mykey
 
 The etcd appliance will create 2 dns-records within the specified HostedZone, they will reflect changes within
 the cluster:

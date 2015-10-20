@@ -18,6 +18,11 @@ To deploy the appliance using senza, do the following (we use `CLUSTER_NAME` for
 
 	senza create [OPTIONS] DEFINITION.yaml CLUSTER_NAME DOCKER_IMAGE
 
+For a current view of available Docker images, look at the Docker registry with your own tooling.
+We advise not to use a `SNAPSHOT` or `latest` version, as they are mutable.
+
+[https://registry.opensource.zalan.do/v1/repositories/acid/spilo-9.4/tags](https://registry.opensource.zalan.do/v1/repositories/acid/spilo-9.4/tags)
+
 Example:
 
 Argument   		   | Value
@@ -26,9 +31,9 @@ Definition		   | spilo.yaml
 Cluster Name	   | pompeii
 Docker repository  | registry.opensource.zalan.do
 Docker image       | spilo-9.4 
-Image tag          | 0.1-p1
+Image tag          | 0.5-p1
 
-	senza create spilo.yaml pompeii registry.opensource.zalan.do/acid/spilo-9.4:0.1-p1
+	senza create spilo.yaml pompeii registry.opensource.zalan.do/acid/spilo-9.4:0.5-p1
 	
 The address in the example above contains a fully-functional image of spilo, although, you can use another one if you build the spilo image yourself and pushed it to a different docker registry.
 
