@@ -1,8 +1,8 @@
 Overview
 ========
-We use PostgreSQL for this appliance because it provides a very robust RDBMS with a huge feature set. By using PostgreSQL we are also limited to its inherent limitations. One of those limitiations is that there can be only 1 master, it doesn't do multi-master replication (yet). Because of this limitation we decide to build an appliance that has 1 master cluster and n-slave clusters.
+We use PostgreSQL for this appliance because it provides a very robust RDBMS with a huge feature set. By using PostgreSQL we are also bound to its inherent limitations. One of those limitiations is that there can be only 1 master, it doesn't do multi-master replication (yet). Because of this limitation we decide to build an appliance that has 1 master cluster and n-slave clusters.
 
-Having a single master inside this appliance means there will be a single point of failure (SPOF): the master. During an issue with the master the slaves will however be available for querying: it will not be a full outage. To reduce the impact of losing this SPOF we want to promote one of the slaves to a master as soon as is possible if we determine the master is lost.
+Having a single master inside this appliance means there will be a single point of failure (SPOF): the master itself. During an issue with the master the slaves will however be available for querying: it will not be a full outage. To reduce the impact of losing this SPOF we want to promote one of the slaves to a master as soon as possible once we determine the master is lost.
 
 Spilo was designed to be deployed on AWS.
 
@@ -38,7 +38,7 @@ When considering what to build we had to determine which problems we want to sol
 The following points are important for us:
 
 - automatic failover
-- deploying a new HA-cluster can be done very quickly (< 15 minutes)
+- deployment of a new HA-cluster can be done very quickly (< 15 minutes)
 - human interaction for creating a HA-cluster is minimal
 - sane defaults for a HA-cluster (security, configuration, backup)
 
@@ -51,12 +51,6 @@ etcd
 We were pointed towards etcd in combination with PostgreSQL by Compose with their [Governor](https://github.com/compose/governor). By using an external service, which is specialized in solving the problem of distributed consencus, we don't have to write our own. However, we made numeruous improvements to the Compose Governor and eventually forked it off into our own version under the name [Patroni](https://github.com/zalando/patroni). Patroni works with multiple DCSes (etcd and zookeeper, support for consul is coming up), can execute base backups asynchronously, provides a REST API for health-checks and management and contains numerous stability improvements. Patroni is the brain behind Spilo's ability to auto-failover. In our setup, Patroni works with one etcd per environment.
 
 To find out more about etcd: [coreos.com/etcd](https://coreos.com/etcd/)
-
-dds
----
-A dynamic discovery service could be running which will gather information about the running HA-clusters. To find out which HA-clusters are running it will consult etcd.
-The results of its discovery will also be stored in etcd, so other tools can easily use the discovered information.
-
 
 
 Architecture: PostgreSQL High Available cluster
@@ -72,26 +66,36 @@ Architecture: PostgreSQL High Available cluster
 	+----------------------------------+ | +----------------------------------+
 	|          |                       | | |   |                              |
 	|          |                       | | |   |                              |
-	| +--------+-+    +--------------+ | | | +-+--------+    +--------------+ |
-	| |          |    |              | | | | |          |    |              | |
-	| | Patroni <----> etcd (proxy) | | | |  | Patroni <----> etcd (proxy)  | |
-	| |          |    |              | | | | |          |    |              | |
-	| +--------^-+    +--------------+ | | | +--------^-+    +--------------+ |
-	|          |                       | | |          |                       |
-	|          |                       | | |          |                       |
-	|        +-v----------+            | | |        +-v----------+            |
-	|        | PostgreSQL |            | | |        | PostgreSQL |            |
-	|        +------------+            | | |        +------------+            |
-	|        |   Master   <--------------+ |        |   Slave    |            |
-	|        +------------+            |   |        +------------+            |
-	|        |            |            |   |        |            |            |
-	|        +------------+            |   |        +------------+            |
-	|                                  |   |                                  |
-	+----------------------------------+   +----------------------------------+
-
-etcd proxy
+	| +--------+-+                     | | | +-+--------+                     |
+	| |          |                     | | | |          |                     |
+	| | Patroni  |                     | |   | Patroni  |                     |
+	| |          |                     | | | |          |                     |
+	| +--^-----^-+                     | | | +-^------^-+                     |
+	|    |     |                       | | |   |      |                       |
+	|    |     |                       | | |   |      |                       |
+	|    |   +-v----------+            | | |   |    +-v----------+            |
+	|    |   | PostgreSQL |            | | |   |    | PostgreSQL |            |
+	|    |   +------------+            | | |   |    +------------+            |
+	|    |   |   Master   <--------------+ |   |    |   Slave    |            |
+	|    |   +------------+            |   |   |    +------------+            |
+	|    |   |            |            |   |   |    |            |            |
+	|    |   +------------+            |   |   |    +------------+            |
+	|    |                             |   |   |                              |
+	+----^-----------------------------+   +---^------------------------------+
+	     |                                     | 
+	     | etcd connection                     | etcd connection
+	     |                                     |
+	     |            Etcd autoscaling group   |
+	+----v---------------+---------------------v-----+--------------------------+
+        |                    |                           |                          |
+        |                    |                           |                          |
+        |       etcd         |             etcd          |           etcd           |
+        |                    |                           |                          |
+        +--------------------+---------------------------+--------------------------+
+        
+etcd connection
 ----
-We assume a Higly Available etcd-cluster to be available for spilo when it is bootstrapped; we will use a etcd-proxy running on localhost to be a bridge between a HA-cluster member and the etcd-cluster.
+We used to run etcd proxy inside the EC2 instances, but found out that the proxy component as not robust as the normal etcd, especially at the time when the etcd cluster configuration changes, and, therefore, decided in favor of using the etcd client library inside patroni.
 
 Patroni
 ----
