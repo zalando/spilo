@@ -48,7 +48,7 @@ A set of machines serving PostgreSQL databases. Its architecture is explained in
 
 etcd
 ----
-We were pointed towards etcd in combination with PostgreSQL by Compose with their [Governor](https://github.com/compose/governor). By using an external service which is specialized in solving the problem of distributed consencus we don't have to write our own. However, we made numeruous improvements to the Compose Governor and eventually forked it off into our own version that we named [Patroni](https://github.com/zalando/patroni). Patroni works with multiple DCSes (etcd and zookeeper, support for consul is coming up), can execute base backups asynchronously, provides a REST API for health-checks and management and contains numerous stability improvements. Patroni is the brain behind Spilo's ability to auto-failover. In our setup, Patroni works with one etcd per environment.
+We were pointed towards etcd in combination with PostgreSQL by Compose with their [Governor](https://github.com/compose/governor). By using an external service, which is specialized in solving the problem of distributed consencus, we don't have to write our own. However, we made numeruous improvements to the Compose Governor and eventually forked it off into our own version under the name [Patroni](https://github.com/zalando/patroni). Patroni works with multiple DCSes (etcd and zookeeper, support for consul is coming up), can execute base backups asynchronously, provides a REST API for health-checks and management and contains numerous stability improvements. Patroni is the brain behind Spilo's ability to auto-failover. In our setup, Patroni works with one etcd per environment.
 
 To find out more about etcd: [coreos.com/etcd](https://coreos.com/etcd/)
 
