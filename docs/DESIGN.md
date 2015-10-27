@@ -48,7 +48,7 @@ A set of machines serving PostgreSQL databases. Its architecture is explained in
 
 etcd
 ----
-We were pointed towards etcd in combination with PostgreSQL by compose with their [governor](https://github.com/compose/governor). By using an external service which is specialized in solving the problem of distributed consencus we don't have to write our own. We will use one etcd per environment.
+We were pointed towards etcd in combination with PostgreSQL by Compose with their [Governor](https://github.com/compose/governor). By using an external service which is specialized in solving the problem of distributed consencus we don't have to write our own. However, we made numeruous improvements to the Compose Governor and eventually forked it off into our own version that we named [Patroni](https://github.com/zalando/patroni). Patroni works with multiple DCSes (etcd and zookeeper, support for consul is coming up), can execute base backups asynchronously, provides a REST API for health-checks and management and contains numerous stability improvements. Patroni is the brain behind Spilo's ability to auto-failover. In our setup, Patroni works with one etcd per environment.
 
 To find out more about etcd: [coreos.com/etcd](https://coreos.com/etcd/)
 
@@ -74,7 +74,7 @@ Architecture: PostgreSQL High Available cluster
 	|          |                       | | |   |                              |
 	| +--------+-+    +--------------+ | | | +-+--------+    +--------------+ |
 	| |          |    |              | | | | |          |    |              | |
-	| | Governor <----> etcd (proxy) | | | | | Governor <----> etcd (proxy) | |
+	| | Patroni <----> etcd (proxy) | | | |  | Patrobi <----> etcd (proxy)  | |
 	| |          |    |              | | | | |          |    |              | |
 	| +--------^-+    +--------------+ | | | +--------^-+    +--------------+ |
 	|          |                       | | |          |                       |
@@ -93,11 +93,11 @@ etcd proxy
 ----
 We assume a Higly Available etcd-cluster to be available for spilo when it is bootstrapped; we will use a etcd-proxy running on localhost to be a bridge between a HA-cluster member and the etcd-cluster.
 
-Governor
+Patroni
 ----
 
 PostgreSQL
 ----
-We use stock PostgreSQL (9.4) packages managed by Governor. New replicas are created from the existing master using pg_basebackup. New replication slot is registered on a master for a new replica to make sure that WAL segments required to restore it from pg_basebackup will be retained. Currently, the appliance also ships WAL segment to AWS S3 using WAL-E (this can be changed in the senza template), and is also capable of bring up replica from the base backup on S3 produced by WAL-E. Currently, S3 will only be used if the amount of WAL files archived since the latest base backup does not exceed a certain configurable threshold (10GB by default) or 30% of the base backup size, otherwise, pg_basebackup will kick in. The rationale is that we do not want to wait very long for the replica to restore all the pending WAL files, which might happen if there are too many of them.
+We use stock PostgreSQL (9.4) packages managed by Patroni. New replicas are created from the existing master using pg_basebackup. New replication slot is registered on a master for a new replica to make sure that WAL segments required to restore it from pg_basebackup will be retained. Currently, the appliance also ships WAL segment to AWS S3 using WAL-E (this can be changed in the senza template), and is also capable of bring up replica from the base backup on S3 produced by WAL-E. Currently, S3 will only be used if the amount of WAL files archived since the latest base backup does not exceed a certain configurable threshold (10GB by default) or 30% of the base backup size, otherwise, pg_basebackup will kick in. The rationale is that we do not want to wait very long for the replica to restore all the pending WAL files, which might happen if there are too many of them.
 
 
