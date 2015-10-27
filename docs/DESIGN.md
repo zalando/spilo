@@ -74,7 +74,7 @@ Architecture: PostgreSQL High Available cluster
 	|          |                       | | |   |                              |
 	| +--------+-+    +--------------+ | | | +-+--------+    +--------------+ |
 	| |          |    |              | | | | |          |    |              | |
-	| | Patroni <----> etcd (proxy) | | | |  | Patrobi <----> etcd (proxy)  | |
+	| | Patroni <----> etcd (proxy) | | | |  | Patroni <----> etcd (proxy)  | |
 	| |          |    |              | | | | |          |    |              | |
 	| +--------^-+    +--------------+ | | | +--------^-+    +--------------+ |
 	|          |                       | | |          |                       |
