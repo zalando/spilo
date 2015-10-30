@@ -5,7 +5,7 @@ The following prerequisites need to be met.
 
 * `stups-senza`
 * A [Senza Definition](http://stups.readthedocs.org/en/latest/components/senza.html#senza-definition)
-* A template can be found here: [etcd-appliance.yaml](https://github.com/zalando/spilo/blob/master/etcd-cluster-appliance/etcd-cluster.yaml)
+* A template can be found here: [etcd-appliance.yaml](https://github.com/zalando/stups-etcd-cluster/blob/master/etcd-cluster.yaml)
 
 To deploy the etcd-appliance, use the following:
 
