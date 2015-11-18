@@ -46,9 +46,9 @@ RUN apt-get install build-essential gdb strace -y
 RUN apt-get install python-pip python-dev libxml2-dev libxslt-dev libffi-dev lzop pv daemontools -y
 RUN pip install pip --upgrade
 # WAL-e requests a relatively new version of requests, install other modules via pip as well
-RUN pip install requests six wal-e psycopg2 dnspython kazoo python-etcd --upgrade
+RUN pip install requests six wal-e psycopg2 dnspython kazoo python-etcd click prettytable --upgrade
 
-ENV ETCDVERSION 2.2.0
+ENV ETCDVERSION 2.2.1
 # install etcd
 RUN apt-get install curl -y
 RUN curl -L https://github.com/coreos/etcd/releases/download/v${ETCDVERSION}/etcd-v${ETCDVERSION}-linux-amd64.tar.gz | tar xz -C /bin --strip=1 --wildcards --no-anchored etcd etcdctl
@@ -62,11 +62,12 @@ ENV PATH $PATH:/usr/lib/postgresql/${PGVERSION}/bin
 RUN cp /etc/ssl/private/ssl-cert-snakeoil.key $PGHOME/dummy.key && cp /etc/ssl/certs/ssl-cert-snakeoil.pem $PGHOME/dummy.crt
 
 # Install Patroni
-ENV PATRONIVERSION 0.5
+ENV PATRONIVERSION 0.7
 WORKDIR $PGHOME
 RUN git clone https://github.com/zalando/patroni.git
 WORKDIR $PGHOME/patroni
 RUN git checkout tags/v${PATRONIVERSION}
+RUN ln -s $PGHOME/patroni/patronictl.py /usr/local/bin/patronictl
 
 ADD postgres_ha.sh /
 RUN chown postgres:postgres $PGHOME -R

@@ -6,6 +6,15 @@ SSL_CERTIFICATE="$PGHOME/dummy.crt"
 SSL_PRIVATE_KEY="$PGHOME/dummy.key"
 BACKUP_INTERVAL=3600
 
+function write_patronictl_yaml
+{
+    if [[ -n ${ETCD_DISCOVERY_DOMAIN} ]]
+    then
+        patroni/patronictl.py configure --config-file "${HOME}/.config/patroni/patronictl.yaml" \
+            --dcs "etcd-server.${ETCD_DISCOVERY_DOMAIN}:2379" --namespace 'service'
+    fi
+}
+
 function write_postgres_yaml
 {
   local aws_private_ip=$(curl -s http://169.254.169.254/latest/meta-data/local-ipv4)
@@ -117,6 +126,7 @@ function write_archive_command_environment
   echo "https+path://s3-$region.amazonaws.com:443" > ${WALE_ENV_DIR}/WALE_S3_ENDPOINT
 }
 
+write_patronictl_yaml
 write_postgres_yaml
 write_archive_command_environment
 
