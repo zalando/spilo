@@ -24,7 +24,7 @@ function write_postgres_yaml
   cat > postgres.yml <<__EOF__
 ttl: &ttl 30
 loop_wait: &loop_wait 10
-scope: &scope $SCOPE
+scope: &scope '$SCOPE'
 restapi:
   listen: 0.0.0.0:${api_port}
   connect_address: ${aws_private_ip}:${api_port}
