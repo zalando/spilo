@@ -43,7 +43,6 @@ ENV PGREWINDTAG PGREWIND1_0_0_PG9_4
 RUN git clone -b ${PGREWINDTAG} --depth 1 https://github.com/vmware/pg_rewind.git \
     && cd pg_rewind && apt-get source postgresql-${PGVERSION} -y \
     && USE_PGXS=1 make top_srcdir=$(find . -name "postgresql*" -type d) install \
-    && USE_PGXS=1 make clean \
     && cd / \
     # we remove the sources to decrease the size of the Docker image
     && rm -rf /pg_rewind/
@@ -61,12 +60,13 @@ RUN curl -L https://github.com/coreos/etcd/releases/download/v${ETCDVERSION}/etc
 RUN cp /etc/ssl/private/ssl-cert-snakeoil.key $PGHOME/dummy.key && cp /etc/ssl/certs/ssl-cert-snakeoil.pem $PGHOME/dummy.crt
 
 # Install Patroni
-ENV PATRONIVERSION 0.7
+ENV PATRONIVERSION 0.75
 WORKDIR $PGHOME
-RUN git clone https://github.com/zalando/patroni.git
-WORKDIR $PGHOME/patroni
-RUN git checkout tags/v${PATRONIVERSION}
-RUN ln -s $PGHOME/patroni/patronictl.py /usr/local/bin/patronictl
+RUN pip install patroni==$PATRONIVERSION
+#RUN git clone https://github.com/zalando/patroni.git
+#WORKDIR $PGHOME/patroni
+#RUN git checkout tags/v${PATRONIVERSION}
+#RUN ln -s $PGHOME/patroni/patronictl.py /usr/local/bin/patronictl
 
 ADD postgres_ha.sh /
 RUN chown postgres:postgres $PGHOME -R

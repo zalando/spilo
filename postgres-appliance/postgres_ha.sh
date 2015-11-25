@@ -10,7 +10,7 @@ function write_patronictl_yaml
 {
     if [[ -n ${ETCD_DISCOVERY_DOMAIN} ]]
     then
-        patroni/patronictl.py configure --config-file "${HOME}/.config/patroni/patronictl.yaml" \
+        patronictl configure --config-file "${HOME}/.config/patroni/patronictl.yaml" \
             --dcs "etcd-server.${ETCD_DISCOVERY_DOMAIN}:2379" --namespace 'service'
     fi
 }
@@ -86,16 +86,19 @@ postgresql:
   admin:
     username: admin
     password: admin
+  create_replica_method:
+    - wal_e
+    - basebackup
   wal_e:
-    env_dir: $WALE_ENV_DIR
+    envdir: $WALE_ENV_DIR
     threshold_megabytes: ${WALE_BACKUP_THRESHOLD_MEGABYTES}
     threshold_backup_size_percentage: ${WALE_BACKUP_THRESHOLD_PERCENTAGE}
-  restore: patroni/patroni/scripts/restore.py
+    use_iam: 1
   callbacks:
-    on_start: patroni/patroni/scripts/aws.py
-    on_stop: patroni/patroni/scripts/aws.py
-    on_restart: patroni/patroni/scripts/aws.py
-    on_role_change: patroni/patroni/scripts/aws.py
+    on_start: patroni_aws
+    on_stop: patroni_aws
+    on_restart: patroni_aws
+    on_role_change: patroni_aws
   pg_rewind:
     username: postgres
     password: zalando
@@ -191,7 +194,7 @@ write_archive_command_environment
 ) &
 
 [[ "$DEBUG" == 1 ]] && exec /bin/bash
-exec patroni/patroni.py "$PGHOME/postgres.yml"
+exec patroni "$PGHOME/postgres.yml"
 
 
 
