@@ -90,6 +90,7 @@ postgresql:
     - wal_e
     - basebackup
   wal_e:
+    command: patroni_wale_restore
     envdir: $WALE_ENV_DIR
     threshold_megabytes: ${WALE_BACKUP_THRESHOLD_MEGABYTES}
     threshold_backup_size_percentage: ${WALE_BACKUP_THRESHOLD_PERCENTAGE}
