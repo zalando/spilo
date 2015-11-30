@@ -95,6 +95,7 @@ postgresql:
     threshold_megabytes: ${WALE_BACKUP_THRESHOLD_MEGABYTES}
     threshold_backup_size_percentage: ${WALE_BACKUP_THRESHOLD_PERCENTAGE}
     use_iam: 1
+    retries: 2
   callbacks:
     on_start: patroni_aws
     on_stop: patroni_aws
