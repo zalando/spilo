@@ -6,6 +6,15 @@ SSL_CERTIFICATE="$PGHOME/dummy.crt"
 SSL_PRIVATE_KEY="$PGHOME/dummy.key"
 BACKUP_INTERVAL=3600
 
+function write_patronictl_yaml
+{
+    if [[ -n ${ETCD_DISCOVERY_DOMAIN} ]]
+    then
+        patronictl configure --config-file "${HOME}/.config/patroni/patronictl.yaml" \
+            --dcs "etcd-server.${ETCD_DISCOVERY_DOMAIN}:2379" --namespace 'service'
+    fi
+}
+
 function write_postgres_yaml
 {
   local aws_private_ip=$(curl -s http://169.254.169.254/latest/meta-data/local-ipv4)
@@ -15,7 +24,7 @@ function write_postgres_yaml
   cat > postgres.yml <<__EOF__
 ttl: &ttl 30
 loop_wait: &loop_wait 10
-scope: &scope $SCOPE
+scope: &scope '$SCOPE'
 restapi:
   listen: 0.0.0.0:${api_port}
   connect_address: ${aws_private_ip}:${api_port}
@@ -77,16 +86,20 @@ postgresql:
   admin:
     username: admin
     password: admin
+  create_replica_method:
+    - wal_e
+    - basebackup
   wal_e:
-    env_dir: $WALE_ENV_DIR
+    command: patroni_wale_restore
+    envdir: $WALE_ENV_DIR
     threshold_megabytes: ${WALE_BACKUP_THRESHOLD_MEGABYTES}
     threshold_backup_size_percentage: ${WALE_BACKUP_THRESHOLD_PERCENTAGE}
-  restore: patroni/patroni/scripts/restore.py
+    use_iam: 1
   callbacks:
-    on_start: patroni/patroni/scripts/aws.py
-    on_stop: patroni/patroni/scripts/aws.py
-    on_restart: patroni/patroni/scripts/aws.py
-    on_role_change: patroni/patroni/scripts/aws.py
+    on_start: patroni_aws
+    on_stop: patroni_aws
+    on_restart: patroni_aws
+    on_role_change: patroni_aws
   pg_rewind:
     username: postgres
     password: zalando
@@ -117,6 +130,7 @@ function write_archive_command_environment
   echo "https+path://s3-$region.amazonaws.com:443" > ${WALE_ENV_DIR}/WALE_S3_ENDPOINT
 }
 
+write_patronictl_yaml
 write_postgres_yaml
 write_archive_command_environment
 
@@ -181,7 +195,7 @@ write_archive_command_environment
 ) &
 
 [[ "$DEBUG" == 1 ]] && exec /bin/bash
-exec patroni/patroni.py "$PGHOME/postgres.yml"
+exec patroni "$PGHOME/postgres.yml"
 
 
 
