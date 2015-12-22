@@ -28,13 +28,14 @@ The pricing information is taken from Amazon, and are for On-Demand pricing (Aug
 
 * [Amazon EC2 Pricing](https://aws.amazon.com/ec2/pricing/)
 * [Amazon EBS Pricing](https://aws.amazon.com/ebs/pricing/)
+* [Amazon ELB Pricing](https://aws.amazon.com/elasticloadbalancing/pricing/)
 
 | EC2   |   Storage                     |  Monthly ($) | Spilo ($) |
 |----------|---------------------------:|---------:|-------:
-| t2.micro |  10 GB EBS                 |   11     |    33 |
-| m4.large | 100 GB EBS                 |  111     |   333 |
-| r3.2xlarge | (provisioned) 500 GB EBS |  664     |  1992 |
-| d2.8xlarge | (RAID 10) 24 TB HDD      | 4292     | 12876 |
+| t2.micro |  10 GB EBS                 |   11     |    74 |
+| m4.large | 100 GB EBS                 |  111     |   374 |
+| r3.2xlarge | (provisioned) 500 GB EBS |  664     |  2033 |
+| d2.8xlarge | (RAID 10) 24 TB HDD      | 4292     | 12907 |
 
 ## Database usage
 For some types of databases the smallest possible instance available can be a good candidate. Some examples that
