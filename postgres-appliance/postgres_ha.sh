@@ -6,6 +6,10 @@ SSL_CERTIFICATE="$PGHOME/dummy.crt"
 SSL_PRIVATE_KEY="$PGHOME/dummy.key"
 BACKUP_INTERVAL=3600
 
+[ -z ${PGPASSWORD_SUPERUSER} ] && PGPASSWORD_SUPERUSER='zalando'
+[ -z ${PGPASSWORD_STANDBY}   ] && PGPASSWORD_STANDBY='standby'
+[ -z ${PGPASSWORD_ADMIN}     ] && PGPASSWORD_ADMIN='admin'
+
 function write_patronictl_yaml
 {
     if [[ -n ${ETCD_DISCOVERY_DOMAIN} ]]
@@ -79,13 +83,13 @@ postgresql:
   - host    all all 0.0.0.0/0 md5
   replication:
     username: standby
-    password: standby
+    password: "${PGPASSWORD_STANDBY}"
     network: 0.0.0.0/0
   superuser:
-    password: zalando
+    password: "${PGPASSWORD_SUPERUSER}"
   admin:
     username: admin
-    password: admin
+    password: "${PGPASSWORD_ADMIN}"
   create_replica_method:
     - wal_e
     - basebackup
