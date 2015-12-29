@@ -17,16 +17,21 @@ RUN localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8
 # Add PGDG repositories
 RUN echo "deb http://apt.postgresql.org/pub/repos/apt/ $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list
 RUN echo "deb-src http://apt.postgresql.org/pub/repos/apt/ $(lsb_release -cs)-pgdg main" >> /etc/apt/sources.list.d/pgdg.list
+RUN echo "deb http://packages.2ndquadrant.com/bdr/apt/ $(lsb_release -cs)-2ndquadrant main" >> /etc/apt/sources.list.d/pgdg.list
 RUN curl -s -o - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add -
+# import the BDR plugin
+RUN curl -s -o - http://packages.2ndquadrant.com/bdr/apt/AA7A6805.asc | sudo apt-key add -
 RUN apt-get update
 
 ENV PGVERSION 9.4
+ENV PGTYPE postgresql-bdr
+ENV PGCOMPATIBLETYPE postgresql
 ENV PGHOME /home/postgres
 ENV PGDATA $PGHOME/pgdata/data
 
 
 # Install PostgreSQL 9.4 binaries, contrib, pgq, plproxy, pgq and plpython
-RUN apt-get install postgresql-${PGVERSION} postgresql-${PGVERSION}-dbg postgresql-server-dev-${PGVERSION} postgresql-client-${PGVERSION} postgresql-contrib-${PGVERSION} postgresql-${PGVERSION}-plproxy postgresql-${PGVERSION}-pgq3 postgresql-${PGVERSION}-postgis postgresql-plpython3-${PGVERSION} postgresql-plpython-${PGVERSION} postgresql-${PGVERSION}-plr -y \
+RUN apt-get install ${PGTYPE}-${PGVERSION} ${PGTYPE}-${PGVERSION}-bdr-plugin ${PGTYPE}-${PGVERSION}-dbg ${PGTYPE}-server-dev-${PGVERSION} ${PGTYPE}-client-${PGVERSION} ${PGTYPE}-contrib-${PGVERSION} ${PGCOMPATIBLETYPE}-${PGVERSION}-plproxy ${PGCOMPATIBLETYPE}-${PGVERSION}-plr ${PGCOMPATIBLETYPE}-${PGVERSION}-pgq3 ${PGCOMPATIBLETYPE}-${PGVERSION}-postgis -y \
     ## # install all build-dependencies for postgresql-9.4 in order to be able to compile 9.4
     && apt-get clean \
     ## # Remove the default cluster, which Debian stupidly starts right after installation of the packages
@@ -60,9 +65,12 @@ RUN curl -L https://github.com/coreos/etcd/releases/download/v${ETCDVERSION}/etc
 RUN cp /etc/ssl/private/ssl-cert-snakeoil.key $PGHOME/dummy.key && cp /etc/ssl/certs/ssl-cert-snakeoil.pem $PGHOME/dummy.crt
 
 # Install Patroni
-ENV PATRONIVERSION 0.75
+ENV PATRONIVERSION feature/bdr
 WORKDIR $PGHOME
-RUN pip install patroni==$PATRONIVERSION
+RUN git clone https://github.com/zalando/patroni -b ${PATRONIVERSION}
+RUN ln -s $PGHOME/patroni/patronictl.py /usr/local/bin/patronictl \
+    && ln -s $PGHOME/patroni/patroni/scripts/aws.py /usr/local/bin/patroni_aws \
+    && ln -s $PGHOME/patroni/patroni/scripts/wale_restore.py /usr/local/bin/patroni_wale_restore
 
 ADD postgres_ha.sh /
 RUN chown postgres:postgres $PGHOME -R
@@ -71,6 +79,7 @@ RUN chmod 700 /postgres_ha.sh
 
 ENV ETCD_DISCOVERY_DOMAIN postgres.acid.example.com
 ENV SCOPE test
+ENV BDR_DATABASE bdrtest
 ENV WAL_S3_BUCKET spilo-example-com
 ENV DEBUG 0
 # Shoud be 3am by GMT+2 aka Berlin Summer Time

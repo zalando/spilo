@@ -68,6 +68,9 @@ __EOF__
   fi
 
   cat >> postgres.yml <<__EOF__
+bdr:
+  enable: 'on'
+  database: ${BDR_DATABASE}
 postgresql:
   name: postgresql_${HOSTNAME}
   scope: *scope
@@ -106,12 +109,15 @@ postgresql:
     password: zalando
   parameters:
     archive_mode: "on"
-    wal_level: hot_standby
     archive_command: "envdir ${WALE_ENV_DIR} wal-e --aws-instance-profile wal-push \"%p\" -p 1"
-    max_wal_senders: 5
+    max_worker_processes: 10
+    max_replication_slots: 10
+    max_wal_senders: 10
+    shared_preload_libraries: 'bdr'
+    track_commit_timestamp: true
+    wal_level: 'logical'
     wal_keep_segments: 8
     archive_timeout: 1800s
-    max_replication_slots: 5
     hot_standby: "on"
     tcp_keepalives_idle: 900
     tcp_keepalives_interval: 100
@@ -198,7 +204,5 @@ write_archive_command_environment
 ) &
 
 [[ "$DEBUG" == 1 ]] && exec /bin/bash
-exec patroni "$PGHOME/postgres.yml"
-
-
+exec patroni/patroni.py "$PGHOME/postgres.yml"
 
