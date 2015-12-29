@@ -17,7 +17,8 @@ function write_patronictl_yaml
 
 function write_postgres_yaml
 {
-  local aws_private_ip=$(curl -s http://169.254.169.254/latest/meta-data/local-ipv4)
+  local aws_private_ip=$(curl -s http://instance-data/latest/meta-data/local-ipv4)
+  local instance_id=$(curl -s http://instance-data/latest/meta-data/instance-id)
   local pg_port=5432
   local api_port=8008
 
@@ -69,7 +70,7 @@ __EOF__
 
   cat >> postgres.yml <<__EOF__
 postgresql:
-  name: postgresql_${HOSTNAME}
+  name: ${instance_id//-/_} ## Replication slots do not allow dashes
   scope: *scope
   listen: 0.0.0.0:${pg_port}
   connect_address: ${aws_private_ip}:${pg_port}
