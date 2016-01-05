@@ -6,10 +6,10 @@ pages:
   - Introduction: index.md
   - Design: DESIGN.md
   - User Guide:
-    - Prerequisites: user-guide/prerequisites.md
-    - Deploy spilo: user-guide/deploy_spilo.md
-    - Deploy etcd: user-guide/deploy_etcd.md
     - Connect to spilo: user-guide/connect_spilo.md
+  - Tutorial:
+    - Prerequisites: tutorial/prerequisites.md
+    - Deploy spilo: tutorial/deploy_spilo.md
   - Administrator Guide:
     - Sizing spilo: admin-guide/sizing.md
     - Scaling up or down: admin-guide/scaling.md
