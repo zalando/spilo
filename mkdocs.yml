@@ -7,6 +7,7 @@ pages:
   - Design: DESIGN.md
   - User Guide:
     - Connect to spilo: user-guide/connect_spilo.md
+    - Configuration: user-guide/configuration.md
   - Tutorial:
     - Prerequisites: tutorial/prerequisites.md
     - Deploy spilo: tutorial/deploy_spilo.md
