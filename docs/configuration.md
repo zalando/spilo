@@ -1,3 +1,5 @@
+Configuration items specifict to Spilo are listed here.
+
 ### Docker image
 The Docker image containing Patroni and AWS-specific code which constitutes Spilo.
 

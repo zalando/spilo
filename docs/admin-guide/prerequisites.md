@@ -29,9 +29,8 @@ spilo      tutorial CREATE_COMPLETE  6d ago Spilo ()
 ```
 
 ## etcd
-Patroni requires a DCS. For the tutorial we assume you are using etcd to provide this functionality.
-You may already have etcd installed within your account. If so, please double-check that you can use it for this
-tutorial.
+Patroni requires a DCS. One of these could be etcd.
+You may already have etcd installed within your account.
 
 To check if etcd is already deployed using the advised method:
 
@@ -45,5 +44,5 @@ If etcd is not installed yet, you can use the
 [Installation Section](https://github.com/zalando/stups-etcd-cluster/blob/master/README.md#usage) of the
 stups-etcd-cluster appliance.
 
-## Demo etcd-cluster deployment
+**Demo etcd-cluster deployment**
 [![Demo on asciicast](https://asciinema.org/a/32703.png)](https://asciinema.org/a/32703)
