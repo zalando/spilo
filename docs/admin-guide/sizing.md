@@ -14,11 +14,11 @@ Choosing an instances type has some basic parameters:
 - costs
 
 ## Costs
-To have some notion of the costs of Spilo, we have calculated the costs for some possible configurations. 
+To have some notion of the costs of Spilo, we have calculated the costs for some possible configurations.
 
-**Note**: These are costs for an single Spilo deployment, as a case study. All prerequisites (Senza, Etcd) are considered 
+**Note**: These are costs for an single Spilo deployment, as a case study. All prerequisites (Senza, Etcd) are considered
 to be available and are not part of the costs of Spilo.
-These figures are meant to show the approximate costs, they *will* vary depending on your usecase and resource usage.
+These figures are meant to show the approximate costs, they *will* vary depending on your use case and resource usage.
 
 
 The following table shows ballpark figures of the raw costs of a Spilo deployment in 3 Availability Zones.

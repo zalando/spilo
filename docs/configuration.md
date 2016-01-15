@@ -1,4 +1,4 @@
-Configuration items specifict to Spilo are listed here.
+Configuration items specific to Spilo are listed here.
 
 ### Docker image
 The Docker image containing Patroni and AWS-specific code which constitutes Spilo.
@@ -54,16 +54,16 @@ When reusing an old EBS snapshot, specify its ID here.
 
 Example: `snap-e8bdf4c1`
 
-### Filesystem for the data partition
-What filesystem to use for your PostgreSQL cluster. Choosing `ext4` is a safe bet.
+### File system for the data partition
+What file system to use for your PostgreSQL cluster. Choosing `ext4` is a safe bet.
 
 Example: `ext4`
 
 **Blog with a lot of pointers on what Filesystem to choose**
 [PostgreSQL performance on EXT4 and XFS](http://blog.pgaddict.com/posts/postgresql-performance-on-ext4-and-xfs)
 
-### Filesystem mount options
-Which mount options for the filesystem containing the data.
+### File system mount options
+Which mount options for the file system containing the data.
 
 Example: `noatime,nodiratime,nobarrier`
 

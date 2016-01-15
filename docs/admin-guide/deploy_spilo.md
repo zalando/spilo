@@ -2,7 +2,7 @@
 The configuration for Spilo has a lot of items. To help you build a template for your needs, the `senza` application
 has a postgresapp template which will guide you through most of these items.
 
-For more details, check the configuration: [User Guide: Configuration](/user-guide/configuration/)
+For more details, check the configuration: [Configuration](/configuration/)
 
 ```bash
 senza init spilo-tutorial.yaml

@@ -5,8 +5,8 @@ theme: readthedocs
 pages:
   - Introduction: index.md
   - Design: DESIGN.md
+  - Prerequisites: prerequisites.md
   - Administrator Guide:
-    - Prerequisites: admin-guide/prerequisites.md
     - Deploy spilo: admin-guide/deploy_spilo.md
     - Connect to spilo: user-guide/connect_spilo.md
     - Sizing spilo: admin-guide/sizing.md
