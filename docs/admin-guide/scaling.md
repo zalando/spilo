@@ -1,5 +1,3 @@
-# Scaling up or down
-
 At some point during the lifetime of Spilo you may decide that you may need to scale up, scale down or change other
 parts of the infrastructure.
 

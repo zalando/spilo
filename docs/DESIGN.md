@@ -1,107 +1,68 @@
-Overview
-========
-We use PostgreSQL for this appliance because it provides a very robust RDBMS with a huge feature set. By using PostgreSQL we are also bound to its inherent limitations. One of those limitiations is that there can be only 1 master, it doesn't do multi-master replication (yet). Because of this limitation we decide to build an appliance that has 1 master cluster and n-slave clusters.
+Spilo combines Patroni with the Stups infrastructure. Its major components are:
 
-Having a single master inside this appliance means there will be a single point of failure (SPOF): the master itself. During an issue with the master the slaves will however be available for querying: it will not be a full outage. To reduce the impact of losing this SPOF we want to promote one of the slaves to a master as soon as possible once we determine the master is lost.
+* [Patroni](https://github.com/zalando/patroni)
+* [Stups](https://stups.io)
 
-Spilo was designed to be deployed on AWS.
+## Patroni
+Patroni manages the [PostgreSQL](https://www.postgresql.org) databases which are running in a Spilo. It ensures
+there is at most 1 master within Spilo.
 
-Architecture: VPC
-=================
+To allow distributed nodes to agree on anything, we need a Distributed Configuration Store (DCS).
+Patroni can utilize [etcd](https://coreos.com/etcd/) and [ZooKeeper](https://zookeeper.apache.org/).
 
-	VPC                                                              
-	+---------------------------------------------------------------+
-	|                                                               |
-	|                 etcd                                          |
-	|                   O            DNS Service Record (SRV)       |
-	|         +-----> O   O +-------> _etcd-server._tcp.example.com |
-	|         |        O O<+                                        |
-	|         |        ^   |                                        |
-	|         |        |   |            +-----+                     |
-	|         |        +---------------->     |                     |
-	|         |  +----------------------> DDS |                     |
-	|         |  |         |   +-------->     |                     |
-	|         |  |         |   |        +-----+                     |
-	| +--------------+  +--------------+                            |
-	| |-------v------|  |--v-----------|                            |
-	| ||            ||  ||            ||                            |
-	| ||HA Cluster 1||  ||HA Cluster 2||                            |
-	| ||            ||  ||            ||                            |
-	| |--------------|  |--------------|                            |
-	| +--------------+  +--------------+                            |
-	|                                                               |
-	+---------------------------------------------------------------+
+**Etcd**
 
-Considerations
---------------
-When considering what to build we had to determine which problems we want to solve or prevent.
-The following points are important for us:
+Most deployments of Patroni use etcd. Etcd implements the Raft protocol. Explaining the details of
+the concencus algorithm of raft is outside the scope of this document.
+For more information, check the following interactive
+websites:
 
-- automatic failover
-- deployment of a new HA-cluster can be done very quickly (< 15 minutes)
-- human interaction for creating a HA-cluster is minimal
-- sane defaults for a HA-cluster (security, configuration, backup)
-
-High Available cluster (HA-cluster)
------------------
-A set of machines serving PostgreSQL databases. Its architecture is explained in more detail further on.
-
-etcd
-----
-We were pointed towards etcd in combination with PostgreSQL by Compose with their [Governor](https://github.com/compose/governor). By using an external service, which is specialized in solving the problem of distributed consencus, we don't have to write our own. However, we made numeruous improvements to the Compose Governor and eventually forked it off into our own version under the name [Patroni](https://github.com/zalando/patroni). Patroni works with multiple DCSes (etcd and zookeeper, support for consul is coming up), can execute base backups asynchronously, provides a REST API for health-checks and management and contains numerous stability improvements. Patroni is the brain behind Spilo's ability to auto-failover. In our setup, Patroni works with one etcd per environment.
-
-To find out more about etcd: [coreos.com/etcd](https://coreos.com/etcd/)
+* Introduction into raft [http://thesecretlivesofdata.com/raft/](http://thesecretlivesofdata.com/raft/)
+* Interactive raft visualization [https://raft.github.io](https://raft.github.io)
 
 
-Architecture: PostgreSQL High Available cluster
-================
+## Stups
+Stups allows us to run PostgreSQL on top of Amazon Web Services (AWS) in an audit-compliant manner.
+It requires us to use the [Taupage AMI](https://github.com/zalando-stups/taupage) and [Docker](https://docs.docker.com).
 
-			   Healthcheck +-----------------------+                           
-			   +-----------> Elastic Load Balancer <---+                       
-			   |           +-------------+---------+   |                       
-			   |                         |             |                       
-			   |                         |     +-------+                       
-			   |                         |     |                               
-		   EC2 |nstance                  |     |  EC2 Instance                 
-	+----------------------------------+ | +----------------------------------+
-	|          |                       | | |   |                              |
-	|          |                       | | |   |                              |
-	| +--------+-+                     | | | +-+--------+                     |
-	| |          |                     | | | |          |                     |
-	| | Patroni  |                     | |   | Patroni  |                     |
-	| |          |                     | | | |          |                     |
-	| +--^-----^-+                     | | | +-^------^-+                     |
-	|    |     |                       | | |   |      |                       |
-	|    |     |                       | | |   |      |                       |
-	|    |   +-v----------+            | | |   |    +-v----------+            |
-	|    |   | PostgreSQL |            | | |   |    | PostgreSQL |            |
-	|    |   +------------+            | | |   |    +------------+            |
-	|    |   |   Master   <--------------+ |   |    |   Slave    |            |
-	|    |   +------------+            |   |   |    +------------+            |
-	|    |   |            |            |   |   |    |            |            |
-	|    |   +------------+            |   |   |    +------------+            |
-	|    |                             |   |   |                              |
-	+----^-----------------------------+   +---^------------------------------+
-	     |                                     | 
-	     | etcd connection                     | etcd connection
-	     |                                     |
-	     |            Etcd autoscaling group   |
-	+----v---------------+---------------------v-----+--------------------------+
-	|                    |                           |                          |
-	|                    |                           |                          |
-	|       etcd         |             etcd          |           etcd           |
-	|                    |                           |                          |
-	+--------------------+---------------------------+--------------------------+
-        
-etcd connection
-----
-We used to run etcd proxy inside the EC2 instances, but found out that the proxy component as not robust as the normal etcd, especially at the time when the etcd cluster configuration changes, and, therefore, decided in favor of using the etcd client library inside patroni.
+**2 node Spilo**
+![High Level Architecture](Spilo_Architecture_Instance.png)
 
-Patroni
-----
+## Amazon Web Services
+Running Spilo on [AWS](https://aws.amazon.com/) allows us to address issues like node replacement, connectivity, external backups. We use the following components:
 
-PostgreSQL
-----
-We use stock PostgreSQL (9.4) packages managed by Patroni. New replicas are created from the existing master using pg_basebackup. New replication slot is registered on a master for a new replica to make sure that WAL segments required to restore it from pg_basebackup will be retained. Currently, the appliance also ships WAL segment to AWS S3 using WAL-E (this can be changed in the senza template), and is also capable of bring up replica from the base backup on S3 produced by WAL-E. Currently, S3 will only be used if the amount of WAL files archived since the latest base backup does not exceed a certain configurable threshold (10GB by default) or 30% of the base backup size, otherwise, pg_basebackup will kick in. The rationale is that we do not want to wait very long for the replica to restore all the pending WAL files, which might happen if there are too many of them.
+* CF (Cloud Formation)
+* ASG (Auto Scaling Groups)
+* ELB (Elastic Load Balancing)
+* Route 53
+* S3 (Simple Storage Service)
+* SG (Security Group)
+* KMS (Key Management Service)
 
+**3 node Spilo**
+![High Level Architecture](Spilo_Architecture_High_Level.png)
 
+**Auto Scaling**
+
+The Auto Scaling ensures a new EC2 instance will run if a node fails. The Launch Configuration of the ASG has enough configuration for Patroni to discover the correct Patroni siblings.
+The ASG will also ensure nodes are running in different Availability Zones.
+
+**Elastic Load Balancing and Route 53**
+
+To allow applications to connect to the database using a dns name, we use a Route 53 (dns) CNAME
+which points to an ELB. This ELB will only route connections to the master and not to the replicas.
+
+A replica ELB is optionally available, it only routes connections to the replicas, never to the master.
+
+**S3**
+
+Binary backups are created periodically and are shipped to S3. WAL files generated by the master are also archived to S3.
+This allows Point-in-time recovery abilities.
+
+Having backups in S3 also allows new nodes to be restored from S3 (instead from the master). This may speed up spawning a new node and
+reduce pressure on the master.
+
+**Cloud Formation**
+
+All components are described in a Cloud Formation Template. The stups tool [senza](https://github.com/zalando-stups/senza)
+greatly simplifies generating this template.

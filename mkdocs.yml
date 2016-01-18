@@ -5,11 +5,11 @@ theme: readthedocs
 pages:
   - Introduction: index.md
   - Design: DESIGN.md
-  - User Guide:
-    - Prerequisites: user-guide/prerequisites.md
-    - Deploy spilo: user-guide/deploy_spilo.md
-    - Deploy etcd: user-guide/deploy_etcd.md
-    - Connect to spilo: user-guide/connect_spilo.md
+  - Prerequisites: prerequisites.md
   - Administrator Guide:
+    - Deploy spilo: admin-guide/deploy_spilo.md
+    - Connect to spilo: user-guide/connect_spilo.md
     - Sizing spilo: admin-guide/sizing.md
-    - Scaling up or down: admin-guide/scaling.md
+    - Update : admin-guide/update.md
+    - Manual failover: admin-guide/failover.md
+  - Configuration: configuration.md
