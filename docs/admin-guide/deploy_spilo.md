@@ -8,5 +8,15 @@ For more details, check the configuration: [Configuration](/configuration/)
 senza init spilo-tutorial.yaml
 ```
 
+You should choose the `postgresapp` option in senza.
+
+## Create a Cloud Formation Stack
+After this you create a Cloud Formation Stack from the generated template using `senza create`
+```bash
+senza create spilo-tutorial.yaml <version> [PARAMETERS]
+```
+
+Parameters may not be required if you have specified all configuration options in the template.
+
 ## Demo Spilo deployment
 [![Demo on asciicast](https://asciinema.org/a/32288.png)](https://asciinema.org/a/32288)

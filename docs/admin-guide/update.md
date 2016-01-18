@@ -10,13 +10,31 @@ Examples of these updates are:
 * [Senza: Updating Taupage AMI](http://stups.readthedocs.org/en/latest/user-guide/maintenance.htm    l?highlight=patch#updating-taupage-ami)
 To change the configuration of Spilo you need to change the Cloud Formation Stack or the Launch Configuration of Spilo.
 
+The following opions are available to you
+
+**senza patch**
+
+Use `senza patch` to update the Launch Configuration of Spilo (Taupage AMI for example).
+
+[Senza: Updating Taupage AMI](http://stups.readthedocs.org/en/latest/user-guide/maintenance.html?highlight=patch#updating-taupage-ami)
+
+**senza update**
+
+If you need to change something other than the Taupage AMI, for example the Docker image, you will need
+to update the Cloud Formation Template. You should use the same template you used to create this Spilo,
+make the necessary changes and execute `senza update`.
+
+**Note**: Updating the Cloud Formation Stack carries risk. If you change any infrastructure parameters (e.g.
+reducing the Auto Scaling Group members), the update will force this change upon the infrastructe.
+
+```bash
+senza update spilo-tutorial.yaml <version> [PARAMETERS]
+```
 
 
 ## Apply the configuration
-This is a two step process:
+This is a three step process:
 
-* Use `senza patch` to update the Launch Configuration of Spilo
-    * [Senza: Updating Taupage AMI](http://stups.readthedocs.org/en/latest/user-guide/maintenance.html?highlight=patch#updating-taupage-ami)
 * Rotate the Spilo replica's
     * Terminate a Spilo replica
     * Wait for the new replica to be available and replicating
