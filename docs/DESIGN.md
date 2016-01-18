@@ -10,6 +10,17 @@ there is at most 1 master within Spilo.
 To allow distributed nodes to agree on anything, we need a Distributed Configuration Store (DCS).
 Patroni can utilize [etcd](https://coreos.com/etcd/) and [ZooKeeper](https://zookeeper.apache.org/).
 
+**Etcd**
+
+Most deployments of Patroni use etcd. Etcd implements the Raft protocol. Explaining the details of
+the concencus algorithm of raft is outside the scope of this document.
+For more information, check the following interactive
+websites:
+
+* Introduction into raft [http://thesecretlivesofdata.com/raft/](http://thesecretlivesofdata.com/raft/)
+* Interactive raft visualization [https://raft.github.io](https://raft.github.io)
+
+
 ## Stups
 Stups allows us to run PostgreSQL on top of Amazon Web Services (AWS) in an audit-compliant manner.
 It requires us to use the [Taupage AMI](https://github.com/zalando-stups/taupage) and [Docker](https://docs.docker.com).
