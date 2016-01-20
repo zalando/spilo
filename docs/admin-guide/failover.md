@@ -1,14 +1,14 @@
-In the lifetime of Spilo you may need to manually failover the master to a replica, some of 
+In the lifetime of Spilo you may need to manually fail over the master to a replica, some of
 these reasons are:
 
 * Mandatory Taupage AMI update
 * Scheduled AWS maintenance in your region
 * Scheduled EC2 maintenance by AWS
 
-You can trigger a failover using the api. The command line tool `patronictl` can also issue a failover (since Patroni 0.75).
-Using the api to failover is the preferred method, as it will execute preliminary checks and provide feedback.
+You can trigger a fail over using the api. The command line tool `patronictl` can also issue a fail over (since Patroni 0.75).
+Using the api to fail over is the preferred method, as it will execute preliminary checks and provide feedback.
 
-An alternative method which works with any version is to trigger an automatic failover.
+An alternative method which works with any version is to trigger an automatic fail over.
 
 * Identify the node currently running as a master (LB Status = `IN_SERVICE`)
 * Request access using `piu` to the EC2 instance currently running as a master

@@ -46,7 +46,7 @@ Do your own calculations on the [Amazon Simple Monthly Calculator](http://calcul
 For some types of databases the smallest possible instance available can be a good candidate. Some examples that
 can probably run fine on t2.micro instances are:
 
-* Very small (< 500 MB) databases 
+* Very small (< 500 MB) databases
 * Databases which are not queried often or heavily (some configuration store, an application registry)
 * Proof of Concepts / Prototyping
 

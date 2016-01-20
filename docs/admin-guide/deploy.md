@@ -1,3 +1,0 @@
-To Deploy
-
-# Prerequisites

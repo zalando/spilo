@@ -1,4 +1,4 @@
-Spilo is a stateful appliance, therefore you may need to update certain componenents from time to time.
+Spilo is a stateful appliance, therefore you may need to update certain components from time to time.
 Examples of these updates are:
 
 * Update Taupage AMI
@@ -10,7 +10,7 @@ Examples of these updates are:
 * [Senza: Updating Taupage AMI](http://stups.readthedocs.org/en/latest/user-guide/maintenance.htm    l?highlight=patch#updating-taupage-ami)
 To change the configuration of Spilo you need to change the Cloud Formation Stack or the Launch Configuration of Spilo.
 
-The following opions are available to you
+The following options are available to you
 
 **senza patch**
 
@@ -25,7 +25,7 @@ to update the Cloud Formation Template. You should use the same template you use
 make the necessary changes and execute `senza update`.
 
 **Note**: Updating the Cloud Formation Stack carries risk. If you change any infrastructure parameters (e.g.
-reducing the Auto Scaling Group members), the update will force this change upon the infrastructe.
+reducing the Auto Scaling Group members), the update will force this change upon the infrastructure.
 
 ```bash
 senza update spilo-tutorial.yaml <version> [PARAMETERS]
@@ -40,6 +40,6 @@ This is a three step process:
     * Wait for the new replica to be available and replicating
     * Repeat for other replica(s)
 * [Failover Spilo](/admin-guide/failover)
-* After succesfull failover: Terminate the previous master
+* After succesfull fail over: Terminate the previous master
 
 All newly launched EC2 instances will now be using the updated Taupage AMI.
