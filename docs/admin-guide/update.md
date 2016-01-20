@@ -30,7 +30,20 @@ reducing the Auto Scaling Group members), the update will force this change upon
 ```bash
 senza update spilo-tutorial.yaml <version> [PARAMETERS]
 ```
+## New replica initialization
+While you can always terminate a replica and make the autoscaling group replace it with a new one, which includes the changes made to the Cloud Formation or Autoscaling Group, the process involves a base backup from the master and might take a lot of time for large databases. Therefore, it might be more efficient to use the [EBS Snapshots](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSSnapshots.html), the feature of AWS. It makes possible to bootstrap an arbitrary number of replicas without imposing any extra load on the master. Here's how to utilize them:
 
+* Pick up an existing replica and [make a snapshot](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-creating-snapshot.html) of its non-root EBS volume (it's usually named /dev/xvdk).
+* Change the senza definition YAML:
+   * Add the following line:
+      ```SnapshotId: ID of the snapshot created on a previous step``` under `Ebs` block (a subblock of `BlockDeviceMappings`).
+   * Set the parameter `erase_on_boot` under `mounts` (a subblock of `TaupageConfig`) to `false`.
+   * Do ```senza update``` with the new definition.
+
+This ensures that a new replica will use a snapshot taken out of an existing one and will not try to erase a data populated by the snapshot automatically during the start.
+
+Note: usage of snapshots adds one extra step to the procedure below: 
+   * Revert the snapshot-related changes in the YAML template and do `senza update` with the changed YAML one last time.
 
 ## Apply the configuration
 This is a three step process:
