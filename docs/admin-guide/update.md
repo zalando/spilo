@@ -45,6 +45,9 @@ This ensures that a new replica will use a snapshot taken out of an existing one
 Note: usage of snapshots adds one extra step to the procedure below: 
    * Revert the snapshot-related changes in the YAML template and do `senza update` with the changed YAML one last time.
 
+The demo video below demonstrates the process of updating your cluster to the new Spilo version with senza update and EBS snapshots:
+[![Demo on asciicast](https://asciinema.org/a/34689.png)](https://asciinema.org/a/34689)
+
 ## Apply the configuration
 This is a three step process:
 
