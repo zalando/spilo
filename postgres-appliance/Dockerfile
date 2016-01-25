@@ -56,9 +56,6 @@ ENV ETCDVERSION 2.2.1
 RUN curl -L https://github.com/coreos/etcd/releases/download/v${ETCDVERSION}/etcd-v${ETCDVERSION}-linux-amd64.tar.gz \
     | tar xz -C /bin --strip=1 --wildcards --no-anchored etcd etcdctl
 
-# Copy the snakeoil certificates for usage as dummy certificates
-RUN cp /etc/ssl/private/ssl-cert-snakeoil.key $PGHOME/dummy.key && cp /etc/ssl/certs/ssl-cert-snakeoil.pem $PGHOME/dummy.crt
-
 # Install Patroni
 ENV PATRONIVERSION 0.75
 WORKDIR $PGHOME

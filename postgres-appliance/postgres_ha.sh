@@ -19,6 +19,12 @@ function write_patronictl_yaml
     fi
 }
 
+function generate_dummy_certificates
+{
+    openssl req -nodes -new -x509 -keyout "${SSL_PRIVATE_KEY}" -out "${SSL_CERTIFICATE}" -subj "/CN=spilo.dummy.org"
+    chmod 0600 "${SSL_PRIVATE_KEY}"
+}
+
 function write_postgres_yaml
 {
   local aws_private_ip=$(curl -s http://instance-data/latest/meta-data/local-ipv4)
@@ -141,6 +147,7 @@ function write_archive_command_environment
 write_patronictl_yaml
 write_postgres_yaml
 write_archive_command_environment
+generate_dummy_certificates
 
 # run wal-e s3 backup periodically
 (
@@ -204,6 +211,3 @@ write_archive_command_environment
 
 [[ "$DEBUG" == 1 ]] && exec /bin/bash
 exec patroni "$PGHOME/postgres.yml"
-
-
-
