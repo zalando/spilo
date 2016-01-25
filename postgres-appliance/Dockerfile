@@ -47,22 +47,23 @@ RUN git clone -b ${PGREWINDTAG} --depth 1 https://github.com/vmware/pg_rewind.gi
     # we remove the sources to decrease the size of the Docker image
     && rm -rf /pg_rewind/
 
+# Install Patroni
+ENV PATRONIVERSION 0.76
+WORKDIR $PGHOME
+RUN pip install patroni==$PATRONIVERSION
+
 # WAL-e requests a relatively new version of requests, install other modules via pip as well
-RUN pip install requests six wal-e psycopg2 dnspython kazoo python-etcd click prettytable --upgrade
+RUN pip install requests wal-e --upgrade
 
 
 # install etcd
-ENV ETCDVERSION 2.2.1
+ENV ETCDVERSION 2.2.4
 RUN curl -L https://github.com/coreos/etcd/releases/download/v${ETCDVERSION}/etcd-v${ETCDVERSION}-linux-amd64.tar.gz \
     | tar xz -C /bin --strip=1 --wildcards --no-anchored etcd etcdctl
 
 # Copy the snakeoil certificates for usage as dummy certificates
 RUN cp /etc/ssl/private/ssl-cert-snakeoil.key $PGHOME/dummy.key && cp /etc/ssl/certs/ssl-cert-snakeoil.pem $PGHOME/dummy.crt
 
-# Install Patroni
-ENV PATRONIVERSION 0.75
-WORKDIR $PGHOME
-RUN pip install patroni==$PATRONIVERSION
 
 ADD postgres_ha.sh /
 RUN chown postgres:postgres $PGHOME -R
