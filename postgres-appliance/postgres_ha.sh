@@ -2,8 +2,6 @@
 
 PATH=$PATH:/usr/lib/postgresql/${PGVERSION}/bin
 
-SSL_CERTIFICATE="$PGHOME/dummy.crt"
-SSL_PRIVATE_KEY="$PGHOME/dummy.key"
 BACKUP_INTERVAL=3600
 
 [ -z ${PGPASSWORD_SUPERUSER} ] && PGPASSWORD_SUPERUSER='zalando'
@@ -19,10 +17,20 @@ function write_patronictl_yaml
     fi
 }
 
-function generate_dummy_certificates
+function generate_certificates
 {
-    openssl req -nodes -new -x509 -keyout "${SSL_PRIVATE_KEY}" -out "${SSL_CERTIFICATE}" -subj "/CN=spilo.dummy.org"
-    chmod 0600 "${SSL_PRIVATE_KEY}"
+    if [ -z ${SSL_PRIVATE_KEY} ]
+    then
+        SSL_CERTIFICATE_FILE="$PGHOME/dummy.crt"
+        SSL_PRIVATE_KEY_FILE="$PGHOME/dummy.key"
+        openssl req -nodes -new -x509 -keyout "${SSL_PRIVATE_KEY_FILE}" -out "${SSL_CERTIFICATE_FILE}" -subj "/CN=spilo.dummy.org"
+    else
+        SSL_CERTIFICATE_FILE="$PGHOME/server.crt"
+        SSL_PRIVATE_KEY_FILE="$PGHOME/server.key"
+        echo "${SSL_PRIVATE_KEY}" > "${SSL_PRIVATE_KEY_FILE}"
+        echo "${SSL_CERTIFICATE}" > "${SSL_CERTIFICATE_FILE}"
+    fi
+    chmod 0600 "${SSL_PRIVATE_KEY_FILE}"
 }
 
 function write_postgres_yaml
@@ -127,8 +135,8 @@ postgresql:
     tcp_keepalives_idle: 900
     tcp_keepalives_interval: 100
     ssl: "on"
-    ssl_cert_file: "$SSL_CERTIFICATE"
-    ssl_key_file: "$SSL_PRIVATE_KEY"
+    ssl_cert_file: "$SSL_CERTIFICATE_FILE"
+    ssl_key_file: "$SSL_PRIVATE_KEY_FILE"
     wal_log_hints: 'on'
   recovery_conf:
     restore_command: "envdir ${WALE_ENV_DIR} wal-e --aws-instance-profile wal-fetch \"%f\" \"%p\" -p 1"
@@ -147,7 +155,7 @@ function write_archive_command_environment
 write_patronictl_yaml
 write_postgres_yaml
 write_archive_command_environment
-generate_dummy_certificates
+generate_certificates
 
 # run wal-e s3 backup periodically
 (
