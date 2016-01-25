@@ -19,16 +19,16 @@ function write_patronictl_yaml
 
 function generate_certificates
 {
-    if [ -z ${SSL_PRIVATE_KEY} ]
+    if [ -n "${SSL_PRIVATE_KEY}" ]
     then
-        SSL_CERTIFICATE_FILE="$PGHOME/dummy.crt"
-        SSL_PRIVATE_KEY_FILE="$PGHOME/dummy.key"
-        openssl req -nodes -new -x509 -keyout "${SSL_PRIVATE_KEY_FILE}" -out "${SSL_CERTIFICATE_FILE}" -subj "/CN=spilo.dummy.org"
-    else
         SSL_CERTIFICATE_FILE="$PGHOME/server.crt"
         SSL_PRIVATE_KEY_FILE="$PGHOME/server.key"
         echo "${SSL_PRIVATE_KEY}" > "${SSL_PRIVATE_KEY_FILE}"
         echo "${SSL_CERTIFICATE}" > "${SSL_CERTIFICATE_FILE}"
+    else
+        SSL_CERTIFICATE_FILE="$PGHOME/dummy.crt"
+        SSL_PRIVATE_KEY_FILE="$PGHOME/dummy.key"
+        openssl req -nodes -new -x509 -keyout "${SSL_PRIVATE_KEY_FILE}" -out "${SSL_CERTIFICATE_FILE}" -subj "/CN=spilo.dummy.org"
     fi
     chmod 0600 "${SSL_PRIVATE_KEY_FILE}"
 }
@@ -135,8 +135,8 @@ postgresql:
     tcp_keepalives_idle: 900
     tcp_keepalives_interval: 100
     ssl: "on"
-    ssl_cert_file: "$SSL_CERTIFICATE_FILE"
-    ssl_key_file: "$SSL_PRIVATE_KEY_FILE"
+    ssl_cert_file: "${SSL_CERTIFICATE_FILE}"
+    ssl_key_file: "${SSL_PRIVATE_KEY_FILE}"
     wal_log_hints: 'on'
   recovery_conf:
     restore_command: "envdir ${WALE_ENV_DIR} wal-e --aws-instance-profile wal-fetch \"%f\" \"%p\" -p 1"
@@ -152,10 +152,10 @@ function write_archive_command_environment
   echo "https+path://s3-$region.amazonaws.com:443" > ${WALE_ENV_DIR}/WALE_S3_ENDPOINT
 }
 
+generate_certificates
 write_patronictl_yaml
 write_postgres_yaml
 write_archive_command_environment
-generate_certificates
 
 # run wal-e s3 backup periodically
 (
