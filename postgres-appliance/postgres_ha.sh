@@ -96,6 +96,7 @@ postgresql:
   pg_hba:
   - hostssl all all 0.0.0.0/0 md5
   - host    all all 0.0.0.0/0 md5
+  maximum_lag_on_failover: 16777215 # (1 byte less than 16MB)
   replication:
     username: standby
     password: "${PGPASSWORD_STANDBY}"
