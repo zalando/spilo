@@ -13,8 +13,13 @@ You should choose the `postgresapp` option in senza.
 ## Create a Cloud Formation Stack
 After this you create a Cloud Formation Stack from the generated template using `senza create`
 ```bash
-senza create spilo-tutorial.yaml <version> [PARAMETERS]
+senza create spilo-tutorial.yaml <name> [PARAMETERS]
 ```
+
+The `<name>` is the same as a senza `<version>` and therefore should adhere to those limitations.
+We advise you to use a descriptive name instead of a number, as a data store is supposed to be long lived and the
+stack will be upgraded in place. A descriptive name could be `mediawiki` if you are going to use it to store
+your own wiki.
 
 Parameters may not be required if you have specified all configuration options in the template.
 
