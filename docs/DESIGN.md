@@ -62,6 +62,16 @@ This allows Point-in-time recovery abilities.
 Having backups in S3 also allows new nodes to be restored from S3 (instead from the master). This may speed up spawning a new node and
 reduce pressure on the master.
 
+**Security Groups**
+
+Multiple Security Groups are created, one for the EC2 instances, which is by default restrictive:
+
+* Allows Spilo peers to connect to eachother
+* Allows ELB's to connect to the EC2 instances
+* Allows administrative and monitoring connections to the instances
+
+And a Security Group per ELB, to allow access to specific networks or applications, which by default allows traffic from this VPC's region.
+
 **Cloud Formation**
 
 All components are described in a Cloud Formation Template. The stups tool [senza](https://github.com/zalando-stups/senza)
