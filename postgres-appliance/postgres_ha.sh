@@ -57,14 +57,14 @@ zookeeper:
   reconnect_timeout: *loop_wait
 __EOF__
 
-    [[ -n $ZOOKEEPER_HOSTS ]] && echo "  hosts: ${ZOOKEEPER_HOSTS}" >> postgres.yml
+    [[ -n $ZOOKEEPER_HOSTS ]] && echo "  hosts: [${ZOOKEEPER_HOSTS}]" >> postgres.yml
 
     if [[ -n $EXHIBITOR_HOSTS && -n $EXHIBITOR_PORT ]]; then
       cat >> postgres.yml <<__EOF__
   exhibitor:
     poll_interval: 300
     port: ${EXHIBITOR_PORT}
-    hosts: ${EXHIBITOR_HOSTS}
+    hosts: [${EXHIBITOR_HOSTS}]
 __EOF__
     fi
   elif [[ -n $ETCD_HOST ]]; then
