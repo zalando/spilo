@@ -53,30 +53,28 @@ WORKDIR $PGHOME
 RUN pip install patroni==$PATRONIVERSION
 
 # WAL-e requests a relatively new version of requests, install other modules via pip as well
-RUN pip install requests wal-e --upgrade
+RUN pip install requests wal-e --upgrade pystache
 
 # install etcd
 ENV ETCDVERSION 2.2.4
 RUN curl -L https://github.com/coreos/etcd/releases/download/v${ETCDVERSION}/etcd-v${ETCDVERSION}-linux-amd64.tar.gz \
     | tar xz -C /bin --strip=1 --wildcards --no-anchored etcd etcdctl
 
-ADD postgres_ha.sh /
+ADD postgres_ha.py /
+ADD postgres_backup.sh /
 RUN chown postgres:postgres $PGHOME -R
-RUN chown postgres:postgres /postgres_ha.sh
-RUN chmod 700 /postgres_ha.sh
+RUN chown postgres:postgres /postgres_*
+RUN chmod 700 /postgres_*
 
 ENV ETCD_DISCOVERY_DOMAIN postgres.acid.example.com
-ENV SCOPE test
-ENV WAL_S3_BUCKET spilo-example-com
 ENV DEBUG 0
-# Shoud be 3am by GMT+2 aka Berlin Summer Time
-ENV BACKUP_HOUR 1
-ENV WALE_BACKUP_THRESHOLD_MEGABYTES 1024
-ENV WALE_BACKUP_THRESHOLD_PERCENTAGE 30
-ENV WALE_ENV_DIR $PGHOME/etc/wal-e.d/env
+
 ENV LC_ALL en_US.utf-8
+
+# Allow cron to be started by postgres
+RUN echo "postgres ALL=(ALL:ALL) NOPASSWD: /usr/sbin/cron" > /etc/sudoers #Allow cron to be started by postgres
 WORKDIR $PGHOME
 USER postgres
-ENTRYPOINT ["/bin/bash", "/postgres_ha.sh"]
+ENTRYPOINT ["/usr/bin/python", "/postgres_ha.py"]
 EXPOSE 5432
 
