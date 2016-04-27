@@ -48,7 +48,7 @@ RUN git clone -b ${PGREWINDTAG} --depth 1 https://github.com/vmware/pg_rewind.gi
     && rm -rf /pg_rewind/
 
 # Install Patroni
-ENV PATRONIVERSION 0.80
+ENV PATRONIVERSION 0.90
 WORKDIR $PGHOME
 RUN pip install patroni==$PATRONIVERSION
 
