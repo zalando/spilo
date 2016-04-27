@@ -43,7 +43,7 @@ RUN apt-get install postgresql-${PGVERSION} postgresql-${PGVERSION}-dbg postgres
 RUN usermod -d $PGHOME -m postgres
 
 # Install Patroni
-ENV PATRONIVERSION 0.80
+ENV PATRONIVERSION 0.90
 WORKDIR $PGHOME
 RUN pip install patroni==$PATRONIVERSION
 
