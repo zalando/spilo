@@ -53,7 +53,7 @@ WORKDIR $PGHOME
 RUN pip install patroni==$PATRONIVERSION
 
 # WAL-e requests a relatively new version of requests, install other modules via pip as well
-RUN pip install requests wal-e --upgrade pystache
+RUN pip install --upgrade requests wal-e pystache
 
 # install etcd
 ENV ETCDVERSION 2.2.4
@@ -72,7 +72,7 @@ ENV DEBUG 0
 ENV LC_ALL en_US.utf-8
 
 # Allow cron to be started by postgres
-RUN echo "postgres ALL=(ALL:ALL) NOPASSWD: /usr/sbin/cron" > /etc/sudoers #Allow cron to be started by postgres
+RUN echo "postgres ALL=(ALL:ALL) NOPASSWD: /usr/sbin/cron" > /etc/sudoers
 WORKDIR $PGHOME
 USER postgres
 ENTRYPOINT ["/usr/bin/python", "/postgres_ha.py"]

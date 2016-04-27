@@ -49,7 +49,7 @@ def deep_update(a, b):
     """Updates data structures
 
     Dicts are merged, recursively
-    Lists are appended a+b
+    List b is appended to a (except duplicates)
     For anything else, the value of a is returned"""
 
     if type(a) is dict and type(b) is dict:
@@ -60,7 +60,7 @@ def deep_update(a, b):
                 a[key] = b[key]
         return a
     if type(a) is list and type(b) is list:
-        return a + b
+        return a + [i for i in b if i not in a]
 
     return a
 
@@ -130,10 +130,9 @@ def get_instance_meta_data(key):
         result = requests.get('http://instance-data/latest/meta-data/{}'.format(key), timeout=2)
         if result.status_code != 200:
             raise Exception('Received status code {} ({})'.format(result.status_code, result.text))
-        return requests.get('http://instance-data/latest/meta-data/{}'.format(key), timeout=2).text
+        return result.text
     except Exception, e:
         logging.debug('Could not inspect instance metadata for key {}, error: {}'.format(key, e))
-        return 'dummy'
 
 
 def get_placeholders():
@@ -214,8 +213,7 @@ etcd:
 
 
 def write_wale_command_environment(placeholders):
-    placeholders['instance_data']['ip'] = get_instance_meta_data('local-ipv4')
-    az = get_instance_meta_data('placement/availability-zone')
+    az = get_instance_meta_data('placement/availability-zone') or 'dummy-region'
 
     if not os.path.exists(placeholders['WALE_ENV_DIR']):
         os.makedirs(placeholders['WALE_ENV_DIR'])
@@ -249,6 +247,7 @@ def main():
     logging.basicConfig(format='%(asctime)s - bootstrapping - %(levelname)s - %(message)s', level=('DEBUG'
                          if debug else 'INFO'))
     if debug:
+        logging.warning('variable DEBUG was set, dropping you to a bash shell. (unset DEBUG to avoid this)')
         os.execlpe('bash', 'bash', dict(os.environ))
 
     placeholders = get_placeholders()
@@ -272,8 +271,8 @@ def main():
 
     # # We run cron, to schedule recurring tasks on the node
     logging.info('Starting up cron')
-    subprocess.call(['/usr/bin/sudo', '/usr/sbin/cron'])
     write_crontab(placeholders, os.environ.get('PATH'))
+    subprocess.call(['/usr/bin/sudo', '/usr/sbin/cron'])
 
     # # We run 1 backup, with INITIAL_BACKUP set
     subprocess.Popen(['/bin/bash', '/postgres_backup.sh', placeholders['WALE_ENV_DIR'], placeholders['PGDATA']],
