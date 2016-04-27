@@ -79,6 +79,9 @@ postgresql:
   listen: 0.0.0.0:{{PGPORT}}
   connect_address: {{instance_data.ip}}:{{PGPORT}}
   data_dir: {{PGDATA}}
+  initdb:
+    - encoding: UTF8
+    - locale: en_US.UTF-8
   pg_hba:
     - hostssl all all 0.0.0.0/0 md5
     - host    all all 0.0.0.0/0 md5
