@@ -20,35 +20,30 @@ RUN echo "deb-src http://apt.postgresql.org/pub/repos/apt/ $(lsb_release -cs)-pg
 RUN curl -s -o - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add -
 RUN apt-get update
 
-ENV PGVERSION 9.4
 ENV PGHOME /home/postgres
 ENV PGDATA $PGHOME/pgdata/data
 
 
+ENV PGVERSION 9.4
 # Install PostgreSQL 9.4 binaries, contrib, pgq, plproxy, pgq and plpython
 RUN apt-get install postgresql-${PGVERSION} postgresql-${PGVERSION}-dbg postgresql-server-dev-${PGVERSION} postgresql-client-${PGVERSION} postgresql-contrib-${PGVERSION} postgresql-${PGVERSION}-plproxy postgresql-${PGVERSION}-pgq3 postgresql-${PGVERSION}-postgis postgresql-plpython3-${PGVERSION} postgresql-plpython-${PGVERSION} postgresql-${PGVERSION}-plr -y \
-    ## # install all build-dependencies for postgresql-9.4 in order to be able to compile 9.4
     && apt-get clean \
     ## # Remove the default cluster, which Debian stupidly starts right after installation of the packages
     && pg_dropcluster --stop ${PGVERSION} main
 ENV PATH $PATH:/usr/lib/postgresql/${PGVERSION}/bin
 
+ENV PGVERSION 9.5
+# Install PostgreSQL PGVERSION binaries, contrib, pgq, plproxy, pgq and plpython
+RUN apt-get install postgresql-${PGVERSION} postgresql-${PGVERSION}-dbg postgresql-server-dev-${PGVERSION} postgresql-client-${PGVERSION} postgresql-contrib-${PGVERSION} postgresql-${PGVERSION}-plproxy postgresql-${PGVERSION}-pgq3 postgresql-${PGVERSION}-postgis postgresql-plpython3-${PGVERSION} postgresql-plpython-${PGVERSION} postgresql-${PGVERSION}-plr -y \
+    && apt-get clean \
+    ## # Remove the default cluster, which Debian stupidly starts right after installation of the packages
+    && pg_dropcluster --stop ${PGVERSION} main
+
 # Set PGHOME as a login directory for the PostgreSQL user.
 RUN usermod -d $PGHOME -m postgres
-RUN apt-get build-dep postgresql-${PGVERSION} -y
-
-ENV PGREWINDTAG PGREWIND1_0_0_PG9_4
-
-# Add pg_rewind. Has to be compiled from git, since there are no proper packages.
-RUN git clone -b ${PGREWINDTAG} --depth 1 https://github.com/vmware/pg_rewind.git \
-    && cd pg_rewind && apt-get source postgresql-${PGVERSION} -y \
-    && USE_PGXS=1 make top_srcdir=$(find . -name "postgresql*" -type d) install \
-    && cd / \
-    # we remove the sources to decrease the size of the Docker image
-    && rm -rf /pg_rewind/
 
 # Install Patroni
-ENV PATRONIVERSION 0.76
+ENV PATRONIVERSION 0.80
 WORKDIR $PGHOME
 RUN pip install patroni==$PATRONIVERSION
 
@@ -56,7 +51,7 @@ RUN pip install patroni==$PATRONIVERSION
 RUN pip install requests wal-e --upgrade
 
 # install etcd
-ENV ETCDVERSION 2.2.4
+ENV ETCDVERSION 2.3.2
 RUN curl -L https://github.com/coreos/etcd/releases/download/v${ETCDVERSION}/etcd-v${ETCDVERSION}-linux-amd64.tar.gz \
     | tar xz -C /bin --strip=1 --wildcards --no-anchored etcd etcdctl
 
