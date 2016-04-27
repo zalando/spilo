@@ -114,6 +114,7 @@ postgresql:
     max_wal_senders: 5
     wal_keep_segments: 8
     archive_timeout: 1800s
+    max_connections: {{postgresql.parameters.max_connections}}
     max_replication_slots: 5
     hot_standby: 'on'
     tcp_keepalives_idle: 900
@@ -158,11 +159,15 @@ def get_placeholders():
     placeholders.setdefault('WALE_ENV_DIR', os.path.join(placeholders['PGHOME'], 'etc', 'wal-e.d', 'env'))
     placeholders.setdefault('WAL_S3_BUCKET', 'spilo-example-com')
 
-    # # We take 1/4 of the memory, expressed in full MB's
     placeholders.setdefault('postgresql', {})
     placeholders['postgresql'].setdefault('parameters', {})
-    shared_buffers_mb = os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES') / 1024 / 1024 / 4
-    placeholders['postgresql']['parameters']['shared_buffers'] = '{0:.0f}MB'.format(shared_buffers_mb)
+
+    os_memory_mb = os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES') / 1024 / 1024
+
+    # # We take 1/4 of the memory, expressed in full MB's
+    placeholders['postgresql']['parameters']['shared_buffers'] = '{}MB'.format(int(os_memory_mb/4))
+    # # 1 connection per 30 MB, at least 100
+    placeholders['postgresql']['parameters']['max_connections'] = max(100, int(os_memory_mb/30))
 
     placeholders['instance_data'] = dict()
     placeholders['instance_data']['ip'] = get_instance_meta_data('local-ipv4') \
