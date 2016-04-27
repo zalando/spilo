@@ -259,6 +259,11 @@ def main():
 
     config = deep_update(yaml.load(os.environ.get('PATRONI_CONFIGURATION') or '{}'), config)
 
+    # Ensure replication is available
+    if not any(['replication' in i for i in config['postgresql']['pg_hba']]):
+        rep_hba = 'hostssl replication {} 0.0.0.0/0 md5'.format(config['postgresql']['replication']['username'])
+        config['postgresql']['pg_hba'].insert(0, rep_hba)
+
     # Patroni configuration
     patroni_configfile = os.path.join(placeholders['PGHOME'], 'postgres.yml')
     write_configuration(config, patroni_configfile)
