@@ -48,7 +48,7 @@ RUN git clone -b ${PGREWINDTAG} --depth 1 https://github.com/vmware/pg_rewind.gi
     && rm -rf /pg_rewind/
 
 # Install Patroni
-ENV PATRONIVERSION 0.76
+ENV PATRONIVERSION 0.80
 WORKDIR $PGHOME
 RUN pip install patroni==$PATRONIVERSION
 
@@ -56,7 +56,7 @@ RUN pip install patroni==$PATRONIVERSION
 RUN pip install requests wal-e --upgrade
 
 # install etcd
-ENV ETCDVERSION 2.2.4
+ENV ETCDVERSION 2.3.2
 RUN curl -L https://github.com/coreos/etcd/releases/download/v${ETCDVERSION}/etcd-v${ETCDVERSION}-linux-amd64.tar.gz \
     | tar xz -C /bin --strip=1 --wildcards --no-anchored etcd etcdctl
 
