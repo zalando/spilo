@@ -75,6 +75,7 @@ ENV WALE_BACKUP_THRESHOLD_MEGABYTES 1024
 ENV WALE_BACKUP_THRESHOLD_PERCENTAGE 30
 ENV WALE_ENV_DIR $PGHOME/etc/wal-e.d/env
 ENV LC_ALL en_US.utf-8
+ADD scm-source.json /scm-source.json
 WORKDIR $PGHOME
 USER postgres
 ENTRYPOINT ["/bin/bash", "/postgres_ha.sh"]
