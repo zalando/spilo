@@ -30,7 +30,6 @@ RUN apt-get install postgresql-${PGVERSION} postgresql-${PGVERSION}-dbg postgres
     && apt-get clean \
     ## # Remove the default cluster, which Debian stupidly starts right after installation of the packages
     && pg_dropcluster --stop ${PGVERSION} main
-ENV PATH $PATH:/usr/lib/postgresql/${PGVERSION}/bin
 
 ENV PGVERSION 9.5
 # Install PostgreSQL PGVERSION binaries, contrib, pgq, plproxy, pgq and plpython
@@ -38,6 +37,7 @@ RUN apt-get install postgresql-${PGVERSION} postgresql-${PGVERSION}-dbg postgres
     && apt-get clean \
     ## # Remove the default cluster, which Debian stupidly starts right after installation of the packages
     && pg_dropcluster --stop ${PGVERSION} main
+ENV PATH $PATH:/usr/lib/postgresql/${PGVERSION}/bin
 
 # Set PGHOME as a login directory for the PostgreSQL user.
 RUN usermod -d $PGHOME -m postgres
