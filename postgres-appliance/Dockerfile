@@ -73,6 +73,8 @@ ENV LC_ALL en_US.utf-8
 
 # Allow cron to be started by postgres
 RUN echo "postgres ALL=(ALL:ALL) NOPASSWD: /usr/sbin/cron" > /etc/sudoers
+=======
+ADD scm-source.json /scm-source.json
 WORKDIR $PGHOME
 USER postgres
 ENTRYPOINT ["/usr/bin/python", "/postgres_ha.py"]
