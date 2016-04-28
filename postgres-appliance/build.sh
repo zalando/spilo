@@ -20,7 +20,7 @@ cat > scm-source.json <<__EOT__
     "url": "$URL",
     "revision": "$REV",
     "author": "$GITAUTHOR",
-    "status": "'$STATUS'"
+    "status": "$STATUS"
 }
 __EOT__
 
