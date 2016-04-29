@@ -265,7 +265,11 @@ def main():
     config = yaml.load(pystache_render(TEMPLATE, placeholders))
     config.update(get_dcs_config(config, placeholders))
 
-    config = deep_update(yaml.load(os.environ.get('PATRONI_CONFIGURATION') or {}), config)
+    user_config = yaml.load(os.environ.get('PATRONI_CONFIGURATION', '')) or {}
+    if not isinstance(user_config, dict):
+        raise ValueError('PATRONI_CONFIGURATION should contain a dict, yet it is a {}'.format(type(user_config)))
+
+    config = deep_update(user_config, config)
 
     # Ensure replication is available
     if not any(['replication' in i for i in config['postgresql']['pg_hba']]):
