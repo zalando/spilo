@@ -265,7 +265,7 @@ def main():
     config = yaml.load(pystache_render(TEMPLATE, placeholders))
     config.update(get_dcs_config(config, placeholders))
 
-    config = deep_update(yaml.load(os.environ.get('PATRONI_CONFIGURATION') or '{}'), config)
+    config = deep_update(yaml.load(os.environ.get('PATRONI_CONFIGURATION') or {}), config)
 
     # Ensure replication is available
     if not any(['replication' in i for i in config['postgresql']['pg_hba']]):
