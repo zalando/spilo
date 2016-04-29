@@ -1,10 +1,10 @@
-FROM zalando/ubuntu:14.04.1-1
+FROM ubuntu:14.04
 MAINTAINER Oleksii Kliukin <oleksii.kliukin@zalando.de>
 
 RUN apt-get update
 
 # Basic tooling
-RUN apt-get install curl git python ca-certificates vim jq build-essential gdb strace -y && apt-get clean
+RUN apt-get install curl git python ca-certificates vim jq build-essential gdb strace lsb-release -y && apt-get clean
 
 # Basic python packages
 RUN apt-get install python-yaml python-pip python-dev libxml2-dev libxslt-dev libffi-dev lzop pv daemontools -y \
