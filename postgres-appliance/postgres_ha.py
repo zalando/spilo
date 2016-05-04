@@ -166,8 +166,8 @@ def get_placeholders():
 
     # # We take 1/4 of the memory, expressed in full MB's
     placeholders['postgresql']['parameters']['shared_buffers'] = '{}MB'.format(int(os_memory_mb/4))
-    # # 1 connection per 30 MB, at least 100
-    placeholders['postgresql']['parameters']['max_connections'] = max(100, int(os_memory_mb/30))
+    # # 1 connection per 30 MB, at least 100, at most 1000
+    placeholders['postgresql']['parameters']['max_connections'] = min(max(100, int(os_memory_mb/30)), 1000)
 
     placeholders['instance_data'] = dict()
     placeholders['instance_data']['ip'] = get_instance_meta_data('local-ipv4') \
