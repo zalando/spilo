@@ -48,7 +48,11 @@ ENV PATH=$PATH:/usr/lib/postgresql/${PGVERSION}/bin
 ENV PATRONIVERSION=0.90
 RUN export DEBIAN_FRONTEND=noninteractive \
     && apt-get update \
-    && apt-get install -y postgresql-server-dev-${PGVERSION} python-pip python-dev gcc lzop \
+    && apt-get install -y python postgresql-server-dev-${PGVERSION} python-pip python-dev gcc \
+    # Required for wal-e
+    daemontools lzop \
+    # Required for /usr/local/bin/patroni
+    python-pkg-resources \
     && pip install pip --upgrade \
     && pip install --upgrade requests wal-e pystache patroni==$PATRONIVERSION \
 
@@ -56,7 +60,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && apt-get purge -y postgresql-server-dev-${PGVERSION} python-pip python-dev binutils gcc \
     && apt-get autoremove -y \
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* /root/.cache
 
 # install etcdctl
 ENV ETCDVERSION 2.3.3
