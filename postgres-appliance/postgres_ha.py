@@ -166,8 +166,8 @@ def get_placeholders():
 
     # # We take 1/4 of the memory, expressed in full MB's
     placeholders['postgresql']['parameters']['shared_buffers'] = '{}MB'.format(int(os_memory_mb/4))
-    # # 1 connection per 30 MB, at least 100
-    placeholders['postgresql']['parameters']['max_connections'] = max(100, int(os_memory_mb/30))
+    # # 1 connection per 30 MB, at least 100, at most 1000
+    placeholders['postgresql']['parameters']['max_connections'] = min(max(100, int(os_memory_mb/30)), 1000)
 
     placeholders['instance_data'] = dict()
     placeholders['instance_data']['ip'] = get_instance_meta_data('local-ipv4') \
@@ -243,11 +243,12 @@ def write_crontab(placeholders, path):
     c.communicate(input='\n'.join(lines).encode())
 
 
-def configure_patronictl(patroni_configfile, patronictl_configfile):
+def configure_patronictl(config, patronictl_configfile):
     if not os.path.exists(os.path.dirname(patronictl_configfile)):
         os.makedirs(os.path.dirname(patronictl_configfile))
     if not os.path.exists(patronictl_configfile):
-        os.symlink(patroni_configfile, patronictl_configfile)
+        with open(patronictl_configfile, 'w') as f:
+            f.write(yaml.dump({k: v for k, v in config.items() if k in ['zookeeper', 'etcd', 'consul']}))
 
 
 def main():
@@ -276,11 +277,8 @@ def main():
         rep_hba = 'hostssl replication {} 0.0.0.0/0 md5'.format(config['postgresql']['replication']['username'])
         config['postgresql']['pg_hba'].insert(0, rep_hba)
 
-    # Patroni configuration
-    patroni_configfile = os.path.join(placeholders['PGHOME'], 'postgres.yml')
-    write_configuration(config, patroni_configfile)
 
-    configure_patronictl(patroni_configfile, os.path.join(placeholders['PGHOME'], '.config', 'patroni',
+    configure_patronictl(config, os.path.join(placeholders['PGHOME'], '.config', 'patroni',
                          'patronictl.yaml'))
 
     # WAL-E
@@ -295,7 +293,19 @@ def main():
     subprocess.Popen(['/bin/bash', '/postgres_backup.sh', placeholders['WALE_ENV_DIR'], placeholders['PGDATA']],
                      env={'PATH': os.environ['PATH'], 'INITIAL_BACKUP': '1'})
 
-    os.execlpe('patroni', 'patroni', patroni_configfile, {'PATH': os.environ.get('PATH')})
+    env = {'PATH': os.environ['PATH']}
+    cmd = ['patroni', 'patroni']
+    if float(os.environ['PATRONIVERSION']) >= 0.90:
+        # This way, no credentials are stored on the filesystem
+        env['PATRONI_CONFIGURATION'] = yaml.dump(config)
+    else:
+        # Write the patroni configuration
+        patroni_configfile = os.path.join(placeholders['PGHOME'], 'postgres.yml')
+        write_configuration(config, patroni_configfile)
+        cmd.append(patroni_configfile)
+
+    cmd.append(env)
+    os.execlpe(*cmd)
 
 
 if __name__ == '__main__':
