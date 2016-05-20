@@ -124,6 +124,15 @@ postgresql:
     ssl_key_file: {{SSL_PRIVATE_KEY_FILE}}
     shared_buffers: {{postgresql.parameters.shared_buffers}}
     wal_log_hints: 'on'
+    log_line_prefix: '%t [%p]: [%l-1] %c %x %d %u %a %h '
+    log_checkpoints: 'on'
+    log_lock_waits: 'on'
+    log_min_duration: 500
+    log_autovacuum_min_duration: 0
+    log_connections: 'on'
+    log_disconnections: 'on'
+    log_statements: 'ddl'
+    log_temp_files: 0
   recovery_conf:
     restore_command: envdir "{{WALE_ENV_DIR}}" wal-e --aws-instance-profile wal-fetch "%f" "%p" -p 1
 '''
