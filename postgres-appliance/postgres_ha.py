@@ -127,7 +127,7 @@ postgresql:
     log_line_prefix: '%t [%p]: [%l-1] %c %x %d %u %a %h '
     log_checkpoints: 'on'
     log_lock_waits: 'on'
-    log_min_duration: 500
+    log_min_duration_statement: 500
     log_autovacuum_min_duration: 0
     log_connections: 'on'
     log_disconnections: 'on'
