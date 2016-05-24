@@ -131,7 +131,7 @@ postgresql:
     log_autovacuum_min_duration: 0
     log_connections: 'on'
     log_disconnections: 'on'
-    log_statements: 'ddl'
+    log_statement: 'ddl'
     log_temp_files: 0
   recovery_conf:
     restore_command: envdir "{{WALE_ENV_DIR}}" wal-e --aws-instance-profile wal-fetch "%f" "%p" -p 1
