@@ -76,7 +76,7 @@ RUN usermod -d $PGHOME -m postgres
 # Allow cron to be started by postgres
 RUN echo "postgres ALL=(ALL:ALL) NOPASSWD: /usr/sbin/cron" > /etc/sudoers
 
-ADD scm-source.json postgres_ha.py postgres_backup.sh /
+ADD scm-source.json postgres_ha.py postgres_backup.sh patroni_wait.sh /
 RUN chmod 700 /postgres_*
 RUN chown -R postgres:postgres /postgres_* $PGHOME
 
