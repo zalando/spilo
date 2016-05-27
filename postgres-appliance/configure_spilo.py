@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import argparse
 import logging
 import re
 import os
@@ -12,7 +13,28 @@ import pystache
 import requests
 
 
-def write_certificates(environment):
+def parse_args():
+    sections = ['all', 'patroni', 'patronictl', 'certificate', 'wal-e', 'crontab']
+    argp = argparse.ArgumentParser(description='Configures Spilo',
+                                   epilog="Choose from the following sections:\n\t{}".format('\n\t'.join(sections)),
+                                   formatter_class=argparse.RawDescriptionHelpFormatter)
+
+    argp.add_argument('sections', metavar='sections', type=str, nargs='+', choices=sections,
+                      help='Which section to (re)configure')
+    argp.add_argument('-l', '--loglevel', type=str, help='Explicitly set loglevel')
+    argp.add_argument('-f', '--force', help='Overwrite files if they exist', default=False, action='store_true')
+
+    args = vars(argp.parse_args())
+
+    if 'all' in args['sections']:
+        args['sections'] = sections
+        args['sections'].remove('all')
+    args['sections'] = set(args['sections'])
+
+    return args
+
+
+def write_certificates(environment, overwrite):
     """Write SSL certificate to files
 
     If certificates are specified, they are written, otherwise
@@ -21,9 +43,11 @@ def write_certificates(environment):
     ssl_keys = ['SSL_CERTIFICATE', 'SSL_PRIVATE_KEY']
     if set(ssl_keys) <= set(environment):
         for k in ssl_keys:
-            with open(environment[k + '_FILE'], 'w') as f:
-                f.write(environment[k])
+            write_file(environment[k], environment[k + '_FILE'], overwrite)
     else:
+        if os.path.exists(environment['SSL_PRIVATE_KEY_FILE']) and not overwrite:
+            logging.warning('Private key already exists, not overwriting. (Use option --force if necessary)')
+            return
         openssl_cmd = [
             '/usr/bin/openssl',
             'req',
@@ -42,7 +66,9 @@ def write_certificates(environment):
         output, _ = p.communicate()
         logging.debug(output)
 
+    uid = os.stat(environment['PGHOME']).st_uid
     os.chmod(environment['SSL_PRIVATE_KEY_FILE'], 0o600)
+    os.chown(environment['SSL_PRIVATE_KEY_FILE'], uid, -1)
 
 
 def deep_update(a, b):
@@ -144,7 +170,7 @@ def get_instance_meta_data(key):
         if result.status_code != 200:
             raise Exception('Received status code {} ({})'.format(result.status_code, result.text))
         return result.text
-    except Exception, e:
+    except Exception as e:
         logging.debug('Could not inspect instance metadata for key {}, error: {}'.format(key, e))
 
 
@@ -187,9 +213,11 @@ def get_placeholders():
     return placeholders
 
 
-def write_configuration(config, filename):
+def write_file(config, filename, overwrite):
+    if not overwrite and os.path.exists(filename):
+        logging.warning('File {} already exists, not overwriting. (Use option --force if necessary)'.format(filename))
     with open(filename, 'w') as f:
-        f.write(yaml.dump(config, default_flow_style=False, width=120))
+        f.write(config)
 
 
 def pystache_render(*args, **kwargs):
@@ -229,48 +257,44 @@ etcd:
     return config
 
 
-def write_wale_command_environment(placeholders):
+def write_wale_command_environment(placeholders, overwrite):
     az = get_instance_meta_data('placement/availability-zone') or 'dummy-region'
 
     if not os.path.exists(placeholders['WALE_ENV_DIR']):
         os.makedirs(placeholders['WALE_ENV_DIR'])
 
-    with open(os.path.join(placeholders['WALE_ENV_DIR'], 'WALE_S3_PREFIX'), 'w') as f:
-        f.write('s3://{WAL_S3_BUCKET}/spilo/{SCOPE}/wal/'.format(**placeholders))
+    write_file('s3://{WAL_S3_BUCKET}/spilo/{SCOPE}/wal/'.format(**placeholders),
+               os.path.join(placeholders['WALE_ENV_DIR'], 'WALE_S3_PREFIX'), overwrite)
+    write_file('https+path://s3-{}.amazonaws.com:443'.format(az[:-1]),
+               os.path.join(placeholders['WALE_ENV_DIR'], 'WALE_S3_ENDPOINT'), overwrite)
 
-    with open(os.path.join(placeholders['WALE_ENV_DIR'], 'WALE_S3_ENDPOINT'), 'w') as f:
-        f.write('https+path://s3-{}.amazonaws.com:443'.format(az[:-1]))
 
+def write_crontab(placeholders, path, overwrite):
 
-def write_crontab(placeholders, path):
+    if not overwrite:
+        with open(os.devnull, 'w') as devnull:
+            cron_exit = subprocess.call(['sudo', '-u', 'postgres', 'crontab', '-l'], stdout=devnull, stderr=devnull)
+            if cron_exit == 0:
+                logging.warning('Cron is already configured. (Use option --force to overwrite cron)')
+                return
+
     lines = ['PATH={}'.format(path)]
     lines += ['{BACKUP_SCHEDULE} /postgres_backup.sh "{WALE_ENV_DIR}" "{PGDATA}"'.format(**placeholders)]
     lines += yaml.load(placeholders['CRONTAB'])
     lines += ['']  # EOF requires empty line for cron
 
-    c = subprocess.Popen(['crontab'], stdin=subprocess.PIPE)
+    c = subprocess.Popen(['sudo', '-u', 'postgres', 'crontab'], stdin=subprocess.PIPE)
     c.communicate(input='\n'.join(lines).encode())
-
-
-def configure_patronictl(config, patronictl_configfile):
-    if not os.path.exists(os.path.dirname(patronictl_configfile)):
-        os.makedirs(os.path.dirname(patronictl_configfile))
-    if not os.path.exists(patronictl_configfile):
-        with open(patronictl_configfile, 'w') as f:
-            f.write(yaml.dump({k: v for k, v in config.items() if k in ['zookeeper', 'etcd', 'consul']}))
 
 
 def main():
     debug = os.environ.get('DEBUG', '') in ['1', 'true', 'on', 'ON']
+    args = parse_args()
+
     logging.basicConfig(format='%(asctime)s - bootstrapping - %(levelname)s - %(message)s', level=('DEBUG'
-                         if debug else 'INFO'))
-    if debug:
-        logging.warning('variable DEBUG was set, dropping you to a bash shell. (unset DEBUG to avoid this)')
-        os.execlpe('bash', 'bash', dict(os.environ))
+                         if debug else (args.get('loglevel') or 'INFO').upper()))
 
     placeholders = get_placeholders()
-
-    write_certificates(placeholders)
 
     config = yaml.load(pystache_render(TEMPLATE, placeholders))
     config.update(get_dcs_config(config, placeholders))
@@ -281,40 +305,31 @@ def main():
 
     config = deep_update(user_config, config)
 
+
     # Ensure replication is available
     if not any(['replication' in i for i in config['postgresql']['pg_hba']]):
         rep_hba = 'hostssl replication {} 0.0.0.0/0 md5'.format(config['postgresql']['replication']['username'])
         config['postgresql']['pg_hba'].insert(0, rep_hba)
 
-
-    configure_patronictl(config, os.path.join(placeholders['PGHOME'], '.config', 'patroni',
-                         'patronictl.yaml'))
-
-    # WAL-E
-    write_wale_command_environment(placeholders)
-
-    # # We run cron, to schedule recurring tasks on the node
-    logging.info('Starting up cron')
-    write_crontab(placeholders, os.environ.get('PATH'))
-    subprocess.call(['/usr/bin/sudo', '/usr/sbin/cron'])
-
-    # # We run 1 backup, we wait up to 1 hour for the master to be available
-    subprocess.Popen(['/bin/bash', '/patroni_wait.sh', '--timeout', '3600', '--', '/postgres_backup.sh',
-                      placeholders['WALE_ENV_DIR'], placeholders['PGDATA']], env={'PATH': os.environ['PATH']})
-
-    env = {'PATH': os.environ['PATH']}
-    cmd = ['patroni', 'patroni']
-    if float(os.environ['PATRONIVERSION']) >= 0.90:
-        # This way, no credentials are stored on the filesystem
-        env['PATRONI_CONFIGURATION'] = yaml.dump(config)
-    else:
-        # Write the patroni configuration
-        patroni_configfile = os.path.join(placeholders['PGHOME'], 'postgres.yml')
-        write_configuration(config, patroni_configfile)
-        cmd.append(patroni_configfile)
-
-    cmd.append(env)
-    os.execlpe(*cmd)
+    for section in args['sections']:
+        logging.info('Configuring {}'.format(section))
+        if section == 'patroni':
+            patroni_configfile = os.path.join(placeholders['PGHOME'], 'postgres.yml')
+            write_file(yaml.dump(config, default_flow_style=False, width=120), patroni_configfile, args['force'])
+        elif section == 'patronictl':
+            patronictl_config = {k: v for k, v in config.items() if k in ['zookeeper', 'etcd', 'consul']}
+            patronictl_configfile = os.path.join(placeholders['PGHOME'], '.config', 'patroni', 'patronictl.yaml')
+            if not os.path.exists(os.path.dirname(patronictl_configfile)):
+                os.makedirs(os.path.dirname(patronictl_configfile))
+            write_file(yaml.dump(patronictl_config), patronictl_configfile, args['force'])
+        elif section == 'wal-e':
+            write_wale_command_environment(placeholders, args['force'])
+        elif section == 'certificate':
+            write_certificates(placeholders, args['force'])
+        elif section == 'crontab':
+            write_crontab(placeholders, os.environ.get('PATH'), args['force'])
+        else:
+            raise Exception('Unknown section: {}'.format(section))
 
 
 if __name__ == '__main__':

@@ -8,7 +8,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && echo 'APT::Install-Suggests "0";' >> /etc/apt/apt.conf.d/01norecommend \
 
     && apt-get upgrade -y \
-    && apt-get install -y curl ca-certificates jq pv vim gdb strace \
+    && apt-get install -y curl ca-certificates jq pv vim gdb strace supervisor \
 
     ## Make sure we have a en_US.UTF-8 locale available
     && localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8 \
@@ -62,6 +62,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /root/.cache
 
+
 # install etcdctl
 ENV ETCDVERSION 2.3.3
 RUN curl -L https://github.com/coreos/etcd/releases/download/v${ETCDVERSION}/etcd-v${ETCDVERSION}-linux-amd64.tar.gz \
@@ -69,20 +70,20 @@ RUN curl -L https://github.com/coreos/etcd/releases/download/v${ETCDVERSION}/etc
 
 ENV PGHOME=/home/postgres
 ENV PGDATA=$PGHOME/pgdata/data
+ENV WALE_ENV_DIR=$PGHOME/etc/wal-e.d/env
 
 # Set PGHOME as a login directory for the PostgreSQL user.
 RUN usermod -d $PGHOME -m postgres
 
-# Allow cron to be started by postgres
-RUN echo "postgres ALL=(ALL:ALL) NOPASSWD: /usr/sbin/cron" > /etc/sudoers
-
-ADD scm-source.json postgres_ha.py postgres_backup.sh patroni_wait.sh /
+ADD scm-source.json configure_spilo.py launch.sh postgres_backup.sh patroni_wait.sh /
+ADD supervisor.d /etc/supervisor/conf.d/
+ADD motd /etc/
+RUN echo "source /etc/motd" >> /root/.bashrc
 RUN chmod 700 /postgres_*
-RUN chown -R postgres:postgres /postgres_* $PGHOME
 
 ENV ETCD_DISCOVERY_DOMAIN=postgres.acid.example.com DEBUG=0 LC_ALL=en_US.utf-8
 
 WORKDIR $PGHOME
-USER postgres
 EXPOSE 5432 8008
-ENTRYPOINT ["/usr/bin/python", "/postgres_ha.py"]
+RUN chown -R postgres:postgres /postgres_* $PGHOME
+CMD ["/bin/bash", "/launch.sh"]
