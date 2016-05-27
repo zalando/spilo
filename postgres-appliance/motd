@@ -1,0 +1,20 @@
+cat <<__EOT__
+ ____        _ _
+/ ___| _ __ (_) | ___
+\___ \| '_ \| | |/ _ \\
+ ___) | |_) | | | (_) |
+|____/| .__/|_|_|\___/
+      |_|
+
+This container is managed by supervisord, when stopping/starting services use supervisorctl
+
+Examples:
+
+supervisorctl stop cron
+supervisorctl restart patroni
+
+Current status: (supervisorctl status)
+
+__EOT__
+
+supervisorctl status
