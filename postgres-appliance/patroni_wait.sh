@@ -1,9 +1,13 @@
 #!/bin/bash
 
+ROLE=master
+INTERVAL=60
+TIMEOUT=""
+
 if [ -z $1 ]
 then
     cat <<__EOT__
-Usage: $0 [OPTIONS] [-- COMMAND [ARG1] [ARG2]]
+Usage: $(basename 0) [OPTIONS] [-- COMMAND [ARG1] [ARG2]]
 
 Options:
 
@@ -21,15 +25,12 @@ returns 2 if the request timed out.
 
 Examples:
 
-    $0 -r replica -- echo "Replica is available"
-    $0 -t 1800 -- pg_basebackup -h localhost -D /tmp/backup --xlog-method=stream
+    $(basename $0) -r replica -- echo "Replica is available"
+    $(basename $0) -t 1800 -- pg_basebackup -h localhost -D /tmp/backup --xlog-method=stream
 __EOT__
     exit 1
 fi
 
-ROLE=master
-INTERVAL=60
-TIMEOUT=""
 
 while [ $# -gt 0 ]
 do
