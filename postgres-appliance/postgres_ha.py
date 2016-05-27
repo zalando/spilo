@@ -298,9 +298,9 @@ def main():
     write_crontab(placeholders, os.environ.get('PATH'))
     subprocess.call(['/usr/bin/sudo', '/usr/sbin/cron'])
 
-    # # We run 1 backup, with INITIAL_BACKUP set
-    subprocess.Popen(['/bin/bash', '/postgres_backup.sh', placeholders['WALE_ENV_DIR'], placeholders['PGDATA']],
-                     env={'PATH': os.environ['PATH'], 'INITIAL_BACKUP': '1'})
+    # # We run 1 backup, we wait up to 1 hour for the master to be available
+    subprocess.Popen(['/bin/bash', '/patroni_wait.sh', '--timeout', '3600', '--', '/postgres_backup.sh',
+                      placeholders['WALE_ENV_DIR'], placeholders['PGDATA']], env={'PATH': os.environ['PATH']})
 
     env = {'PATH': os.environ['PATH']}
     cmd = ['patroni', 'patroni']
