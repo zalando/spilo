@@ -66,9 +66,9 @@ def write_certificates(environment, overwrite):
         output, _ = p.communicate()
         logging.debug(output)
 
-    gid = os.stat(environment['PGHOME']).st_gid
-    os.chmod(environment['SSL_PRIVATE_KEY_FILE'], 0o640)
-    os.chown(environment['SSL_PRIVATE_KEY_FILE'], -1, gid)
+    uid = os.stat(environment['PGHOME']).st_uid
+    os.chmod(environment['SSL_PRIVATE_KEY_FILE'], 0o600)
+    os.chown(environment['SSL_PRIVATE_KEY_FILE'], uid, -1)
 
 
 def deep_update(a, b):
@@ -273,7 +273,7 @@ def write_crontab(placeholders, path, overwrite):
 
     if not overwrite:
         with open(os.devnull, 'w') as devnull:
-            cron_exit = subprocess.call(['sudo', '-u', 'postgres', '-l'], stdout=devnull, stderr=devnull)
+            cron_exit = subprocess.call(['sudo', '-u', 'postgres', 'crontab', '-l'], stdout=devnull, stderr=devnull)
             if cron_exit == 0:
                 logging.warning('Cron is already configured. (Use option --force to overwrite cron)')
                 return
