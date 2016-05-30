@@ -100,7 +100,7 @@ restapi:
   listen: 0.0.0.0:{{APIPORT}}
   connect_address: {{instance_data.ip}}:{{APIPORT}}
 postgresql:
-  name: {{instance_data.id}}
+  name: '{{instance_data.id}}'
   scope: *scope
   listen: 0.0.0.0:{{PGPORT}}
   connect_address: {{instance_data.ip}}:{{PGPORT}}
@@ -174,9 +174,16 @@ def get_instance_meta_data(key):
     google_translate = {'local-ipv4': 'hostname', 'instance-id': 'id', 'placement/availability-zone': 'zone'}
 
     try:
-        result = requests.get('http://metadata.google.internal/computeMetadata/v1/instance/'.format(google_translate.get('key', ''), timeout=2, headers={'Metadata-Flavor': 'Google'}))
+        url = 'http://metadata.google.internal/computeMetadata/v1/instance/{}'.format(google_translate.get(key, ''))
+        logging.info(url)
+
+        result = requests.get(url, timeout=2, headers={'Metadata-Flavor': 'Google'})
         if result.status_code != 200:
             logging.warning("Cannot investigate Google")
+
+        if key == 'local-ipv4':
+            return socket.gethostbyaddr(socket.gethostname())[2][0]
+
         return result.text
     except Exception as e:
         logging.exception(e)

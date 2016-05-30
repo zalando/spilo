@@ -11,8 +11,11 @@ spec:
     spec:
       containers:
         - name: uses-private-image
-          image: pierone.stups.zalan.do/acid/spilo-9.5:SNAPSHOT
+          image: pierone.stups.zalan.do/acid/spilo-9.5:1-SNAPSHOT
           imagePullPolicy: Always
+          ports:
+          - containerPort: 8008
+          - containerPort: 5432
           env:
           - name: PGPASSWORD_SUPERUSER
             value: tea
@@ -21,8 +24,6 @@ spec:
           - name: PGPASSWORD_STANDBY
             value: pinacolada
           - name: ETCD_DISCOVERY_DOMAIN
-            value: dont.know.yet: 
+            value: etcd.default.svc.cluster.local
           - name: SCOPE
-            value: dummy
-          
-              
+            value: dummy3
