@@ -165,6 +165,23 @@ postgresql:
 
 
 def get_instance_meta_data(key):
+
+    ## network-interfaces/<index>/forwarded-ips/
+    ## https://cloud.google.com/compute/docs/metadata#default
+    ## local-ipv4 instance-id placement/availability-zone
+
+    ## Google
+    google_translate = {'local-ipv4': 'hostname', 'instance-id': 'id', 'placement/availability-zone': 'zone'}
+
+    try:
+        result = requests.get('http://metadata.google.internal/computeMetadata/v1/instance/'.format(google_translate.get('key', ''), timeout=2, headers={'Metadata-Flavor': 'Google'}))
+        if result.status_code != 200:
+            logging.warning("Cannot investigate Google")
+        return result.text
+    except Exception as e:
+        logging.exception(e)
+
+    ## Inject Flavor Header (google)
     try:
         result = requests.get('http://instance-data/latest/meta-data/{}'.format(key), timeout=2)
         if result.status_code != 200:

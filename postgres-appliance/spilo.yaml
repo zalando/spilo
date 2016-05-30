@@ -1,0 +1,28 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: spilo-test-1
+spec:
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: spilo
+    spec:
+      containers:
+        - name: uses-private-image
+          image: pierone.stups.zalan.do/acid/spilo-9.5:SNAPSHOT
+          imagePullPolicy: Always
+          env:
+          - name: PGPASSWORD_SUPERUSER
+            value: tea
+          - name: PGPASSWORD_ADMIN
+            value: cola
+          - name: PGPASSWORD_STANDBY
+            value: pinacolada
+          - name: ETCD_DISCOVERY_DOMAIN
+            value: dont.know.yet: 
+          - name: SCOPE
+            value: dummy
+          
+              
