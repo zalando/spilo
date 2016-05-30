@@ -164,38 +164,32 @@ postgresql:
 '''
 
 
-def get_instance_meta_data(key):
 
-    ## network-interfaces/<index>/forwarded-ips/
-    ## https://cloud.google.com/compute/docs/metadata#default
-    ## local-ipv4 instance-id placement/availability-zone
+def get_instance_metadata():
+    metadata = {'ip': socket.gethostbyname(socket.gethostname()),
+                'id': socket.gethostname(),
+                'zone': 'local'}
 
-    ## Google
-    google_translate = {'local-ipv4': 'hostname', 'instance-id': 'id', 'placement/availability-zone': 'zone'}
-
+    headers = {}
     try:
-        url = 'http://metadata.google.internal/computeMetadata/v1/instance/{}'.format(google_translate.get(key, ''))
-        logging.info(url)
+        logging.info("Figuring out my environment (Google? AWS? Local?)")
+        r = requests.get('http://169.254.169.254', timeout=2)
+        if r.headers.get('Metadata-Flavor', '') == 'Google':
+            logging.info("Found Google Metadata Flavor, therefore assuming Google Cloud")
+            headers['Metadata-Flavor'] = 'Google'
+            url = 'http://metadata.google.internal/computeMetadata/v1/instance'
+            mapping = {'zone': 'placement/availability-zone', 'id': None}
+        else:
+            logging.info("Did not find Google Metadata Flavor, assuming AWS")
+            url = 'http://instance-data/latest/meta-data'
+            mapping = {'ip': 'local-ipv4', 'id': 'instance-id', 'zone': None}
 
-        result = requests.get(url, timeout=2, headers={'Metadata-Flavor': 'Google'})
-        if result.status_code != 200:
-            logging.warning("Cannot investigate Google")
+        for k, v in mapping.items():
+            metadata[k] = requests.get('{}/{}'.format(url, v or k), timeout=2, headers=headers).text
+    except requests.exceptions.ConnectTimeout as e:
+        logging.info("Could not connect to 169.254.169.254, assuming local Docker setup")
 
-        if key == 'local-ipv4':
-            return socket.gethostbyaddr(socket.gethostname())[2][0]
-
-        return result.text
-    except Exception as e:
-        logging.exception(e)
-
-    ## Inject Flavor Header (google)
-    try:
-        result = requests.get('http://instance-data/latest/meta-data/{}'.format(key), timeout=2)
-        if result.status_code != 200:
-            raise Exception('Received status code {} ({})'.format(result.status_code, result.text))
-        return result.text
-    except Exception as e:
-        logging.debug('Could not inspect instance metadata for key {}, error: {}'.format(key, e))
+    return metadata
 
 
 def get_placeholders():
@@ -228,11 +222,8 @@ def get_placeholders():
     # # 1 connection per 30 MB, at least 100, at most 1000
     placeholders['postgresql']['parameters']['max_connections'] = min(max(100, int(os_memory_mb/30)), 1000)
 
-    placeholders['instance_data'] = dict()
-    placeholders['instance_data']['ip'] = get_instance_meta_data('local-ipv4') \
-        or socket.gethostbyname(socket.gethostname())
-    placeholders['instance_data']['id'] = re.sub(r'\W+', '_', get_instance_meta_data('instance-id')
-                                                 or socket.gethostname())
+    placeholders['instance_data'] = get_instance_metadata()
+    placeholders['instance_data']['id'] = re.sub(r'\W+', '_', placeholders['instance_data']['id'])
 
     return placeholders
 
@@ -282,14 +273,12 @@ etcd:
 
 
 def write_wale_command_environment(placeholders, overwrite):
-    az = get_instance_meta_data('placement/availability-zone') or 'dummy-region'
-
     if not os.path.exists(placeholders['WALE_ENV_DIR']):
         os.makedirs(placeholders['WALE_ENV_DIR'])
 
     write_file('s3://{WAL_S3_BUCKET}/spilo/{SCOPE}/wal/'.format(**placeholders),
                os.path.join(placeholders['WALE_ENV_DIR'], 'WALE_S3_PREFIX'), overwrite)
-    write_file('https+path://s3-{}.amazonaws.com:443'.format(az[:-1]),
+    write_file('https+path://s3-{}.amazonaws.com:443'.format(placeholders['instance_data']['zone'][:-1]),
                os.path.join(placeholders['WALE_ENV_DIR'], 'WALE_S3_ENDPOINT'), overwrite)
 
 
