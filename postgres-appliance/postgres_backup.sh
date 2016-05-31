@@ -22,6 +22,10 @@ IN_RECOVERY=$(psql -tXqAc "select pg_is_in_recovery()")
 # leave only 2 base backups before creating a new one
 envdir "${WALE_ENV_DIR}" wal-e --aws-instance-profile delete --confirm retain 2
 
+# Ensure we don't have more workes than CPU's
+POOL_SIZE=4
+[ $(nproc) -lt $POOL_SIZE ] && POOL_SIZE=$(nproc)
+
 # push a new base backup
 log "producing a new backup"
-exec envdir "${WALE_ENV_DIR}" wal-e --aws-instance-profile backup-push "${PGDATA}"
+exec envdir "${WALE_ENV_DIR}" wal-e --aws-instance-profile backup-push "${PGDATA}" --pool-size ${POOL_SIZE}
