@@ -8,13 +8,15 @@ import os
 import socket
 import subprocess
 
+from six.moves.urllib_parse import urlparse
+
 import yaml
 import pystache
 import requests
 
 
 def parse_args():
-    sections = ['all', 'patroni', 'patronictl', 'certificate', 'wal-e', 'crontab']
+    sections = ['all', 'patroni', 'patronictl', 'certificate', 'wal-e', 'crontab', 'ldap']
     argp = argparse.ArgumentParser(description='Configures Spilo',
                                    epilog="Choose from the following sections:\n\t{}".format('\n\t'.join(sections)),
                                    formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -217,6 +219,7 @@ def write_file(config, filename, overwrite):
     if not overwrite and os.path.exists(filename):
         logging.warning('File {} already exists, not overwriting. (Use option --force if necessary)'.format(filename))
     with open(filename, 'w') as f:
+        logging.info('Writing to file {}'.format(filename))
         f.write(config)
 
 
@@ -287,6 +290,47 @@ def write_crontab(placeholders, path, overwrite):
     c.communicate(input='\n'.join(lines).encode())
 
 
+def write_ldap_configuration(placeholders, overwrite):
+    if not 'LDAP_URL' in placeholders:
+        logging.info("No LDAP_URL was specified, skipping LDAP configuration")
+        return
+
+    r = urlparse(placeholders['LDAP_URL'])
+    if not r.scheme:
+        logging.error('LDAP_URL should contain a scheme')
+        logging.info(r)
+        return
+
+    host, port = r.hostname, r.port
+    if not port:
+        port = 636 if r.scheme == 'ldaps' else '389'
+
+    stunnel_config = """\
+foreground = yes
+options = NO_SSLv2
+
+[ldaps]
+connect = {0}:{1}
+client = yes
+accept = 389
+verify = 3
+CAfile = /etc/stunnel/chain.pem
+""".format(host, port)
+    write_file(stunnel_config, '/etc/stunnel/ldap.conf', overwrite)
+
+    supervisord_config = """\
+[program:ldaptunnel]
+autostart=true
+priority=500
+directory=/
+command=env -i /usr/bin/stunnel4 /etc/stunnel/ldap.conf
+stdout_logfile=/dev/stdout
+stdout_logfile_maxbytes=0
+redirect_stderr=true
+"""
+    write_file(supervisord_config, '/etc/supervisor/conf.d/ldaptunnel.conf', overwrite)
+
+
 def main():
     debug = os.environ.get('DEBUG', '') in ['1', 'true', 'on', 'ON']
     args = parse_args()
@@ -328,6 +372,8 @@ def main():
             write_certificates(placeholders, args['force'])
         elif section == 'crontab':
             write_crontab(placeholders, os.environ.get('PATH'), args['force'])
+        elif section == 'ldap':
+            write_ldap_configuration(placeholders, args['force'])
         else:
             raise Exception('Unknown section: {}'.format(section))
 
