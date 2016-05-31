@@ -8,7 +8,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && echo 'APT::Install-Suggests "0";' >> /etc/apt/apt.conf.d/01norecommend \
 
     && apt-get upgrade -y \
-    && apt-get install -y curl ca-certificates jq pv vim gdb strace supervisor \
+    && apt-get install -y curl ca-certificates jq pv vim gdb strace supervisor stunnel \
 
     ## Make sure we have a en_US.UTF-8 locale available
     && localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8 \
@@ -27,6 +27,7 @@ RUN export DISTRIB_CODENAME=$(sed -n 's/DISTRIB_CODENAME=//p' /etc/lsb-release) 
 ENV PGVERSION=9.5 PGOLDVERSIONS="9.4"
 RUN export DEBIAN_FRONTEND=noninteractive \
     && apt-get update \
+    && apt-get install -y skytools3-ticker \
     && for version in ${PGOLDVERSIONS} ${PGVERSION}; do \
             # Install PostgreSQL binaries, contrib, pgq, plproxy, pgq and plpython
             apt-get install -y postgresql-${version} postgresql-${version}-dbg postgresql-client-${version} \
@@ -77,6 +78,8 @@ RUN usermod -d $PGHOME -m postgres
 
 ADD scm-source.json configure_spilo.py launch.sh postgres_backup.sh patroni_wait.sh /
 ADD supervisor.d /etc/supervisor/conf.d/
+ADD stunnel.d /etc/stunnel
+ADD pgq_ticker.ini $PGHOME
 ADD motd /etc/
 RUN echo "source /etc/motd" >> /root/.bashrc
 RUN chmod 700 /postgres_*
