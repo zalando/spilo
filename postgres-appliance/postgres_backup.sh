@@ -28,4 +28,5 @@ POOL_SIZE=4
 
 # push a new base backup
 log "producing a new backup"
-exec envdir "${WALE_ENV_DIR}" wal-e --aws-instance-profile backup-push "${PGDATA}" --pool-size ${POOL_SIZE}
+# We reduce the priority of the backup for CPU consumption
+exec nice -n 5 envdir "${WALE_ENV_DIR}" wal-e --aws-instance-profile backup-push "${PGDATA}" --pool-size ${POOL_SIZE}
