@@ -45,20 +45,27 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 
 ENV PATH=$PATH:/usr/lib/postgresql/${PGVERSION}/bin
 
-# Install patroni and WAL-e
+# Install patroni, WAL-e and extensions
+# We do this in one big step to reduce the Docker image size:
+## 1 Install tools required to build
+## 2 Build
+## 3 Remove tools only required for build
 ENV PATRONIVERSION=0.90
 RUN export DEBIAN_FRONTEND=noninteractive \
+    export BUILD_PACKAGES="postgresql-server-dev-${PGVERSION} python-pip python-dev build-essential pgxnclient" \
+    export PGXN_EXTENSIONS="quantile trimmed_aggregates" \
     && apt-get update \
-    && apt-get install -y python postgresql-server-dev-${PGVERSION} python-pip python-dev gcc \
-    # Required for wal-e
-    daemontools lzop \
-    # Required for /usr/local/bin/patroni
-    python-pkg-resources \
+    && apt-get install -y \
+            # Required for wal-e
+            daemontools lzop \
+            # Required for /usr/local/bin/patroni
+            python python-pkg-resources \
+            ${BUILD_PACKAGES} \
     && pip install pip --upgrade \
     && pip install --upgrade requests wal-e pystache patroni==$PATRONIVERSION \
-
+    && for extension in ${PGXN_EXTENSIONS}; do pgxn install $extension; done \
     # Clean up
-    && apt-get purge -y postgresql-server-dev-${PGVERSION} python-pip python-dev binutils gcc \
+    && apt-get purge -y ${BUILD_PACKAGES} \
     && apt-get autoremove -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /root/.cache
