@@ -291,11 +291,12 @@ def write_crontab(placeholders, path, overwrite):
 
 
 def write_ldap_configuration(placeholders, overwrite):
-    if not 'LDAP_URL' in placeholders:
+    ldap_url = placeholders.get('LDAP_URL')
+    if ldap_url is None:
         logging.info("No LDAP_URL was specified, skipping LDAP configuration")
         return
 
-    r = urlparse(placeholders['LDAP_URL'])
+    r = urlparse(ldap_url)
     if not r.scheme:
         logging.error('LDAP_URL should contain a scheme')
         logging.info(r)
@@ -303,7 +304,7 @@ def write_ldap_configuration(placeholders, overwrite):
 
     host, port = r.hostname, r.port
     if not port:
-        port = 636 if r.scheme == 'ldaps' else '389'
+        port = 636 if r.scheme == 'ldaps' else 389
 
     stunnel_config = """\
 foreground = yes
