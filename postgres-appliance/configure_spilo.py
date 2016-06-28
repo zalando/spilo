@@ -128,6 +128,9 @@ postgresql:
     on_stop: patroni_aws
     on_restart: patroni_aws
     on_role_change: patroni_aws
+  create_replica_method:
+    - wal_e
+    - basebackup
   wal_e:
     command: patroni_wale_restore
     envdir: {{WALE_ENV_DIR}}
