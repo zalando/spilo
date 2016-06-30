@@ -131,6 +131,7 @@ postgresql:
   create_replica_method:
     - wal_e
     - basebackup
+  maximum_lag_on_failover: 33554432
   wal_e:
     command: patroni_wale_restore
     envdir: {{WALE_ENV_DIR}}
