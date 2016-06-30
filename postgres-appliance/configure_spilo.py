@@ -138,6 +138,7 @@ postgresql:
     threshold_backup_size_percentage: {{WALE_BACKUP_THRESHOLD_PERCENTAGE}}
     use_iam: 1
     retries: 2
+    no_master: 1
   parameters:
     archive_mode: 'on'
     wal_level: hot_standby
