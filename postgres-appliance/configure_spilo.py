@@ -128,6 +128,10 @@ postgresql:
     on_stop: patroni_aws
     on_restart: patroni_aws
     on_role_change: patroni_aws
+  create_replica_method:
+    - wal_e
+    - basebackup
+  maximum_lag_on_failover: 33554432
   wal_e:
     command: patroni_wale_restore
     envdir: {{WALE_ENV_DIR}}
@@ -135,6 +139,7 @@ postgresql:
     threshold_backup_size_percentage: {{WALE_BACKUP_THRESHOLD_PERCENTAGE}}
     use_iam: 1
     retries: 2
+    no_master: 1
   parameters:
     archive_mode: 'on'
     wal_level: hot_standby
