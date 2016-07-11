@@ -122,10 +122,9 @@ postgresql:
     password: {{PGPASSWORD_STANDBY}}
     network: 0.0.0.0/0
   callbacks:
-    on_start: patroni_aws
-    on_stop: patroni_aws
-    on_restart: patroni_aws
-    on_role_change: patroni_aws
+    on_start: /callback_role.py
+    on_stop: /callback_role.py
+    on_role_change: /callback_role.py
   wal_e:
     command: patroni_wale_restore
     envdir: {{WALE_ENV_DIR}}
@@ -223,6 +222,8 @@ def get_placeholders():
     placeholders['postgresql']['parameters']['max_connections'] = min(max(100, int(os_memory_mb/30)), 1000)
 
     placeholders['instance_data'] = get_instance_metadata()
+    # id is not unique per container, we use the hostname instead
+    placeholders['instance_data']['id'] = os.environ.get('HOSTNAME')
     placeholders['instance_data']['id'] = re.sub(r'\W+', '_', placeholders['instance_data']['id'])
 
     return placeholders

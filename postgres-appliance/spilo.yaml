@@ -1,9 +1,9 @@
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: spilo-test-1
+  name: livedemo
 spec:
-  replicas: 2
+  replicas: 3
   template:
     metadata:
       labels:
@@ -11,7 +11,7 @@ spec:
     spec:
       containers:
         - name: uses-private-image
-          image: pierone.stups.zalan.do/acid/spilo-9.5:1-SNAPSHOT
+          image: pierone.stups.zalan.do/acid/spilo-9.5:3-SNAPSHOT
           imagePullPolicy: Always
           ports:
           - containerPort: 8008
@@ -26,4 +26,21 @@ spec:
           - name: ETCD_DISCOVERY_DOMAIN
             value: etcd.default.svc.cluster.local
           - name: SCOPE
-            value: dummy3
+            value: livedemo
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: spilo-lb-service
+  labels:
+    app: spilo
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 5432
+    targetPort: 5432
+  selector:
+    app: spilo
+    spilo-role: master
