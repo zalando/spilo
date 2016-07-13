@@ -92,6 +92,66 @@ def deep_update(a, b):
 
     return a if a is not None else b
 
+## We should use this template if PATRONI_VERSION >= 1.0
+TEMPLATE_DYNAMIC = \
+    '''
+bootstrap:
+  dcs:
+    ttl: &ttl 30
+    loop_wait: &loop_wait 10
+    retry_timeout: 10
+    postgresql:
+      use_pg_rewind: true
+      parameters:
+        archive_mode: 'on'
+        wal_level: hot_standby
+        archive_command: envdir "{{WALE_ENV_DIR}}" wal-e --aws-instance-profile wal-push "%p" -p 1
+        max_wal_senders: 5
+        wal_keep_segments: 8
+        archive_timeout: 1800s
+        max_connections: {{postgresql.parameters.max_connections}}
+        max_replication_slots: 5
+        hot_standby: 'on'
+        tcp_keepalives_idle: 900
+        tcp_keepalives_interval: 100
+        ssl: 'on'
+        ssl_cert_file: {{SSL_CERTIFICATE_FILE}}
+        ssl_key_file: {{SSL_PRIVATE_KEY_FILE}}
+        shared_buffers: {{postgresql.parameters.shared_buffers}}
+        wal_log_hints: 'on'
+        log_line_prefix: '%t [%p]: [%l-1] %c %x %d %u %a %h '
+        log_checkpoints: 'on'
+        log_lock_waits: 'on'
+        log_min_duration_statement: 500
+        log_autovacuum_min_duration: 0
+        log_connections: 'on'
+        log_disconnections: 'on'
+        log_statement: 'ddl'
+        log_temp_files: 0
+      recovery_conf:
+        restore_command: envdir "{{WALE_ENV_DIR}}" wal-e --aws-instance-profile wal-fetch "%f" "%p" -p 1
+  initdb:
+  - encoding: UTF8
+  - locale: en_US.UTF-8
+  pg_hba:
+  - hostssl all all 0.0.0.0/0 md5
+  - host    all all 0.0.0.0/0 md5
+  users:
+    admin:
+      password: {{PGPASSWORD_ADMIN}}
+      options:
+        - createrole
+        - createdb
+postgresql:
+  authentication:
+    replication:
+      username: standby
+      password: {{PGPASSWORD_STANDBY}}
+    superuser:
+      username: postgres
+      password: {{PGPASSWORD_SUPERUSER}}
+'''
+
 
 TEMPLATE = \
     '''
