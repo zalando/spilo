@@ -111,6 +111,7 @@ bootstrap:
         wal_keep_segments: 8
         wal_log_hints: 'on'
         max_wal_senders: 5
+        shared_buffers: 500MB
         max_connections: {{postgresql.parameters.max_connections}}
         max_replication_slots: 5
         hot_standby: 'on'
@@ -134,6 +135,7 @@ bootstrap:
         replication:
           username: standby
           password: {{PGPASSWORD_STANDBY}}
+          network: 0.0.0.0/0
         superuser:
           username: postgres
           password: {{PGPASSWORD_SUPERUSER}}
@@ -156,8 +158,6 @@ postgresql:
   listen: 0.0.0.0:{{PGPORT}}
   connect_address: {{instance_data.ip}}:{{PGPORT}}
   data_dir: {{PGDATA}}
-  ssl_cert_file: {{SSL_CERTIFICATE_FILE}}
-  ssl_key_file: {{SSL_PRIVATE_KEY_FILE}}
   pg_hba:
     - hostssl all all 0.0.0.0/0 md5
     - host    all all 0.0.0.0/0 md5
