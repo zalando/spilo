@@ -92,11 +92,62 @@ def deep_update(a, b):
 
     return a if a is not None else b
 
-
 TEMPLATE = \
     '''
-ttl: &ttl 30
-loop_wait: &loop_wait 10
+bootstrap:
+  dcs:
+    ttl: 30
+    loop_wait: &loop_wait 10
+    retry_timeout: 10
+    maximum_lag_on_failover: 33554432
+    postgresql:
+      use_pg_rewind: true
+      use_slots: true
+      parameters:
+        archive_mode: "on"
+        archive_timeout: 1800s
+        archive_command: envdir "{{WALE_ENV_DIR}}" wal-e --aws-instance-profile wal-push "%p" -p 1
+        wal_level: hot_standby
+        wal_keep_segments: 8
+        wal_log_hints: 'on'
+        max_wal_senders: 5
+        shared_buffers: 500MB
+        max_connections: {{postgresql.parameters.max_connections}}
+        max_replication_slots: 5
+        hot_standby: 'on'
+        tcp_keepalives_idle: 900
+        tcp_keepalives_interval: 100
+        ssl: 'on'
+        ssl_cert_file: {{SSL_CERTIFICATE_FILE}}
+        ssl_key_file: {{SSL_PRIVATE_KEY_FILE}}
+        log_line_prefix: '%t [%p]: [%l-1] %c %x %d %u %a %h '
+        log_checkpoints: 'on'
+        log_lock_waits: 'on'
+        log_min_duration_statement: 500
+        log_autovacuum_min_duration: 0
+        log_connections: 'on'
+        log_disconnections: 'on'
+        log_statement: 'ddl'
+        log_temp_files: 0
+      recovery_conf:
+        restore_command: envdir "{{WALE_ENV_DIR}}" wal-e --aws-instance-profile wal-fetch "%f" "%p" -p 1
+      authentication:
+        replication:
+          username: standby
+          password: {{PGPASSWORD_STANDBY}}
+          network: 0.0.0.0/0
+        superuser:
+          username: postgres
+          password: {{PGPASSWORD_SUPERUSER}}
+  initdb:
+  - encoding: UTF8
+  - locale: en_US.UTF-8
+  users:
+    admin:
+      password: {{PGPASSWORD_ADMIN}}
+      options:
+        - createrole
+        - createdb
 scope: &scope '{{SCOPE}}'
 restapi:
   listen: 0.0.0.0:{{APIPORT}}
@@ -107,9 +158,6 @@ postgresql:
   listen: 0.0.0.0:{{PGPORT}}
   connect_address: {{instance_data.ip}}:{{PGPORT}}
   data_dir: {{PGDATA}}
-  initdb:
-    - encoding: UTF8
-    - locale: en_US.UTF-8
   pg_hba:
     - hostssl all all 0.0.0.0/0 md5
     - host    all all 0.0.0.0/0 md5
@@ -131,7 +179,6 @@ postgresql:
   create_replica_method:
     - wal_e
     - basebackup
-  maximum_lag_on_failover: 33554432
   wal_e:
     command: patroni_wale_restore
     envdir: {{WALE_ENV_DIR}}
@@ -140,34 +187,6 @@ postgresql:
     use_iam: 1
     retries: 2
     no_master: 1
-  parameters:
-    archive_mode: 'on'
-    wal_level: hot_standby
-    archive_command: envdir "{{WALE_ENV_DIR}}" wal-e --aws-instance-profile wal-push "%p" -p 1
-    max_wal_senders: 5
-    wal_keep_segments: 8
-    archive_timeout: 1800s
-    max_connections: {{postgresql.parameters.max_connections}}
-    max_replication_slots: 5
-    hot_standby: 'on'
-    tcp_keepalives_idle: 900
-    tcp_keepalives_interval: 100
-    ssl: 'on'
-    ssl_cert_file: {{SSL_CERTIFICATE_FILE}}
-    ssl_key_file: {{SSL_PRIVATE_KEY_FILE}}
-    shared_buffers: {{postgresql.parameters.shared_buffers}}
-    wal_log_hints: 'on'
-    log_line_prefix: '%t [%p]: [%l-1] %c %x %d %u %a %h '
-    log_checkpoints: 'on'
-    log_lock_waits: 'on'
-    log_min_duration_statement: 500
-    log_autovacuum_min_duration: 0
-    log_connections: 'on'
-    log_disconnections: 'on'
-    log_statement: 'ddl'
-    log_temp_files: 0
-  recovery_conf:
-    restore_command: envdir "{{WALE_ENV_DIR}}" wal-e --aws-instance-profile wal-fetch "%f" "%p" -p 1
 '''
 
 
@@ -214,8 +233,8 @@ def get_placeholders():
     placeholders['instance_data'] = dict()
     placeholders['instance_data']['ip'] = get_instance_meta_data('local-ipv4') \
         or socket.gethostbyname(socket.gethostname())
-    placeholders['instance_data']['id'] = re.sub(r'\W+', '_', get_instance_meta_data('instance-id')
-                                                 or socket.gethostname())
+    placeholders['instance_data']['id'] = re.sub(r'\W+', '_', get_instance_meta_data('instance-id') or
+                                                 socket.gethostname())
 
     return placeholders
 
@@ -237,9 +256,9 @@ def get_dcs_config(config, placeholders):
     defaults = \
         yaml.load('''\
 zookeeper:
-  scope: {scope}
-  session_timeout: {ttl}
-  reconnect_timeout: {loop_wait}
+  scope: '{scope}'
+  session_timeout: {bootstrap[dcs][ttl]}
+  reconnect_timeout: {bootstrap[dcs][loop_wait]}
 etcd:
   scope: '{scope}'
   ttl: {bootstrap[dcs][ttl]}'''.format(**config))
@@ -344,6 +363,9 @@ def main():
     logging.basicConfig(format='%(asctime)s - bootstrapping - %(levelname)s - %(message)s', level=('DEBUG'
                          if debug else (args.get('loglevel') or 'INFO').upper()))
 
+    if float(os.environ.get('PATRONIVERSION')) < 1.0:
+        raise Exception('Patroni version >= 1.0 is required')
+
     placeholders = get_placeholders()
 
     config = yaml.load(pystache_render(TEMPLATE, placeholders))
@@ -354,7 +376,6 @@ def main():
         raise ValueError('PATRONI_CONFIGURATION should contain a dict, yet it is a {}'.format(type(user_config)))
 
     config = deep_update(user_config, config)
-
 
     # Ensure replication is available
     if not any(['replication' in i for i in config['postgresql']['pg_hba']]):
