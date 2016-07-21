@@ -32,11 +32,10 @@ keys_copy = {
 
 
 def get_value(d, path):
-    val = d
     for key in path:
-        val = val[key]
+        d = d[key]
 
-    return val
+    return d
 
 
 def set_value(d, path, value):
