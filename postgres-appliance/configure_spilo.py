@@ -241,7 +241,7 @@ zookeeper:
   session_timeout: {ttl}
   reconnect_timeout: {loop_wait}
 etcd:
-  scope: {scope}
+  scope: '{scope}'
   ttl: {ttl}'''.format(**config))
 
     config = {}
