@@ -131,14 +131,6 @@ bootstrap:
         log_temp_files: 0
       recovery_conf:
         restore_command: envdir "{{WALE_ENV_DIR}}" wal-e --aws-instance-profile wal-fetch "%f" "%p" -p 1
-      authentication:
-        replication:
-          username: standby
-          password: {{PGPASSWORD_STANDBY}}
-          network: 0.0.0.0/0
-        superuser:
-          username: postgres
-          password: {{PGPASSWORD_SUPERUSER}}
   initdb:
   - encoding: UTF8
   - locale: en_US.UTF-8
@@ -161,16 +153,13 @@ postgresql:
   pg_hba:
     - hostssl all all 0.0.0.0/0 md5
     - host    all all 0.0.0.0/0 md5
-  superuser:
-    username: postgres
-    password: {{PGPASSWORD_SUPERUSER}}
-  admin:
-    username: admin
-    password: {{PGPASSWORD_ADMIN}}
-  replication:
-    username: standby
-    password: {{PGPASSWORD_STANDBY}}
-    network: 0.0.0.0/0
+  authentication:
+    superuser:
+      username: postgres
+      password: {{PGPASSWORD_SUPERUSER}}
+    replication:
+      username: standby
+      password: {{PGPASSWORD_STANDBY}}
   callbacks:
     on_start: patroni_aws
     on_stop: patroni_aws

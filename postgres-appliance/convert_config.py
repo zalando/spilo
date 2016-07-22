@@ -4,6 +4,8 @@
 import argparse
 import yaml
 
+
+# destination: source
 keys_move = {
     "bootstrap.dcs.ttl": "ttl",
     "bootstrap.dcs.loop_wait": "loop_wait",
@@ -11,23 +13,22 @@ keys_move = {
     "bootstrap.dcs.postgresql.parameters": "postgresql.parameters",
     "bootstrap.dcs.postgresql.recovery_conf": "postgresql.recovery_conf",
     "bootstrap.initdb": "postgresql.initdb",
-    "bootstrap.users.admin.password": "postgresql.admin.password"
+    "bootstrap.users.admin.password": "postgresql.admin.password",
+    "postgresql.authentication.superuser": "postgresql.superuser",
+    "postgresql.authentication.replication": "postgresql.replication",
 }
 
 keys_delete = [
-    "postgresql.admin"
+    "postgresql.admin",
+    "postgresql.authentication.replication.network",
+    "postgresql.authentication.superuser.network",
 ]
 
 keys_add = {
     "bootstrap.users.admin.options": ["createrole", "createdb"],
     "bootstrap.dcs.postgresql.use_pg_rewind": True,
     "bootstrap.dcs.postgresql.use_slots": True,
-    "bootstrap.dcs.retry_timeout": 10
-}
-
-keys_copy = {
-    "bootstrap.dcs.postgresql.authentication.replication": "postgresql.replication",
-    "bootstrap.dcs.postgresql.authentication.superuser": "postgresql.superuser",
+    "bootstrap.dcs.retry_timeout": 10,
 }
 
 
@@ -77,10 +78,6 @@ def main():
         value = get_value(old_config, old.split('.'))
         set_value(config, new.split('.'), value)
         remove_key(config, old.split('.'))
-
-    for new, old in keys_copy.items():
-        value = get_value(old_config, old.split('.'))
-        set_value(config, new.split('.'), value)
 
     for key in keys_delete:
         remove_key(config, key.split('.'))
