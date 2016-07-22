@@ -368,7 +368,7 @@ def main():
 
     # Ensure replication is available
     if not any(['replication' in i for i in config['postgresql']['pg_hba']]):
-        rep_hba = 'hostssl replication {} 0.0.0.0/0 md5'.format(config['postgresql']['replication']['username'])
+        rep_hba = 'hostssl replication {} 0.0.0.0/0 md5'.format(config['postgresql']['authentication']['replication']['username'])
         config['postgresql']['pg_hba'].insert(0, rep_hba)
 
     for section in args['sections']:
