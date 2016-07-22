@@ -50,7 +50,7 @@ ENV PATH=$PATH:/usr/lib/postgresql/${PGVERSION}/bin
 ## 1 Install tools required to build
 ## 2 Build
 ## 3 Remove tools only required for build
-ENV PATRONIVERSION=0.90
+ENV PATRONIVERSION=1.0
 RUN export DEBIAN_FRONTEND=noninteractive \
     export BUILD_PACKAGES="postgresql-server-dev-${PGVERSION} python-pip python-dev build-essential pgxnclient" \
     export PGXN_EXTENSIONS="quantile trimmed_aggregates" \
@@ -72,7 +72,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 
 
 # install etcdctl
-ENV ETCDVERSION 2.3.3
+ENV ETCDVERSION 2.3.7
 RUN curl -L https://github.com/coreos/etcd/releases/download/v${ETCDVERSION}/etcd-v${ETCDVERSION}-linux-amd64.tar.gz \
     | tar xz -C /bin --strip=1 --wildcards --no-anchored etcdctl
 
