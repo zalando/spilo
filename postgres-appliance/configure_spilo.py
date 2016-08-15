@@ -367,9 +367,9 @@ def main():
     config = deep_update(user_config, config)
 
     # Ensure replication is available
-    if not any(['replication' in i for i in config['dcs']['pg_hba']]):
+    if not any(['replication' in i for i in config['bootstrap']['pg_hba']]):
         rep_hba = 'hostssl replication {} 0.0.0.0/0 md5'.format(config['postgresql']['authentication']['replication']['username'])
-        config['dcs']['pg_hba'].insert(0, rep_hba)
+        config['bootstrap']['pg_hba'].insert(0, rep_hba)
 
     for section in args['sections']:
         logging.info('Configuring {}'.format(section))
