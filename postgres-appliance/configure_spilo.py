@@ -140,6 +140,9 @@ bootstrap:
       options:
         - createrole
         - createdb
+  pg_hba:
+    - hostssl all all 0.0.0.0/0 md5
+    - host    all all 0.0.0.0/0 md5
 scope: &scope '{{SCOPE}}'
 restapi:
   listen: 0.0.0.0:{{APIPORT}}
@@ -150,9 +153,6 @@ postgresql:
   listen: 0.0.0.0:{{PGPORT}}
   connect_address: {{instance_data.ip}}:{{PGPORT}}
   data_dir: {{PGDATA}}
-  pg_hba:
-    - hostssl all all 0.0.0.0/0 md5
-    - host    all all 0.0.0.0/0 md5
   authentication:
     superuser:
       username: postgres
@@ -367,9 +367,9 @@ def main():
     config = deep_update(user_config, config)
 
     # Ensure replication is available
-    if not any(['replication' in i for i in config['postgresql']['pg_hba']]):
+    if not any(['replication' in i for i in config['bootstrap']['pg_hba']]):
         rep_hba = 'hostssl replication {} 0.0.0.0/0 md5'.format(config['postgresql']['authentication']['replication']['username'])
-        config['postgresql']['pg_hba'].insert(0, rep_hba)
+        config['bootstrap']['pg_hba'].insert(0, rep_hba)
 
     for section in args['sections']:
         logging.info('Configuring {}'.format(section))
