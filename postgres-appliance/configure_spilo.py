@@ -186,7 +186,7 @@ postgresql:
 '''
 
 
-def get_environment():
+def get_provider():
     try:
         logging.info("Figuring out my environment (Google? AWS? Local?)")
         r = requests.get('http://169.254.169.254', timeout=2)
@@ -244,7 +244,10 @@ def get_placeholders(provider):
     placeholders.setdefault('WALE_BACKUP_THRESHOLD_MEGABYTES', 1024)
     placeholders.setdefault('WALE_BACKUP_THRESHOLD_PERCENTAGE', 30)
     placeholders.setdefault('WALE_ENV_DIR', os.path.join(placeholders['PGHOME'], 'etc', 'wal-e.d', 'env'))
-    placeholders.setdefault('WAL_S3_BUCKET', 'spilo-example-com')
+    if provider == PROVIDER_AWS:
+        placeholders.setdefault('WAL_S3_BUCKET', 'spilo-example-com')
+    elif provider == PROVIDER_GOOGLE:
+        placeholders.setdefault('WAL_GCS_BUCKET', 'spilo-example-com')
 
     placeholders.setdefault('postgresql', {})
     placeholders['postgresql'].setdefault('parameters', {})
@@ -310,14 +313,21 @@ etcd:
     return config
 
 
-def write_wale_command_environment(placeholders, overwrite):
+def write_wale_command_environment(placeholders, overwrite, provider):
+    if provider not in (PROVIDER_AWS, PROVIDER_GOOGLE):
+        return
+
     if not os.path.exists(placeholders['WALE_ENV_DIR']):
         os.makedirs(placeholders['WALE_ENV_DIR'])
 
-    write_file('s3://{WAL_S3_BUCKET}/spilo/{SCOPE}/wal/'.format(**placeholders),
-               os.path.join(placeholders['WALE_ENV_DIR'], 'WALE_S3_PREFIX'), overwrite)
-    write_file('https+path://s3-{}.amazonaws.com:443'.format(placeholders['instance_data']['zone'][:-1]),
-               os.path.join(placeholders['WALE_ENV_DIR'], 'WALE_S3_ENDPOINT'), overwrite)
+    if provider == PROVIDER_AWS:
+        write_file('s3://{WAL_S3_BUCKET}/spilo/{SCOPE}/wal/'.format(**placeholders),
+                   os.path.join(placeholders['WALE_ENV_DIR'], 'WALE_S3_PREFIX'), overwrite)
+        write_file('https+path://s3-{}.amazonaws.com:443'.format(placeholders['instance_data']['zone'][:-1]),
+                   os.path.join(placeholders['WALE_ENV_DIR'], 'WALE_S3_ENDPOINT'), overwrite)
+    elif provider == PROVIDER_GOOGLE:
+        write_file('gs://{WAL_GCS_BUCKET}/spilo/${SCOPE}/wal/'.format(**placeholders),
+                   os.path.join(placeholders['WALE_ENV_DIR'], 'WALE_GS_PREFIX'), overwrite)
 
 
 def write_crontab(placeholders, path, overwrite):
@@ -390,8 +400,8 @@ def main():
     if float(os.environ.get('PATRONIVERSION')) < 1.0:
         raise Exception('Patroni version >= 1.0 is required')
 
-    env = get_environment()
-    placeholders = get_placeholders(env)
+    provider = get_provider()
+    placeholders = get_placeholders(provider)
 
     config = yaml.load(pystache_render(TEMPLATE, placeholders))
     config.update(get_dcs_config(config, placeholders))
@@ -420,7 +430,7 @@ def main():
                 os.makedirs(os.path.dirname(patronictl_configfile))
             write_file(yaml.dump(patronictl_config), patronictl_configfile, args['force'])
         elif section == 'wal-e':
-            write_wale_command_environment(placeholders, args['force'])
+            write_wale_command_environment(placeholders, args['force'], provider)
         elif section == 'certificate':
             write_certificates(placeholders, args['force'])
         elif section == 'crontab':
