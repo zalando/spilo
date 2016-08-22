@@ -8,13 +8,21 @@ import os
 import socket
 import subprocess
 
+from six.moves.urllib_parse import urlparse
+
 import yaml
 import pystache
 import requests
 
 
+PROVIDER_AWS = "aws"
+PROVIDER_GOOGLE = "google"
+PROVIDER_LOCAL = "local"
+USE_K8S = os.environ.get('KUBERNETES_SERVICE_HOST') is not None
+
+
 def parse_args():
-    sections = ['all', 'patroni', 'patronictl', 'certificate', 'wal-e', 'crontab']
+    sections = ['all', 'patroni', 'patronictl', 'certificate', 'wal-e', 'crontab', 'ldap']
     argp = argparse.ArgumentParser(description='Configures Spilo',
                                    epilog="Choose from the following sections:\n\t{}".format('\n\t'.join(sections)),
                                    formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -90,11 +98,57 @@ def deep_update(a, b):
 
     return a if a is not None else b
 
-
 TEMPLATE = \
     '''
-ttl: &ttl 30
-loop_wait: &loop_wait 10
+bootstrap:
+  dcs:
+    ttl: 30
+    loop_wait: &loop_wait 10
+    retry_timeout: 10
+    maximum_lag_on_failover: 33554432
+    postgresql:
+      use_pg_rewind: true
+      use_slots: true
+      parameters:
+        archive_mode: "on"
+        archive_timeout: 1800s
+        archive_command: envdir "{{WALE_ENV_DIR}}" wal-e --aws-instance-profile wal-push "%p" -p 1
+        wal_level: hot_standby
+        wal_keep_segments: 8
+        wal_log_hints: 'on'
+        max_wal_senders: 5
+        shared_buffers: 500MB
+        max_connections: {{postgresql.parameters.max_connections}}
+        max_replication_slots: 5
+        hot_standby: 'on'
+        tcp_keepalives_idle: 900
+        tcp_keepalives_interval: 100
+        ssl: 'on'
+        ssl_cert_file: {{SSL_CERTIFICATE_FILE}}
+        ssl_key_file: {{SSL_PRIVATE_KEY_FILE}}
+        log_line_prefix: '%t [%p]: [%l-1] %c %x %d %u %a %h '
+        log_checkpoints: 'on'
+        log_lock_waits: 'on'
+        log_min_duration_statement: 500
+        log_autovacuum_min_duration: 0
+        log_connections: 'on'
+        log_disconnections: 'on'
+        log_statement: 'ddl'
+        log_temp_files: 0
+      recovery_conf:
+        restore_command: envdir "{{WALE_ENV_DIR}}" wal-e --aws-instance-profile wal-fetch "%f" "%p" -p 1
+  initdb:
+  - encoding: UTF8
+  - locale: en_US.UTF-8
+  users:
+    admin:
+      password: {{PGPASSWORD_ADMIN}}
+      options:
+        - createrole
+        - createdb
+  pg_hba:
+    - hostssl all all 0.0.0.0/0 md5
+    - host    all all 0.0.0.0/0 md5
 scope: &scope '{{SCOPE}}'
 restapi:
   listen: 0.0.0.0:{{APIPORT}}
@@ -105,26 +159,21 @@ postgresql:
   listen: 0.0.0.0:{{PGPORT}}
   connect_address: {{instance_data.ip}}:{{PGPORT}}
   data_dir: {{PGDATA}}
-  initdb:
-    - encoding: UTF8
-    - locale: en_US.UTF-8
-  pg_hba:
-    - hostssl all all 0.0.0.0/0 md5
-    - host    all all 0.0.0.0/0 md5
-  superuser:
-    username: postgres
-    password: {{PGPASSWORD_SUPERUSER}}
-  admin:
-    username: admin
-    password: {{PGPASSWORD_ADMIN}}
-  replication:
-    username: standby
-    password: {{PGPASSWORD_STANDBY}}
-    network: 0.0.0.0/0
+  authentication:
+    superuser:
+      username: postgres
+      password: {{PGPASSWORD_SUPERUSER}}
+    replication:
+      username: standby
+      password: {{PGPASSWORD_STANDBY}}
   callbacks:
     on_start: /callback_role.py
     on_stop: /callback_role.py
+    on_restart: /callback_role.py
     on_role_change: /callback_role.py
+  create_replica_method:
+    - wal_e
+    - basebackup
   wal_e:
     command: patroni_wale_restore
     envdir: {{WALE_ENV_DIR}}
@@ -132,66 +181,51 @@ postgresql:
     threshold_backup_size_percentage: {{WALE_BACKUP_THRESHOLD_PERCENTAGE}}
     use_iam: 1
     retries: 2
-  parameters:
-    archive_mode: 'on'
-    wal_level: hot_standby
-    archive_command: envdir "{{WALE_ENV_DIR}}" wal-e --aws-instance-profile wal-push "%p" -p 1
-    max_wal_senders: 5
-    wal_keep_segments: 8
-    archive_timeout: 1800s
-    max_connections: {{postgresql.parameters.max_connections}}
-    max_replication_slots: 5
-    hot_standby: 'on'
-    tcp_keepalives_idle: 900
-    tcp_keepalives_interval: 100
-    ssl: 'on'
-    ssl_cert_file: {{SSL_CERTIFICATE_FILE}}
-    ssl_key_file: {{SSL_PRIVATE_KEY_FILE}}
-    shared_buffers: {{postgresql.parameters.shared_buffers}}
-    wal_log_hints: 'on'
-    log_line_prefix: '%t [%p]: [%l-1] %c %x %d %u %a %h '
-    log_checkpoints: 'on'
-    log_lock_waits: 'on'
-    log_min_duration_statement: 500
-    log_autovacuum_min_duration: 0
-    log_connections: 'on'
-    log_disconnections: 'on'
-    log_statement: 'ddl'
-    log_temp_files: 0
-  recovery_conf:
-    restore_command: envdir "{{WALE_ENV_DIR}}" wal-e --aws-instance-profile wal-fetch "%f" "%p" -p 1
+    no_master: 1
 '''
 
 
+def get_environment():
+    try:
+        logging.info("Figuring out my environment (Google? AWS? Local?)")
+        r = requests.get('http://169.254.169.254', timeout=2)
+        if r.headers.get('Metadata-Flavor', '') == 'Google':
+            return PROVIDER_GOOGLE
+        else:
+            r = requests.get('http://169.254.169.254/latest/meta-data/ami-id')  # should be only accessible on AWS
+            if r.ok:
+                return PROVIDER_AWS
+            else:
+                return "unsupported"
+    except requests.exceptions.ConnectTimeout:
+        logging.info("Could not connect to 169.254.169.254, assuming local Docker setup")
+        return PROVIDER_LOCAL
 
-def get_instance_metadata():
+
+def get_instance_metadata(provider):
     metadata = {'ip': socket.gethostbyname(socket.gethostname()),
                 'id': socket.gethostname(),
                 'zone': 'local'}
 
     headers = {}
-    try:
-        logging.info("Figuring out my environment (Google? AWS? Local?)")
-        r = requests.get('http://169.254.169.254', timeout=2)
-        if r.headers.get('Metadata-Flavor', '') == 'Google':
-            logging.info("Found Google Metadata Flavor, therefore assuming Google Cloud")
-            headers['Metadata-Flavor'] = 'Google'
-            url = 'http://metadata.google.internal/computeMetadata/v1/instance'
-            mapping = {'zone': 'placement/availability-zone', 'id': None}
-        else:
-            logging.info("Did not find Google Metadata Flavor, assuming AWS")
-            url = 'http://instance-data/latest/meta-data'
-            mapping = {'ip': 'local-ipv4', 'id': 'instance-id', 'zone': None}
+    if provider == PROVIDER_GOOGLE:
+        headers['Metadata-Flavor'] = 'Google'
+        url = 'http://metadata.google.internal/computeMetadata/v1/instance'
+        mapping = {'zone': 'placement/availability-zone', 'id': None}
+    elif provider == PROVIDER_AWS:
+        url = 'http://instance-data/latest/meta-data'
+        mapping = {'ip': 'local-ipv4', 'id': 'instance-id', 'zone': None}
+    else:
+        logging.info("No meta-data available for this provider")
+        return metadata
 
-        for k, v in mapping.items():
-            metadata[k] = requests.get('{}/{}'.format(url, v or k), timeout=2, headers=headers).text
-    except requests.exceptions.ConnectTimeout as e:
-        logging.info("Could not connect to 169.254.169.254, assuming local Docker setup")
+    for k, v in mapping.items():
+        metadata[k] = requests.get('{}/{}'.format(url, v or k), timeout=2, headers=headers).text
 
     return metadata
 
 
-def get_placeholders():
+def get_placeholders(provider):
     placeholders = dict(os.environ)
 
     placeholders.setdefault('PGHOME', os.path.expanduser('~'))
@@ -221,11 +255,12 @@ def get_placeholders():
     # # 1 connection per 30 MB, at least 100, at most 1000
     placeholders['postgresql']['parameters']['max_connections'] = min(max(100, int(os_memory_mb/30)), 1000)
 
-    placeholders['instance_data'] = get_instance_metadata()
-    # id is not unique per container, we use the hostname instead
-    placeholders['instance_data']['id'] = os.environ.get('HOSTNAME')
-    placeholders['instance_data']['id'] = re.sub(r'\W+', '_', placeholders['instance_data']['id'])
-
+    placeholders['instance_data'] = get_instance_metadata(provider)
+    if provider in (PROVIDER_AWS, PROVIDER_GOOGLE):
+        if USE_K8S:
+            # id is not unique per container, we use the hostname instead
+            placeholders['instance_data']['id'] = os.environ.get('HOSTNAME')
+        placeholders['instance_data']['id'] = re.sub(r'\W+', '_', placeholders['instance_data']['id'])
     return placeholders
 
 
@@ -233,6 +268,7 @@ def write_file(config, filename, overwrite):
     if not overwrite and os.path.exists(filename):
         logging.warning('File {} already exists, not overwriting. (Use option --force if necessary)'.format(filename))
     with open(filename, 'w') as f:
+        logging.info('Writing to file {}'.format(filename))
         f.write(config)
 
 
@@ -245,12 +281,12 @@ def get_dcs_config(config, placeholders):
     defaults = \
         yaml.load('''\
 zookeeper:
-  scope: {scope}
-  session_timeout: {ttl}
-  reconnect_timeout: {loop_wait}
+  scope: '{scope}'
+  session_timeout: {bootstrap[dcs][ttl]}
+  reconnect_timeout: {bootstrap[dcs][loop_wait]}
 etcd:
-  scope: {scope}
-  ttl: {ttl}'''.format(**config))
+  scope: '{scope}'
+  ttl: {bootstrap[dcs][ttl]}'''.format(**config))
 
     config = {}
 
@@ -301,14 +337,60 @@ def write_crontab(placeholders, path, overwrite):
     c.communicate(input='\n'.join(lines).encode())
 
 
+def write_ldap_configuration(placeholders, overwrite):
+    ldap_url = placeholders.get('LDAP_URL')
+    if ldap_url is None:
+        logging.info("No LDAP_URL was specified, skipping LDAP configuration")
+        return
+
+    r = urlparse(ldap_url)
+    if not r.scheme:
+        logging.error('LDAP_URL should contain a scheme')
+        logging.info(r)
+        return
+
+    host, port = r.hostname, r.port
+    if not port:
+        port = 636 if r.scheme == 'ldaps' else 389
+
+    stunnel_config = """\
+foreground = yes
+options = NO_SSLv2
+
+[ldaps]
+connect = {0}:{1}
+client = yes
+accept = 389
+verify = 3
+CAfile = /etc/stunnel/chain.pem
+""".format(host, port)
+    write_file(stunnel_config, '/etc/stunnel/ldap.conf', overwrite)
+
+    supervisord_config = """\
+[program:ldaptunnel]
+autostart=true
+priority=500
+directory=/
+command=env -i /usr/bin/stunnel4 /etc/stunnel/ldap.conf
+stdout_logfile=/dev/stdout
+stdout_logfile_maxbytes=0
+redirect_stderr=true
+"""
+    write_file(supervisord_config, '/etc/supervisor/conf.d/ldaptunnel.conf', overwrite)
+
+
 def main():
     debug = os.environ.get('DEBUG', '') in ['1', 'true', 'on', 'ON']
     args = parse_args()
 
     logging.basicConfig(format='%(asctime)s - bootstrapping - %(levelname)s - %(message)s', level=('DEBUG'
-                         if debug else (args.get('loglevel') or 'INFO').upper()))
+                        if debug else (args.get('loglevel') or 'INFO').upper()))
 
-    placeholders = get_placeholders()
+    if float(os.environ.get('PATRONIVERSION')) < 1.0:
+        raise Exception('Patroni version >= 1.0 is required')
+
+    env = get_environment()
+    placeholders = get_placeholders(env)
 
     config = yaml.load(pystache_render(TEMPLATE, placeholders))
     config.update(get_dcs_config(config, placeholders))
@@ -319,11 +401,10 @@ def main():
 
     config = deep_update(user_config, config)
 
-
     # Ensure replication is available
-    if not any(['replication' in i for i in config['postgresql']['pg_hba']]):
-        rep_hba = 'hostssl replication {} 0.0.0.0/0 md5'.format(config['postgresql']['replication']['username'])
-        config['postgresql']['pg_hba'].insert(0, rep_hba)
+    if not any(['replication' in i for i in config['bootstrap']['pg_hba']]):
+        rep_hba = 'hostssl replication {} 0.0.0.0/0 md5'.format(config['postgresql']['authentication']['replication']['username'])
+        config['bootstrap']['pg_hba'].insert(0, rep_hba)
 
     for section in args['sections']:
         logging.info('Configuring {}'.format(section))
@@ -342,6 +423,8 @@ def main():
             write_certificates(placeholders, args['force'])
         elif section == 'crontab':
             write_crontab(placeholders, os.environ.get('PATH'), args['force'])
+        elif section == 'ldap':
+            write_ldap_configuration(placeholders, args['force'])
         else:
             raise Exception('Unknown section: {}'.format(section))
 

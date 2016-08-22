@@ -8,7 +8,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && echo 'APT::Install-Suggests "0";' >> /etc/apt/apt.conf.d/01norecommend \
 
     && apt-get upgrade -y \
-    && apt-get install -y curl ca-certificates jq pv vim gdb strace supervisor \
+    && apt-get install -y curl ca-certificates jq pv vim gdb strace supervisor stunnel \
 
     ## Make sure we have a en_US.UTF-8 locale available
     && localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8 \
@@ -29,12 +29,12 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && apt-get update \
     && apt-get install -y skytools3-ticker \
     && for version in ${PGOLDVERSIONS} ${PGVERSION}; do \
-            # Install PostgreSQL binaries, contrib, pgq, plproxy, pgq and plpython
+            # Install PostgreSQL binaries, contrib, pgq, plproxy, pgq and multiple pl's
             apt-get install -y postgresql-${version} postgresql-${version}-dbg postgresql-client-${version} \
                         postgresql-contrib-${version} postgresql-${version}-plproxy postgresql-${version}-pgq3 \
                         postgresql-${version}-postgis postgresql-plpython3-${version} \
-                        postgresql-plpython-${version} postgresql-${version}-plr \
-
+                        postgresql-plpython-${version} postgresql-${version}-plr postgresql-pltcl-${version} \
+                        postgresql-${version}-plv8 postgresql-${version}-pllua postgresql-plperl-${version} \
             # Remove the default cluster, which Debian stupidly starts right after installation of the packages
             && pg_dropcluster --stop ${version} main; \
     done \
@@ -45,27 +45,34 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 
 ENV PATH=$PATH:/usr/lib/postgresql/${PGVERSION}/bin
 
-# Install patroni and WAL-e
-ENV PATRONIVERSION=0.90
+# Install patroni, WAL-e and extensions
+# We do this in one big step to reduce the Docker image size:
+## 1 Install tools required to build
+## 2 Build
+## 3 Remove tools only required for build
+ENV PATRONIVERSION=1.0
 RUN export DEBIAN_FRONTEND=noninteractive \
+    export BUILD_PACKAGES="postgresql-server-dev-${PGVERSION} python-pip python-dev build-essential pgxnclient" \
+    export PGXN_EXTENSIONS="quantile trimmed_aggregates" \
     && apt-get update \
-    && apt-get install -y python postgresql-server-dev-${PGVERSION} python-pip python-dev gcc \
-    # Required for wal-e
-    daemontools lzop \
-    # Required for /usr/local/bin/patroni
-    python-pkg-resources \
+    && apt-get install -y \
+            # Required for wal-e
+            daemontools lzop \
+            # Required for /usr/local/bin/patroni
+            python python-pkg-resources \
+            ${BUILD_PACKAGES} \
     && pip install pip --upgrade \
     && pip install --upgrade requests wal-e pystache patroni==$PATRONIVERSION \
-
+    && for extension in ${PGXN_EXTENSIONS}; do pgxn install $extension; done \
     # Clean up
-    && apt-get purge -y postgresql-server-dev-${PGVERSION} python-pip python-dev binutils gcc \
+    && apt-get purge -y ${BUILD_PACKAGES} \
     && apt-get autoremove -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /root/.cache
 
 
 # install etcdctl
-ENV ETCDVERSION 2.3.3
+ENV ETCDVERSION 2.3.7
 RUN curl -L https://github.com/coreos/etcd/releases/download/v${ETCDVERSION}/etcd-v${ETCDVERSION}-linux-amd64.tar.gz \
     | tar xz -C /bin --strip=1 --wildcards --no-anchored etcdctl
 
@@ -78,6 +85,7 @@ RUN usermod -d $PGHOME -m postgres
 
 ADD scm-source.json configure_spilo.py launch.sh postgres_backup.sh patroni_wait.sh callback_role.py /
 ADD supervisor.d /etc/supervisor/conf.d/
+ADD stunnel.d /etc/stunnel
 ADD pgq_ticker.ini $PGHOME
 ADD motd /etc/
 RUN echo "source /etc/motd" >> /root/.bashrc
