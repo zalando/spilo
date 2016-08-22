@@ -18,6 +18,7 @@ import requests
 PROVIDER_AWS = "aws"
 PROVIDER_GOOGLE = "google"
 PROVIDER_LOCAL = "local"
+PROVIDER_UNSUPPORTED = "unsupported"
 USE_K8S = os.environ.get('KUBERNETES_SERVICE_HOST') is not None
 
 
@@ -196,7 +197,7 @@ def get_environment():
             if r.ok:
                 return PROVIDER_AWS
             else:
-                return "unsupported"
+                return PROVIDER_UNSUPPORTED
     except requests.exceptions.ConnectTimeout:
         logging.info("Could not connect to 169.254.169.254, assuming local Docker setup")
         return PROVIDER_LOCAL
@@ -403,7 +404,8 @@ def main():
 
     # Ensure replication is available
     if not any(['replication' in i for i in config['bootstrap']['pg_hba']]):
-        rep_hba = 'hostssl replication {} 0.0.0.0/0 md5'.format(config['postgresql']['authentication']['replication']['username'])
+        rep_hba = 'hostssl replication {} 0.0.0.0/0 md5'.\
+            format(config['postgresql']['authentication']['replication']['username'])
         config['bootstrap']['pg_hba'].insert(0, rep_hba)
 
     for section in args['sections']:
