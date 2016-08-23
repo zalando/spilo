@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 import argparse
@@ -326,7 +326,7 @@ def write_wale_command_environment(placeholders, overwrite, provider):
         write_file('https+path://s3-{}.amazonaws.com:443'.format(placeholders['instance_data']['zone'][:-1]),
                    os.path.join(placeholders['WALE_ENV_DIR'], 'WALE_S3_ENDPOINT'), overwrite)
     elif provider == PROVIDER_GOOGLE:
-        write_file('gs://{WAL_GCS_BUCKET}/spilo/${SCOPE}/wal/'.format(**placeholders),
+        write_file('gs://{WAL_GCS_BUCKET}/spilo/{SCOPE}/wal/'.format(**placeholders),
                    os.path.join(placeholders['WALE_ENV_DIR'], 'WALE_GS_PREFIX'), overwrite)
 
 

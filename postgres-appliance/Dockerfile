@@ -52,17 +52,18 @@ ENV PATH=$PATH:/usr/lib/postgresql/${PGVERSION}/bin
 ## 3 Remove tools only required for build
 ENV PATRONIVERSION=1.0
 RUN export DEBIAN_FRONTEND=noninteractive \
-    export BUILD_PACKAGES="postgresql-server-dev-${PGVERSION} python-pip python-dev build-essential pgxnclient" \
+    export BUILD_PACKAGES="postgresql-server-dev-${PGVERSION} python3-pip python3-dev build-essential pgxnclient" \
     export PGXN_EXTENSIONS="quantile trimmed_aggregates" \
     && apt-get update \
     && apt-get install -y \
             # Required for wal-e
             daemontools lzop \
             # Required for /usr/local/bin/patroni
-            python python-pkg-resources \
+            python3 python3-pkg-resources \
             ${BUILD_PACKAGES} \
-    && pip install pip --upgrade \
-    && pip install --upgrade requests wal-e pystache patroni==$PATRONIVERSION \
+    && pip3 install pip --upgrade \
+    && pip3 install --upgrade requests pystache patroni==$PATRONIVERSION \
+    && pip3 install --upgrade gcloud boto wal-e==1.0.0a1 \
     && for extension in ${PGXN_EXTENSIONS}; do pgxn install $extension; done \
     # Clean up
     && apt-get purge -y ${BUILD_PACKAGES} \

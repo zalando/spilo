@@ -5,7 +5,7 @@ if [ $? -ne 1 ]; then echo "ERROR: Supervisord is already running"; exit 1; fi
 
 [ -d "$PGDATA" ] && chown -R postgres:postgres "$PGDATA"
 
-python /configure_spilo.py all
+python3 /configure_spilo.py all
 (
     sudo PATH="$PATH" -u postgres /patroni_wait.sh -t 3600 -- /postgres_backup.sh "$WALE_ENV_DIR" "$PGDATA"
 ) &
