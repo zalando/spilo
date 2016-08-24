@@ -20,6 +20,7 @@ IN_RECOVERY=$(psql -tXqAc "select pg_is_in_recovery()")
 [[ $IN_RECOVERY != "f" ]] && log "Cluster is in recovery, not running backup" && exit 0
 
 # leave only 2 base backups before creating a new one
+# --aws-instance-profile flag is just ignored when running in GCE.
 envdir "${WALE_ENV_DIR}" wal-e --aws-instance-profile delete --confirm retain 2
 
 # Ensure we don't have more workes than CPU's
