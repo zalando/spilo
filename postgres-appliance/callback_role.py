@@ -14,6 +14,7 @@ API_URL = 'https://{0}:{1}/api/v1/namespaces/default/pods/{2}'
 logger = logging.getLogger(__name__)
 
 NUM_ATTEMPTS = 5
+LABEL = 'spilo-role'
 
 
 def change_host_role_label(new_role):
@@ -28,7 +29,7 @@ def change_host_role_label(new_role):
     url = API_URL.format(os.environ['KUBERNETES_SERVICE_HOST'],
                          os.environ['KUBERNETES_PORT_443_TCP_PORT'],
                          os.environ['HOSTNAME'])
-    data = [{'op': 'add', 'path': '/metadata/labels/spilo-role', 'value': new_role}]
+    data = [{'op': 'add', 'path': '/metadata/labels/{0}'.format(LABEL), 'value': new_role}]
     for i in range(NUM_ATTEMPTS):
         try:
             r = requests.patch(url, headers=headers, data=json.dumps(data), verify=False)
