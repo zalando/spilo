@@ -51,6 +51,7 @@ ENV PATH=$PATH:/usr/lib/postgresql/${PGVERSION}/bin
 ## 2 Build
 ## 3 Remove tools only required for build
 ENV PATRONIVERSION=1.0
+ENV WALE_VERSION=1.0.0a1
 RUN export DEBIAN_FRONTEND=noninteractive \
     export BUILD_PACKAGES="postgresql-server-dev-${PGVERSION} python3-pip python3-dev build-essential pgxnclient" \
     export PGXN_EXTENSIONS="quantile trimmed_aggregates" \
@@ -63,7 +64,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             ${BUILD_PACKAGES} \
     && pip3 install pip --upgrade \
     && pip3 install --upgrade requests pystache patroni==$PATRONIVERSION \
-    && pip3 install --upgrade gcloud boto wal-e==1.0.0a1 \
+    && pip3 install --upgrade gcloud boto wal-e==$WALE_VERSION \
     && for extension in ${PGXN_EXTENSIONS}; do pgxn install $extension; done \
     # Clean up
     && apt-get purge -y ${BUILD_PACKAGES} \
