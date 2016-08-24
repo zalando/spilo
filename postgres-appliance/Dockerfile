@@ -92,7 +92,7 @@ ADD motd /etc/
 RUN echo "source /etc/motd" >> /root/.bashrc
 RUN chmod 700 /postgres_*
 
-ENV ETCD_DISCOVERY_DOMAIN=postgres.acid.example.com DEBUG=1 LC_ALL=en_US.utf-8
+ENV ETCD_DISCOVERY_DOMAIN=postgres.acid.example.com LC_ALL=en_US.utf-8
 
 WORKDIR $PGHOME
 EXPOSE 5432 8008
