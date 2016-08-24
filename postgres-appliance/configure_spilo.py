@@ -113,7 +113,9 @@ bootstrap:
       parameters:
         archive_mode: "on"
         archive_timeout: 1800s
+        {{#USE_WALE}}
         archive_command: envdir "{{WALE_ENV_DIR}}" wal-e --aws-instance-profile wal-push "%p" -p 1
+        {{/USE_WALE}}
         wal_level: hot_standby
         wal_keep_segments: 8
         wal_log_hints: 'on'
@@ -136,8 +138,10 @@ bootstrap:
         log_disconnections: 'on'
         log_statement: 'ddl'
         log_temp_files: 0
+      {{#USE_WALE}}
       recovery_conf:
         restore_command: envdir "{{WALE_ENV_DIR}}" wal-e --aws-instance-profile wal-fetch "%f" "%p" -p 1
+      {{/USE_WALE}}
   initdb:
   - encoding: UTF8
   - locale: en_US.UTF-8
@@ -167,14 +171,19 @@ postgresql:
     replication:
       username: standby
       password: {{PGPASSWORD_STANDBY}}
+ {{#CALLBACK_SCRIPT}}
   callbacks:
-    on_start: /callback_role.py
-    on_stop: /callback_role.py
-    on_restart: /callback_role.py
-    on_role_change: /callback_role.py
+    on_start: {{CALLBACK_SCRIPT}}
+    on_stop: {{CALLBACK_SCRIPT}}}
+    on_restart: {{CALLBACK_SCRIPT}}
+    on_role_change: {{CALLBACK_SCRIPT}}
+ {{/CALLBACK_SCRIPT}}
   create_replica_method:
+    {{#USE_WALE}}
     - wal_e
+    {{/USE_WALE}}
     - basebackup
+ {{#USE_WALE}}
   wal_e:
     command: patroni_wale_restore
     envdir: {{WALE_ENV_DIR}}
@@ -183,6 +192,7 @@ postgresql:
     use_iam: 1
     retries: 2
     no_master: 1
+{{/USE_WALE}}
 '''
 
 
@@ -244,10 +254,17 @@ def get_placeholders(provider):
     placeholders.setdefault('WALE_BACKUP_THRESHOLD_MEGABYTES', 1024)
     placeholders.setdefault('WALE_BACKUP_THRESHOLD_PERCENTAGE', 30)
     placeholders.setdefault('WALE_ENV_DIR', os.path.join(placeholders['PGHOME'], 'etc', 'wal-e.d', 'env'))
-    if provider == PROVIDER_AWS:
-        placeholders.setdefault('WAL_S3_BUCKET', 'spilo-example-com')
-    elif provider == PROVIDER_GOOGLE:
-        placeholders.setdefault('WAL_GCS_BUCKET', 'spilo-example-com')
+    if provider in (PROVIDER_AWS, PROVIDER_GOOGLE):
+        placeholders.setdefault('USE_WALE', True)
+        if provider == PROVIDER_AWS:
+            placeholders.setdefault('WAL_S3_BUCKET', 'spilo-example-com')
+            placeholders.setdefault('CALLBACK_SCRIPT', 'patroni_aws')
+        elif provider == PROVIDER_GOOGLE:
+            placeholders.setdefault('WAL_GCS_BUCKET', 'spilo-example-com')
+            placeholders.setdefault('CALLBACK_SCRIPT', '/callback_role.py')
+    else:  # avoid setting WAL-E archive command and callback script for unknown providers (i.e local docker)
+        placeholders.setdefault('USE_WALE', False)
+        placeholders.setdefault('CALLBACK_SCRIPT', '')
 
     placeholders.setdefault('postgresql', {})
     placeholders['postgresql'].setdefault('parameters', {})
