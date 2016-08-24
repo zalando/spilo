@@ -29,6 +29,15 @@ spec:
             value: spilotestp5
           - name: WAL_GCS_BUCKET
             value: spilo-example
+         - name: PGDATA
+            value: /home/postgres/pgdata
+          volumeMounts:
+            - mountPath: /home/postgres/pgdata
+              name: pgdata
+    volumes:
+      - name: pgdata
+        PersistentVolumeClaim:
+          claimName: pvc-pgdata
 
 ---
 
@@ -46,3 +55,19 @@ spec:
   selector:
     app: spilodemo
     spilo-role: master
+
+---
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-pgdata
+  namespace: spilodemo
+  annotations:
+    volume.alpha.kubernetes.io/storage-class: anything
+spec:
+  accessModes:
+  - ReadWriteOnes
+  resources:
+    requests:
+      storage: 10Gi
