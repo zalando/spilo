@@ -59,7 +59,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             # Required for wal-e
             daemontools lzop \
             # Required for /usr/local/bin/patroni
-            python python-pkg-resources \
+            python python-pkg-resources python-setuptools \
             ${BUILD_PACKAGES} \
     && pip install pip --upgrade \
     && pip install --upgrade requests wal-e pystache patroni==$PATRONIVERSION \
