@@ -111,7 +111,6 @@ bootstrap:
         wal_keep_segments: 8
         wal_log_hints: 'on'
         max_wal_senders: 5
-        shared_buffers: {{postgresql.parameters.shared_buffers}}
         max_connections: {{postgresql.parameters.max_connections}}
         max_replication_slots: 5
         hot_standby: 'on'
@@ -153,6 +152,8 @@ postgresql:
   listen: 0.0.0.0:{{PGPORT}}
   connect_address: {{instance_data.ip}}:{{PGPORT}}
   data_dir: {{PGDATA}}
+  parameters:
+    shared_buffers: {{postgresql.parameters.shared_buffers}}
   authentication:
     superuser:
       username: postgres
