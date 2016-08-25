@@ -111,7 +111,7 @@ bootstrap:
         wal_keep_segments: 8
         wal_log_hints: 'on'
         max_wal_senders: 5
-        shared_buffers: 500MB
+        shared_buffers: {{postgresql.parameters.shared_buffers}}
         max_connections: {{postgresql.parameters.max_connections}}
         max_replication_slots: 5
         hot_standby: 'on'
