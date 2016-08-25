@@ -1,52 +1,77 @@
-apiVersion: extensions/v1beta1
-kind: Deployment
+
+apiVersion: apps/v1alpha1
+kind: PetSet
 metadata:
+  labels:
+    app: spilodemo
   name: spilodemo
 spec:
   replicas: 3
+  serviceName: spilodemo
   template:
     metadata:
       labels:
         app: spilodemo
+      annotations:
+        pod.alpha.kubernetes.io/initialized: "true"
     spec:
       containers:
-        - name: spilodemo
-          image: registry.example.com/spilok8s:9.5
-          imagePullPolicy: Always
-          ports:
-          - containerPort: 8008
-          - containerPort: 5432
-          env:
-          - name: PGPASSWORD_SUPERUSER
-            value: tea
-          - name: PGPASSWORD_ADMIN
-            value: cola
-          - name: PGPASSWORD_STANDBY
-            value: pinacolada
-          - name: ETCD_DISCOVERY_DOMAIN
-            value: etcd.default.svc.cluster.local
-          - name: SCOPE
-            value: spilotestp5
-          - name: WAL_GCS_BUCKET
-            value: spilo-example
-          - name: PGDATA
-            value: /home/postgres/pgdata
-          volumeMounts:
-            - mountPath: /home/postgres/pgdata
-              name: pgdata
+      - env:
+        - name: PGPASSWORD_SUPERUSER
+          value: tea
+        - name: PGPASSWORD_ADMIN
+          value: cola
+        - name: PGPASSWORD_STANDBY
+          value: pinacolada
+        - name: ETCD_DISCOVERY_DOMAIN
+          value: etcd.default.svc.cluster.local
+        - name: SCOPE
+          value: spilotestp8
+        - name: WAL_GCS_BUCKET
+          value: zalando-acid
+        - name: GOOGLE_APPLICATION_CREDENTIALS
+          value: /etc/wal-e/gcloud-credentials.json
+        - name: PGROOT
+          value: /home/postgres/pgdata/pgroot
+        image: registry.opensource.zalan.do/acid/spilo-k8s-9.5:9.5.4-p9
+        imagePullPolicy: Always
+        name: spilodemo
+        ports:
+        - containerPort: 8008
+          protocol: TCP
+        - containerPort: 5432
+          protocol: TCP
+        volumeMounts:
+        - mountPath: /home/postgres/pgdata
+          name: pgdata
+        - mountPath: /etc/wal-e
+          name: wale-config
+          readOnly: true
+      terminationGracePeriodSeconds: 0
       volumes:
-        - name: pgdata
-          PersistentVolumeClaim:
-            claimName: pvc-pgdata
+        - name: wale-config
+          secret:
+            secretName: wale-secret
+  volumeClaimTemplates:
+  - metadata:
+      annotations:
+        volume.alpha.kubernetes.io/storage-class: anything
+      name: pgdata
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 5Gi
 
 ---
 
 apiVersion: v1
 kind: Service
 metadata:
-  name: spilodemo-lb-service
+  name: spilodemo
   labels:
-    app: spilodemo-lb
+    app: spilodemo
 spec:
   type: LoadBalancer
   ports:
@@ -57,17 +82,10 @@ spec:
     spilo-role: master
 
 ---
-
 apiVersion: v1
-kind: PersistentVolumeClaim
+kind: Secret
 metadata:
-  name: pvc-pgdata
-  namespace: default
-  annotations:
-    volume.alpha.kubernetes.io/storage-class: anything
-spec:
-  accessModes:
-  - ReadWriteOnes
-  resources:
-    requests:
-      storage: 10Gi
+  name: wale-secret
+type: Opaque
+data:
+  gcloud-credentials.json: [put-your-base64-credentials-here]
