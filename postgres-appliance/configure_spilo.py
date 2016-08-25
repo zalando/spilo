@@ -243,7 +243,8 @@ def get_placeholders(provider):
     placeholders.setdefault('APIPORT', '8008')
     placeholders.setdefault('BACKUP_SCHEDULE', '00 01 * * *')
     placeholders.setdefault('CRONTAB', '[]')
-    placeholders.setdefault('PGDATA', os.path.join(placeholders['PGHOME'], 'pgdata'))
+    placeholders.setdefault('PGROOT', os.path.join(placeholders['PGHOME'], 'pgroot'))
+    placeholders.setdefault('PGDATA', os.path.join(placeholders['PGROOT'], 'pgdata'))
     placeholders.setdefault('PGPASSWORD_ADMIN', 'standby')
     placeholders.setdefault('PGPASSWORD_STANDBY', 'standby')
     placeholders.setdefault('PGPASSWORD_SUPERUSER', 'zalando')
@@ -261,6 +262,7 @@ def get_placeholders(provider):
             placeholders.setdefault('CALLBACK_SCRIPT', 'patroni_aws')
         elif provider == PROVIDER_GOOGLE:
             placeholders.setdefault('WAL_GCS_BUCKET', 'spilo-example-com')
+            placeholders.setdefault('GOOGLE_APPLICATION_CREDENTIALS', '')
             placeholders.setdefault('CALLBACK_SCRIPT', '/callback_role.py')
     else:  # avoid setting WAL-E archive command and callback script for unknown providers (i.e local docker)
         placeholders.setdefault('USE_WALE', False)
@@ -345,6 +347,9 @@ def write_wale_command_environment(placeholders, overwrite, provider):
     elif provider == PROVIDER_GOOGLE:
         write_file('gs://{WAL_GCS_BUCKET}/spilo/{SCOPE}/wal/'.format(**placeholders),
                    os.path.join(placeholders['WALE_ENV_DIR'], 'WALE_GS_PREFIX'), overwrite)
+        if placeholders['GOOGLE_APPLICATION_CREDENTIALS']:
+            write_file('{GOOGLE_APPLICATION_CREDENTIALS}'.format(**placeholders),
+                       os.path.join(placeholders['WALE_ENV_DIR'], 'GOOGLE_APPLICATION_CREDENTIALS'), overwrite)
 
 
 def write_crontab(placeholders, path, overwrite):
