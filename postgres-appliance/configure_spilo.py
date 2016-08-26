@@ -174,7 +174,7 @@ postgresql:
  {{#CALLBACK_SCRIPT}}
   callbacks:
     on_start: {{CALLBACK_SCRIPT}}
-    on_stop: {{CALLBACK_SCRIPT}}}
+    on_stop: {{CALLBACK_SCRIPT}}
     on_restart: {{CALLBACK_SCRIPT}}
     on_role_change: {{CALLBACK_SCRIPT}}
  {{/CALLBACK_SCRIPT}}
@@ -255,15 +255,20 @@ def get_placeholders(provider):
     placeholders.setdefault('WALE_BACKUP_THRESHOLD_MEGABYTES', 1024)
     placeholders.setdefault('WALE_BACKUP_THRESHOLD_PERCENTAGE', 30)
     placeholders.setdefault('WALE_ENV_DIR', os.path.join(placeholders['PGHOME'], 'etc', 'wal-e.d', 'env'))
+
     if provider in (PROVIDER_AWS, PROVIDER_GOOGLE):
         placeholders.setdefault('USE_WALE', True)
         if provider == PROVIDER_AWS:
             placeholders.setdefault('WAL_S3_BUCKET', 'spilo-example-com')
-            placeholders.setdefault('CALLBACK_SCRIPT', 'patroni_aws')
         elif provider == PROVIDER_GOOGLE:
             placeholders.setdefault('WAL_GCS_BUCKET', 'spilo-example-com')
             placeholders.setdefault('GOOGLE_APPLICATION_CREDENTIALS', '')
+        # Kubernetes requires a callback to change the labels in order to point to the new master
+        if USE_K8S:
             placeholders.setdefault('CALLBACK_SCRIPT', '/callback_role.py')
+        elif provider == PROVIDER_AWS:  # AWS specific callback to tag the instances with roles
+            placeholders.setdefault('CALLBACK_SCRIPT', 'patroni_aws')
+
     else:  # avoid setting WAL-E archive command and callback script for unknown providers (i.e local docker)
         placeholders.setdefault('USE_WALE', False)
         placeholders.setdefault('CALLBACK_SCRIPT', '')
