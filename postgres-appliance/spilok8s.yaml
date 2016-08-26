@@ -26,14 +26,14 @@ spec:
         - name: ETCD_DISCOVERY_DOMAIN
           value: etcd.default.svc.cluster.local
         - name: SCOPE
-          value: spilotestp8
+          value: spilodemo
         - name: WAL_GCS_BUCKET
           value: zalando-acid
         - name: GOOGLE_APPLICATION_CREDENTIALS
           value: /etc/wal-e/gcloud-credentials.json
         - name: PGROOT
           value: /home/postgres/pgdata/pgroot
-        image: registry.opensource.zalan.do/acid/spilo-k8s-9.5:9.5.4-p9
+        image: registry.opensource.zalan.do/acid/spilo-k8s-9.5:9.5.4-p14
         imagePullPolicy: Always
         name: spilodemo
         ports:
@@ -88,4 +88,4 @@ metadata:
   name: wale-secret
 type: Opaque
 data:
-  gcloud-credentials.json: [put-your-base64-credentials-here]
+  gcloud-credentials.json: redacted  # put the base64 encoded contents of the credentials file here as a single string
