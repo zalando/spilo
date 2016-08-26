@@ -9,11 +9,12 @@ import sys
 import time
 
 TOKEN_FILENAME = '/var/run/secrets/kubernetes.io/serviceaccount/token'
-API_URL = 'https://{0}:{1}/api/v1/namespaces/default/pods/{2}'
+CA_CERT_FILENAME = '/var/run/secrets/kubernetes.io/serviceaccount/ca.crt'
+API_URL = 'https://kubernetes.default.svc.cluster.local/api/v1/namespaces/default/pods/{0}'
 
 logger = logging.getLogger(__name__)
 
-NUM_ATTEMPTS = 5
+NUM_ATTEMPTS = 10
 LABEL = 'spilo-role'
 
 
@@ -26,13 +27,11 @@ def change_host_role_label(new_role):
 
     headers = {'Authorization': 'Bearer {0}'.format(token)}
     headers['Content-Type'] = 'application/json-patch+json'
-    url = API_URL.format(os.environ['KUBERNETES_SERVICE_HOST'],
-                         os.environ['KUBERNETES_PORT_443_TCP_PORT'],
-                         os.environ['HOSTNAME'])
+    url = API_URL.format(os.environ['HOSTNAME'])
     data = [{'op': 'add', 'path': '/metadata/labels/{0}'.format(LABEL), 'value': new_role}]
     for i in range(NUM_ATTEMPTS):
         try:
-            r = requests.patch(url, headers=headers, data=json.dumps(data), verify=False)
+            r = requests.patch(url, headers=headers, data=json.dumps(data), verify=CA_CERT_FILENAME)
             if r.status_code >= 300:
                 logger.warning("Unable to change the role label to {0}: {1}".format(new_role, r.text))
             else:
@@ -55,7 +54,7 @@ def record_role_change(action, new_role):
 
 def main():
     logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', level=logging.INFO)
-    if len(sys.argv) == 4 and sys.argv[1] in ('on_start', 'on_stop', 'on_role_change'):
+    if len(sys.argv) == 4 and sys.argv[1] in ('on_start', 'on_stop', 'on_role_change', 'on_restart'):
         record_role_change(action=sys.argv[1], new_role=sys.argv[2])
     else:
         sys.exit("Usage: {0} action role name".format(sys.argv[0]))
