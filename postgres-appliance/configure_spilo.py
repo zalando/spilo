@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 import argparse
@@ -13,6 +13,13 @@ from six.moves.urllib_parse import urlparse
 import yaml
 import pystache
 import requests
+
+
+PROVIDER_AWS = "aws"
+PROVIDER_GOOGLE = "google"
+PROVIDER_LOCAL = "local"
+PROVIDER_UNSUPPORTED = "unsupported"
+USE_K8S = os.environ.get('KUBERNETES_SERVICE_HOST') is not None
 
 
 def parse_args():
@@ -104,9 +111,11 @@ bootstrap:
       use_pg_rewind: true
       use_slots: true
       parameters:
+        {{#USE_WALE}}
         archive_mode: "on"
         archive_timeout: 1800s
         archive_command: envdir "{{WALE_ENV_DIR}}" wal-e --aws-instance-profile wal-push "%p" -p 1
+        {{/USE_WALE}}
         wal_level: hot_standby
         wal_keep_segments: 8
         wal_log_hints: 'on'
@@ -128,8 +137,10 @@ bootstrap:
         log_disconnections: 'on'
         log_statement: 'ddl'
         log_temp_files: 0
+      {{#USE_WALE}}
       recovery_conf:
         restore_command: envdir "{{WALE_ENV_DIR}}" wal-e --aws-instance-profile wal-fetch "%f" "%p" -p 1
+      {{/USE_WALE}}
   initdb:
   - encoding: UTF8
   - locale: en_US.UTF-8
@@ -147,7 +158,7 @@ restapi:
   listen: 0.0.0.0:{{APIPORT}}
   connect_address: {{instance_data.ip}}:{{APIPORT}}
 postgresql:
-  name: {{instance_data.id}}
+  name: '{{instance_data.id}}'
   scope: *scope
   listen: 0.0.0.0:{{PGPORT}}
   connect_address: {{instance_data.ip}}:{{PGPORT}}
@@ -161,14 +172,19 @@ postgresql:
     replication:
       username: standby
       password: {{PGPASSWORD_STANDBY}}
+ {{#CALLBACK_SCRIPT}}
   callbacks:
-    on_start: patroni_aws
-    on_stop: patroni_aws
-    on_restart: patroni_aws
-    on_role_change: patroni_aws
+    on_start: {{CALLBACK_SCRIPT}}
+    on_stop: {{CALLBACK_SCRIPT}}
+    on_restart: {{CALLBACK_SCRIPT}}
+    on_role_change: {{CALLBACK_SCRIPT}}
+ {{/CALLBACK_SCRIPT}}
   create_replica_method:
+    {{#USE_WALE}}
     - wal_e
+    {{/USE_WALE}}
     - basebackup
+ {{#USE_WALE}}
   wal_e:
     command: patroni_wale_restore
     envdir: {{WALE_ENV_DIR}}
@@ -177,27 +193,59 @@ postgresql:
     use_iam: 1
     retries: 2
     no_master: 1
+{{/USE_WALE}}
 '''
 
 
-def get_instance_meta_data(key):
+def get_provider():
     try:
-        result = requests.get('http://instance-data/latest/meta-data/{}'.format(key), timeout=2)
-        if result.status_code != 200:
-            raise Exception('Received status code {} ({})'.format(result.status_code, result.text))
-        return result.text
-    except Exception as e:
-        logging.debug('Could not inspect instance metadata for key {}, error: {}'.format(key, e))
+        logging.info("Figuring out my environment (Google? AWS? Local?)")
+        r = requests.get('http://169.254.169.254', timeout=2)
+        if r.headers.get('Metadata-Flavor', '') == 'Google':
+            return PROVIDER_GOOGLE
+        else:
+            r = requests.get('http://169.254.169.254/latest/meta-data/ami-id')  # should be only accessible on AWS
+            if r.ok:
+                return PROVIDER_AWS
+            else:
+                return PROVIDER_UNSUPPORTED
+    except requests.exceptions.ConnectTimeout:
+        logging.info("Could not connect to 169.254.169.254, assuming local Docker setup")
+        return PROVIDER_LOCAL
 
 
-def get_placeholders():
+def get_instance_metadata(provider):
+    metadata = {'ip': socket.gethostbyname(socket.gethostname()),
+                'id': socket.gethostname(),
+                'zone': 'local'}
+
+    headers = {}
+    if provider == PROVIDER_GOOGLE:
+        headers['Metadata-Flavor'] = 'Google'
+        url = 'http://metadata.google.internal/computeMetadata/v1/instance'
+        mapping = {'zone': 'zone', 'id': 'id'}
+    elif provider == PROVIDER_AWS:
+        url = 'http://instance-data/latest/meta-data'
+        mapping = {'ip': 'local-ipv4', 'id': 'instance-id', 'zone': 'placement/availability-zone'}
+    else:
+        logging.info("No meta-data available for this provider")
+        return metadata
+
+    for k, v in mapping.items():
+        metadata[k] = requests.get('{}/{}'.format(url, v or k), timeout=2, headers=headers).text
+
+    return metadata
+
+
+def get_placeholders(provider):
     placeholders = dict(os.environ)
 
     placeholders.setdefault('PGHOME', os.path.expanduser('~'))
     placeholders.setdefault('APIPORT', '8008')
     placeholders.setdefault('BACKUP_SCHEDULE', '00 01 * * *')
     placeholders.setdefault('CRONTAB', '[]')
-    placeholders.setdefault('PGDATA', os.path.join(placeholders['PGHOME'], 'pgdata'))
+    placeholders.setdefault('PGROOT', os.path.join(placeholders['PGHOME'], 'pgroot'))
+    placeholders.setdefault('PGDATA', os.path.join(placeholders['PGROOT'], 'pgdata'))
     placeholders.setdefault('PGPASSWORD_ADMIN', 'standby')
     placeholders.setdefault('PGPASSWORD_STANDBY', 'standby')
     placeholders.setdefault('PGPASSWORD_SUPERUSER', 'zalando')
@@ -208,7 +256,23 @@ def get_placeholders():
     placeholders.setdefault('WALE_BACKUP_THRESHOLD_MEGABYTES', 1024)
     placeholders.setdefault('WALE_BACKUP_THRESHOLD_PERCENTAGE', 30)
     placeholders.setdefault('WALE_ENV_DIR', os.path.join(placeholders['PGHOME'], 'etc', 'wal-e.d', 'env'))
-    placeholders.setdefault('WAL_S3_BUCKET', 'spilo-example-com')
+
+    if provider in (PROVIDER_AWS, PROVIDER_GOOGLE):
+        placeholders.setdefault('USE_WALE', True)
+        if provider == PROVIDER_AWS:
+            placeholders.setdefault('WAL_S3_BUCKET', 'spilo-example-com')
+        elif provider == PROVIDER_GOOGLE:
+            placeholders.setdefault('WAL_GCS_BUCKET', 'spilo-example-com')
+            placeholders.setdefault('GOOGLE_APPLICATION_CREDENTIALS', '')
+        # Kubernetes requires a callback to change the labels in order to point to the new master
+        if USE_K8S:
+            placeholders.setdefault('CALLBACK_SCRIPT', '/callback_role.py')
+        elif provider == PROVIDER_AWS:  # AWS specific callback to tag the instances with roles
+            placeholders.setdefault('CALLBACK_SCRIPT', 'patroni_aws')
+
+    else:  # avoid setting WAL-E archive command and callback script for unknown providers (i.e local docker)
+        placeholders.setdefault('USE_WALE', False)
+        placeholders.setdefault('CALLBACK_SCRIPT', '')
 
     placeholders.setdefault('postgresql', {})
     placeholders['postgresql'].setdefault('parameters', {})
@@ -220,12 +284,12 @@ def get_placeholders():
     # # 1 connection per 30 MB, at least 100, at most 1000
     placeholders['postgresql']['parameters']['max_connections'] = min(max(100, int(os_memory_mb/30)), 1000)
 
-    placeholders['instance_data'] = dict()
-    placeholders['instance_data']['ip'] = get_instance_meta_data('local-ipv4') \
-        or socket.gethostbyname(socket.gethostname())
-    placeholders['instance_data']['id'] = re.sub(r'\W+', '_', get_instance_meta_data('instance-id') or
-                                                 socket.gethostname())
-
+    placeholders['instance_data'] = get_instance_metadata(provider)
+    if provider in (PROVIDER_AWS, PROVIDER_GOOGLE):
+        if USE_K8S:
+            # id is not unique per container, we use the hostname instead
+            placeholders['instance_data']['id'] = os.environ.get('HOSTNAME')
+        placeholders['instance_data']['id'] = re.sub(r'\W+', '_', placeholders['instance_data']['id'])
     return placeholders
 
 
@@ -274,16 +338,24 @@ etcd:
     return config
 
 
-def write_wale_command_environment(placeholders, overwrite):
-    az = get_instance_meta_data('placement/availability-zone') or 'dummy-region'
+def write_wale_command_environment(placeholders, overwrite, provider):
+    if provider not in (PROVIDER_AWS, PROVIDER_GOOGLE):
+        return
 
     if not os.path.exists(placeholders['WALE_ENV_DIR']):
         os.makedirs(placeholders['WALE_ENV_DIR'])
 
-    write_file('s3://{WAL_S3_BUCKET}/spilo/{SCOPE}/wal/'.format(**placeholders),
-               os.path.join(placeholders['WALE_ENV_DIR'], 'WALE_S3_PREFIX'), overwrite)
-    write_file('https+path://s3-{}.amazonaws.com:443'.format(az[:-1]),
-               os.path.join(placeholders['WALE_ENV_DIR'], 'WALE_S3_ENDPOINT'), overwrite)
+    if provider == PROVIDER_AWS:
+        write_file('s3://{WAL_S3_BUCKET}/spilo/{SCOPE}/wal/'.format(**placeholders),
+                   os.path.join(placeholders['WALE_ENV_DIR'], 'WALE_S3_PREFIX'), overwrite)
+        write_file('https+path://s3-{}.amazonaws.com:443'.format(placeholders['instance_data']['zone'][:-1]),
+                   os.path.join(placeholders['WALE_ENV_DIR'], 'WALE_S3_ENDPOINT'), overwrite)
+    elif provider == PROVIDER_GOOGLE:
+        write_file('gs://{WAL_GCS_BUCKET}/spilo/{SCOPE}/wal/'.format(**placeholders),
+                   os.path.join(placeholders['WALE_ENV_DIR'], 'WALE_GS_PREFIX'), overwrite)
+        if placeholders['GOOGLE_APPLICATION_CREDENTIALS']:
+            write_file('{GOOGLE_APPLICATION_CREDENTIALS}'.format(**placeholders),
+                       os.path.join(placeholders['WALE_ENV_DIR'], 'GOOGLE_APPLICATION_CREDENTIALS'), overwrite)
 
 
 def write_crontab(placeholders, path, overwrite):
@@ -351,12 +423,13 @@ def main():
     args = parse_args()
 
     logging.basicConfig(format='%(asctime)s - bootstrapping - %(levelname)s - %(message)s', level=('DEBUG'
-                         if debug else (args.get('loglevel') or 'INFO').upper()))
+                        if debug else (args.get('loglevel') or 'INFO').upper()))
 
     if float(os.environ.get('PATRONIVERSION')) < 1.0:
         raise Exception('Patroni version >= 1.0 is required')
 
-    placeholders = get_placeholders()
+    provider = get_provider()
+    placeholders = get_placeholders(provider)
 
     config = yaml.load(pystache_render(TEMPLATE, placeholders))
     config.update(get_dcs_config(config, placeholders))
@@ -369,7 +442,8 @@ def main():
 
     # Ensure replication is available
     if not any(['replication' in i for i in config['bootstrap']['pg_hba']]):
-        rep_hba = 'hostssl replication {} 0.0.0.0/0 md5'.format(config['postgresql']['authentication']['replication']['username'])
+        rep_hba = 'hostssl replication {} 0.0.0.0/0 md5'.\
+            format(config['postgresql']['authentication']['replication']['username'])
         config['bootstrap']['pg_hba'].insert(0, rep_hba)
 
     for section in args['sections']:
@@ -384,7 +458,7 @@ def main():
                 os.makedirs(os.path.dirname(patronictl_configfile))
             write_file(yaml.dump(patronictl_config), patronictl_configfile, args['force'])
         elif section == 'wal-e':
-            write_wale_command_environment(placeholders, args['force'])
+            write_wale_command_environment(placeholders, args['force'], provider)
         elif section == 'certificate':
             write_certificates(placeholders, args['force'])
         elif section == 'crontab':

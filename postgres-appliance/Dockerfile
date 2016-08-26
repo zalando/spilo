@@ -51,18 +51,20 @@ ENV PATH=$PATH:/usr/lib/postgresql/${PGVERSION}/bin
 ## 2 Build
 ## 3 Remove tools only required for build
 ENV PATRONIVERSION=1.0
+ENV WALE_VERSION=1.0.0a2
 RUN export DEBIAN_FRONTEND=noninteractive \
-    export BUILD_PACKAGES="postgresql-server-dev-${PGVERSION} python-pip python-dev build-essential pgxnclient" \
+    export BUILD_PACKAGES="postgresql-server-dev-${PGVERSION} python3-pip python3-dev build-essential pgxnclient" \
     export PGXN_EXTENSIONS="quantile trimmed_aggregates" \
     && apt-get update \
     && apt-get install -y \
             # Required for wal-e
             daemontools lzop \
             # Required for /usr/local/bin/patroni
-            python python-pkg-resources python-setuptools \
+            python3 python3-pkg-resources python3-setuptools \
             ${BUILD_PACKAGES} \
-    && pip install pip --upgrade \
-    && pip install --upgrade requests wal-e pystache patroni==$PATRONIVERSION \
+    && pip3 install pip --upgrade \
+    && pip3 install --upgrade requests pystache patroni==$PATRONIVERSION \
+            gcloud boto wal-e==$WALE_VERSION \
     && for extension in ${PGXN_EXTENSIONS}; do pgxn install $extension; done \
     # Clean up
     && apt-get purge -y ${BUILD_PACKAGES} \
@@ -77,13 +79,14 @@ RUN curl -L https://github.com/coreos/etcd/releases/download/v${ETCDVERSION}/etc
     | tar xz -C /bin --strip=1 --wildcards --no-anchored etcdctl
 
 ENV PGHOME=/home/postgres
-ENV PGDATA=$PGHOME/pgdata/data
+ENV PGROOT=$PGHOME/pgdata/pgroot
+ENV PGDATA=$PGROOT/data
 ENV WALE_ENV_DIR=$PGHOME/etc/wal-e.d/env
 
 # Set PGHOME as a login directory for the PostgreSQL user.
 RUN usermod -d $PGHOME -m postgres
 
-ADD scm-source.json configure_spilo.py launch.sh postgres_backup.sh patroni_wait.sh /
+ADD scm-source.json configure_spilo.py launch.sh postgres_backup.sh patroni_wait.sh callback_role.py /
 ADD supervisor.d /etc/supervisor/conf.d/
 ADD stunnel.d /etc/stunnel
 ADD pgq_ticker.ini $PGHOME
@@ -91,7 +94,7 @@ ADD motd /etc/
 RUN echo "source /etc/motd" >> /root/.bashrc
 RUN chmod 700 /postgres_*
 
-ENV ETCD_DISCOVERY_DOMAIN=postgres.acid.example.com DEBUG=0 LC_ALL=en_US.utf-8
+ENV ETCD_DISCOVERY_DOMAIN=postgres.acid.example.com LC_ALL=en_US.utf-8
 
 WORKDIR $PGHOME
 EXPOSE 5432 8008

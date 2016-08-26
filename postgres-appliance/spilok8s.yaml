@@ -1,0 +1,91 @@
+
+apiVersion: apps/v1alpha1
+kind: PetSet
+metadata:
+  labels:
+    app: spilodemo
+  name: spilodemo
+spec:
+  replicas: 3
+  serviceName: spilodemo
+  template:
+    metadata:
+      labels:
+        app: spilodemo
+      annotations:
+        pod.alpha.kubernetes.io/initialized: "true"
+    spec:
+      containers:
+      - env:
+        - name: PGPASSWORD_SUPERUSER
+          value: tea
+        - name: PGPASSWORD_ADMIN
+          value: cola
+        - name: PGPASSWORD_STANDBY
+          value: pinacolada
+        - name: ETCD_DISCOVERY_DOMAIN
+          value: etcd.default.svc.cluster.local
+        - name: SCOPE
+          value: spilodemo
+        - name: WAL_GCS_BUCKET
+          value: zalando-acid
+        - name: GOOGLE_APPLICATION_CREDENTIALS
+          value: /etc/wal-e/gcloud-credentials.json
+        - name: PGROOT
+          value: /home/postgres/pgdata/pgroot
+        image: registry.opensource.example.com/spilo:1.0  # put the spilo image here
+        imagePullPolicy: Always
+        name: spilodemo
+        ports:
+        - containerPort: 8008
+          protocol: TCP
+        - containerPort: 5432
+          protocol: TCP
+        volumeMounts:
+        - mountPath: /home/postgres/pgdata
+          name: pgdata
+        - mountPath: /etc/wal-e
+          name: wale-config
+          readOnly: true
+      terminationGracePeriodSeconds: 0
+      volumes:
+        - name: wale-config
+          secret:
+            secretName: wale-secret
+  volumeClaimTemplates:
+  - metadata:
+      annotations:
+        volume.alpha.kubernetes.io/storage-class: anything
+      name: pgdata
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 5Gi
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: spilodemo
+  labels:
+    app: spilodemo
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 5432
+    targetPort: 5432
+  selector:
+    app: spilodemo
+    spilo-role: master
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: wale-secret
+type: Opaque
+data:
+  gcloud-credentials.json: redacted  # put the base64 encoded contents of the credentials file here as a single string
