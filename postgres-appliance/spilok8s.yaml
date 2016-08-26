@@ -33,7 +33,7 @@ spec:
           value: /etc/wal-e/gcloud-credentials.json
         - name: PGROOT
           value: /home/postgres/pgdata/pgroot
-        image: registry.opensource.zalan.do/acid/spilo-k8s-9.5:9.5.4-p14
+        image: registry.opensource.example.com/spilo:1.0  # put the spilo image here
         imagePullPolicy: Always
         name: spilodemo
         ports:
