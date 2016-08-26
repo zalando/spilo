@@ -111,9 +111,9 @@ bootstrap:
       use_pg_rewind: true
       use_slots: true
       parameters:
+        {{#USE_WALE}}
         archive_mode: "on"
         archive_timeout: 1800s
-        {{#USE_WALE}}
         archive_command: envdir "{{WALE_ENV_DIR}}" wal-e --aws-instance-profile wal-push "%p" -p 1
         {{/USE_WALE}}
         wal_level: hot_standby
