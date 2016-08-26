@@ -223,10 +223,10 @@ def get_instance_metadata(provider):
     if provider == PROVIDER_GOOGLE:
         headers['Metadata-Flavor'] = 'Google'
         url = 'http://metadata.google.internal/computeMetadata/v1/instance'
-        mapping = {'zone': 'placement/availability-zone', 'id': None}
+        mapping = {'zone': 'zone', 'id': 'id'}
     elif provider == PROVIDER_AWS:
         url = 'http://instance-data/latest/meta-data'
-        mapping = {'ip': 'local-ipv4', 'id': 'instance-id', 'zone': None}
+        mapping = {'ip': 'local-ipv4', 'id': 'instance-id', 'zone': 'placement/availability-zone'}
     else:
         logging.info("No meta-data available for this provider")
         return metadata
