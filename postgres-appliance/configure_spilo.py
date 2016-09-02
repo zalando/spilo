@@ -376,6 +376,23 @@ def write_crontab(placeholders, path, overwrite):
     c.communicate(input='\n'.join(lines).encode())
 
 
+def write_etcd_configuration(placeholders, overwrite=False):
+    placeholders.setdefault('ETCD_HOST', '127.0.0.1:2379')
+
+    etcd_config="""\
+[program:etcd]
+user=postgres
+autostart=1
+priority=10
+directory=/
+command=env -i /bin/etcd --data-dir /tmp/etcd.data -advertise-client-urls=http://127.0.0.1:2379 -listen-client-urls=http://0.0.0.0:2379 -listen-peer-urls=http://0.0.0.0:2380
+stdout_logfile=/dev/stdout
+stdout_logfile_maxbytes=0
+redirect_stderr=true
+"""
+    write_file(etcd_config, '/etc/supervisor/conf.d/etcd.conf', overwrite)
+
+
 def write_ldap_configuration(placeholders, overwrite):
     ldap_url = placeholders.get('LDAP_URL')
     if ldap_url is None:
@@ -430,6 +447,9 @@ def main():
 
     provider = get_provider()
     placeholders = get_placeholders(provider)
+
+    if os.environ.get('DEVELOP', '') in ['1', 'true', 'on', 'ON']:
+        write_etcd_configuration(placeholders)
 
     config = yaml.load(pystache_render(TEMPLATE, placeholders))
     config.update(get_dcs_config(config, placeholders))
