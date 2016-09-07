@@ -348,7 +348,12 @@ def write_wale_command_environment(placeholders, overwrite, provider):
     if provider == PROVIDER_AWS:
         write_file('s3://{WAL_S3_BUCKET}/spilo/{SCOPE}/wal/'.format(**placeholders),
                    os.path.join(placeholders['WALE_ENV_DIR'], 'WALE_S3_PREFIX'), overwrite)
-        write_file('https+path://s3-{}.amazonaws.com:443'.format(placeholders['instance_data']['zone'][:-1]),
+        match = re.search(r'.*(eu-\w+-\d+)-.*', placeholders['WAL_S3_BUCKET'])
+        if match:
+            region = match.group(1)
+        else:
+            region = get_instance_meta_data('placement/availability-zone')[:-1]
+        write_file('https+path://s3-{}.amazonaws.com:443'.format(region),
                    os.path.join(placeholders['WALE_ENV_DIR'], 'WALE_S3_ENDPOINT'), overwrite)
     elif provider == PROVIDER_GOOGLE:
         write_file('gs://{WAL_GCS_BUCKET}/spilo/{SCOPE}/wal/'.format(**placeholders),
