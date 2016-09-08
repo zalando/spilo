@@ -81,6 +81,7 @@ RUN curl -L https://github.com/coreos/etcd/releases/download/v${ETCDVERSION}/etc
 ENV PGHOME=/home/postgres
 ENV PGROOT=$PGHOME/pgdata/pgroot
 ENV PGDATA=$PGROOT/data
+ENV PGLOG=$PGROOT/pg_log
 ENV WALE_ENV_DIR=$PGHOME/etc/wal-e.d/env
 
 # Set PGHOME as a login directory for the PostgreSQL user.

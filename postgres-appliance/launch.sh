@@ -4,6 +4,7 @@ pgrep supervisord > /dev/null
 if [ $? -ne 1 ]; then echo "ERROR: Supervisord is already running"; exit 1; fi
 
 mkdir -p "$PGROOT" && chown -R postgres:postgres "$PGROOT"
+mkdir -p "$PGLOG" && chown -R postgres:postgres "$PGLOG"
 
 python3 /configure_spilo.py all
 (
