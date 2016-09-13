@@ -8,7 +8,7 @@ mkdir -p "$PGLOG" && chown -R postgres:postgres "$PGLOG"
 
 ## Ensure all logfiles exist, most appliances will have
 ## a foreign data wrapper pointing to these files
-for i in $(seq 0 6); do touch "${PGLOG}/postgresql-$i.csv"; done
+for i in $(seq 0 7); do touch "${PGLOG}/postgresql-$i.csv"; done
 
 python3 /configure_spilo.py all
 (
