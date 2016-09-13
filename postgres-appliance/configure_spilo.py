@@ -209,7 +209,7 @@ def get_provider():
                 return PROVIDER_AWS
             else:
                 return PROVIDER_UNSUPPORTED
-    except requests.exceptions.ConnectTimeout:
+    except (requests.exceptions.ConnectTimeout, requests.exceptions.ConnectionError):
         logging.info("Could not connect to 169.254.169.254, assuming local Docker setup")
         return PROVIDER_LOCAL
 
