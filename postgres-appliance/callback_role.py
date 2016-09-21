@@ -10,7 +10,7 @@ import time
 
 TOKEN_FILENAME = '/var/run/secrets/kubernetes.io/serviceaccount/token'
 CA_CERT_FILENAME = '/var/run/secrets/kubernetes.io/serviceaccount/ca.crt'
-API_URL = 'https://kubernetes.default.svc.cluster.local/api/v1/namespaces/default/pods/{0}'
+API_URL = 'https://kubernetes.default.svc.cluster.local/api/v1/namespaces/{0}/pods/{1}'
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,8 @@ def change_host_role_label(new_role):
 
     headers = {'Authorization': 'Bearer {0}'.format(token)}
     headers['Content-Type'] = 'application/json-patch+json'
-    url = API_URL.format(os.environ['HOSTNAME'])
+    url = API_URL.format(os.environ.get('POD_NAMESPACE', 'default'),
+                         os.environ['HOSTNAME'])
     data = [{'op': 'add', 'path': '/metadata/labels/{0}'.format(LABEL), 'value': new_role}]
     for i in range(NUM_ATTEMPTS):
         try:
