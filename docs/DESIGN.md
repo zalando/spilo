@@ -13,7 +13,7 @@ Patroni can utilize [etcd](https://coreos.com/etcd/) and [ZooKeeper](https://zoo
 **Etcd**
 
 Most deployments of Patroni use etcd. Etcd implements the Raft protocol. Explaining the details of
-the concencus algorithm of raft is outside the scope of this document.
+the consensus algorithm of raft is outside the scope of this document.
 For more information, check the following interactive
 websites:
 
