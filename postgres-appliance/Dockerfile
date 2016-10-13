@@ -32,7 +32,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             # Install PostgreSQL binaries, contrib, pgq, plproxy, pgq and multiple pl's
             apt-get install -y postgresql-${version} postgresql-${version}-dbg postgresql-client-${version} \
                         postgresql-contrib-${version} postgresql-${version}-plproxy postgresql-${version}-pgq3 \
-                        postgresql-${version}-postgis postgresql-plpython3-${version} \
+                        postgresql-${version}-postgis-2.3 postgresql-plpython3-${version} \
                         postgresql-plpython-${version} postgresql-${version}-plr postgresql-pltcl-${version} \
                         postgresql-${version}-plv8 postgresql-${version}-pllua postgresql-plperl-${version} \
             # Remove the default cluster, which Debian stupidly starts right after installation of the packages
