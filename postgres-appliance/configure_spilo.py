@@ -450,13 +450,11 @@ def main():
     if os.environ.get('PATRONIVERSION') < '1.0':
         raise Exception('Patroni version >= 1.0 is required')
 
-    if os.environ.get('DEVELOP', '').lower() in ['1', 'true', 'on']:
-        write_etcd_configuration(placeholders)
-        provider = PROVIDER_LOCAL
-    else:
-        provider = get_provider()
-
+    provider = os.environ.get('DEVELOP', '').lower() in ['1', 'true', 'on'] and PROVIDER_LOCAL or get_provider()
     placeholders = get_placeholders(provider)
+
+    if provider == PROVIDER_LOCAL:
+        write_etcd_configuration(placeholders)
 
     config = yaml.load(pystache_render(TEMPLATE, placeholders))
     config.update(get_dcs_config(config, placeholders))
