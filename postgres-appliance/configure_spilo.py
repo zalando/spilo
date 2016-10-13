@@ -352,7 +352,7 @@ def write_wale_command_environment(placeholders, overwrite, provider):
         if match:
             region = match.group(1)
         else:
-            region = get_instance_meta_data('placement/availability-zone')[:-1]
+            region = get_instance_metadata('placement/availability-zone')[:-1]
         write_file('https+path://s3-{}.amazonaws.com:443'.format(region),
                    os.path.join(placeholders['WALE_ENV_DIR'], 'WALE_S3_ENDPOINT'), overwrite)
     elif provider == PROVIDER_GOOGLE:
@@ -450,11 +450,13 @@ def main():
     if os.environ.get('PATRONIVERSION') < '1.0':
         raise Exception('Patroni version >= 1.0 is required')
 
-    provider = get_provider()
-    placeholders = get_placeholders(provider)
-
-    if os.environ.get('DEVELOP', '') in ['1', 'true', 'on', 'ON']:
+    if os.environ.get('DEVELOP', '').lower() in ['1', 'true', 'on']:
         write_etcd_configuration(placeholders)
+        provider = PROVIDER_LOCAL
+    else:
+        provider = get_provider()
+
+    placeholders = get_placeholders(provider)
 
     config = yaml.load(pystache_render(TEMPLATE, placeholders))
     config.update(get_dcs_config(config, placeholders))
