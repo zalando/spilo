@@ -257,7 +257,7 @@ def get_placeholders(provider):
     placeholders.setdefault('WALE_BACKUP_THRESHOLD_PERCENTAGE', 30)
     placeholders.setdefault('WALE_ENV_DIR', os.path.join(placeholders['PGHOME'], 'etc', 'wal-e.d', 'env'))
 
-    if provider in (PROVIDER_AWS, PROVIDER_GOOGLE):
+    if provider in (PROVIDER_AWS, PROVIDER_GOOGLE, PROVIDER_LOCAL):
         placeholders.setdefault('USE_WALE', True)
         if provider == PROVIDER_AWS:
             placeholders.setdefault('WAL_S3_BUCKET', 'spilo-example-com')
