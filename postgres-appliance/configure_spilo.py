@@ -352,7 +352,7 @@ def write_wale_command_environment(placeholders, overwrite, provider):
         if match:
             region = match.group(1)
         else:
-            region = get_instance_metadata('placement/availability-zone')[:-1]
+            region = placeholders['instance_data']['zone'][:-1]
         write_file('https+path://s3-{}.amazonaws.com:443'.format(region),
                    os.path.join(placeholders['WALE_ENV_DIR'], 'WALE_S3_ENDPOINT'), overwrite)
     elif provider == PROVIDER_GOOGLE:
