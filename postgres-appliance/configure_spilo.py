@@ -333,7 +333,7 @@ etcd:
         config = {'etcd': defaults['etcd']}
         config['etcd']['discovery_srv'] = placeholders['ETCD_DISCOVERY_DOMAIN']
     else:
-        pass  # Configuration can also be specified using PATRONI_CONFIGURATION
+        pass  # Configuration can also be specified using either SPILO_CONFIGURATION or PATRONI_CONFIGURATION
 
     return config
 
@@ -459,9 +459,10 @@ def main():
     config = yaml.load(pystache_render(TEMPLATE, placeholders))
     config.update(get_dcs_config(config, placeholders))
 
-    user_config = yaml.load(os.environ.get('PATRONI_CONFIGURATION', '')) or {}
+    user_config = yaml.load(os.environ.get('SPILO_CONFIGURATION', os.environ.get('PATRONI_CONFIGURATION', ''))) or {}
     if not isinstance(user_config, dict):
-        raise ValueError('PATRONI_CONFIGURATION should contain a dict, yet it is a {}'.format(type(user_config)))
+        config_var_name = 'SPILO_CONFIGURATION' if 'SPILO_CONFIGURATION' in os.environ else 'PATRONI_CONFIGURATION'
+        raise ValueError('{0} should contain a dict, yet it is a {}'.format(config_var_name, type(user_config)))
 
     config = deep_update(user_config, config)
 
