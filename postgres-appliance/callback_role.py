@@ -40,17 +40,16 @@ def change_pod_role_label(new_role):
     for i in range(NUM_ATTEMPTS):
         try:
             token = read_token()
-            if not token:
-                logger.warning('Unable to read K8S authorization token')
-                continue
-
-            r = requests.patch(api_url, data=body, verify=KUBE_CA_CERT,
-                               headers={'Content-Type': 'application/strategic-merge-patch+json',
-                                        'Authorization': 'Bearer {0}'.format(token)})
-            if r.status_code >= 300:
-                logger.warning('Unable to change the %s label to %s: %s', LABEL, new_role, r.text)
+            if token:
+                r = requests.patch(api_url, data=body, verify=KUBE_CA_CERT,
+                                   headers={'Content-Type': 'application/strategic-merge-patch+json',
+                                            'Authorization': 'Bearer {0}'.format(token)})
+                if r.status_code >= 300:
+                    logger.warning('Unable to change the %s label to %s: %s', LABEL, new_role, r.text)
+                else:
+                    break
             else:
-                break
+                logger.warning('Unable to read K8S authorization token')
         except requests.exceptions.RequestException as e:
             logger.warning('Exception when executing PATCH on %s: %s', api_url, e)
         time.sleep(1)
