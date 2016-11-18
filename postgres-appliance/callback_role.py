@@ -8,9 +8,12 @@ import os
 import sys
 import time
 
-TOKEN_FILENAME = '/var/run/secrets/kubernetes.io/serviceaccount/token'
-CA_CERT_FILENAME = '/var/run/secrets/kubernetes.io/serviceaccount/ca.crt'
-API_URL = 'https://kubernetes.default.svc.cluster.local/api/v1/namespaces/{0}/pods/{1}'
+KUBE_SERVICE_DIR = '/var/run/secrets/kubernetes.io/serviceaccount/'
+KUBE_NAMESPACE_FILENAME = KUBE_SERVICE_DIR + 'namespace'
+KUBE_TOKEN_FILENAME = KUBE_SERVICE_DIR + 'token'
+KUBE_CA_CERT = KUBE_SERVICE_DIR + 'ca.crt'
+
+KUBE_API_URL = 'https://kubernetes.default.svc.cluster.local/api/v1/namespaces/{0}/pods/{1}'
 
 logger = logging.getLogger(__name__)
 
@@ -18,39 +21,47 @@ NUM_ATTEMPTS = 10
 LABEL = 'spilo-role'
 
 
-def change_host_role_label(new_role):
+def read_first_line(filename):
     try:
-        with open(TOKEN_FILENAME, "r") as f:
-            token = f.read()
+        with open(filename) as f:
+            return f.readline().rstrip()
     except IOError:
-        sys.exit("Unable to read K8S authorization token")
+        return None
 
-    headers = {'Authorization': 'Bearer {0}'.format(token)}
-    headers['Content-Type'] = 'application/json-patch+json'
-    url = API_URL.format(os.environ.get('POD_NAMESPACE', 'default'),
-                         os.environ['HOSTNAME'])
-    data = [{'op': 'add', 'path': '/metadata/labels/{0}'.format(LABEL), 'value': new_role}]
+
+def read_token():
+    return read_first_line(KUBE_TOKEN_FILENAME)
+
+
+def change_pod_role_label(new_role):
+    pod_namespace = os.environ.get('POD_NAMESPACE', read_first_line(KUBE_NAMESPACE_FILENAME)) or 'default'
+    api_url = KUBE_API_URL.format(pod_namespace, os.environ['HOSTNAME'])
+    body = json.dumps({'metadata': {'labels': {LABEL: new_role}}})
     for i in range(NUM_ATTEMPTS):
         try:
-            r = requests.patch(url, headers=headers, data=json.dumps(data), verify=CA_CERT_FILENAME)
+            token = read_token()
+            if not token:
+                logger.warning('Unable to read K8S authorization token')
+                continue
+
+            r = requests.patch(api_url, data=body, verify=KUBE_CA_CERT,
+                               headers={'Content-Type': 'application/strategic-merge-patch+json',
+                                        'Authorization': 'Bearer {0}'.format(token)})
             if r.status_code >= 300:
-                logger.warning("Unable to change the role label to {0}: {1}".format(new_role, r.text))
+                logger.warning('Unable to change the %s label to %s: %s', LABEL, new_role, r.text)
             else:
                 break
         except requests.exceptions.RequestException as e:
-            logger.warning("Exception when executing POST on {0}: {1}".format(url, e))
+            logger.warning('Exception when executing PATCH on %s: %s', api_url, e)
         time.sleep(1)
     else:
-        logger.warning("Unable to set the label after {0} attempts".format(NUM_ATTEMPTS))
+        logger.error('Unable to set the label after %s attempts', NUM_ATTEMPTS)
 
 
 def record_role_change(action, new_role):
-    # on stop always sets the label to the replica, the load balancer
-    # should not direct connections to the hosts with the stopped DB.
-    if action == 'on_stop':
-        new_role = 'replica'
-    change_host_role_label(new_role)
-    logger.debug("Changing the host's role to {0}".format(new_role))
+    new_role = None if action == 'on_stop' else new_role
+    logger.debug("Changing the pod's role to %s", new_role)
+    change_pod_role_label(new_role)
 
 
 def main():
@@ -58,7 +69,7 @@ def main():
     if len(sys.argv) == 4 and sys.argv[1] in ('on_start', 'on_stop', 'on_role_change', 'on_restart'):
         record_role_change(action=sys.argv[1], new_role=sys.argv[2])
     else:
-        sys.exit("Usage: {0} action role name".format(sys.argv[0]))
+        sys.exit('Usage: %s <action> <role> <cluster_name>', sys.argv[0])
     return 0
 
 if __name__ == '__main__':
