@@ -262,22 +262,21 @@ def get_placeholders(provider):
     placeholders.setdefault('WALE_BACKUP_THRESHOLD_PERCENTAGE', 30)
     placeholders.setdefault('WALE_ENV_DIR', os.path.join(placeholders['PGHOME'], 'etc', 'wal-e.d', 'env'))
     placeholders.setdefault('USE_WALE', False)
+    placeholders.setdefault('CALLBACK_SCRIPT', '')
 
     if provider in (PROVIDER_AWS, PROVIDER_GOOGLE):
-        if provider == PROVIDER_AWS and 'WAL_S3_BUCKET' in placeholders:
-            placeholders['USE_WALE'] = True
+        if provider == PROVIDER_AWS:
+            if 'WAL_S3_BUCKET' in placeholders:
+                placeholders['USE_WALE'] = True
+            if not USE_K8S:  # AWS specific callback to tag the instances with roles
+                placeholders['CALLBACK_SCRIPT'] = 'patroni_aws'
         elif provider == PROVIDER_GOOGLE and 'WAL_GCS_BUCKET' in placeholders:
             placeholders['USE_WALE'] = True
             placeholders.setdefault('GOOGLE_APPLICATION_CREDENTIALS', '')
 
-        # Kubernetes requires a callback to change the labels in order to point to the new master
-        if USE_K8S:
-            placeholders.setdefault('CALLBACK_SCRIPT', '/callback_role.py')
-        elif provider == PROVIDER_AWS:  # AWS specific callback to tag the instances with roles
-            placeholders.setdefault('CALLBACK_SCRIPT', 'patroni_aws')
-
-    else:  # avoid setting WAL-E archive command and callback script for unknown providers (i.e local docker)
-        placeholders.setdefault('CALLBACK_SCRIPT', '')
+    # Kubernetes requires a callback to change the labels in order to point to the new master
+    if USE_K8S:
+        placeholders['CALLBACK_SCRIPT'] = '/callback_role.py'
 
     placeholders.setdefault('postgresql', {})
     placeholders['postgresql'].setdefault('parameters', {})
