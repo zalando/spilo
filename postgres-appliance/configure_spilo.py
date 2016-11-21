@@ -457,7 +457,7 @@ def main():
     provider = os.environ.get('DEVELOP', '').lower() in ['1', 'true', 'on'] and PROVIDER_LOCAL or get_provider()
     placeholders = get_placeholders(provider)
 
-    if provider == PROVIDER_LOCAL and not USE_K8S:
+    if provider == PROVIDER_LOCAL and not USE_KUBERNETES:
         write_etcd_configuration(placeholders)
 
     config = yaml.load(pystache_render(TEMPLATE, placeholders))
@@ -498,6 +498,8 @@ def main():
             write_ldap_configuration(placeholders, args['force'])
         else:
             raise Exception('Unknown section: {}'.format(section))
+
+    # We will abuse non zero exit code as an indicator for the launch.sh that it should not even try to create a backup
     sys.exit(int(not placeholders['USE_WALE']))
 
 
