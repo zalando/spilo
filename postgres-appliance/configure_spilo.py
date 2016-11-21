@@ -7,6 +7,7 @@ import re
 import os
 import socket
 import subprocess
+import sys
 
 from six.moves.urllib_parse import urlparse
 
@@ -19,7 +20,7 @@ PROVIDER_AWS = "aws"
 PROVIDER_GOOGLE = "google"
 PROVIDER_LOCAL = "local"
 PROVIDER_UNSUPPORTED = "unsupported"
-USE_K8S = os.environ.get('KUBERNETES_SERVICE_HOST') is not None
+USE_KUBERNETES = os.environ.get('KUBERNETES_SERVICE_HOST') is not None
 
 
 def parse_args():
@@ -111,11 +112,9 @@ bootstrap:
       use_pg_rewind: true
       use_slots: true
       parameters:
-        {{#USE_WALE}}
         archive_mode: "on"
         archive_timeout: 1800s
-        archive_command: envdir "{{WALE_ENV_DIR}}" wal-e --aws-instance-profile wal-push "%p" -p 1
-        {{/USE_WALE}}
+        archive_command: {{{postgresql.parameters.archive_command}}}
         wal_level: hot_standby
         wal_keep_segments: 8
         wal_log_hints: 'on'
@@ -219,14 +218,21 @@ def get_instance_metadata(provider):
                 'id': socket.gethostname(),
                 'zone': 'local'}
 
+    if USE_KUBERNETES:
+        metadata['ip'] = os.environ.get('POD_IP', metadata['ip'])
+
     headers = {}
     if provider == PROVIDER_GOOGLE:
         headers['Metadata-Flavor'] = 'Google'
         url = 'http://metadata.google.internal/computeMetadata/v1/instance'
-        mapping = {'zone': 'zone', 'id': 'id'}
+        mapping = {'zone': 'zone'}
+        if not USE_KUBERNETES:
+            mapping.update({'id': 'id'})
     elif provider == PROVIDER_AWS:
         url = 'http://instance-data/latest/meta-data'
-        mapping = {'ip': 'local-ipv4', 'id': 'instance-id', 'zone': 'placement/availability-zone'}
+        mapping = {'zone': 'placement/availability-zone'}
+        if not USE_KUBERNETES:
+            mapping.update({'ip': 'local-ipv4', 'id': 'instance-id'})
     else:
         logging.info("No meta-data available for this provider")
         return metadata
@@ -256,26 +262,28 @@ def get_placeholders(provider):
     placeholders.setdefault('WALE_BACKUP_THRESHOLD_MEGABYTES', 1024)
     placeholders.setdefault('WALE_BACKUP_THRESHOLD_PERCENTAGE', 30)
     placeholders.setdefault('WALE_ENV_DIR', os.path.join(placeholders['PGHOME'], 'etc', 'wal-e.d', 'env'))
+    placeholders.setdefault('USE_WALE', False)
+    placeholders.setdefault('CALLBACK_SCRIPT', '')
 
     if provider in (PROVIDER_AWS, PROVIDER_GOOGLE):
-        placeholders.setdefault('USE_WALE', True)
         if provider == PROVIDER_AWS:
-            placeholders.setdefault('WAL_S3_BUCKET', 'spilo-example-com')
-        elif provider == PROVIDER_GOOGLE:
-            placeholders.setdefault('WAL_GCS_BUCKET', 'spilo-example-com')
+            if 'WAL_S3_BUCKET' in placeholders:
+                placeholders['USE_WALE'] = True
+            if not USE_KUBERNETES:  # AWS specific callback to tag the instances with roles
+                placeholders['CALLBACK_SCRIPT'] = 'patroni_aws'
+        elif provider == PROVIDER_GOOGLE and 'WAL_GCS_BUCKET' in placeholders:
+            placeholders['USE_WALE'] = True
             placeholders.setdefault('GOOGLE_APPLICATION_CREDENTIALS', '')
-        # Kubernetes requires a callback to change the labels in order to point to the new master
-        if USE_K8S:
-            placeholders.setdefault('CALLBACK_SCRIPT', '/callback_role.py')
-        elif provider == PROVIDER_AWS:  # AWS specific callback to tag the instances with roles
-            placeholders.setdefault('CALLBACK_SCRIPT', 'patroni_aws')
 
-    else:  # avoid setting WAL-E archive command and callback script for unknown providers (i.e local docker)
-        placeholders.setdefault('USE_WALE', False)
-        placeholders.setdefault('CALLBACK_SCRIPT', '')
+    # Kubernetes requires a callback to change the labels in order to point to the new master
+    if USE_KUBERNETES:
+        placeholders['CALLBACK_SCRIPT'] = '/callback_role.py'
 
     placeholders.setdefault('postgresql', {})
     placeholders['postgresql'].setdefault('parameters', {})
+    placeholders['postgresql']['parameters']['archive_command'] = \
+        'envdir "{0}" wal-e --aws-instance-profile wal-push "%p" -p 1'.format(placeholders['WALE_ENV_DIR']) \
+        if placeholders['USE_WALE'] else '/bin/true'
 
     os_memory_mb = os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES') / 1024 / 1024
 
@@ -285,11 +293,7 @@ def get_placeholders(provider):
     placeholders['postgresql']['parameters']['max_connections'] = min(max(100, int(os_memory_mb/30)), 1000)
 
     placeholders['instance_data'] = get_instance_metadata(provider)
-    if provider in (PROVIDER_AWS, PROVIDER_GOOGLE):
-        if USE_K8S:
-            # id is not unique per container, we use the hostname instead
-            placeholders['instance_data']['id'] = os.environ.get('HOSTNAME')
-        placeholders['instance_data']['id'] = re.sub(r'\W+', '_', placeholders['instance_data']['id'])
+    placeholders['instance_data']['id'] = re.sub(r'\W+', '_', placeholders['instance_data']['id'])
     return placeholders
 
 
@@ -339,7 +343,7 @@ etcd:
 
 
 def write_wale_command_environment(placeholders, overwrite, provider):
-    if provider not in (PROVIDER_AWS, PROVIDER_GOOGLE):
+    if not placeholders['USE_WALE']:
         return
 
     if not os.path.exists(placeholders['WALE_ENV_DIR']):
@@ -384,7 +388,7 @@ def write_crontab(placeholders, path, overwrite):
 def write_etcd_configuration(placeholders, overwrite=False):
     placeholders.setdefault('ETCD_HOST', '127.0.0.1:2379')
 
-    etcd_config="""\
+    etcd_config = """\
 [program:etcd]
 user=postgres
 autostart=1
@@ -453,7 +457,7 @@ def main():
     provider = os.environ.get('DEVELOP', '').lower() in ['1', 'true', 'on'] and PROVIDER_LOCAL or get_provider()
     placeholders = get_placeholders(provider)
 
-    if provider == PROVIDER_LOCAL:
+    if provider == PROVIDER_LOCAL and not USE_KUBERNETES:
         write_etcd_configuration(placeholders)
 
     config = yaml.load(pystache_render(TEMPLATE, placeholders))
@@ -488,11 +492,15 @@ def main():
         elif section == 'certificate':
             write_certificates(placeholders, args['force'])
         elif section == 'crontab':
-            write_crontab(placeholders, os.environ.get('PATH'), args['force'])
+            if placeholders['USE_WALE']:
+                write_crontab(placeholders, os.environ.get('PATH'), args['force'])
         elif section == 'ldap':
             write_ldap_configuration(placeholders, args['force'])
         else:
             raise Exception('Unknown section: {}'.format(section))
+
+    # We will abuse non zero exit code as an indicator for the launch.sh that it should not even try to create a backup
+    sys.exit(int(not placeholders['USE_WALE']))
 
 
 if __name__ == '__main__':

@@ -1,41 +1,25 @@
-
 apiVersion: apps/v1alpha1
 kind: PetSet
 metadata:
+  name: &cluster_name spilodemo
   labels:
-    app: spilodemo
-  name: spilodemo
+    application: spilo
+    spilo-cluster: *cluster_name
 spec:
   replicas: 3
-  serviceName: spilodemo
+  serviceName: *cluster_name
   template:
     metadata:
       labels:
-        app: spilodemo
+        application: spilo
+        spilo-cluster: *cluster_name
       annotations:
         pod.alpha.kubernetes.io/initialized: "true"
     spec:
       containers:
-      - env:
-        - name: PGPASSWORD_SUPERUSER
-          value: tea
-        - name: PGPASSWORD_ADMIN
-          value: cola
-        - name: PGPASSWORD_STANDBY
-          value: pinacolada
-        - name: ETCD_DISCOVERY_DOMAIN
-          value: etcd.default.svc.cluster.local
-        - name: SCOPE
-          value: spilodemo
-        - name: WAL_GCS_BUCKET
-          value: zalando-acid
-        - name: GOOGLE_APPLICATION_CREDENTIALS
-          value: /etc/wal-e/gcloud-credentials.json
-        - name: PGROOT
-          value: /home/postgres/pgdata/pgroot
-        image: registry.opensource.example.com/spilo:1.0  # put the spilo image here
+      - name: *cluster_name
+        image: registry.opensource.zalan.do/acid/spilotest-9.6:1.1-p10  # put the spilo image here
         imagePullPolicy: Always
-        name: spilodemo
         ports:
         - containerPort: 8008
           protocol: TCP
@@ -44,48 +28,90 @@ spec:
         volumeMounts:
         - mountPath: /home/postgres/pgdata
           name: pgdata
-        - mountPath: /etc/wal-e
-          name: wale-config
-          readOnly: true
+        env:
+        - name: ETCD_HOST
+          value: 'etcd.default.svc.cluster.local:2379' # where is your etcd?
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: status.podIP
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: PGPASSWORD_SUPERUSER
+          valueFrom:
+            secretKeyRef:
+              name: *cluster_name
+              key: superuser-password
+        - name: PGPASSWORD_ADMIN
+          valueFrom:
+            secretKeyRef:
+              name: *cluster_name
+              key: admin-password
+        - name: PGPASSWORD_STANDBY
+          valueFrom:
+            secretKeyRef:
+              name: *cluster_name
+              key: replication-password
+        - name: SCOPE
+          value: *cluster_name
+        - name: PGROOT
+          value: /home/postgres/pgdata/pgroot
       terminationGracePeriodSeconds: 0
       volumes:
-        - name: wale-config
-          secret:
-            secretName: wale-secret
-  volumeClaimTemplates:
-  - metadata:
-      annotations:
-        volume.alpha.kubernetes.io/storage-class: anything
-      name: pgdata
-    spec:
-      accessModes:
-      - ReadWriteOnce
-      resources:
-        requests:
-          storage: 5Gi
+      - name: pgdata
+        emptyDir: {}
+#  volumeClaimTemplates:
+#  - metadata:
+#      labels:
+#        application: spilo
+#        spilo-cluster: *cluster_name
+#      annotations:
+#        volume.alpha.kubernetes.io/storage-class: anything
+#      name: pgdata
+#    spec:
+#      accessModes:
+#      - ReadWriteOnce
+#      resources:
+#        requests:
+#          storage: 5Gi
 
 ---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: &cluster_name spilodemo
+  labels:
+    app: *cluster_name
+subsets: []
 
+---
 apiVersion: v1
 kind: Service
 metadata:
-  name: spilodemo
+  name: &cluster_name spilodemo
   labels:
-    app: spilodemo
+    application: spilo
+    spilo-cluster: *cluster_name
 spec:
-  type: LoadBalancer
+  type: ClusterIP
   ports:
   - port: 5432
     targetPort: 5432
-  selector:
-    app: spilodemo
-    spilo-role: master
 
 ---
 apiVersion: v1
 kind: Secret
 metadata:
-  name: wale-secret
+  name: &cluster_name spilodemo
+  labels:
+    application: spilo
+    spilo-cluster: *cluster_name
 type: Opaque
 data:
-  gcloud-credentials.json: redacted  # put the base64 encoded contents of the credentials file here as a single string
+  superuser-password: emFsYW5kbw==
+  replication-password: cmVwLXBhc3M=
+  admin-password: YWRtaW4=
