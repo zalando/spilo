@@ -7,6 +7,7 @@ import re
 import os
 import socket
 import subprocess
+import sys
 
 from six.moves.urllib_parse import urlparse
 
@@ -456,7 +457,7 @@ def main():
     provider = os.environ.get('DEVELOP', '').lower() in ['1', 'true', 'on'] and PROVIDER_LOCAL or get_provider()
     placeholders = get_placeholders(provider)
 
-    if provider == PROVIDER_LOCAL:
+    if provider == PROVIDER_LOCAL and not USE_K8S:
         write_etcd_configuration(placeholders)
 
     config = yaml.load(pystache_render(TEMPLATE, placeholders))
@@ -491,11 +492,13 @@ def main():
         elif section == 'certificate':
             write_certificates(placeholders, args['force'])
         elif section == 'crontab':
-            write_crontab(placeholders, os.environ.get('PATH'), args['force'])
+            if placeholders['USE_WALE']:
+                write_crontab(placeholders, os.environ.get('PATH'), args['force'])
         elif section == 'ldap':
             write_ldap_configuration(placeholders, args['force'])
         else:
             raise Exception('Unknown section: {}'.format(section))
+    sys.exit(int(not placeholders['USE_WALE']))
 
 
 if __name__ == '__main__':
