@@ -19,7 +19,7 @@ PROVIDER_AWS = "aws"
 PROVIDER_GOOGLE = "google"
 PROVIDER_LOCAL = "local"
 PROVIDER_UNSUPPORTED = "unsupported"
-USE_K8S = os.environ.get('KUBERNETES_SERVICE_HOST') is not None
+USE_KUBERNETES = os.environ.get('KUBERNETES_SERVICE_HOST') is not None
 
 
 def parse_args():
@@ -217,7 +217,7 @@ def get_instance_metadata(provider):
                 'id': socket.gethostname(),
                 'zone': 'local'}
 
-    if USE_K8S:
+    if USE_KUBERNETES:
         metadata['ip'] = os.environ.get('POD_IP', metadata['ip'])
 
     headers = {}
@@ -225,12 +225,12 @@ def get_instance_metadata(provider):
         headers['Metadata-Flavor'] = 'Google'
         url = 'http://metadata.google.internal/computeMetadata/v1/instance'
         mapping = {'zone': 'zone'}
-        if not USE_K8S:
+        if not USE_KUBERNETES:
             mapping.update({'id': 'id'})
     elif provider == PROVIDER_AWS:
         url = 'http://instance-data/latest/meta-data'
         mapping = {'zone': 'placement/availability-zone'}
-        if not USE_K8S:
+        if not USE_KUBERNETES:
             mapping.update({'ip': 'local-ipv4', 'id': 'instance-id'})
     else:
         logging.info("No meta-data available for this provider")
@@ -268,14 +268,14 @@ def get_placeholders(provider):
         if provider == PROVIDER_AWS:
             if 'WAL_S3_BUCKET' in placeholders:
                 placeholders['USE_WALE'] = True
-            if not USE_K8S:  # AWS specific callback to tag the instances with roles
+            if not USE_KUBERNETES:  # AWS specific callback to tag the instances with roles
                 placeholders['CALLBACK_SCRIPT'] = 'patroni_aws'
         elif provider == PROVIDER_GOOGLE and 'WAL_GCS_BUCKET' in placeholders:
             placeholders['USE_WALE'] = True
             placeholders.setdefault('GOOGLE_APPLICATION_CREDENTIALS', '')
 
     # Kubernetes requires a callback to change the labels in order to point to the new master
-    if USE_K8S:
+    if USE_KUBERNETES:
         placeholders['CALLBACK_SCRIPT'] = '/callback_role.py'
 
     placeholders.setdefault('postgresql', {})

@@ -49,7 +49,7 @@ def change_pod_role_label(new_role):
                 else:
                     break
             else:
-                logger.warning('Unable to read K8S authorization token')
+                logger.warning('Unable to read Kubernetes authorization token')
         except requests.exceptions.RequestException as e:
             logger.warning('Exception when executing PATCH on %s: %s', api_url, e)
         time.sleep(1)
