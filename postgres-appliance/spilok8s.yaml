@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: *cluster_name
-        image: registry.opensource.zalan.do/acid/spilotest-9.6:1.1-p9  # put the spilo image here
+        image: registry.opensource.zalan.do/acid/spilotest-9.6:1.1-p10  # put the spilo image here
         imagePullPolicy: Always
         ports:
         - containerPort: 8008
