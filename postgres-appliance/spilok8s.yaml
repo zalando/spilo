@@ -85,7 +85,8 @@ kind: Endpoints
 metadata:
   name: &cluster_name spilodemo
   labels:
-    app: *cluster_name
+    application: spilo
+    spilo-cluster: *cluster_name
 subsets: []
 
 ---
