@@ -24,7 +24,7 @@ RUN export DISTRIB_CODENAME=$(sed -n 's/DISTRIB_CODENAME=//p' /etc/lsb-release) 
     && curl -s -o - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add -
 
 # Install PostgreSQL
-ENV PGVERSION=9.5 PGOLDVERSIONS="9.4 9.3"
+ENV PGVERSION=9.6 PGOLDVERSIONS="9.5 9.4 9.3"
 RUN export DEBIAN_FRONTEND=noninteractive \
     && apt-get update \
     && apt-get install -y skytools3-ticker \
