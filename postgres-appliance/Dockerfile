@@ -24,7 +24,7 @@ RUN export DISTRIB_CODENAME=$(sed -n 's/DISTRIB_CODENAME=//p' /etc/lsb-release) 
     && curl -s -o - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add -
 
 # Install PostgreSQL
-ENV PGVERSION=9.5 PGOLDVERSIONS="9.4"
+ENV PGVERSION=9.5 PGOLDVERSIONS="9.4 9.3"
 RUN export DEBIAN_FRONTEND=noninteractive \
     && apt-get update \
     && apt-get install -y skytools3-ticker \
@@ -88,6 +88,7 @@ ENV WALE_ENV_DIR=$PGHOME/etc/wal-e.d/env
 RUN usermod -d $PGHOME -m postgres
 
 ADD scm-source.json configure_spilo.py launch.sh postgres_backup.sh patroni_wait.sh callback_role.py /
+ADD wale_restore.py /usr/local/lib/python3.4/dist-packages/patroni/scripts/
 ADD supervisor.d /etc/supervisor/conf.d/
 ADD stunnel.d /etc/stunnel
 ADD pgq_ticker.ini $PGHOME
