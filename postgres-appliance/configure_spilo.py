@@ -251,6 +251,7 @@ def get_placeholders(provider):
     placeholders.setdefault('BACKUP_SCHEDULE', '00 01 * * *')
     placeholders.setdefault('CRONTAB', '[]')
     placeholders.setdefault('PGROOT', os.path.join(placeholders['PGHOME'], 'pgroot'))
+    placeholders.setdefault('WALE_TMPDIR', os.path.abspath(os.path.join(placeholders['PGROOT'], '../tmp')))
     placeholders.setdefault('PGDATA', os.path.join(placeholders['PGROOT'], 'pgdata'))
     placeholders.setdefault('PGPASSWORD_ADMIN', 'standby')
     placeholders.setdefault('PGPASSWORD_STANDBY', 'standby')
@@ -293,7 +294,6 @@ def get_placeholders(provider):
     placeholders['postgresql']['parameters']['max_connections'] = min(max(100, int(os_memory_mb/30)), 1000)
 
     placeholders['instance_data'] = get_instance_metadata(provider)
-    placeholders['instance_data']['id'] = re.sub(r'\W+', '_', placeholders['instance_data']['id'])
     return placeholders
 
 
@@ -365,6 +365,10 @@ def write_wale_command_environment(placeholders, overwrite, provider):
         if placeholders['GOOGLE_APPLICATION_CREDENTIALS']:
             write_file('{GOOGLE_APPLICATION_CREDENTIALS}'.format(**placeholders),
                        os.path.join(placeholders['WALE_ENV_DIR'], 'GOOGLE_APPLICATION_CREDENTIALS'), overwrite)
+    else:
+        return
+    os.makedirs(placeholders['WALE_TMPDIR'])
+    write_file(placeholders['WALE_TMPDIR'], os.path.join(placeholders['WALE_ENV_DIR'], 'TMPDIR'), True)
 
 
 def write_crontab(placeholders, path, overwrite):
