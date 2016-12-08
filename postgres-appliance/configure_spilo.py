@@ -144,6 +144,12 @@ bootstrap:
   initdb:
   - encoding: UTF8
   - locale: en_US.UTF-8
+  users:
+    admin:
+      password: {{PGPASSWORD_ADMIN}}
+      options:
+        - createrole
+        - createdb
   pg_hba:
     - hostssl all all 0.0.0.0/0 md5
     - host    all all 0.0.0.0/0 md5

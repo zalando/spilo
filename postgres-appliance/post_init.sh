@@ -2,10 +2,9 @@
 
 CONNSTRING=$1
 psql -d $CONNSTRING <<EOF
-CREATE ROLE admin CREATEROLE CREATEDB;
-CREATE ROLE zalandos;
-CREATE EXTENSION IF NOT EXISTS file_fdw WITH SCHEMA public;
+CREATE EXTENSION file_fdw;
 CREATE SERVER pglog FOREIGN DATA WRAPPER file_fdw;
+CREATE ROLE admin CREATEROLE CREATEDB NOLOGIN;
 
 CREATE TABLE postgres_log (
     log_time timestamp(3) with time zone,
@@ -54,8 +53,13 @@ CREATE FOREIGN TABLE postgres_log_6 () INHERITS (postgres_log) SERVER pglog
     OPTIONS (filename '../pg_log/postgresql-6.csv', format 'csv', header 'false');
 GRANT SELECT ON postgres_log TO ADMIN;
 \c template1
-CREATE EXTENSION pgq;
-CREATE EXTENSION pg_stat_statements;
 CREATE EXTENSION hstore;
+CREATE EXTENSION intarray;
+CREATE EXTENSION ltree;
+CREATE EXTENSION pgcrypto;
+CREATE EXTENSION pg_stat_statements;
+CREATE EXTENSION pgq;
+CREATE EXTENSION pg_trgm;
 CREATE EXTENSION plpgsql;
+CREATE EXTENSION postgres_fdw;
 EOF
