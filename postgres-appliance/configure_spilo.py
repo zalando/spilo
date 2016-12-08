@@ -103,6 +103,7 @@ def deep_update(a, b):
 TEMPLATE = \
     '''
 bootstrap:
+  post_init: /post_init.sh
   dcs:
     ttl: 30
     loop_wait: &loop_wait 10
@@ -143,12 +144,6 @@ bootstrap:
   initdb:
   - encoding: UTF8
   - locale: en_US.UTF-8
-  users:
-    admin:
-      password: {{PGPASSWORD_ADMIN}}
-      options:
-        - createrole
-        - createdb
   pg_hba:
     - hostssl all all 0.0.0.0/0 md5
     - host    all all 0.0.0.0/0 md5

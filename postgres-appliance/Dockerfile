@@ -24,7 +24,7 @@ RUN export DISTRIB_CODENAME=$(sed -n 's/DISTRIB_CODENAME=//p' /etc/lsb-release) 
     && curl -s -o - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add -
 
 # Install PostgreSQL
-ENV PGVERSION=9.5 PGOLDVERSIONS="9.4"
+ENV PGVERSION=9.6 PGOLDVERSIONS="9.5 9.4 9.3"
 RUN export DEBIAN_FRONTEND=noninteractive \
     && apt-get update \
     && apt-get install -y skytools3-ticker \
@@ -50,7 +50,7 @@ ENV PATH=$PATH:/usr/lib/postgresql/${PGVERSION}/bin
 ## 1 Install tools required to build
 ## 2 Build
 ## 3 Remove tools only required for build
-ENV PATRONIVERSION=1.1
+ENV PATRONIVERSION=1.2rc1
 ENV WALE_VERSION=1.0.1
 RUN export DEBIAN_FRONTEND=noninteractive \
     export BUILD_PACKAGES="postgresql-server-dev-${PGVERSION} python3-pip python3-dev build-essential pgxnclient" \
@@ -92,7 +92,7 @@ ENV WALE_ENV_DIR=$PGHOME/etc/wal-e.d/env
 # Set PGHOME as a login directory for the PostgreSQL user.
 RUN usermod -d $PGHOME -m postgres
 
-ADD scm-source.json configure_spilo.py launch.sh postgres_backup.sh patroni_wait.sh callback_role.py /
+ADD scm-source.json configure_spilo.py launch.sh postgres_backup.sh patroni_wait.sh post_init.sh callback_role.py /
 ADD supervisor.d /etc/supervisor/conf.d/
 ADD stunnel.d /etc/stunnel
 ADD pgq_ticker.ini $PGHOME
