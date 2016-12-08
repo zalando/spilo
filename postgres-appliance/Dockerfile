@@ -78,6 +78,11 @@ ENV ETCDVERSION 2.3.7
 RUN curl -L https://github.com/coreos/etcd/releases/download/v${ETCDVERSION}/etcd-v${ETCDVERSION}-linux-amd64.tar.gz \
     | tar xz -C /bin --strip=1 --wildcards --no-anchored etcdctl etcd
 
+
+#install pg_view
+RUN curl -L https://raw.githubusercontent.com/zalando/pg_view/master/pg_view.py \
+    | sed -e 's/env python/env python3/g' > /usr/local/bin/pg_view.py && chmod +x /usr/local/bin/pg_view.py
+
 ENV PGHOME=/home/postgres
 ENV PGROOT=$PGHOME/pgdata/pgroot
 ENV PGDATA=$PGROOT/data
@@ -93,6 +98,7 @@ ADD stunnel.d /etc/stunnel
 ADD pgq_ticker.ini $PGHOME
 ADD motd /etc/
 RUN echo "source /etc/motd" >> /root/.bashrc
+RUN echo "export TERM=linux\nexport LC_ALL=C.UTF-8\nexport LANG=C.UTF-8" >> /etc/bash.bashrc
 RUN chmod 700 /postgres_*
 
 ENV ETCD_DISCOVERY_DOMAIN=postgres.acid.example.com LC_ALL=en_US.utf-8
