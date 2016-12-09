@@ -103,6 +103,7 @@ def deep_update(a, b):
 TEMPLATE = \
     '''
 bootstrap:
+  post_init: /post_init.sh
   dcs:
     ttl: 30
     loop_wait: &loop_wait 10
