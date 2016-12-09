@@ -1,0 +1,440 @@
+RESET ROLE;
+SET ROLE TO postgres;
+
+DROP SCHEMA IF EXISTS zmon_utils CASCADE;
+CREATE SCHEMA zmon_utils;
+
+GRANT USAGE ON SCHEMA zmon_utils TO robot_zmon;
+
+SET search_path TO zmon_utils, public;
+CREATE TYPE zmon_utils.system_information AS (
+    parameter TEXT,
+    setting TEXT
+);
+
+CREATE OR REPLACE FUNCTION zmon_utils.get_database_cluster_information()
+RETURNS TABLE ( parameter text, setting text )
+AS $BODY$
+DECLARE
+   wal_segment          BIGINT;
+   wal_offset           BIGINT;
+   wal_multiplier       BIGINT;
+   wal_delay_seconds    BIGINT;
+   in_recovery          BOOLEAN;
+   xlog_location_string TEXT;
+   server_version_num   INTEGER;
+   nosync               INTEGER;
+BEGIN
+  server_version_num := current_setting('server_version_num')::integer;
+  SELECT pg_is_in_recovery() INTO in_recovery;
+  SELECT
+        CASE WHEN in_recovery THEN pg_last_xlog_replay_location()
+        ELSE pg_current_xlog_location()
+        END INTO xlog_location_string;
+  SELECT ('x'||lpad(split_part(xlog_location_string, '/', 1), 16, '0'))::bit(64)::bigint INTO wal_segment;
+  SELECT ('x'||lpad(split_part(xlog_location_string, '/', 2), 16, '0'))::bit(64)::bigint INTO wal_offset;
+  SELECT 1 FROM pg_ls_dir('.') as t(name) WHERE name = 'dontsync' INTO nosync;
+  IF server_version_num >= 90300
+  THEN
+    wal_multiplier = CAST(x'FFFFFFFF' as bigint);
+  ELSE
+    wal_multiplier = CAST(x'FF000000' as bigint);
+  END IF;
+
+  IF server_version_num >= 90100 AND in_recovery
+  THEN
+    wal_delay_seconds := extract(epoch from now() - pg_last_xact_replay_timestamp())::bigint;
+  END IF;
+
+  RETURN QUERY
+  SELECT 'zmon_utils_version', '11'
+   UNION ALL
+  SELECT 'server_version_num', server_version_num::text
+   UNION ALL
+  SELECT s.name, s.setting
+    FROM pg_settings as s
+   WHERE name in ('archive_mode',
+                  'archive_command',
+                  'archive_timeout',
+                  'checkpoint_segments',
+                  'listen_address',      -- connection
+                  'port',                -- connection
+                  'ssl',                 -- connection
+                  'max_connections',     -- connection
+                  'data_directory',      -- disk
+                  'fsync',               -- disk
+                  'full_page_writes',
+                  'hba_file',
+                  'ident_file',
+                  'hot_standby',
+                  'log_destination',
+                  'log_directory',
+                  'log_filename',
+                  'shared_buffers',
+                  'synchronous_commit'
+                 )
+   UNION ALL
+  SELECT 'cluster_name', substring(s.setting from E'/pgsql_([^/]+)/[^/]+/data$')
+    FROM pg_settings as s
+   WHERE s.name = 'data_directory'
+   UNION ALL
+  SELECT 'defined_databases', string_agg(quote_ident(datname), E'\n')
+    FROM pg_database
+   WHERE datname != 'postgres'
+     AND NOT datistemplate
+     AND datallowconn
+   UNION ALL
+  SELECT 'is_in_recovery' as name, in_recovery::text as setting
+    UNION ALL
+  SELECT 'wal_bytes_from_zero' as name, CAST(wal_segment::numeric * wal_multiplier + wal_offset AS TEXT) as setting
+    UNION ALL
+  SELECT 'wal_delay_seconds' as name, wal_delay_seconds::text
+    UNION ALL
+  SELECT 'is_streaming' as name, CAST(pg_last_xlog_receive_location() IS NOT NULL AND in_recovery AS TEXT) as setting
+    UNION ALL
+  SELECT 'archive_nosync' as name, CAST(nosync IS NOT NULL AS TEXT) as setting;
+  -- pg_stat_activity column names differ depending on server version
+  IF server_version_num >= 90600 THEN
+    RETURN QUERY
+    SELECT a.name, a.setting
+      FROM unnest((select array[('active_connections'::text,
+                                 count(CASE WHEN state = 'active' THEN 1 END)::text),
+                                ('idle_in_transaction_connections'::text,
+                                 count(CASE WHEN state = 'idle in transaction' THEN 1 END)::text),
+                                ('idle_in_transaction_max_age'::text,
+                                 coalesce(max(CASE WHEN state = 'idle in transaction' THEN extract(epoch from statement_timestamp() - state_change) END), 0)::text),
+                                ('locked_connections'::text,
+                                 count(wait_event_type)::text),
+                                ('current_connections'::text,
+                                 count(1)::text),
+                                ('transaction_max_age'::text,
+                                 -- exclude autovacuum transactions
+                                 coalesce(extract(epoch from statement_timestamp() - min(CASE WHEN query like 'autovacuum:%' THEN NULL ELSE xact_start END)),0)::text)
+                               ]
+                     from pg_stat_activity
+                 )) AS a (name text, setting text);
+  ELSE
+    RETURN QUERY
+    SELECT a.name, a.setting
+      FROM unnest((select array[('active_connections'::text,
+                                 count(CASE WHEN state = 'active' THEN 1 END)::text),
+                                ('idle_in_transaction_connections'::text,
+                                 count(CASE WHEN state = 'idle in transaction' THEN 1 END)::text),
+                                ('idle_in_transaction_max_age'::text,
+                                 coalesce(max(CASE WHEN state = 'idle in transaction' THEN extract(epoch from statement_timestamp() - state_change) END), 0)::text),
+                                ('locked_connections'::text,
+                                 count(CASE WHEN waiting THEN 1 END)::text),
+                                ('current_connections'::text,
+                                 count(1)::text),
+                                ('transaction_max_age'::text,
+                                 -- exclude autovacuum transactions
+                                 coalesce(extract(epoch from statement_timestamp() - min(CASE WHEN query like 'autovacuum:%' THEN NULL ELSE xact_start END)),0)::text)
+                               ]
+                     from pg_stat_activity
+                 )) AS a (name text, setting text);
+  END IF;
+END
+$BODY$
+LANGUAGE plpgsql
+SECURITY DEFINER;
+DO $DO$
+BEGIN
+
+IF EXISTS( SELECT 1 FROM pg_language WHERE lanname = 'plpythonu' ) THEN
+
+CREATE OR REPLACE FUNCTION zmon_utils.get_database_cluster_system_information()
+RETURNS SETOF zmon_utils.system_information
+AS
+$BODY$
+"""
+NOTE: this is python 2.5 compatible code
+
+This function returns the system related data of the database cluster related disks.
+It can be slow, so do not call it too often
+
+load.1
+load.5
+load.15
+cpu.count
+
+xlog.location
+xlog.size
+xlog.device.name
+xlog.device.total
+xlog.device.used
+xlog.devide.free
+
+tablespace.<tablespacename>.size
+tablespace.<tablespacename>.device
+# for example
+tablespace.pg_default.size
+tablespace.pg_default.location
+tablespace.pg_default.device
+
+memory.commmit.diff
+
+platform.release
+platform.version
+platform.kernel
+
+vm.overcommit_memory
+vm.overcommit_ratio
+
+"""
+import os
+import platform
+
+
+def get_mount_point(pathname):
+    "Get the mount point of the filesystem containing pathname"
+    pathname = os.path.normcase(os.path.realpath(pathname))
+    parent_device = path_device = os.stat(pathname).st_dev
+    while parent_device == path_device:
+        mount_point = pathname
+        pathname = os.path.dirname(pathname)
+        if pathname == mount_point:
+            break
+        parent_device = os.stat(pathname).st_dev
+    return mount_point
+
+
+def get_mounted_device(pathname):
+    "Get the device mounted at pathname"
+    # uses "/proc/mounts"
+    pathname = os.path.normcase(pathname)  # might be unnecessary here
+    try:
+        ifp = open("/proc/mounts", "r")
+        try:
+            for line in ifp:
+                fields = line.rstrip('\n').split()
+                # note that line above assumes that
+                # no mount points contain whitespace
+                if fields[1] == pathname:
+                    return fields[0]
+        finally:
+            ifp.close()
+    except EnvironmentError:
+        pass
+    return None  # explicit
+
+
+def get_fs_space(pathname):
+    "Get the free space of the filesystem containing pathname"
+    stat = os.statvfs(pathname)
+    # use f_bfree for superuser, or f_bavail if filesystem
+    # has reserved space for superuser
+    total = stat.f_blocks * stat.f_bsize
+    free = stat.f_bavail * stat.f_bsize
+    return total, free,
+
+
+def get_dir_size(pathname):
+    """ Get the total size of the directory in bytes.
+        Ignore files located on different partitions.
+    """
+    size = 0
+    folders = [pathname]
+    root_dev = os.lstat(pathname).st_dev
+    while len(folders):
+        c = folders.pop()
+        for e in os.listdir(c):
+            e = os.path.join(c, e)
+            try:
+                st = os.lstat(e)
+                # skip data on different partition
+                if st.st_dev != root_dev:
+                    continue
+                mode = st.st_mode & 0xf000  # S_IFMT
+                if mode == 0x4000:  # S_IFDIR
+                    folders.append(e)
+                    size += st.st_size
+                if mode == 0x8000:  # S_IFREG
+                    size += st.st_size
+            except:
+                # probably the file was removed already, so just skip it
+                pass
+    return size
+
+
+def collect_tablespaces_stats(data_directory):
+    """ fetch tablespaces names and oid - the latter is necessary
+        to get the sizes information from the file system
+    """
+    result = {}
+    ts = {}
+    stats = {}
+    if "stmt_tablespaces" in SD:
+        plan = SD['stmt_tablespaces']
+    else:
+        plan = plpy.prepare("SELECT oid, spcname FROM pg_catalog.pg_tablespace")
+        SD['stmt_tablespaces'] = plan
+
+    rv = plpy.execute(plan)
+    for r in rv:
+        ts[r["oid"]] = r["spcname"]
+    # get to the filesystem and fetch sizes and devices
+    ts_root = os.path.join(data_directory, 'pg_tblspc')
+    for oid in ts:
+        # special cases - pg_global and pg_default. We are not interested in pg_global,
+        # and will treat pg_default simply as datadir
+        if ts[oid] == 'pg_default':
+            stats = collect_directory_stats(data_directory, "tablespace.%s" % ts[oid])
+        elif ts[oid] != 'pg_global':
+            stats = collect_directory_stats(os.path.join(ts_root, oid), "tablespace.%s" % ts[oid])
+        result.update(stats)
+    return result
+
+
+def get_platform_information():
+    result = {}
+    result['platform.version'] = platform.version()
+    result['platform.release'] = platform.release()
+    result['platform.kernel']  = (platform.release() or '').split('-')[0]
+
+    return result
+
+
+def collect_directory_stats(path, prefix):
+    """ Collect real location, size, mount device, total and free space on a device for a dir """
+    stat = {}
+    location = os.path.realpath(path)
+    stat[prefix+'.location'] = location
+    mount_point = get_mount_point(location)
+    # do we really need roots here?
+    stat[prefix+'.device'] = get_mounted_device(mount_point)
+    stat[prefix+'.total'], stat[prefix+'.free'] = get_fs_space(mount_point)
+    # might be slow due to traversal of subdirectories
+    stat[prefix+'.size'] = get_dir_size(location)
+    return stat
+
+
+def get_load_average():
+    return dict(zip(('load.1', 'load.5', 'load.15'), os.getloadavg()))
+
+
+def get_number_of_cpus():
+    try:
+        number_of_cpus = open('/proc/cpuinfo').read().count('processor\t:')
+        if number_of_cpus > 0:
+            return {'cpu.count': number_of_cpus}
+    except IOError:
+        # on other system, basically on Solaris, this file doesn't exist
+        pass
+
+
+def get_memory_info():
+    "Get the memory info"
+    # information is obtained from /proc/meminfo
+    mem_info = {}
+    expected_keys = { 'MemTotal':    'memory.total',
+                      'MemFree':     'memory.free',
+                      'Buffers':     'memory.buffers',
+                      'Cached':      'memory.cached',
+                      'SwapTotal':   'memory.swap.total',
+                      'SwapFree':    'memory.swap.free',
+                      'Dirty':       'memory.dirty',
+                      'CommitLimit': 'memory.commit.limit',
+                      'Committed_AS':'memory.commit.as',
+                    }
+    expected_key_count = len(expected_keys)
+    try:
+        ifp = open("/proc/meminfo", "r")
+        try:
+            for line in ifp:
+                meminfo_key, value, = line.rstrip('\n').split(':')
+                key = expected_keys.get(meminfo_key)
+                if key:
+                    mem_info[key] = int(value.strip(' kB')) * 1024 # we use bytes everywhere
+                    if len(mem_info) == expected_key_count:
+                        break
+        finally:
+            ifp.close()
+    except EnvironmentError:
+        return None
+    commit_limit = mem_info['memory.commit.limit']
+    committed_as = mem_info['memory.commit.as']
+    if commit_limit and committed_as:
+        mem_info['memory.commit.diff'] = commit_limit - committed_as
+    return mem_info
+
+def get_vm_info():
+    "get information about virtual memory configuration, specifically overcommit settings"
+    vm_info = {}
+    file_keys = { '/proc/sys/vm/overcommit_memory': 'vm.overcommit_memory',
+                  '/proc/sys/vm/overcommit_ratio' : 'vm.overcommit_ratio'
+                }
+    try:
+        for fname, kname in file_keys.iteritems():
+            try:
+                fp = open(fname, 'r')
+                val = int(fp.read().strip())
+                vm_info[kname] = val
+            finally:
+                fp.close()
+    except EnvironmentError:
+        pass
+    return vm_info
+
+if "stmt_settings" in SD:
+    plan = SD["stmt_settings"]
+else:
+    plan = plpy.prepare("SELECT name, setting FROM pg_catalog.pg_settings WHERE name in ('data_directory', 'log_directory')")
+    SD["stmt_settings"] = plan
+
+rv = plpy.execute(plan)
+s = {}
+for r in rv:
+    s[r["name"]] = r["setting"]
+
+data_directory = s["data_directory"]
+log_directory = s["log_directory"] = os.path.join(data_directory, s["log_directory"])
+pg_tblspc = os.path.join(data_directory, "pg_tblspc")
+pg_xlog = os.path.join(data_directory, "pg_xlog")
+
+result = {}
+
+# get tablespaces (including pg_default)
+ts_stats = collect_tablespaces_stats(data_directory)
+if len(ts_stats) > 0:
+    result.update(ts_stats)
+
+#get xlog and log directories
+for (path, prefix) in ((pg_xlog, 'xlog'), (log_directory, 'log')):
+    stats = collect_directory_stats(path, prefix)
+    if len(stats) > 0:
+        result.update(stats)
+
+result.update(get_platform_information())
+result.update(get_load_average())
+result.update(get_number_of_cpus())
+mem_info = get_memory_info()
+if mem_info:
+    result.update(mem_info)
+vm_info = get_vm_info()
+if vm_info:
+    result.update(vm_info)
+
+return result.items()
+
+$BODY$
+LANGUAGE plpythonu
+SECURITY DEFINER;
+
+ELSE -- there is not plpythonu installation on that machine
+
+CREATE OR REPLACE FUNCTION zmon_utils.get_database_cluster_system_information()
+RETURNS SETOF system_information
+AS
+$BODY$
+BEGIN
+    RETURN QUERY SELECT 'error'::text, 'plpythonu not installed'::text;
+END;
+$BODY$
+LANGUAGE plpgsql
+SECURITY DEFINER;
+
+END IF;
+END;
+$DO$;
+grant execute on all functions in schema zmon_utils to robot_zmon;
+

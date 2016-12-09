@@ -92,7 +92,7 @@ ENV WALE_ENV_DIR=$PGHOME/etc/wal-e.d/env
 # Set PGHOME as a login directory for the PostgreSQL user.
 RUN usermod -d $PGHOME -m postgres
 
-ADD scm-source.json configure_spilo.py launch.sh postgres_backup.sh patroni_wait.sh post_init.sh callback_role.py /
+ADD scm-source.json configure_spilo.py launch.sh postgres_backup.sh patroni_wait.sh post_init.sh _zmon_schema.dump callback_role.py /
 ADD supervisor.d /etc/supervisor/conf.d/
 ADD stunnel.d /etc/stunnel
 ADD pgq_ticker.ini $PGHOME

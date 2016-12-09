@@ -5,6 +5,7 @@ psql -d $CONNSTRING <<EOF
 CREATE EXTENSION file_fdw;
 CREATE SERVER pglog FOREIGN DATA WRAPPER file_fdw;
 CREATE ROLE admin CREATEROLE CREATEDB NOLOGIN;
+CREATE ROLE robot_zmon;
 
 CREATE TABLE postgres_log (
     log_time timestamp(3) with time zone,
@@ -52,7 +53,12 @@ CREATE FOREIGN TABLE postgres_log_5 () INHERITS (postgres_log) SERVER pglog
 CREATE FOREIGN TABLE postgres_log_6 () INHERITS (postgres_log) SERVER pglog
     OPTIONS (filename '../pg_log/postgresql-6.csv', format 'csv', header 'false');
 GRANT SELECT ON postgres_log TO ADMIN;
+
+CREATE LANGUAGE plpythonu;
+\i /_zmon_schema.dump
 \c template1
+CREATE EXTENSION btree_gin;
+CREATE EXTENSION btree_gist;
 CREATE EXTENSION hstore;
 CREATE EXTENSION intarray;
 CREATE EXTENSION ltree;
@@ -60,6 +66,5 @@ CREATE EXTENSION pgcrypto;
 CREATE EXTENSION pg_stat_statements;
 CREATE EXTENSION pgq;
 CREATE EXTENSION pg_trgm;
-CREATE EXTENSION plpgsql;
 CREATE EXTENSION postgres_fdw;
 EOF
