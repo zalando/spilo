@@ -142,7 +142,7 @@ bootstrap:
         autovacuum_analyze_scale_factor: 0.02
       {{#USE_WALE}}
       recovery_conf:
-        restore_command: envdir "{{WALE_ENV_DIR}}" wal-e --aws-instance-profile wal-fetch "%f" "%p" -p 1
+        restore_command: envdir "{{WALE_ENV_DIR}}" wal-e --aws-instance-profile wal-fetch "%f" "%p"
       {{/USE_WALE}}
   initdb:
   - encoding: UTF8
@@ -297,7 +297,7 @@ def get_placeholders(provider):
     placeholders.setdefault('postgresql', {})
     placeholders['postgresql'].setdefault('parameters', {})
     placeholders['postgresql']['parameters']['archive_command'] = \
-        'envdir "{0}" wal-e --aws-instance-profile wal-push "%p" -p 1'.format(placeholders['WALE_ENV_DIR']) \
+        'envdir "{0}" wal-e --aws-instance-profile wal-push "%p"'.format(placeholders['WALE_ENV_DIR']) \
         if placeholders['USE_WALE'] else '/bin/true'
 
     os_memory_mb = os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES') / 1024 / 1024
