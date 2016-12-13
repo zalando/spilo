@@ -142,7 +142,7 @@ bootstrap:
         autovacuum_analyze_scale_factor: 0.02
       {{#USE_WALE}}
       recovery_conf:
-        restore_command: envdir "{{WALE_ENV_DIR}}" wal-e --aws-instance-profile wal-fetch "%f" "%p" -p 1
+        restore_command: envdir "{{WALE_ENV_DIR}}" wal-e --aws-instance-profile wal-fetch "%f" "%p"
       {{/USE_WALE}}
   initdb:
   - encoding: UTF8
