@@ -125,9 +125,6 @@ bootstrap:
         hot_standby: 'on'
         tcp_keepalives_idle: 900
         tcp_keepalives_interval: 100
-        ssl: 'on'
-        ssl_cert_file: {{SSL_CERTIFICATE_FILE}}
-        ssl_key_file: {{SSL_PRIVATE_KEY_FILE}}
         log_line_prefix: '%t [%p]: [%l-1] %c %x %d %u %a %h '
         log_checkpoints: 'on'
         log_lock_waits: 'on'
@@ -137,6 +134,12 @@ bootstrap:
         log_disconnections: 'on'
         log_statement: 'ddl'
         log_temp_files: 0
+        shared_preload_libraries: pg_stat_statements
+        track_functions: all
+        checkpoint_completion_target: 0.9
+        autovacuum_max_workers: 5
+        autovacuum_vacuum_scale_factor: 0.05
+        autovacuum_analyze_scale_factor: 0.02
       {{#USE_WALE}}
       recovery_conf:
         restore_command: envdir "{{WALE_ENV_DIR}}" wal-e --aws-instance-profile wal-fetch "%f" "%p" -p 1
@@ -165,6 +168,16 @@ postgresql:
   data_dir: {{PGDATA}}
   parameters:
     shared_buffers: {{postgresql.parameters.shared_buffers}}
+    logging_collector: on
+    log_destination: csvlog
+    log_directory: ../pg_log
+    log_filename: postgresql-%u.log
+    log_file_mode: 0644
+    log_rotation_age: 1d
+    log_truncate_on_rotation: on
+    ssl: 'on'
+    ssl_cert_file: {{SSL_CERTIFICATE_FILE}}
+    ssl_key_file: {{SSL_PRIVATE_KEY_FILE}}
   authentication:
     superuser:
       username: postgres
