@@ -381,7 +381,7 @@ def write_wale_command_environment(placeholders, overwrite, provider):
                        os.path.join(placeholders['WALE_ENV_DIR'], 'GOOGLE_APPLICATION_CREDENTIALS'), overwrite)
     else:
         return
-    if not os.path.exists(placeholders['WALE_TMPDIR'])
+    if not os.path.exists(placeholders['WALE_TMPDIR']):
         os.makedirs(placeholders['WALE_TMPDIR'])
     write_file(placeholders['WALE_TMPDIR'], os.path.join(placeholders['WALE_ENV_DIR'], 'TMPDIR'), True)
 
