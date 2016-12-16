@@ -62,6 +62,17 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             # Required for /usr/local/bin/patroni
             python3 python3-pkg-resources python3-setuptools \
             ${BUILD_PACKAGES} \
+
+    # install extensions for old postgres versions
+    && export OLD_PATH=$PATH \
+    && for version in ${PGOLDVERSIONS}; do \
+        apt-get install -y postgresql-server-dev-${version} \
+        && export PATH=/usr/lib/postgresql/${version}/bin:$OLD_PATH \
+        && for extension in ${PGXN_EXTENSIONS}; do pgxn install $extension; done \
+        && apt-get purge -y postgresql-server-dev-${version}; \
+    done \
+    && export PATH=$OLD_PATH \
+
     && pip3 install pip --upgrade \
     && pip3 install --upgrade requests pystache patroni==$PATRONIVERSION \
             gcloud boto wal-e==$WALE_VERSION \
