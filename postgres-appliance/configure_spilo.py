@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import argparse
+import boto3
 import logging
 import re
 import os
@@ -24,7 +25,7 @@ USE_KUBERNETES = os.environ.get('KUBERNETES_SERVICE_HOST') is not None
 
 
 def parse_args():
-    sections = ['all', 'patroni', 'patronictl', 'certificate', 'wal-e', 'crontab', 'ldap']
+    sections = ['all', 'patroni', 'patronictl', 'certificate', 'wal-e', 'crontab', 'ldap', 'instance_protection']
     argp = argparse.ArgumentParser(description='Configures Spilo',
                                    epilog="Choose from the following sections:\n\t{}".format('\n\t'.join(sections)),
                                    formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -463,6 +464,20 @@ redirect_stderr=true
     write_file(supervisord_config, '/etc/supervisor/conf.d/ldaptunnel.conf', overwrite)
 
 
+def enable_protection(region, instance_id):
+    ec2 = boto3.resource('ec2', region_name=region)
+
+    for i in ec2.instances.filter(Filters=[{'Name': 'instance-id', 'Values': [instance_id]}]):
+        if i.id == instance_id:
+            for t in i.tags:
+                if t['Key'] == 'aws:autoscaling:groupName':
+                    autoscaling = boto3.client('autoscaling', region_name=region)
+                    autoscaling.set_instance_protection(InstanceIds=[instance_id],
+                                                        AutoScalingGroupName=t['Value'],
+                                                        ProtectedFromScaleIn=True)
+                    return
+
+
 def main():
     debug = os.environ.get('DEBUG', '') in ['1', 'true', 'on', 'ON']
     args = parse_args()
@@ -515,6 +530,13 @@ def main():
                 write_crontab(placeholders, os.environ.get('PATH'), args['force'])
         elif section == 'ldap':
             write_ldap_configuration(placeholders, args['force'])
+        elif section == 'instance_protection':
+            if provider == PROVIDER_AWS and not USE_KUBERNETES:
+                data = placeholders['instance_data']
+                try:
+                    enable_protection(data['zone'][:-1], data['id'])
+                except Exception:
+                    logging.exception('Can not enable instance termination protection')
         else:
             raise Exception('Unknown section: {}'.format(section))
 
