@@ -142,7 +142,7 @@ bootstrap:
         autovacuum_analyze_scale_factor: 0.02
       {{#USE_WALE}}
       recovery_conf:
-        restore_command: envdir "{{WALE_ENV_DIR}}" /wale_restore_command.sh
+        restore_command: envdir "{{WALE_ENV_DIR}}" /wale_restore_command.sh "%f" "%p"
       {{/USE_WALE}}
   initdb:
   - encoding: UTF8
@@ -211,6 +211,7 @@ postgresql:
     no_master: 1
   basebackup_fast_xlog:
     command: /basebackup.sh
+    retries: 2
 {{/USE_WALE}}
 '''
 

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-RETRIES=3
+RETRIES=2
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -29,8 +29,8 @@ XLOG_DIR=$(dirname $DATA_DIR)/xlog_fast
 
 ATTEMPT=0
 EXITCODE=1
-while [[ $((ATTEMPT++)) < $RETRIES || $EXITCODE == 0 ]]; do
-    pg_basebackup -P --pgdata="${DATA_DIR}" --xlog-method=stream --xlogdir="${XLOG_DIR}" --dbname="${CONNSTR}"
+while [[ $((ATTEMPT++)) -le $RETRIES || $EXITCODE == 0 ]]; do
+    pg_basebackup --pgdata="${DATA_DIR}" --xlog-method=stream --xlogdir="${XLOG_DIR}" --dbname="${CONNSTR}"
     EXITCODE=$?
 done
 exit $EXITCODE
