@@ -8,7 +8,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && echo 'APT::Install-Suggests "0";' >> /etc/apt/apt.conf.d/01norecommend \
 
     && apt-get upgrade -y \
-    && apt-get install -y curl ca-certificates jq pv vim gdb strace supervisor stunnel \
+    && apt-get install -y curl ca-certificates jq pv vim gdb strace supervisor stunnel realpath \
 
     ## Make sure we have a en_US.UTF-8 locale available
     && localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8 \
@@ -103,7 +103,7 @@ ENV WALE_ENV_DIR=$PGHOME/etc/wal-e.d/env
 # Set PGHOME as a login directory for the PostgreSQL user.
 RUN usermod -d $PGHOME -m postgres
 
-ADD scm-source.json configure_spilo.py launch.sh postgres_backup.sh patroni_wait.sh post_init.sh _zmon_schema.dump callback_role.py /
+ADD scm-source.json configure_spilo.py launch.sh postgres_backup.sh patroni_wait.sh post_init.sh _zmon_schema.dump callback_role.py basebackup.sh wale_restore_command.sh /
 ADD supervisor.d /etc/supervisor/conf.d/
 ADD stunnel.d /etc/stunnel
 ADD pgq_ticker.ini $PGHOME

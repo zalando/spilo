@@ -140,10 +140,6 @@ bootstrap:
         autovacuum_max_workers: 5
         autovacuum_vacuum_scale_factor: 0.05
         autovacuum_analyze_scale_factor: 0.02
-      {{#USE_WALE}}
-      recovery_conf:
-        restore_command: envdir "{{WALE_ENV_DIR}}" wal-e --aws-instance-profile wal-fetch "%f" "%p"
-      {{/USE_WALE}}
   initdb:
   - encoding: UTF8
   - locale: en_US.UTF-8
@@ -178,6 +174,10 @@ postgresql:
     ssl: 'on'
     ssl_cert_file: {{SSL_CERTIFICATE_FILE}}
     ssl_key_file: {{SSL_PRIVATE_KEY_FILE}}
+  {{#USE_WALE}}
+  recovery_conf:
+    restore_command: envdir "{{WALE_ENV_DIR}}" /wale_restore_command.sh "%f" "%p"
+  {{/USE_WALE}}
   authentication:
     superuser:
       username: postgres
@@ -195,8 +195,11 @@ postgresql:
   create_replica_method:
     {{#USE_WALE}}
     - wal_e
+    - basebackup_fast_xlog
     {{/USE_WALE}}
+    {{^USE_WALE}}
     - basebackup
+    {{/USE_WALE}}
  {{#USE_WALE}}
   wal_e:
     command: patroni_wale_restore
@@ -206,6 +209,9 @@ postgresql:
     use_iam: 1
     retries: 2
     no_master: 1
+  basebackup_fast_xlog:
+    command: /basebackup.sh
+    retries: 2
 {{/USE_WALE}}
 '''
 
