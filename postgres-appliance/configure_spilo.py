@@ -140,10 +140,6 @@ bootstrap:
         autovacuum_max_workers: 5
         autovacuum_vacuum_scale_factor: 0.05
         autovacuum_analyze_scale_factor: 0.02
-      {{#USE_WALE}}
-      recovery_conf:
-        restore_command: envdir "{{WALE_ENV_DIR}}" /wale_restore_command.sh "%f" "%p"
-      {{/USE_WALE}}
   initdb:
   - encoding: UTF8
   - locale: en_US.UTF-8
@@ -178,6 +174,10 @@ postgresql:
     ssl: 'on'
     ssl_cert_file: {{SSL_CERTIFICATE_FILE}}
     ssl_key_file: {{SSL_PRIVATE_KEY_FILE}}
+  {{#USE_WALE}}
+  recovery_conf:
+    restore_command: envdir "{{WALE_ENV_DIR}}" /wale_restore_command.sh "%f" "%p"
+  {{/USE_WALE}}
   authentication:
     superuser:
       username: postgres
