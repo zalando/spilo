@@ -37,6 +37,7 @@ while [[ $((ATTEMPT++)) -le $RETRIES ]]; do
         rm -fr $XLOG_FAST
         mv ${DATA_DIR}/pg_xlog $XLOG_FAST
         rm -fr $XLOG_FAST/archive_status
+        mkdir ${DATA_DIR}/pg_xlog
         break
     elif [[ $ATTEMPT -le $RETRIES ]]; then
         sleep $((ATTEMPT*10))
