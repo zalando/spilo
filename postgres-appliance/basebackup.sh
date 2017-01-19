@@ -34,6 +34,7 @@ while [[ $((ATTEMPT++)) -le $RETRIES ]]; do
     EXITCODE=$?
     if [[ $EXITCODE == 0 ]]; then
         XLOG_FAST=$(dirname $DATA_DIR)/xlog_fast
+        rm -fr $XLOG_FAST
         mv ${DATA_DIR}/pg_xlog $XLOG_FAST
         rm -fr $XLOG_FAST/archive_status
         break
