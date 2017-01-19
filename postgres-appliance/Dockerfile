@@ -8,7 +8,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && echo 'APT::Install-Suggests "0";' >> /etc/apt/apt.conf.d/01norecommend \
 
     && apt-get upgrade -y \
-    && apt-get install -y curl ca-certificates jq pv vim gdb strace supervisor stunnel \
+    && apt-get install -y curl ca-certificates jq pv vim gdb strace supervisor stunnel realpath \
 
     ## Make sure we have a en_US.UTF-8 locale available
     && localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8 \

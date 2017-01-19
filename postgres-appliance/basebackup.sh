@@ -1,5 +1,8 @@
 #!/bin/bash
 
+PARSED=$(getopt --options v --longoptions connstring:,retries:,datadir: --name "$0" -- "$@" 2> /dev/null)
+eval set -- "$PARSED"
+
 RETRIES=2
 
 while [[ $# -gt 0 ]]; do
@@ -24,13 +27,18 @@ done
 
 [[ -z $DATA_DIR || -z $CONNSTR || ! $RETRIES =~ ^[1-9]$ ]] && exit 1
 
-DATA_DIR=$(realpath $DATA_DIR)
-XLOG_DIR=$(dirname $DATA_DIR)/xlog_fast
-
 ATTEMPT=0
-EXITCODE=1
-while [[ $((ATTEMPT++)) -le $RETRIES || $EXITCODE == 0 ]]; do
-    pg_basebackup --pgdata="${DATA_DIR}" --xlog-method=stream --xlogdir="${XLOG_DIR}" --dbname="${CONNSTR}"
+while [[ $((ATTEMPT++)) -le $RETRIES ]]; do
+    rm -fr "${DATA_DIR}"
+    pg_basebackup --pgdata="${DATA_DIR}" --xlog-method=stream --dbname="${CONNSTR}"
     EXITCODE=$?
+    if [[ $EXITCODE == 0 ]]; then
+        XLOG_FAST=$(dirname $DATA_DIR)/xlog_fast
+        mv ${DATA_DIR}/pg_xlog $XLOG_FAST
+        rm -fr $XLOG_FAST/archive_status
+        break
+    elif [[ $ATTEMPT -le $RETRIES ]]; then
+        sleep $((ATTEMPT*10))
+    fi
 done
 exit $EXITCODE
