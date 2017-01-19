@@ -307,7 +307,7 @@ def get_placeholders(provider):
         'envdir "{0}" wal-e --aws-instance-profile wal-push "%p"'.format(placeholders['WALE_ENV_DIR']) \
         if placeholders['USE_WALE'] else '/bin/true'
 
-    if os.exists(MEMORY_LIMIT_IN_BYTES_PATH):
+    if os.path.exists(MEMORY_LIMIT_IN_BYTES_PATH):
         with open(MEMORY_LIMIT_IN_BYTES_PATH) as f:
             os_memory_mb = int(f.read()) / 1048576
     else:
