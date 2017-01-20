@@ -143,6 +143,7 @@ bootstrap:
   initdb:
   - encoding: UTF8
   - locale: en_US.UTF-8
+  - data-checksums
   users:
     admin:
       password: {{PGPASSWORD_ADMIN}}
