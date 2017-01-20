@@ -311,7 +311,8 @@ def get_placeholders(provider):
         with open(MEMORY_LIMIT_IN_BYTES_PATH) as f:
             os_memory_mb = int(f.read()) / 1048576
     else:
-        os_memory_mb = os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES') / 1048576
+        os_memory_mb = sys.maxsize
+    os_memory_mb = min(os_memory_mb, os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES') / 1048576)
 
     # # We take 1/4 of the memory, expressed in full MB's
     placeholders['postgresql']['parameters']['shared_buffers'] = '{}MB'.format(int(os_memory_mb/4))
