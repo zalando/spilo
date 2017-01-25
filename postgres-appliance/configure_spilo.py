@@ -144,12 +144,6 @@ bootstrap:
   - encoding: UTF8
   - locale: en_US.UTF-8
   - data-checksums
-  users:
-    admin:
-      password: {{PGPASSWORD_ADMIN}}
-      options:
-        - createrole
-        - createdb
   pg_hba:
     - hostssl all all 0.0.0.0/0 md5
     - host    all all 0.0.0.0/0 md5
@@ -274,7 +268,6 @@ def get_placeholders(provider):
     placeholders.setdefault('PGROOT', os.path.join(placeholders['PGHOME'], 'pgroot'))
     placeholders.setdefault('WALE_TMPDIR', os.path.abspath(os.path.join(placeholders['PGROOT'], '../tmp')))
     placeholders.setdefault('PGDATA', os.path.join(placeholders['PGROOT'], 'pgdata'))
-    placeholders.setdefault('PGPASSWORD_ADMIN', 'standby')
     placeholders.setdefault('PGPASSWORD_STANDBY', 'standby')
     placeholders.setdefault('PGPASSWORD_SUPERUSER', 'zalando')
     placeholders.setdefault('PGPORT', '5432')
