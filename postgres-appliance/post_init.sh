@@ -67,4 +67,5 @@ CREATE EXTENSION pg_stat_statements;
 CREATE EXTENSION pgq;
 CREATE EXTENSION pg_trgm;
 CREATE EXTENSION postgres_fdw;
+CREATE EXTENSION "uuid-ossp";
 EOF
