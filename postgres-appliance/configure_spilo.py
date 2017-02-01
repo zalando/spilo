@@ -383,6 +383,8 @@ def write_wale_command_environment(placeholders, overwrite, provider):
         return
     if not os.path.exists(placeholders['WALE_TMPDIR']):
         os.makedirs(placeholders['WALE_TMPDIR'])
+        os.chmod(placeholders['WALE_TMPDIR'], 0o1777)
+
     write_file(placeholders['WALE_TMPDIR'], os.path.join(placeholders['WALE_ENV_DIR'], 'TMPDIR'), True)
 
 
