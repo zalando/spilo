@@ -24,7 +24,7 @@ USE_KUBERNETES = os.environ.get('KUBERNETES_SERVICE_HOST') is not None
 
 
 def parse_args():
-    sections = ['all', 'patroni', 'patronictl', 'certificate', 'wal-e', 'crontab', 'ldap']
+    sections = ['all', 'patroni', 'patronictl', 'certificate', 'wal-e', 'crontab', 'ldap', 'pam-oauth2']
     argp = argparse.ArgumentParser(description='Configures Spilo',
                                    epilog="Choose from the following sections:\n\t{}".format('\n\t'.join(sections)),
                                    formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -426,14 +426,11 @@ redirect_stderr=true
 def write_ldap_configuration(placeholders, overwrite):
     ldap_url = placeholders.get('LDAP_URL')
     if ldap_url is None:
-        logging.info("No LDAP_URL was specified, skipping LDAP configuration")
-        return
+        return logging.info("No LDAP_URL was specified, skipping LDAP configuration")
 
     r = urlparse(ldap_url)
     if not r.scheme:
-        logging.error('LDAP_URL should contain a scheme')
-        logging.info(r)
-        return
+        return logging.error('LDAP_URL should contain a scheme: %s', r)
 
     host, port = r.hostname, r.port
     if not port:
@@ -463,6 +460,22 @@ stdout_logfile_maxbytes=0
 redirect_stderr=true
 """
     write_file(supervisord_config, '/etc/supervisor/conf.d/ldaptunnel.conf', overwrite)
+
+
+def write_pam_oauth2_configuration(placeholders, overwrite):
+    pam_oauth2_args = placeholders.get('PAM_OAUTH2') or ''
+    t = pam_oauth2_args.split()
+    if len(t) < 2:
+        return logging.info("No PAM_OAUTH2 configuration was specified, skipping")
+
+    r = urlparse(t[0])
+    if not r.scheme or r.scheme != 'https':
+        return logging.error('First argument of PAM_OAUTH2 must be a valid https url: %s', r)
+
+    pam_oauth2_config = 'auth sufficient pam_oauth2.so {0}\n'.format(pam_oauth2_args)
+    pam_oauth2_config += 'account sufficient pam_oauth2.so\n'
+
+    write_file(pam_oauth2_config, '/etc/pam.d/postgresql', overwrite)
 
 
 def main():
@@ -517,6 +530,8 @@ def main():
                 write_crontab(placeholders, os.environ.get('PATH'), args['force'])
         elif section == 'ldap':
             write_ldap_configuration(placeholders, args['force'])
+        elif section == 'pam-oauth2':
+            write_pam_oauth2_configuration(placeholders, args['force'])
         else:
             raise Exception('Unknown section: {}'.format(section))
 
