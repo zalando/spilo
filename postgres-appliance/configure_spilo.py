@@ -294,6 +294,12 @@ def get_placeholders(provider):
     if USE_KUBERNETES:
         placeholders['CALLBACK_SCRIPT'] = '/callback_role.py'
 
+    # Kubernetes requires a callback to change the labels in order to point to the new master
+    if USE_K8S:
+        placeholders.setdefault('CALLBACK_SCRIPT', '/callback_role.py')
+    elif provider == PROVIDER_AWS:  # AWS specific callback to tag the instances with roles
+        placeholders.setdefault('CALLBACK_SCRIPT', 'patroni_aws')    
+
     placeholders.setdefault('postgresql', {})
     placeholders['postgresql'].setdefault('parameters', {})
     placeholders['postgresql']['parameters']['archive_command'] = \
