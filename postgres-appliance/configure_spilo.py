@@ -159,13 +159,13 @@ postgresql:
   data_dir: {{PGDATA}}
   parameters:
     shared_buffers: {{postgresql.parameters.shared_buffers}}
-    logging_collector: on
+    logging_collector: 'on'
     log_destination: csvlog
     log_directory: ../pg_log
-    log_filename: postgresql-%u.log
-    log_file_mode: 0644
-    log_rotation_age: 1d
-    log_truncate_on_rotation: on
+    log_filename: 'postgresql-%u.log'
+    log_file_mode: '0644'
+    log_rotation_age: '1d'
+    log_truncate_on_rotation: 'on'
     ssl: 'on'
     ssl_cert_file: {{SSL_CERTIFICATE_FILE}}
     ssl_key_file: {{SSL_PRIVATE_KEY_FILE}}
@@ -176,10 +176,10 @@ postgresql:
   authentication:
     superuser:
       username: postgres
-      password: {{PGPASSWORD_SUPERUSER}}
+      password: '{{PGPASSWORD_SUPERUSER}}'
     replication:
       username: standby
-      password: {{PGPASSWORD_STANDBY}}
+      password: '{{PGPASSWORD_STANDBY}}'
  {{#CALLBACK_SCRIPT}}
   callbacks:
     on_start: {{CALLBACK_SCRIPT}}
@@ -280,15 +280,14 @@ def get_placeholders(provider):
     placeholders.setdefault('USE_WALE', False)
     placeholders.setdefault('CALLBACK_SCRIPT', '')
 
-    if provider in (PROVIDER_AWS, PROVIDER_GOOGLE):
-        if provider == PROVIDER_AWS:
-            if 'WAL_S3_BUCKET' in placeholders:
-                placeholders['USE_WALE'] = True
-            if not USE_KUBERNETES:  # AWS specific callback to tag the instances with roles
-                placeholders['CALLBACK_SCRIPT'] = 'patroni_aws'
-        elif provider == PROVIDER_GOOGLE and 'WAL_GCS_BUCKET' in placeholders:
+    if provider == PROVIDER_AWS:
+        if 'WAL_S3_BUCKET' in placeholders:
             placeholders['USE_WALE'] = True
-            placeholders.setdefault('GOOGLE_APPLICATION_CREDENTIALS', '')
+        if not USE_KUBERNETES:  # AWS specific callback to tag the instances with roles
+            placeholders['CALLBACK_SCRIPT'] = 'patroni_aws'
+    elif provider == PROVIDER_GOOGLE and 'WAL_GCS_BUCKET' in placeholders:
+        placeholders['USE_WALE'] = True
+        placeholders.setdefault('GOOGLE_APPLICATION_CREDENTIALS', '')
 
     # Kubernetes requires a callback to change the labels in order to point to the new master
     if USE_KUBERNETES:
@@ -325,33 +324,17 @@ def pystache_render(*args, **kwargs):
 
 
 def get_dcs_config(config, placeholders):
-    defaults = \
-        yaml.load('''\
-zookeeper:
-  scope: '{scope}'
-  session_timeout: {bootstrap[dcs][ttl]}
-  reconnect_timeout: {bootstrap[dcs][loop_wait]}
-etcd:
-  scope: '{scope}'
-  ttl: {bootstrap[dcs][ttl]}'''.format(**config))
-
-    config = {}
-
     if 'ZOOKEEPER_HOSTS' in placeholders:
-        config = {'zookeeper': defaults['zookeeper']}
-        config['zookeeper']['hosts'] = yaml.load(placeholders['ZOOKEEPER_HOSTS'])
+        config = {'zookeeper': {'hosts': yaml.load(placeholders['ZOOKEEPER_HOSTS'])}}
     elif 'EXHIBITOR_HOSTS' in placeholders and 'EXHIBITOR_PORT' in placeholders:
-        config = {'zookeeper': defaults['zookeeper']}
-        config['zookeeper']['exhibitor'] = {'poll_interval': '300', 'port': placeholders['EXHIBITOR_PORT'],
-                                            'hosts': yaml.load(placeholders['EXHIBITOR_HOSTS'])}
+        config = {'exhibitor': {'hosts': yaml.load(placeholders['EXHIBITOR_HOSTS']),
+                                'port': placeholders['EXHIBITOR_PORT']}}
     elif 'ETCD_HOST' in placeholders:
-        config = {'etcd': defaults['etcd']}
-        config['etcd']['host'] = placeholders['ETCD_HOST']
+        config = {'etcd': {'host': placeholders['ETCD_HOST']}}
     elif 'ETCD_DISCOVERY_DOMAIN' in placeholders:
-        config = {'etcd': defaults['etcd']}
-        config['etcd']['discovery_srv'] = placeholders['ETCD_DISCOVERY_DOMAIN']
+        config = {'etcd': {'discovery_srv': placeholders['ETCD_DISCOVERY_DOMAIN']}}
     else:
-        pass  # Configuration can also be specified using either SPILO_CONFIGURATION or PATRONI_CONFIGURATION
+        config = {}  # Configuration can also be specified using either SPILO_CONFIGURATION or PATRONI_CONFIGURATION
 
     return config
 
