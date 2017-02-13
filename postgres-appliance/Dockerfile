@@ -54,7 +54,7 @@ ENV PATRONIVERSION=1.2.3
 ENV WALE_VERSION=1.0.2
 ENV PAM_OAUTH_COMMIT=bed1f8d31840d1fda49365921449112a7421b8ca JSMN_COMMIT=1682c32e9ae5990ddd0f0e907270a0f6dde5cbe9
 RUN export DEBIAN_FRONTEND=noninteractive \
-    export BUILD_PACKAGES="postgresql-server-dev-${PGVERSION} python3-pip python3-dev build-essential pgxnclient libcurl4-openssl-dev libpam0g-dev unzip" \
+    export BUILD_PACKAGES="postgresql-server-dev-${PGVERSION} python3-pip python3-dev build-essential pgxnclient libcurl4-openssl-dev libpam0g-dev unzip dpkg-dev devscripts m4 bc debhelper fakeroot" \
     export PGXN_EXTENSIONS="quantile trimmed_aggregates" \
     && apt-get update \
     && apt-get install -y \
@@ -63,6 +63,17 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             # Required for /usr/local/bin/patroni
             python3 python3-pkg-resources python3-setuptools \
             ${BUILD_PACKAGES} \
+
+    && mkdir openssl-build && cd openssl-build \
+    && apt-get source libssl1.0.0 \
+    && cd openssl-1.0.1f \
+    && sed -i 's/ no-zlib / zlib-dynamic /' debian/rules \
+    && sed -i 's/Z_DEFAULT_COMPRESSION/Z_BEST_SPEED/' crypto/comp/c_zlib.c \
+    && debuild -b -uc -us \
+    && cd .. \
+    && dpkg -i libssl1.0.0_1.0.1f-1ubuntu2.22_amd64.deb \
+    && cd .. \
+    && rm -fr openssl-build \
 
     # install pam_oauth2.so
     && curl -s -L https://github.com/zalando-incubator/pam-oauth2/archive/$PAM_OAUTH_COMMIT.zip > pam-oauth2.zip \
