@@ -38,7 +38,7 @@ Configuration
 
 Spilo is configured via environment variables, the values of which are either supplied manually via the environment (whenever Spilo is launched as a set of Docker containers) or added in the configuration file or manifest (whenever Spilo is used in the Docker orchestration environment, such as Kubernetes or Docker Compose).
 
-Please go `here <hURL TO COME>`__ to see our list of environment variables.
+Please go `here <https://github.com/zalando/spilo/blob/master/ENVIRONMENT.rst>`__ to see our list of environment variables.
 
 Issues and Contributing
 -----------------------
