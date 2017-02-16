@@ -29,12 +29,14 @@ You'll need to setup Spilo to create a database and roles for your application(s
 Once you have created a database and roles for your application, you can connect to Spilo just like you want to connect to any other PostgreSQL cluster:
 
     psql -h myfirstspilo.example.com -p 5432 -U wow_app -d wow
-    "postgresql://myfirstspilo.example.com:5432/wow?user=wow_app"
+    psql -d "postgresql://myfirstspilo.example.com:5432/wow?user=wow_app"
 
-Environment Variables
----------------------
+Configuration
+-------------
 
-Please go `here <hURL TO COME>`__ to see our list.
+Spilo is configured via environment variables, the values of which are either supplied manually via the environment (whenever Spilo is launched as a set of Docker containers) or added in the configuration file or manifest (whenever Spilo is used in the Docker orchestration environment, such as Kubernetes or Docker Compose).
+
+Please go `here <hURL TO COME>`__ to see our list of environment variables.
 
 Issues and Contributing
 -----------------------
