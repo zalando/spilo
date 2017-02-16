@@ -2,7 +2,9 @@
 Spilo: HA PostgreSQL Clusters with Docker
 ==================================
 
-Spilo is a Docker image that provides PostgreSQL and `Patroni <https://github.com/zalando/patroni>`__ bundled together. Patroni is a template for PostgreSQL HA. Multiple Spilos can create a resilient High Available PostgreSQL cluster. For this, you'll need to start all participating Spilos with `etcd <https://github.com/coreos/etcd>`__ and cluster name parameters. Spilo's name derives from სპილო [spiːlɒ], the Georgian word for "elephant."  
+Spilo is a Docker image that provides PostgreSQL and `Patroni <https://github.com/zalando/patroni>`__ bundled together. Patroni is a template for PostgreSQL HA. Multiple Spilos can create a resilient High Available PostgreSQL cluster. For this, you'll need to start all participating Spilos with identical `etcd <https://github.com/coreos/etcd>`__ addresses and cluster names. 
+
+Spilo's name derives from სპილო [spiːlɒ], the Georgian word for "elephant."  
 
 Real-World Usage and Plans
 --------------------------
