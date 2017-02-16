@@ -20,7 +20,7 @@ Connecting to PostgreSQL
 ------------------------
 **Administrative Connections**
 
-PostgreSQL is configured by default to listen to port 5432. The default Postgres user and database are created in the entrypoint with initdb.
+PostgreSQL is configured by default to listen to port 5432. Spilo master initializes PostgreSQL and creates the superuser and replication user (``postgres`` and ``standby`` by default).
 
 You'll need to setup Spilo to create a database and roles for your application(s). For example:
 
