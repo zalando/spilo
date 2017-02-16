@@ -14,7 +14,7 @@ Spilo is currently evolving: Its creators are working on a Postgres operator tha
 How to Use This Docker Image
 ============================
 
-Spilo requires a load balancer (HAProxy, ELB, Google load balancer) to point to the master node. It provides two ways to achieve this: either by using the API URLs, or via the callback scripts. See Patroni for more details.
+Spilo's setup assumes that you've correctly configured a load balancer (HAProxy, ELB, Google load balancer) that directs client connections to the master. There are two ways to achieve this: A) if the load balancer relies on the status code to distinguish between the healthy and failed nodes (like ELB), then one needs to configure it to poll the API URL; otherwise, B) you can use callback scripts to change the load balancer configuration dynamically.
 
 Connecting to PostgreSQL
 ------------------------
