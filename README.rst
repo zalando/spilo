@@ -4,7 +4,10 @@ Spilo: HA PostgreSQL Clusters with Docker
 
 Spilo is a Docker image that provides PostgreSQL and `Patroni <https://github.com/zalando/patroni>`__ bundled together. Patroni is a template for PostgreSQL HA. Multiple Spilos can create a resilient High Available PostgreSQL cluster. For this, you'll need to start all participating Spilos with `etcd <https://github.com/coreos/etcd>`__ and cluster name parameters. Spilo's name derives from სპილო [spiːlɒ], the Georgian word for "elephant."  
 
-Spilo is currently evolving: Its creators are working on a Postgres operator that would make it simpler to deploy scalable Postgres clusters in a Kubernetes environment, and also do maintenance tasks. Spilo would serve as an essential building block for this.
+Real-World Usage and Plans
+--------------------------
+
+Spilo is currently evolving: Its creators are working on a Postgres operator that would make it simpler to deploy scalable Postgres clusters in a Kubernetes environment, and also do maintenance tasks. Spilo would serve as an essential building block for this. There is already a `Helm chart <https://github.com/kubernetes/charts/tree/master/incubator/patroni>`__ that relies on Spilo and Patroni to provision a five-node PostgreSQL HA cluster in a Kubernetes+Google Compute Engine environment. (The Helm chart deploys Spilo Docker images, not just "bare" Patroni.)
 
 How to Use This Docker Image
 ============================
@@ -32,11 +35,6 @@ Environment Variables
 ---------------------
 
 Please go `here <hURL TO COME>`__ to see our list.
-
-Connect to a Spilo Appliance
---------------------------------
-
-This should be the same as connecting to a PostgreSQL database or an RDS instance. Use the dns-name you specified during creation as the hostname, and use your credentials to authenticate.
 
 Issues and Contributing
 -----------------------
