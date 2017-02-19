@@ -1,19 +1,45 @@
 FROM ubuntu:14.04
 MAINTAINER Oleksii Kliukin <oleksii.kliukin@zalando.de>
 
-# Install curl, jq, vim, gdb, strace
 RUN export DEBIAN_FRONTEND=noninteractive \
+    && export BUILD_PACKAGES="build-essential dpkg-dev devscripts debhelper fakeroot m4 bc bsdmainutils libcurl4-openssl-dev libpam0g-dev" \
     && apt-get update \
     && echo 'APT::Install-Recommends "0";' > /etc/apt/apt.conf.d/01norecommend \
     && echo 'APT::Install-Suggests "0";' >> /etc/apt/apt.conf.d/01norecommend \
 
     && apt-get upgrade -y \
-    && apt-get install -y curl ca-certificates jq pv vim gdb strace supervisor stunnel realpath \
+    # Install curl, jq, vim, gdb, strace
+    && apt-get install -y curl ca-certificates jq pv vim gdb strace supervisor stunnel realpath ${BUILD_PACKAGES} \
 
     ## Make sure we have a en_US.UTF-8 locale available
     && localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8 \
 
+    # build and install libssl with zlib support enabled
+    && mkdir openssl-build && cd openssl-build \
+    && apt-get source libssl1.0.0 \
+    && cd openssl-1.0.1f \
+    && sed -i 's/ no-zlib / zlib-dynamic /' debian/rules \
+    && sed -i 's/Z_DEFAULT_COMPRESSION/Z_BEST_SPEED/' crypto/comp/c_zlib.c \
+    && debuild -b -uc -us \
+    && cd .. \
+    && dpkg -i libssl1.0.0_1.0.1f-1ubuntu2.22_amd64.deb \
+    && cd .. \
+    && rm -fr openssl-build \
+
+    # install pam_oauth2.so
+    && export PAM_OAUTH_COMMIT=bed1f8d31840d1fda49365921449112a7421b8ca \
+    && export JSMN_COMMIT=1682c32e9ae5990ddd0f0e907270a0f6dde5cbe9 \
+    && curl -s -L https://github.com/zalando-incubator/pam-oauth2/archive/$PAM_OAUTH_COMMIT.tar.gz | tar xz \
+    && cd pam-oauth2-$PAM_OAUTH_COMMIT \
+    && curl -s -L https://github.com/zserge/jsmn/archive/$JSMN_COMMIT.tar.gz | tar xz \
+    && rm -fr jsmn && mv jsmn-$JSMN_COMMIT jsmn \
+    && make install \
+    && cd .. \
+    && rm -fr pam-oauth2-$PAM_OAUTH_COMMIT \
+
     # Clean up
+    && apt-get purge -y ${BUILD_PACKAGES} \
+    && apt-get autoremove -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -52,9 +78,8 @@ ENV PATH=$PATH:/usr/lib/postgresql/${PGVERSION}/bin
 ## 3 Remove tools only required for build
 ENV PATRONIVERSION=1.2.3
 ENV WALE_VERSION=1.0.2
-ENV PAM_OAUTH_COMMIT=bed1f8d31840d1fda49365921449112a7421b8ca JSMN_COMMIT=1682c32e9ae5990ddd0f0e907270a0f6dde5cbe9
 RUN export DEBIAN_FRONTEND=noninteractive \
-    export BUILD_PACKAGES="postgresql-server-dev-${PGVERSION} python3-pip python3-dev build-essential pgxnclient libcurl4-openssl-dev libpam0g-dev unzip" \
+    export BUILD_PACKAGES="postgresql-server-dev-${PGVERSION} python3-pip python3-dev build-essential pgxnclient" \
     export PGXN_EXTENSIONS="quantile trimmed_aggregates" \
     && apt-get update \
     && apt-get install -y \
@@ -63,17 +88,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             # Required for /usr/local/bin/patroni
             python3 python3-pkg-resources python3-setuptools \
             ${BUILD_PACKAGES} \
-
-    # install pam_oauth2.so
-    && curl -s -L https://github.com/zalando-incubator/pam-oauth2/archive/$PAM_OAUTH_COMMIT.zip > pam-oauth2.zip \
-    && unzip pam-oauth2.zip \
-    && cd pam-oauth2-$PAM_OAUTH_COMMIT \
-    && curl -s -L https://github.com/zserge/jsmn/archive/$JSMN_COMMIT.zip > jsmn.zip \
-    && unzip jsmn.zip \
-    && rm -fr jsmn && mv jsmn-$JSMN_COMMIT jsmn \
-    && make install \
-    && cd .. \
-    && rm -fr pam-oauth2* \
 
     # install extensions for old postgres versions
     && export OLD_PATH=$PATH \
