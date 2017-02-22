@@ -77,6 +77,15 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 pgxn install $extension; \
             done \
 
+            # Install pg_rewind on 9.3 and 9.4
+            && if [ "$version" = "9.3" ] || [ "$version" = "9.4" ]; then \
+                export REWIND_VER=REL$(echo $version | sed 's/\./_/')_STABLE \
+                && apt-get source postgresql-${version} \
+                && curl -s -L https://github.com/vmware/pg_rewind/archive/${REWIND_VER}.tar.gz | tar xz \
+                && make -C pg_rewind-${REWIND_VER} USE_PGXS=1 top_srcdir=$(ls -d ../postgresql-${version}-*) install \
+                && rm -fr pg_rewind-${REWIND_VER} postgresql-${version}*; \
+            fi \
+
             && apt-get purge -y libpq-dev=$version* postgresql-server-dev-${version}; \
     done \
 
