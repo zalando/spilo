@@ -112,7 +112,7 @@ ENV PATH=$PATH:/usr/lib/postgresql/${PGVERSION}/bin
 
 # Install patroni and WAL-e
 ENV PATRONIVERSION=1.2.3
-ENV WALE_VERSION=1.0.2
+ENV WALE_VERSION=1.0.3
 RUN export DEBIAN_FRONTEND=noninteractive \
     export BUILD_PACKAGES="build-essential python3-dev python3-pip libpq-dev libyaml-dev" \
     && apt-get update \
@@ -126,6 +126,9 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && pip3 install pip --upgrade \
     && pip3 install --upgrade packaging appdirs requests pystache patroni==$PATRONIVERSION \
             gcloud boto wal-e==$WALE_VERSION \
+
+    # https://github.com/wal-e/wal-e/issues/318
+    && sed -i 's/^\(    for i in range(0,\) num_retries):.*/\1 100):/g' /usr/local/lib/python3.4/dist-packages/boto/utils.py \
 
     # Clean up
     && apt-get purge -y ${BUILD_PACKAGES} \
