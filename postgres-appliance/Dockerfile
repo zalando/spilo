@@ -43,44 +43,58 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Add PGDG repositories
-RUN export DISTRIB_CODENAME=$(sed -n 's/DISTRIB_CODENAME=//p' /etc/lsb-release) \
+# Install PostgreSQL
+ENV PGVERSION=9.6 PGOLDVERSIONS="9.3 9.4 9.5"
+RUN export DEBIAN_FRONTEND=noninteractive \
+    && export BUILD_PACKAGES="gcc libc6-dev dpkg-dev make pgxnclient libedit-dev libz-dev libssl-dev libselinux-dev libkrb5-dev libxslt1-dev libxml2-dev libpam0g-dev" \
+
+    # Add PGDG repositories
+    && export DISTRIB_CODENAME=$(sed -n 's/DISTRIB_CODENAME=//p' /etc/lsb-release) \
     && echo "deb http://apt.postgresql.org/pub/repos/apt/ ${DISTRIB_CODENAME}-pgdg main" > /etc/apt/sources.list.d/pgdg.list \
     && echo "deb-src http://apt.postgresql.org/pub/repos/apt/ ${DISTRIB_CODENAME}-pgdg main" >> /etc/apt/sources.list.d/pgdg.list \
-    && curl -s -o - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add -
+    && curl -s -o - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
 
-# Install PostgreSQL
-ENV PGVERSION=9.6 PGOLDVERSIONS="9.5 9.4 9.3"
-RUN export DEBIAN_FRONTEND=noninteractive \
     && apt-get update \
-    && apt-get install -y skytools3-ticker \
+    && apt-get install -y postgresql-common ${BUILD_PACKAGES} \
+    # forbid creation of a main cluster when package is installed
+    && sed -ri 's/#(create_main_cluster) .*$/\1 = false/' /etc/postgresql-common/createcluster.conf \
+
     && for version in ${PGOLDVERSIONS} ${PGVERSION}; do \
+            # next two lines are necessary to install exact versions of libpq5 and libpq-dev (to compile extensions)
+            sed -i "s/ main.*$/ main $version/g" /etc/apt/sources.list.d/pgdg.list \
+            && apt-get update \
+
             # Install PostgreSQL binaries, contrib, pgq, plproxy, pgq and multiple pl's
-            apt-get install -y postgresql-${version} postgresql-${version}-dbg postgresql-client-${version} \
+            && apt-get install -y postgresql-${version} postgresql-${version}-dbg postgresql-client-${version} \
                         postgresql-contrib-${version} postgresql-${version}-plproxy postgresql-${version}-pgq3 \
                         postgresql-${version}-postgis-2.3 postgresql-plpython3-${version} \
                         postgresql-plpython-${version} postgresql-${version}-plr postgresql-pltcl-${version} \
                         postgresql-${version}-plv8 postgresql-${version}-pllua postgresql-plperl-${version} \
-            # Remove the default cluster, which Debian stupidly starts right after installation of the packages
-            && pg_dropcluster --stop ${version} main; \
+                        libpq5=$version* libpq-dev=$version* postgresql-server-dev-${version} \
+
+            # install 3rd party extensions
+            && for extension in quantile trimmed_aggregates pg_repack; do \
+                pgxn install $extension; \
+            done \
+
+            && apt-get purge -y libpq-dev=$version* postgresql-server-dev-${version}; \
     done \
 
+    && apt-get install -y skytools3-ticker \
+
     # Clean up
+    && apt-get purge -y ${BUILD_PACKAGES} \
+    && apt-get autoremove -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 ENV PATH=$PATH:/usr/lib/postgresql/${PGVERSION}/bin
 
-# Install patroni, WAL-e and extensions
-# We do this in one big step to reduce the Docker image size:
-## 1 Install tools required to build
-## 2 Build
-## 3 Remove tools only required for build
+# Install patroni and WAL-e
 ENV PATRONIVERSION=1.2.3
 ENV WALE_VERSION=1.0.2
 RUN export DEBIAN_FRONTEND=noninteractive \
-    export BUILD_PACKAGES="postgresql-server-dev-${PGVERSION} python3-pip python3-dev build-essential pgxnclient" \
-    export PGXN_EXTENSIONS="quantile trimmed_aggregates" \
+    export BUILD_PACKAGES="build-essential python3-dev python3-pip libpq-dev libyaml-dev" \
     && apt-get update \
     && apt-get install -y \
             # Required for wal-e
@@ -89,20 +103,10 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             python3 python3-pkg-resources python3-setuptools \
             ${BUILD_PACKAGES} \
 
-    # install extensions for old postgres versions
-    && export OLD_PATH=$PATH \
-    && for version in ${PGOLDVERSIONS}; do \
-        apt-get install -y postgresql-server-dev-${version} \
-        && export PATH=/usr/lib/postgresql/${version}/bin:$OLD_PATH \
-        && for extension in ${PGXN_EXTENSIONS}; do pgxn install $extension; done \
-        && apt-get purge -y postgresql-server-dev-${version}; \
-    done \
-    && export PATH=$OLD_PATH \
-
     && pip3 install pip --upgrade \
     && pip3 install --upgrade packaging appdirs requests pystache patroni==$PATRONIVERSION \
             gcloud boto wal-e==$WALE_VERSION \
-    && for extension in ${PGXN_EXTENSIONS}; do pgxn install $extension; done \
+
     # Clean up
     && apt-get purge -y ${BUILD_PACKAGES} \
     && apt-get autoremove -y \
