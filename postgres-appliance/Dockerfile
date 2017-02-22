@@ -59,6 +59,14 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     # forbid creation of a main cluster when package is installed
     && sed -ri 's/#(create_main_cluster) .*$/\1 = false/' /etc/postgresql-common/createcluster.conf \
 
+    # This is a temporary solution of pg_repack problems with UPSERTS
+    # as soon they will merge a PR fixing the problem and release a new version we should switch to pgxn
+    && export PG_REPACK_COMMIT=dfbedb63d92750e4083e6d3e8c5ffdc1a6cd0092 \
+    && curl -s -L https://github.com/reorg/pg_repack/archive/$PG_REPACK_COMMIT.tar.gz | tar xz \
+    && cd pg_repack-${PG_REPACK_COMMIT} \
+    && curl -s -L https://patch-diff.githubusercontent.com/raw/reorg/pg_repack/pull/107.diff | patch -p1 \
+    && cd .. \
+
     && for version in ${PGOLDVERSIONS} ${PGVERSION}; do \
             # next two lines are necessary to install exact versions of libpq5 and libpq-dev (to compile extensions)
             sed -i "s/ main.*$/ main $version/g" /etc/apt/sources.list.d/pgdg.list \
@@ -73,9 +81,12 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                         libpq5=$version* libpq-dev=$version* postgresql-server-dev-${version} \
 
             # install 3rd party extensions
-            && for extension in quantile trimmed_aggregates pg_repack; do \
+            && for extension in quantile trimmed_aggregates; do \
                 pgxn install $extension; \
             done \
+
+            # Install pg_repack
+            && make -C pg_repack-${PG_REPACK_COMMIT} clean install \
 
             # Install pg_rewind on 9.3 and 9.4
             && if [ "$version" = "9.3" ] || [ "$version" = "9.4" ]; then \
@@ -95,7 +106,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && apt-get purge -y ${BUILD_PACKAGES} \
     && apt-get autoremove -y \
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* pg_repack-${PG_REPACK_COMMIT}
 
 ENV PATH=$PATH:/usr/lib/postgresql/${PGVERSION}/bin
 
