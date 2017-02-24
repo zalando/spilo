@@ -60,12 +60,9 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && sed -ri 's/#(create_main_cluster) .*$/\1 = false/' /etc/postgresql-common/createcluster.conf \
 
     # This is a temporary solution of pg_repack problems with UPSERTS
-    # as soon they will merge a PR fixing the problem and release a new version we should switch to pgxn
-    && export PG_REPACK_COMMIT=dfbedb63d92750e4083e6d3e8c5ffdc1a6cd0092 \
+    # as soon they will release a new version we should switch back to pgxn
+    && export PG_REPACK_COMMIT=b329f9e143521077cf55266355d265857ff9a3bf \
     && curl -s -L https://github.com/reorg/pg_repack/archive/$PG_REPACK_COMMIT.tar.gz | tar xz \
-    && cd pg_repack-${PG_REPACK_COMMIT} \
-    && curl -s -L https://patch-diff.githubusercontent.com/raw/reorg/pg_repack/pull/107.diff | patch -p1 \
-    && cd .. \
 
     && for version in ${PGOLDVERSIONS} ${PGVERSION}; do \
             # next two lines are necessary to install exact versions of libpq5 and libpq-dev (to compile extensions)
