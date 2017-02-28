@@ -1,61 +1,117 @@
 FROM ubuntu:14.04
 MAINTAINER Oleksii Kliukin <oleksii.kliukin@zalando.de>
 
-# Install curl, jq, vim, gdb, strace
 RUN export DEBIAN_FRONTEND=noninteractive \
+    && export BUILD_PACKAGES="build-essential dpkg-dev devscripts debhelper fakeroot m4 bc bsdmainutils libcurl4-openssl-dev libpam0g-dev" \
     && apt-get update \
     && echo 'APT::Install-Recommends "0";' > /etc/apt/apt.conf.d/01norecommend \
     && echo 'APT::Install-Suggests "0";' >> /etc/apt/apt.conf.d/01norecommend \
 
     && apt-get upgrade -y \
-    && apt-get install -y curl ca-certificates jq pv vim gdb strace supervisor stunnel realpath \
+    # Install curl, jq, vim, gdb, strace
+    && apt-get install -y curl ca-certificates jq pv vim gdb strace supervisor stunnel realpath ${BUILD_PACKAGES} \
 
     ## Make sure we have a en_US.UTF-8 locale available
     && localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8 \
 
+    # build and install libssl with zlib support enabled
+    && mkdir openssl-build && cd openssl-build \
+    && apt-get source libssl1.0.0 \
+    && cd openssl-1.0.1f \
+    && sed -i 's/ no-zlib / zlib-dynamic /' debian/rules \
+    && sed -i 's/Z_DEFAULT_COMPRESSION/Z_BEST_SPEED/' crypto/comp/c_zlib.c \
+    && debuild -b -uc -us \
+    && cd .. \
+    && dpkg -i libssl1.0.0_1.0.1f-1ubuntu2.22_amd64.deb \
+    && cd .. \
+    && rm -fr openssl-build \
+
+    # install pam_oauth2.so
+    && export PAM_OAUTH_COMMIT=bed1f8d31840d1fda49365921449112a7421b8ca \
+    && export JSMN_COMMIT=1682c32e9ae5990ddd0f0e907270a0f6dde5cbe9 \
+    && curl -s -L https://github.com/zalando-incubator/pam-oauth2/archive/$PAM_OAUTH_COMMIT.tar.gz | tar xz \
+    && cd pam-oauth2-$PAM_OAUTH_COMMIT \
+    && curl -s -L https://github.com/zserge/jsmn/archive/$JSMN_COMMIT.tar.gz | tar xz \
+    && rm -fr jsmn && mv jsmn-$JSMN_COMMIT jsmn \
+    && make install \
+    && cd .. \
+    && rm -fr pam-oauth2-$PAM_OAUTH_COMMIT \
+
     # Clean up
+    && apt-get purge -y ${BUILD_PACKAGES} \
+    && apt-get autoremove -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Add PGDG repositories
-RUN export DISTRIB_CODENAME=$(sed -n 's/DISTRIB_CODENAME=//p' /etc/lsb-release) \
+# Install PostgreSQL
+ENV PGVERSION=9.6 PGOLDVERSIONS="9.3 9.4 9.5"
+RUN export DEBIAN_FRONTEND=noninteractive \
+    && export BUILD_PACKAGES="gcc libc6-dev dpkg-dev make pgxnclient libedit-dev libz-dev libssl-dev libselinux-dev libkrb5-dev libxslt1-dev libxml2-dev libpam0g-dev" \
+
+    # Add PGDG repositories
+    && export DISTRIB_CODENAME=$(sed -n 's/DISTRIB_CODENAME=//p' /etc/lsb-release) \
     && echo "deb http://apt.postgresql.org/pub/repos/apt/ ${DISTRIB_CODENAME}-pgdg main" > /etc/apt/sources.list.d/pgdg.list \
     && echo "deb-src http://apt.postgresql.org/pub/repos/apt/ ${DISTRIB_CODENAME}-pgdg main" >> /etc/apt/sources.list.d/pgdg.list \
-    && curl -s -o - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add -
+    && curl -s -o - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
 
-# Install PostgreSQL
-ENV PGVERSION=9.6 PGOLDVERSIONS="9.5 9.4 9.3"
-RUN export DEBIAN_FRONTEND=noninteractive \
     && apt-get update \
-    && apt-get install -y skytools3-ticker \
+    && apt-get install -y postgresql-common ${BUILD_PACKAGES} \
+    # forbid creation of a main cluster when package is installed
+    && sed -ri 's/#(create_main_cluster) .*$/\1 = false/' /etc/postgresql-common/createcluster.conf \
+
+    # This is a temporary solution of pg_repack problems with UPSERTS
+    # as soon they will release a new version we should switch back to pgxn
+    && export PG_REPACK_COMMIT=b329f9e143521077cf55266355d265857ff9a3bf \
+    && curl -s -L https://github.com/reorg/pg_repack/archive/$PG_REPACK_COMMIT.tar.gz | tar xz \
+
     && for version in ${PGOLDVERSIONS} ${PGVERSION}; do \
+            # next two lines are necessary to install exact versions of libpq5 and libpq-dev (to compile extensions)
+            sed -i "s/ main.*$/ main $version/g" /etc/apt/sources.list.d/pgdg.list \
+            && apt-get update \
+
             # Install PostgreSQL binaries, contrib, pgq, plproxy, pgq and multiple pl's
-            apt-get install -y postgresql-${version} postgresql-${version}-dbg postgresql-client-${version} \
+            && apt-get install -y postgresql-${version} postgresql-${version}-dbg postgresql-client-${version} \
                         postgresql-contrib-${version} postgresql-${version}-plproxy postgresql-${version}-pgq3 \
                         postgresql-${version}-postgis-2.3 postgresql-plpython3-${version} \
                         postgresql-plpython-${version} postgresql-${version}-plr postgresql-pltcl-${version} \
                         postgresql-${version}-plv8 postgresql-${version}-pllua postgresql-plperl-${version} \
-            # Remove the default cluster, which Debian stupidly starts right after installation of the packages
-            && pg_dropcluster --stop ${version} main; \
+                        libpq5=$version* libpq-dev=$version* postgresql-server-dev-${version} \
+
+            # install 3rd party extensions
+            && for extension in quantile trimmed_aggregates; do \
+                pgxn install $extension; \
+            done \
+
+            # Install pg_repack
+            && make -C pg_repack-${PG_REPACK_COMMIT} clean install \
+
+            # Install pg_rewind on 9.3 and 9.4
+            && if [ "$version" = "9.3" ] || [ "$version" = "9.4" ]; then \
+                export REWIND_VER=REL$(echo $version | sed 's/\./_/')_STABLE \
+                && apt-get source postgresql-${version} \
+                && curl -s -L https://github.com/vmware/pg_rewind/archive/${REWIND_VER}.tar.gz | tar xz \
+                && make -C pg_rewind-${REWIND_VER} USE_PGXS=1 top_srcdir=$(ls -d ../postgresql-${version}-*) install \
+                && rm -fr pg_rewind-${REWIND_VER} postgresql-${version}*; \
+            fi \
+
+            && apt-get purge -y libpq-dev=$version* postgresql-server-dev-${version}; \
     done \
 
+    && apt-get install -y skytools3-ticker \
+
     # Clean up
+    && apt-get purge -y ${BUILD_PACKAGES} \
+    && apt-get autoremove -y \
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* pg_repack-${PG_REPACK_COMMIT}
 
 ENV PATH=$PATH:/usr/lib/postgresql/${PGVERSION}/bin
 
-# Install patroni, WAL-e and extensions
-# We do this in one big step to reduce the Docker image size:
-## 1 Install tools required to build
-## 2 Build
-## 3 Remove tools only required for build
+# Install patroni and WAL-e
 ENV PATRONIVERSION=1.2.3
-ENV WALE_VERSION=1.0.2
-ENV PAM_OAUTH_COMMIT=bed1f8d31840d1fda49365921449112a7421b8ca JSMN_COMMIT=1682c32e9ae5990ddd0f0e907270a0f6dde5cbe9
+ENV WALE_VERSION=1.0.3
 RUN export DEBIAN_FRONTEND=noninteractive \
-    export BUILD_PACKAGES="postgresql-server-dev-${PGVERSION} python3-pip python3-dev build-essential pgxnclient libcurl4-openssl-dev libpam0g-dev unzip" \
-    export PGXN_EXTENSIONS="quantile trimmed_aggregates" \
+    export BUILD_PACKAGES="build-essential python3-dev python3-pip libpq-dev libyaml-dev" \
     && apt-get update \
     && apt-get install -y \
             # Required for wal-e
@@ -64,31 +120,13 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             python3 python3-pkg-resources python3-setuptools \
             ${BUILD_PACKAGES} \
 
-    # install pam_oauth2.so
-    && curl -s -L https://github.com/zalando-incubator/pam-oauth2/archive/$PAM_OAUTH_COMMIT.zip > pam-oauth2.zip \
-    && unzip pam-oauth2.zip \
-    && cd pam-oauth2-$PAM_OAUTH_COMMIT \
-    && curl -s -L https://github.com/zserge/jsmn/archive/$JSMN_COMMIT.zip > jsmn.zip \
-    && unzip jsmn.zip \
-    && rm -fr jsmn && mv jsmn-$JSMN_COMMIT jsmn \
-    && make install \
-    && cd .. \
-    && rm -fr pam-oauth2* \
-
-    # install extensions for old postgres versions
-    && export OLD_PATH=$PATH \
-    && for version in ${PGOLDVERSIONS}; do \
-        apt-get install -y postgresql-server-dev-${version} \
-        && export PATH=/usr/lib/postgresql/${version}/bin:$OLD_PATH \
-        && for extension in ${PGXN_EXTENSIONS}; do pgxn install $extension; done \
-        && apt-get purge -y postgresql-server-dev-${version}; \
-    done \
-    && export PATH=$OLD_PATH \
-
     && pip3 install pip --upgrade \
     && pip3 install --upgrade packaging appdirs requests pystache patroni==$PATRONIVERSION \
             gcloud boto wal-e==$WALE_VERSION \
-    && for extension in ${PGXN_EXTENSIONS}; do pgxn install $extension; done \
+
+    # https://github.com/wal-e/wal-e/issues/318
+    && sed -i 's/^\(    for i in range(0,\) num_retries):.*/\1 100):/g' /usr/local/lib/python3.4/dist-packages/boto/utils.py \
+
     # Clean up
     && apt-get purge -y ${BUILD_PACKAGES} \
     && apt-get autoremove -y \
