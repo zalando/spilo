@@ -18,7 +18,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && mkdir openssl-build && cd openssl-build \
     && apt-get source libssl1.0.0 \
     && cd openssl-1.0.1f \
-    && sed -i 's/ no-zlib / zlib-dynamic /' debian/rules \
+    && sed -i 's/ no-zlib / zlib /' debian/rules \
     && sed -i 's/Z_DEFAULT_COMPRESSION/Z_BEST_SPEED/' crypto/comp/c_zlib.c \
     && debuild -b -uc -us \
     && cd .. \
