@@ -119,7 +119,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 
 
 # install etcdctl
-ENV ETCDVERSION 2.3.7
+ENV ETCDVERSION 2.3.8
 RUN curl -L https://github.com/coreos/etcd/releases/download/v${ETCDVERSION}/etcd-v${ETCDVERSION}-linux-amd64.tar.gz \
     | tar xz -C /bin --strip=1 --wildcards --no-anchored etcdctl etcd
 
