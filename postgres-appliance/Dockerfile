@@ -2,51 +2,25 @@ FROM ubuntu:14.04
 MAINTAINER Oleksii Kliukin <oleksii.kliukin@zalando.de>
 
 RUN export DEBIAN_FRONTEND=noninteractive \
-    && export BUILD_PACKAGES="build-essential dpkg-dev devscripts debhelper fakeroot m4 bc bsdmainutils libcurl4-openssl-dev libpam0g-dev" \
     && apt-get update \
     && echo 'APT::Install-Recommends "0";' > /etc/apt/apt.conf.d/01norecommend \
     && echo 'APT::Install-Suggests "0";' >> /etc/apt/apt.conf.d/01norecommend \
 
     && apt-get upgrade -y \
     # Install curl, jq, vim, gdb, strace
-    && apt-get install -y curl ca-certificates jq pv vim gdb strace supervisor stunnel realpath ${BUILD_PACKAGES} \
+    && apt-get install -y curl ca-certificates jq pv vim gdb strace supervisor stunnel realpath \
 
     ## Make sure we have a en_US.UTF-8 locale available
     && localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8 \
 
-    # build and install libssl with zlib support enabled
-    && mkdir openssl-build && cd openssl-build \
-    && apt-get source libssl1.0.0 \
-    && cd openssl-1.0.1f \
-    && sed -i 's/ no-zlib / zlib /' debian/rules \
-    && sed -i 's/Z_DEFAULT_COMPRESSION/Z_BEST_SPEED/' crypto/comp/c_zlib.c \
-    && debuild -b -uc -us \
-    && cd .. \
-    && dpkg -i libssl1.0.0_1.0.1f-1ubuntu2.22_amd64.deb \
-    && cd .. \
-    && rm -fr openssl-build \
-
-    # install pam_oauth2.so
-    && export PAM_OAUTH_COMMIT=bed1f8d31840d1fda49365921449112a7421b8ca \
-    && export JSMN_COMMIT=1682c32e9ae5990ddd0f0e907270a0f6dde5cbe9 \
-    && curl -s -L https://github.com/zalando-incubator/pam-oauth2/archive/$PAM_OAUTH_COMMIT.tar.gz | tar xz \
-    && cd pam-oauth2-$PAM_OAUTH_COMMIT \
-    && curl -s -L https://github.com/zserge/jsmn/archive/$JSMN_COMMIT.tar.gz | tar xz \
-    && rm -fr jsmn && mv jsmn-$JSMN_COMMIT jsmn \
-    && make install \
-    && cd .. \
-    && rm -fr pam-oauth2-$PAM_OAUTH_COMMIT \
-
     # Clean up
-    && apt-get purge -y ${BUILD_PACKAGES} \
-    && apt-get autoremove -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 # Install PostgreSQL
 ENV PGVERSION=9.6 PGOLDVERSIONS="9.3 9.4 9.5"
 RUN export DEBIAN_FRONTEND=noninteractive \
-    && export BUILD_PACKAGES="gcc libc6-dev dpkg-dev make pgxnclient libedit-dev libz-dev libssl-dev libselinux-dev libkrb5-dev libxslt1-dev libxml2-dev libpam0g-dev" \
+    && export BUILD_PACKAGES="gcc libc6-dev dpkg-dev make pgxnclient libedit-dev zlib1g-dev libssl-dev libselinux1-dev libkrb5-dev libxslt1-dev libxml2-dev libpam0g-dev libcurl4-openssl-dev" \
 
     # Add PGDG repositories
     && export DISTRIB_CODENAME=$(sed -n 's/DISTRIB_CODENAME=//p' /etc/lsb-release) \
@@ -99,11 +73,21 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 
     && apt-get install -y skytools3-ticker \
 
+    # install pam_oauth2.so
+    && export PAM_OAUTH_COMMIT=bed1f8d31840d1fda49365921449112a7421b8ca \
+    && export JSMN_COMMIT=1682c32e9ae5990ddd0f0e907270a0f6dde5cbe9 \
+    && curl -s -L https://github.com/zalando-incubator/pam-oauth2/archive/$PAM_OAUTH_COMMIT.tar.gz | tar xz \
+    && cd pam-oauth2-$PAM_OAUTH_COMMIT \
+    && curl -s -L https://github.com/zserge/jsmn/archive/$JSMN_COMMIT.tar.gz | tar xz \
+    && rm -fr jsmn && mv jsmn-$JSMN_COMMIT jsmn \
+    && make install \
+    && cd .. \
+
     # Clean up
     && apt-get purge -y ${BUILD_PACKAGES} \
     && apt-get autoremove -y \
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* pg_repack-${PG_REPACK_COMMIT}
+    && rm -rf /var/lib/apt/lists/* pg_repack-${PG_REPACK_COMMIT} pam-oauth2-$PAM_OAUTH_COMMIT
 
 ENV PATH=$PATH:/usr/lib/postgresql/${PGVERSION}/bin
 
