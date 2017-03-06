@@ -92,7 +92,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 ENV PATH=$PATH:/usr/lib/postgresql/${PGVERSION}/bin
 
 # Install patroni and WAL-e
-ENV PATRONIVERSION=1.2.3
+ENV PATRONIVERSION=1.2.4
 ENV WALE_VERSION=1.0.3
 RUN export DEBIAN_FRONTEND=noninteractive \
     export BUILD_PACKAGES="build-essential python3-dev python3-pip libpq-dev libyaml-dev" \
