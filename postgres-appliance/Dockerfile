@@ -125,7 +125,7 @@ RUN curl -L https://github.com/coreos/etcd/releases/download/v${ETCDVERSION}/etc
 
 
 #install pg_view
-RUN curl -L https://raw.githubusercontent.com/zalando/pg_view/master/pg_view.py \
+RUN curl -L https://raw.githubusercontent.com/zalando/pg_view/2ea99479460d81361bdb7601a1564072ddd584ac/pg_view.py \
     | sed -e 's/env python/env python3/g' > /usr/local/bin/pg_view.py && chmod +x /usr/local/bin/pg_view.py
 
 ENV PGHOME=/home/postgres
