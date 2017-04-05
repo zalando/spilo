@@ -12,7 +12,7 @@ chown -R postgres:postgres "$PGLOG"
 
 if python3 /configure_spilo.py all; then
     (
-        sudo PATH="$PATH" -u postgres /patroni_wait.sh -t 3600 -- /postgres_backup.sh "$WALE_ENV_DIR" "$PGDATA"
+        sudo PATH="$PATH" -u postgres /patroni_wait.sh -t 3600 -- /postgres_backup.sh "$WALE_ENV_DIR" "$PGDATA" "$BACKUP_NUM_TO_RETAIN"
     ) &
 fi
 
