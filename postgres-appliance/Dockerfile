@@ -1,4 +1,4 @@
-FROM ubuntu:14.04
+FROM ubuntu:16.04
 MAINTAINER Oleksii Kliukin <oleksii.kliukin@zalando.de>
 
 RUN export DEBIAN_FRONTEND=noninteractive \
@@ -7,8 +7,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && echo 'APT::Install-Suggests "0";' >> /etc/apt/apt.conf.d/01norecommend \
 
     && apt-get upgrade -y \
-    # Install curl, jq, vim, gdb, strace
-    && apt-get install -y curl ca-certificates jq pv vim gdb strace supervisor stunnel realpath \
+    # Install cron, curl, jq, vim, gdb, strace
+    && apt-get install -y cron curl ca-certificates jq pv vim gdb strace supervisor stunnel \
 
     ## Make sure we have a en_US.UTF-8 locale available
     && localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8 \
@@ -20,7 +20,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 # Install PostgreSQL
 ENV PGVERSION=9.6 PGOLDVERSIONS="9.3 9.4 9.5"
 RUN export DEBIAN_FRONTEND=noninteractive \
-    && export BUILD_PACKAGES="gcc libc6-dev dpkg-dev make pgxnclient libedit-dev zlib1g-dev libssl-dev libselinux1-dev libkrb5-dev libxslt1-dev libxml2-dev libpam0g-dev libcurl4-openssl-dev" \
+    && export BUILD_PACKAGES="gcc libc6-dev dpkg-dev make pgxnclient libedit-dev zlib1g-dev libssl-dev libselinux1-dev libkrb5-dev libxslt1-dev libxml2-dev libpam0g-dev libcurl4-openssl-dev libprotobuf-c-dev liblwgeom-dev pkg-config libproj-dev" \
 
     # Add PGDG repositories
     && export DISTRIB_CODENAME=$(sed -n 's/DISTRIB_CODENAME=//p' /etc/lsb-release) \
@@ -29,13 +29,30 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && curl -s -o - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
 
     && apt-get update \
-    && apt-get install -y postgresql-common ${BUILD_PACKAGES} \
+    && apt-get install -y postgresql-common equivs gcc \
     # forbid creation of a main cluster when package is installed
     && sed -ri 's/#(create_main_cluster) .*$/\1 = false/' /etc/postgresql-common/createcluster.conf \
 
+    # Prepare and install some "fake" packages to avoid installing unnecessary dependencies
+    && mkdir tempdir && cd tempdir \
+    && for p in fontconfig-config libavcodec-ffmpeg56 libavdevice-ffmpeg56 libavformat-ffmpeg56 libavresample-ffmpeg2 \
+                libavutil-ffmpeg54 libblas-common libcairo2 libcoin80v5 libgl1-mesa-dri libpango-1.0-0 \
+                libpangocairo-1.0-0 libpoppler-glib8 libqt4-opengl libqtcore4 libqtgui4 librsvg2-2 libswscale-ffmpeg3 \
+                libx11-data libxft2 libxine2 libxss1 libxt6 mysql-common odbcinst proj-data; do \
+        version=$(apt-cache show $p | sed -n 's/^Version: //p' | sort -rV | head -n 1) \
+        && echo "Section: misc\nPriority: optional\nStandards-Version: 3.9.2\nPackage: $p\nVersion: $version\nDescription: $p" > $p \
+        && equivs-build $p; \
+    done \
+    && dpkg -i *.deb \
+
+    && apt-get install -y libprotobuf-c1 $BUILD_PACKAGES \
+
+    && export DECODEBUFS_VER=0.3.0 \
+    && curl -s -L https://github.com/debezium/postgres-decoderbufs/archive/v$DECODEBUFS_VER.tar.gz | tar xz \
+
     # This is a temporary solution of pg_repack problems with UPSERTS
     # as soon they will release a new version we should switch back to pgxn
-    && export PG_REPACK_COMMIT=b329f9e143521077cf55266355d265857ff9a3bf \
+    && export PG_REPACK_COMMIT=8a73172606f8e9e41e86d643217ca1fbb16776d3 \
     && curl -s -L https://github.com/reorg/pg_repack/archive/$PG_REPACK_COMMIT.tar.gz | tar xz \
 
     && for version in ${PGOLDVERSIONS} ${PGVERSION}; do \
@@ -44,9 +61,9 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             && apt-get update \
 
             # Install PostgreSQL binaries, contrib, pgq, plproxy, pgq and multiple pl's
-            && apt-get install -y postgresql-${version} postgresql-${version}-dbg postgresql-client-${version} \
-                        postgresql-contrib-${version} postgresql-${version}-plproxy postgresql-${version}-pgq3 \
-                        postgresql-${version}-postgis-2.3 postgresql-plpython3-${version} \
+            && apt-get install --allow-downgrades -y postgresql-${version} postgresql-${version}-dbg \
+                        postgresql-client-${version} postgresql-contrib-${version} postgresql-${version}-plproxy \
+                        postgresql-${version}-pgq3 postgresql-${version}-postgis-2.3 postgresql-plpython3-${version} \
                         postgresql-plpython-${version} postgresql-${version}-plr postgresql-pltcl-${version} \
                         postgresql-${version}-plv8 postgresql-${version}-pllua postgresql-plperl-${version} \
                         libpq5=$version* libpq-dev=$version* postgresql-server-dev-${version} \
@@ -56,6 +73,10 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 pgxn install $extension; \
             done \
 
+            && if [ "$version" != "9.3" ]; then \
+                make -C postgres-decoderbufs-$DECODEBUFS_VER clean install; \
+            fi \
+
             # Install pg_repack
             && make -C pg_repack-${PG_REPACK_COMMIT} clean install \
 
@@ -64,7 +85,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 export REWIND_VER=REL$(echo $version | sed 's/\./_/')_STABLE \
                 && apt-get source postgresql-${version} \
                 && curl -s -L https://github.com/vmware/pg_rewind/archive/${REWIND_VER}.tar.gz | tar xz \
-                && make -C pg_rewind-${REWIND_VER} USE_PGXS=1 top_srcdir=$(ls -d ../postgresql-${version}-*) install \
+                && make -C pg_rewind-${REWIND_VER} USE_PGXS=1 top_srcdir=../$(ls -d postgresql-${version}-*) install \
                 && rm -fr pg_rewind-${REWIND_VER} postgresql-${version}*; \
             fi \
 
@@ -81,13 +102,14 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && curl -s -L https://github.com/zserge/jsmn/archive/$JSMN_COMMIT.tar.gz | tar xz \
     && rm -fr jsmn && mv jsmn-$JSMN_COMMIT jsmn \
     && make install \
-    && cd .. \
+    && cd ../.. \
 
     # Clean up
-    && apt-get purge -y ${BUILD_PACKAGES} \
+    && apt-get purge -y equivs fakeroot libfakeroot libmpc3 bsdmainutils libcc1-0 groff-base libunistring0 libmagic1 file ${BUILD_PACKAGES} \
     && apt-get autoremove -y \
+
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* pg_repack-${PG_REPACK_COMMIT} pam-oauth2-$PAM_OAUTH_COMMIT
+    && rm -rf /var/lib/apt/lists/* tempdir
 
 ENV PATH=$PATH:/usr/lib/postgresql/${PGVERSION}/bin
 
@@ -95,21 +117,21 @@ ENV PATH=$PATH:/usr/lib/postgresql/${PGVERSION}/bin
 ENV PATRONIVERSION=1.2.4
 ENV WALE_VERSION=1.0.3
 RUN export DEBIAN_FRONTEND=noninteractive \
-    export BUILD_PACKAGES="build-essential python3-dev python3-pip libpq-dev libyaml-dev" \
+    export BUILD_PACKAGES="python3-pip" \
     && apt-get update \
     && apt-get install -y \
             # Required for wal-e
             daemontools lzop \
             # Required for /usr/local/bin/patroni
-            python3 python3-pkg-resources python3-setuptools \
+            python3 python3-setuptools python3-pystache python3-prettytable python3-six \
             ${BUILD_PACKAGES} \
 
     && pip3 install pip --upgrade \
-    && pip3 install --upgrade packaging appdirs requests pystache patroni==$PATRONIVERSION \
+    && pip3 install --upgrade patroni==$PATRONIVERSION \
             gcloud boto wal-e==$WALE_VERSION \
 
     # https://github.com/wal-e/wal-e/issues/318
-    && sed -i 's/^\(    for i in range(0,\) num_retries):.*/\1 100):/g' /usr/local/lib/python3.4/dist-packages/boto/utils.py \
+    && sed -i 's/^\(    for i in range(0,\) num_retries):.*/\1 100):/g' /usr/local/lib/python3.5/dist-packages/boto/utils.py \
 
     # Clean up
     && apt-get purge -y ${BUILD_PACKAGES} \
