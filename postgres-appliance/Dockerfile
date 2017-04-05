@@ -37,8 +37,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && mkdir tempdir && cd tempdir \
     && for p in fontconfig-config libavcodec-ffmpeg56 libavdevice-ffmpeg56 libavformat-ffmpeg56 libavresample-ffmpeg2 \
                 libavutil-ffmpeg54 libblas-common libcairo2 libcoin80v5 libgl1-mesa-dri libpango-1.0-0 \
-                libpangocairo-1.0-0 libpoppler-glib8 libqt4-opengl libqtcore4 libqtgui4 librsvg2-2 libswscale-ffmpeg3 \
-                libx11-data libxft2 libxine2 libxss1 libxt6 mysql-common odbcinst proj-data; do \
+                libpangocairo-1.0-0 libpoppler-glib8 libqt4-opengl libqtcore4 libqtgui4 librsvg2-2 \
+                ilibswscale-ffmpeg3 libx11-data libxft2 libxine2 libxss1 libxt6 mysql-common odbcinst; do \
         version=$(apt-cache show $p | sed -n 's/^Version: //p' | sort -rV | head -n 1) \
         && echo "Section: misc\nPriority: optional\nStandards-Version: 3.9.2\nPackage: $p\nVersion: $version\nDescription: $p" > $p \
         && equivs-build $p; \
