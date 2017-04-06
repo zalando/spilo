@@ -8,7 +8,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 
     && apt-get upgrade -y \
     # Install cron, curl, jq, vim, gdb, strace
-    && apt-get install -y cron curl ca-certificates jq pv vim gdb strace supervisor stunnel \
+    && apt-get install -y cron curl ca-certificates less jq pv vim gdb strace supervisor stunnel \
 
     ## Make sure we have a en_US.UTF-8 locale available
     && localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8 \
