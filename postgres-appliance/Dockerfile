@@ -47,12 +47,12 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 
     && apt-get install -y libprotobuf-c1 $BUILD_PACKAGES \
 
-    && export DECODEBUFS_VER=0.3.0 \
-    && curl -s -L https://github.com/debezium/postgres-decoderbufs/archive/v$DECODEBUFS_VER.tar.gz | tar xz \
+    && export DECODEBUFS_COMMIT=fbb712f731670b52d79b6ef9cd4df20fa0fab0eb \
+    && curl -s -L https://github.com/CyberDem0n/postgres-decoderbufs/archive/v$DECODEBUFS_COMMIT.tar.gz | tar xz \
 
     # This is a temporary solution of pg_repack problems with UPSERTS
     # as soon they will release a new version we should switch back to pgxn
-    && export PG_REPACK_COMMIT=8a73172606f8e9e41e86d643217ca1fbb16776d3 \
+    && export PG_REPACK_COMMIT=df96f3534551682b1b086e1878c75fdcfcdb63ca \
     && curl -s -L https://github.com/reorg/pg_repack/archive/$PG_REPACK_COMMIT.tar.gz | tar xz \
 
     && for version in ${PGOLDVERSIONS} ${PGVERSION}; do \
@@ -74,7 +74,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             done \
 
             && if [ "$version" != "9.3" ]; then \
-                make -C postgres-decoderbufs-$DECODEBUFS_VER clean install; \
+                make -C postgres-decoderbufs-$DECODEBUFS_COMMIT clean install; \
             fi \
 
             # Install pg_repack
