@@ -52,7 +52,16 @@ CREATE FOREIGN TABLE postgres_log_5 () INHERITS (postgres_log) SERVER pglog
     OPTIONS (filename '../pg_log/postgresql-5.csv', format 'csv', header 'false');
 CREATE FOREIGN TABLE postgres_log_6 () INHERITS (postgres_log) SERVER pglog
     OPTIONS (filename '../pg_log/postgresql-6.csv', format 'csv', header 'false');
+
 GRANT SELECT ON postgres_log TO ADMIN;
+GRANT SELECT ON postgres_log_0 TO ADMIN;
+GRANT SELECT ON postgres_log_1 TO ADMIN;
+GRANT SELECT ON postgres_log_2 TO ADMIN;
+GRANT SELECT ON postgres_log_3 TO ADMIN;
+GRANT SELECT ON postgres_log_4 TO ADMIN;
+GRANT SELECT ON postgres_log_5 TO ADMIN;
+GRANT SELECT ON postgres_log_6 TO ADMIN;
+GRANT SELECT ON postgres_log_7 TO ADMIN;
 
 CREATE LANGUAGE plpythonu;
 \i /_zmon_schema.dump
