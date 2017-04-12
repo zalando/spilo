@@ -63,7 +63,7 @@ def change_pod_role_label(namespace, new_role):
 
 def change_endpoints(namespace, cluster):
     ip = os.environ.get('POD_IP', socket.gethostbyname(socket.gethostname()))
-    body = json.dumps({'subsets': [{'addresses': [{'ip': ip}], 'ports': [{'port': 5432, 'protocol': 'TCP'}]}]})
+    body = json.dumps({'subsets': [{'addresses': [{'ip': ip}], 'ports': [{'name': 'postgresql', 'port': 5432, 'protocol': 'TCP'}]}]})
     api_patch(namespace, 'endpoints', cluster, 'service endpoints', body)
 
 
