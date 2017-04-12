@@ -21,6 +21,7 @@ PROVIDER_GOOGLE = "google"
 PROVIDER_LOCAL = "local"
 PROVIDER_UNSUPPORTED = "unsupported"
 USE_KUBERNETES = os.environ.get('KUBERNETES_SERVICE_HOST') is not None
+MEMORY_LIMIT_IN_BYTES_PATH="/sys/fs/cgroup/memory/memory.max_usage_in_bytes"
 
 
 def parse_args():
@@ -300,7 +301,12 @@ def get_placeholders(provider):
         'envdir "{0}" wal-e --aws-instance-profile wal-push "%p"'.format(placeholders['WALE_ENV_DIR']) \
         if placeholders['USE_WALE'] else '/bin/true'
 
-    os_memory_mb = os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES') / 1024 / 1024
+    if os.path.exists(MEMORY_LIMIT_IN_BYTES_PATH):
+        with open(MEMORY_LIMIT_IN_BYTES_PATH) as f:
+            os_memory_mb = int(f.read()) / 1048576
+    else:
+        os_memory_mb = sys.maxsize
+    os_memory_mb = min(os_memory_mb, os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES') / 1048576)
 
     # # We take 1/4 of the memory, expressed in full MB's
     placeholders['postgresql']['parameters']['shared_buffers'] = '{}MB'.format(int(os_memory_mb/4))
