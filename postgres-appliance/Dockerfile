@@ -48,7 +48,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && apt-get install -y libprotobuf-c1 $BUILD_PACKAGES \
 
     && export DECODEBUFS_COMMIT=fbb712f731670b52d79b6ef9cd4df20fa0fab0eb \
-    && curl -s -L https://github.com/CyberDem0n/postgres-decoderbufs/archive/v$DECODEBUFS_COMMIT.tar.gz | tar xz \
+    && curl -s -L https://github.com/CyberDem0n/postgres-decoderbufs/archive/$DECODEBUFS_COMMIT.tar.gz | tar xz \
 
     # This is a temporary solution of pg_repack problems with UPSERTS
     # as soon they will release a new version we should switch back to pgxn
