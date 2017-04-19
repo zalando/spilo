@@ -10,6 +10,5 @@ steps:
         -t gcr.io/$PROJECT_ID/$REPO_NAME:$BRANCH_NAME \
         ${TAG_NAME:+-t gcr.io/$PROJECT_ID/$REPO_NAME:$TAG_NAME} \
         .
-  ]
 images:
   - 'gcr.io/$PROJECT_ID/$REPO_NAME'
