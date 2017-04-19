@@ -2,7 +2,7 @@ steps:
 - name: 'gcr.io/cloud-builders/docker'
   dir: 'postgres-appliance'
   entrypoint: 'bash'
-  args: [
+  args:
     - '-c'
     - |
       ./build.sh \
