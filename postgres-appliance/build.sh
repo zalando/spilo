@@ -17,7 +17,7 @@ GITAUTHOR=$(git show -s --format="%aN <%aE>" "$REV")
 
 cat > scm-source.json <<__EOT__
 {
-    "url": "$URL",
+    "url": "git:$URL",
     "revision": "$REV",
     "author": "$GITAUTHOR",
     "status": "$STATUS"
