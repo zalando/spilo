@@ -8,7 +8,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 
     && apt-get upgrade -y \
     # Install cron, curl, jq, vim, gdb, strace
-    && apt-get install -y cron curl ca-certificates less jq pv vim gdb sudo strace supervisor stunnel \
+    && apt-get install -y cron curl ca-certificates less locales jq pv vim gdb sudo strace supervisor stunnel \
 
     ## Make sure we have a en_US.UTF-8 locale available
     && localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8 \
@@ -47,8 +47,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 
     && apt-get install -y libprotobuf-c1 $BUILD_PACKAGES \
 
-    && export DECODEBUFS_COMMIT=fbb712f731670b52d79b6ef9cd4df20fa0fab0eb \
-    && curl -s -L https://github.com/CyberDem0n/postgres-decoderbufs/archive/$DECODEBUFS_COMMIT.tar.gz | tar xz \
+    && export DECODEBUFS_COMMIT=d9415fc78fa255d990ea2371720876bebe34ceb9 \
+    && curl -s -L https://github.com/debezium/postgres-decoderbufs/archive/$DECODEBUFS_COMMIT.tar.gz | tar xz \
 
     # This is a temporary solution of pg_repack problems with UPSERTS
     # as soon they will release a new version we should switch back to pgxn
@@ -114,7 +114,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 ENV PATH=$PATH:/usr/lib/postgresql/${PGVERSION}/bin
 
 # Install patroni and WAL-e
-ENV PATRONIVERSION=1.2.4
+ENV PATRONIVERSION=1.2.5
 ENV WALE_VERSION=1.0.3
 RUN export DEBIAN_FRONTEND=noninteractive \
     export BUILD_PACKAGES="python3-pip" \
