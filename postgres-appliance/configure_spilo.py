@@ -188,15 +188,10 @@ postgresql:
     on_restart: {{CALLBACK_SCRIPT}}
     on_role_change: {{CALLBACK_SCRIPT}}
  {{/CALLBACK_SCRIPT}}
+{{#USE_WALE}}
   create_replica_method:
-    {{#USE_WALE}}
     - wal_e
     - basebackup_fast_xlog
-    {{/USE_WALE}}
-    {{^USE_WALE}}
-    - basebackup
-    {{/USE_WALE}}
- {{#USE_WALE}}
   wal_e:
     command: patroni_wale_restore
     envdir: {{WALE_ENV_DIR}}
