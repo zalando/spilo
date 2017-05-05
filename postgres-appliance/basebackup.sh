@@ -28,7 +28,7 @@ done
 [[ -z $DATA_DIR || -z $CONNSTR || ! $RETRIES =~ ^[1-9]$ ]] && exit 1
 
 function receivexlog() {
-    pg_receivexlog --no-loop --directory="${XLOG_FAST}" --dbname="${CONNSTR}" &
+    pg_receivexlog --directory="${XLOG_FAST}" --dbname="${CONNSTR}" &
     receivexlog_pid=$!
 
     # run pg_receivexlog until postgres will not start streaming
