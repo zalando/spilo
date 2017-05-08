@@ -428,8 +428,8 @@ options = NO_SSLv2
 connect = {0}:{1}
 client = yes
 accept = 389
-verify = 3
-CAfile = /etc/stunnel/chain.pem
+verify = 2
+CApath = /etc/ssl/certs
 """.format(host, port)
     write_file(stunnel_config, '/etc/stunnel/ldap.conf', overwrite)
 
