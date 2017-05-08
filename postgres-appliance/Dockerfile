@@ -50,11 +50,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && export DECODEBUFS_COMMIT=d9415fc78fa255d990ea2371720876bebe34ceb9 \
     && curl -s -L https://github.com/debezium/postgres-decoderbufs/archive/$DECODEBUFS_COMMIT.tar.gz | tar xz \
 
-    # This is a temporary solution of pg_repack problems with UPSERTS
-    # as soon they will release a new version we should switch back to pgxn
-    && export PG_REPACK_COMMIT=df96f3534551682b1b086e1878c75fdcfcdb63ca \
-    && curl -s -L https://github.com/reorg/pg_repack/archive/$PG_REPACK_COMMIT.tar.gz | tar xz \
-
     && for version in ${PGOLDVERSIONS} ${PGVERSION}; do \
             # next two lines are necessary to install exact versions of libpq5 and libpq-dev (to compile extensions)
             sed -i "s/ main.*$/ main $version/g" /etc/apt/sources.list.d/pgdg.list \
@@ -69,16 +64,13 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                         libpq5=$version* libpq-dev=$version* postgresql-server-dev-${version} \
 
             # install 3rd party extensions
-            && for extension in quantile trimmed_aggregates; do \
+            && for extension in quantile trimmed_aggregates pg_repack; do \
                 pgxn install $extension; \
             done \
 
             && if [ "$version" != "9.3" ]; then \
                 make -C postgres-decoderbufs-$DECODEBUFS_COMMIT clean install; \
             fi \
-
-            # Install pg_repack
-            && make -C pg_repack-${PG_REPACK_COMMIT} clean install \
 
             # Install pg_rewind on 9.3 and 9.4
             && if [ "$version" = "9.3" ] || [ "$version" = "9.4" ]; then \
