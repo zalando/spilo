@@ -20,7 +20,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 # Install PostgreSQL
 ENV PGVERSION=9.6 PGOLDVERSIONS="9.3 9.4 9.5"
 RUN export DEBIAN_FRONTEND=noninteractive \
-    && export BUILD_PACKAGES="gcc libc6-dev dpkg-dev make pgxnclient libedit-dev zlib1g-dev libssl-dev libselinux1-dev libkrb5-dev libxslt1-dev libxml2-dev libpam0g-dev libcurl4-openssl-dev libprotobuf-c-dev liblwgeom-dev pkg-config libproj-dev" \
+    && export BUILD_PACKAGES="gcc libc6-dev dpkg-dev make pgxnclient libedit-dev zlib1g-dev libssl-dev libselinux1-dev libkrb5-dev libxslt1-dev libxml2-dev libpam0g-dev libcurl4-openssl-dev libprotobuf-c-dev liblwgeom-dev pkg-config libproj-dev libevent-dev" \
 
     # Add PGDG repositories
     && export DISTRIB_CODENAME=$(sed -n 's/DISTRIB_CODENAME=//p' /etc/lsb-release) \
@@ -45,7 +45,11 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     done \
     && dpkg -i *.deb \
 
-    && apt-get install -y libprotobuf-c1 $BUILD_PACKAGES \
+    && apt-get install -y libprotobuf-c1 libevent-2.0 $BUILD_PACKAGES \
+
+    # prepare bg_mon sources
+    && export BG_MON_COMMIT=e89fe5d541088a709dce8bd34709fb5e45165cd8 \
+    && curl -s -L https://github.com/CyberDem0n/bg_mon/archive/$BG_MON_COMMIT.tar.gz | tar xz \
 
     && export DECODEBUFS_COMMIT=d9415fc78fa255d990ea2371720876bebe34ceb9 \
     && curl -s -L https://github.com/debezium/postgres-decoderbufs/archive/$DECODEBUFS_COMMIT.tar.gz | tar xz \
@@ -62,6 +66,9 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                         postgresql-plpython-${version} postgresql-${version}-plr postgresql-pltcl-${version} \
                         postgresql-${version}-plv8 postgresql-${version}-pllua postgresql-plperl-${version} \
                         libpq5=$version* libpq-dev=$version* postgresql-server-dev-${version} \
+
+            # Install bg_mon
+            && make -C bg_mon-${BG_MON_COMMIT} USE_PGXS=1 clean install \
 
             # install 3rd party extensions
             && for extension in quantile trimmed_aggregates pg_repack; do \
@@ -153,7 +160,6 @@ RUN usermod -d $PGHOME -m postgres
 
 ADD scm-source.json configure_spilo.py launch.sh postgres_backup.sh patroni_wait.sh post_init.sh _zmon_schema.dump callback_role.py basebackup.sh wale_restore_command.sh /
 ADD supervisor.d /etc/supervisor/conf.d/
-ADD stunnel.d /etc/stunnel
 ADD pgq_ticker.ini $PGHOME
 ADD motd /etc/
 RUN echo "source /etc/motd" >> /root/.bashrc
