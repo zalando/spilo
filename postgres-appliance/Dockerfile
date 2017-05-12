@@ -48,7 +48,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && apt-get install -y libprotobuf-c1 libevent-2.0 $BUILD_PACKAGES \
 
     # prepare bg_mon sources
-    && export BG_MON_COMMIT=e89fe5d541088a709dce8bd34709fb5e45165cd8 \
+    && export BG_MON_COMMIT=487066980b513a51cb4123d6e3757ec4c7a82247 \
     && curl -s -L https://github.com/CyberDem0n/bg_mon/archive/$BG_MON_COMMIT.tar.gz | tar xz \
 
     && export DECODEBUFS_COMMIT=d9415fc78fa255d990ea2371720876bebe34ceb9 \
