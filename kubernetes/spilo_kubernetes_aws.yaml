@@ -50,7 +50,7 @@ spec:
       serviceAccountName: operator
       containers:
       - name: *cluster_name
-        image: registry.opensource.zalan.do/acid/spilo-9.6:1.2-p17  # put the spilo image here
+        image: registry.opensource.zalan.do/acid/spilo-9.6:1.2-p26  # put the spilo image here
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8008
