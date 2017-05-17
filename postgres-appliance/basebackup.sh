@@ -37,7 +37,8 @@ function receivexlog() {
         kill -0 $receivexlog_pid && sleep 1 || exit
     done
 
-    kill $receivexlog_pid
+    kill $receivexlog_pid && sleep 1
+    rm -f ${XLOG_FAST}/*
 }
 
 ATTEMPT=0
