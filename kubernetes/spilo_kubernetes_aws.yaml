@@ -1,0 +1,155 @@
+apiVersion: apps/v1beta1
+kind: StatefulSet
+metadata:
+  name: &cluster_name zalandodemo01 
+  labels:
+    application: spilo
+    spilo-cluster: *cluster_name
+spec:
+  replicas: 3
+  serviceName: *cluster_name
+  template:
+    metadata:
+      labels:
+        application: spilo
+        spilo-cluster: *cluster_name
+      annotations:
+        # kube2iam should be running in a cluster and
+        # app-spilo role needs to be created in the AWS account
+        # the cluster is running in. It will be used to ship WALs,
+        # and requires access to S3 bucket. See https://github.com/jtblin/kube2iam
+        # for the sts::AssumeRole snippets to build trust relationship
+        # between the kubernetes woker role and the one below.
+        # if you don't use AWS, feel free to remove this annotation.
+        iam.amazonaws.com/role: app-spilo
+        # forces the scheduler not to put pods on the same node.
+        scheduler.alpha.kubernetes.io/affinity: >
+            {
+                "podAntiAffinity": {
+                  "requiredDuringSchedulingIgnoredDuringExecution": [
+                    {
+                        "labelSelector": {
+                          "matchExpressions": [
+                            {
+                              "key": "spilo-cluster",
+                              "operator": "In",
+                              "values": ["zalandodemo01"]
+                            }
+                          ]
+                         },
+                         "topologyKey": "kubernetes.io/hostname" 
+                    }
+                  ]
+                 }
+            }
+    spec:
+      # service account that allows changing endpoints and assigning pod labels
+      # in the given namespace: https://kubernetes.io/docs/user-guide/service-accounts/
+      # not required unless you've changed the default service account in the namespace
+      # used to deploy Spilo
+      serviceAccountName: operator
+      containers:
+      - name: *cluster_name
+        image: registry.opensource.zalan.do/acid/spilo-9.6:1.2-p26  # put the spilo image here
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8008
+          protocol: TCP
+        - containerPort: 5432
+          protocol: TCP
+        volumeMounts:
+        - mountPath: /home/postgres/pgdata
+          name: pgdata
+        env:
+        - name: ETCD_HOST
+          value: 'test-etcd.default.svc.cluster.local:2379' # where is your etcd?
+        - name: WAL_S3_BUCKET
+          value: example-spilo-dbaas
+        - name: BACKUP_SCHEDULE
+          value: "00 01 * * *"
+        - name: PATRONI_CONFIGURATION
+          value: | ## https://github.com/zalando/patroni#yaml-configuration
+            bootstrap:
+              pg_hba:
+                - hostnossl all all all reject
+                - hostssl   all all all md5
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: status.podIP
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: PGPASSWORD_SUPERUSER
+          valueFrom:
+            secretKeyRef:
+              name: *cluster_name
+              key: superuser-password
+        - name: PGPASSWORD_ADMIN
+          valueFrom:
+            secretKeyRef:
+              name: *cluster_name
+              key: admin-password
+        - name: PGPASSWORD_STANDBY
+          valueFrom:
+            secretKeyRef:
+              name: *cluster_name
+              key: replication-password
+        - name: SCOPE
+          value: *cluster_name
+        - name: PGROOT
+          value: /home/postgres/pgdata/pgroot
+  volumeClaimTemplates:
+  - metadata:
+      labels:
+        application: spilo
+        spilo-cluster: *cluster_name
+      annotations:
+        volume.beta.kubernetes.io/storage-class: standard
+      name: pgdata
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 10Gi
+
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: &cluster_name zalandodemo01
+  labels:
+    application: *cluster_name
+subsets: []
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: &cluster_name zalandodemo01
+  labels:
+    application: spilo
+    spilo-cluster: *cluster_name
+spec:
+  type: ClusterIP
+  ports:
+  - port: 5432
+    targetPort: 5432
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: &cluster_name zalandodemo01
+  labels:
+    application: spilo
+    spilo-cluster: *cluster_name
+type: Opaque
+data:
+  superuser-password: emFsYW5kbw==
+  replication-password: cmVwLXBhc3M=
+  admin-password: YWRtaW4=
