@@ -135,7 +135,6 @@ bootstrap:
         log_disconnections: 'on'
         log_statement: 'ddl'
         log_temp_files: 0
-        shared_preload_libraries: pg_stat_statements
         track_functions: all
         checkpoint_completion_target: 0.9
         autovacuum_max_workers: 5
@@ -170,6 +169,8 @@ postgresql:
     ssl: 'on'
     ssl_cert_file: {{SSL_CERTIFICATE_FILE}}
     ssl_key_file: {{SSL_PRIVATE_KEY_FILE}}
+    shared_preload_libraries: 'bg_mon,pg_stat_statements'
+    bg_mon.listen_address: '0.0.0.0'
   {{#USE_WALE}}
   recovery_conf:
     restore_command: envdir "{{WALE_ENV_DIR}}" /wale_restore_command.sh "%f" "%p"
