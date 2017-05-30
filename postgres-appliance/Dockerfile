@@ -48,7 +48,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && apt-get install -y libprotobuf-c1 libevent-2.0 $BUILD_PACKAGES \
 
     # prepare bg_mon sources
-    && export BG_MON_COMMIT=ca99fac2fa9aed6284da481ccdb5395ccfa1fd6a \
+    && export BG_MON_COMMIT=9fc9427adef48d44adcd4070b05eea8e32f2a0e7 \
     && curl -s -L https://github.com/CyberDem0n/bg_mon/archive/$BG_MON_COMMIT.tar.gz | tar xz \
 
     && export DECODEBUFS_COMMIT=d9415fc78fa255d990ea2371720876bebe34ceb9 \
@@ -169,6 +169,6 @@ RUN chmod 700 /postgres_*
 ENV ETCD_DISCOVERY_DOMAIN=postgres.acid.example.com LC_ALL=en_US.utf-8
 
 WORKDIR $PGHOME
-EXPOSE 5432 8008
+EXPOSE 5432 8008 8080
 RUN chown -R postgres:postgres /postgres_* $PGHOME
 CMD ["/bin/bash", "/launch.sh"]
