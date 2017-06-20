@@ -186,7 +186,6 @@ postgresql:
   callbacks:
     on_start: {{CALLBACK_SCRIPT}}
     on_stop: {{CALLBACK_SCRIPT}}
-    on_restart: {{CALLBACK_SCRIPT}}
     on_role_change: {{CALLBACK_SCRIPT}}
  {{/CALLBACK_SCRIPT}}
 {{#USE_WALE}}
