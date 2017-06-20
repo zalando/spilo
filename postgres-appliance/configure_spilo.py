@@ -186,9 +186,6 @@ postgresql:
   callbacks:
     on_start: {{CALLBACK_SCRIPT}}
     on_stop: {{CALLBACK_SCRIPT}}
-    {{#CALLBACK_RESTART_SCRIPT}}
-    on_restart: {{CALLBACK_RESTART_SCRIPT}}
-    {{/CALLBACK_RESTART_SCRIPT}}
     on_role_change: {{CALLBACK_SCRIPT}}
  {{/CALLBACK_SCRIPT}}
 {{#USE_WALE}}
@@ -279,7 +276,6 @@ def get_placeholders(provider):
     placeholders.setdefault('WALE_ENV_DIR', os.path.join(placeholders['PGHOME'], 'etc', 'wal-e.d', 'env'))
     placeholders.setdefault('USE_WALE', False)
     placeholders.setdefault('CALLBACK_SCRIPT', '')
-    placeholders.setdefault('CALLBACK_RESTART_SCRIPT', '')
 
     if provider == PROVIDER_AWS:
         if 'WAL_S3_BUCKET' in placeholders:
@@ -292,7 +288,7 @@ def get_placeholders(provider):
 
     # Kubernetes requires a callback to change the labels in order to point to the new master
     if USE_KUBERNETES:
-        placeholders['CALLBACK_SCRIPT'] = placeholders['CALLBACK_RESTART_SCRIPT'] = '/callback_role.py'
+        placeholders['CALLBACK_SCRIPT'] = '/callback_role.py'
 
     placeholders.setdefault('postgresql', {})
     placeholders['postgresql'].setdefault('parameters', {})
