@@ -20,7 +20,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 # Install PostgreSQL
 ENV PGVERSION=9.6 PGOLDVERSIONS="9.3 9.4 9.5"
 RUN export DEBIAN_FRONTEND=noninteractive \
-    && export BUILD_PACKAGES="gcc libc6-dev dpkg-dev make pgxnclient libedit-dev zlib1g-dev libssl-dev libselinux1-dev libkrb5-dev libxslt1-dev libxml2-dev libpam0g-dev libcurl4-openssl-dev libprotobuf-c-dev liblwgeom-dev pkg-config libproj-dev libevent-dev" \
+    && export BUILD_PACKAGES="devscripts build-essential pgxnclient libedit-dev zlib1g-dev libssl-dev libselinux1-dev libkrb5-dev libxslt1-dev libxml2-dev libpam0g-dev libcurl4-openssl-dev libprotobuf-c-dev liblwgeom-dev pkg-config libproj-dev libevent-dev" \
 
     # Add PGDG repositories
     && export DISTRIB_CODENAME=$(sed -n 's/DISTRIB_CODENAME=//p' /etc/lsb-release) \
@@ -92,6 +92,15 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     done \
 
     && apt-get install -y skytools3-ticker \
+
+    # patch, build and install pgbouncer
+    && mkdir pgbouncer && cd pgbouncer \
+    && apt-get source pgbouncer \
+    && cd $(ls -d pgbouncer-*) \
+    && curl -sL https://github.com/pgbouncer/pgbouncer/pull/127.diff | patch -p1 \
+    && debuild -b -uc -us \
+    && dpkg -i ../pgbouncer_*.deb \
+    && cd ../.. \
 
     # install pam_oauth2.so
     && export PAM_OAUTH_COMMIT=bed1f8d31840d1fda49365921449112a7421b8ca \
