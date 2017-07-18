@@ -81,6 +81,7 @@ fi
 
 if [[ -z $AWS_REGION ]]; then
     echo AWS_REGION is unknown
+    exit 1
 fi
 
 if [[ -z $S3_HOST ]]; then
