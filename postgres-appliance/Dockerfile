@@ -48,10 +48,10 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && apt-get install -y libprotobuf-c1 libevent-2.0 $BUILD_PACKAGES \
 
     # prepare bg_mon sources
-    && export BG_MON_COMMIT=9fc9427adef48d44adcd4070b05eea8e32f2a0e7 \
+    && export BG_MON_COMMIT=796690f2bee2778321a45233fe4012fc06b75f02 \
     && curl -s -L https://github.com/CyberDem0n/bg_mon/archive/$BG_MON_COMMIT.tar.gz | tar xz \
 
-    && export DECODEBUFS_COMMIT=d9415fc78fa255d990ea2371720876bebe34ceb9 \
+    && export DECODEBUFS_COMMIT=d08a75593c68897600e10f5250133337624bcf63 \
     && curl -s -L https://github.com/debezium/postgres-decoderbufs/archive/$DECODEBUFS_COMMIT.tar.gz | tar xz \
 
     && for version in ${PGOLDVERSIONS} ${PGVERSION}; do \
@@ -167,7 +167,7 @@ ENV WALE_ENV_DIR=$PGHOME/etc/wal-e.d/env
 # Set PGHOME as a login directory for the PostgreSQL user.
 RUN usermod -d $PGHOME -m postgres
 
-ADD scm-source.json configure_spilo.py launch.sh postgres_backup.sh patroni_wait.sh post_init.sh _zmon_schema.dump callback_role.py basebackup.sh wale_restore_command.sh wal-e-wal-fetch.sh /
+ADD scm-source.json configure_spilo.py launch.sh postgres_backup.sh patroni_wait.sh post_init.sh _zmon_schema.dump callback_role.py basebackup.sh wale_restore_command.sh wal-e-wal-fetch.sh callback_aws.py /
 ADD supervisor.d /etc/supervisor/conf.d/
 ADD pgq_ticker.ini $PGHOME
 ADD motd /etc/
