@@ -25,7 +25,7 @@ MEMORY_LIMIT_IN_BYTES_PATH = '/sys/fs/cgroup/memory/memory.limit_in_bytes'
 
 
 def parse_args():
-    sections = ['all', 'patroni', 'patronictl', 'certificate', 'wal-e', 'crontab', 'ldap', 'pam-oauth2']
+    sections = ['all', 'patroni', 'patronictl', 'certificate', 'wal-e', 'crontab', 'ldap', 'pam-oauth2', 'pgbouncer']
     argp = argparse.ArgumentParser(description='Configures Spilo',
                                    epilog="Choose from the following sections:\n\t{}".format('\n\t'.join(sections)),
                                    formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -466,6 +466,31 @@ def write_pam_oauth2_configuration(placeholders, overwrite):
     write_file(pam_oauth2_config, '/etc/pam.d/postgresql', overwrite)
 
 
+def write_pgbouncer_configuration(placeholders, overwrite):
+    pgbouncer_config = placeholders.get('PGBOUNCER_CONFIGURATION')
+    if not pgbouncer_config:
+        return logging.info('No PGBOUNCER_CONFIGURATION was specified, skipping')
+
+    write_file(pgbouncer_config, '/etc/pgbouncer/pgbouncer.ini', overwrite)
+
+    pgbouncer_auth = placeholders.get('PGBOUNCER_AUTHENTICATION') or placeholders.get('PGBOUNCER_AUTH')
+    if pgbouncer_auth:
+        write_file(pgbouncer_auth, '/etc/pgbouncer/userlist.txt', overwrite)
+
+    supervisord_config = """\
+[program:pgbouncer]
+user=postgres
+autostart=1
+priority=500
+directory=/
+command=env -i /usr/sbin/pgbouncer -d /etc/pgbouncer/pgbouncer.ini
+stdout_logfile=/dev/stdout
+stdout_logfile_maxbytes=0
+redirect_stderr=true
+"""
+    write_file(supervisord_config, '/etc/supervisor/conf.d/pgbouncer.conf', overwrite)
+
+
 def main():
     debug = os.environ.get('DEBUG', '') in ['1', 'true', 'on', 'ON']
     args = parse_args()
@@ -520,6 +545,8 @@ def main():
             write_ldap_configuration(placeholders, args['force'])
         elif section == 'pam-oauth2':
             write_pam_oauth2_configuration(placeholders, args['force'])
+        elif section == 'pgbouncer':
+            write_pgbouncer_configuration(placeholders, args['force'])
         else:
             raise Exception('Unknown section: {}'.format(section))
 
