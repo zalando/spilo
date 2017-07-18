@@ -7,12 +7,18 @@ readonly xlog_destination=$2
 
 readonly xlog_dir=$(dirname $xlog_destination)
 readonly xlog_fast_source=$(dirname $(dirname $(realpath $xlog_dir)))/xlog_fast/$xlog_filename
-readonly wale_prefetch_source=${xlog_dir}/.wal-e/prefetch/${xlog_filename}
 
-if [[ -f $xlog_fast_source ]]; then
-    exec mv "${xlog_fast_source}" "${xlog_destination}"
-elif [[ -f $wale_prefetch_source ]]; then
-    exec mv "${wale_prefetch_source}" "${xlog_destination}"
+[[ -f $xlog_fast_source ]] && exec mv "${xlog_fast_source}" "${xlog_destination}"
+
+POOL_SIZE=$(($(nproc)-1))
+
+if [[ -z $WALE_S3_PREFIX ]]; then  # non AWS environment?
+    readonly wale_prefetch_source=${xlog_dir}/.wal-e/prefetch/${xlog_filename}
+    if [[ -f $wale_prefetch_source ]]; then
+        exec mv "${wale_prefetch_source}" "${xlog_destination}"
+    else
+        exec wal-e wal-fetch -p $POOL_SIZE "${xlog_filename}" "${xlog_destination}"
+    fi
 else
-    exec wal-e --aws-instance-profile wal-fetch "${xlog_filename}" "${xlog_destination}"
+    exec /wal-e-wal-fetch.sh --aws-instance-profile wal-fetch -p $POOL_SIZE "${xlog_filename}" "${xlog_destination}"
 fi
