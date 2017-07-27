@@ -282,7 +282,7 @@ def get_placeholders(provider):
             placeholders['USE_WALE'] = True
         if not USE_KUBERNETES:  # AWS specific callback to tag the instances with roles
             if placeholders.get('EIP_ALLOCATION'):
-                placeholders['CALLBACK_SCRIPT'] = '/callback_aws.py {0}'.format(placeholders['EIP_ALLOCATION'])
+                placeholders['CALLBACK_SCRIPT'] = 'python3 /callback_aws.py {0}'.format(placeholders['EIP_ALLOCATION'])
             else:
                 placeholders['CALLBACK_SCRIPT'] = 'patroni_aws'
     elif provider == PROVIDER_GOOGLE and 'WAL_GCS_BUCKET' in placeholders:
