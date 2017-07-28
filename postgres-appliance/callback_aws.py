@@ -1,14 +1,10 @@
 #!/usr/bin/env python
 
-import boto3
+import boto.ec2
+import boto.utils
 import logging
-import requests
 import sys
 import time
-
-from botocore.exceptions import ClientError
-from requests.exceptions import RequestException
-
 
 logger = logging.getLogger(__name__)
 
@@ -19,47 +15,39 @@ def retry(func):
         while True:
             try:
                 return func(*args, **kwargs)
-            except ClientError as e:
-                if not (e.response['Error']['Code'] == 'Throttling' or 'RequestLimitExceeded' in str(e)):
+            except boto.exception.BotoServerError as e:
+                if count >= 10 or str(e.error_code) not in ('Throttling', 'RequestLimitExceeded'):
                     raise
                 logger.info('Throttling AWS API requests...')
-            except RequestException:
-                logger.exception('Exception when running %s', func)
+                time.sleep(2 ** count * 0.5)
+                count += 1
 
-            if count >= 10:
-                break
-            time.sleep(2 ** count * 0.5)
-            count += 1
     return wrapped
 
 
-@retry
 def get_instance_metadata():
-    response = requests.get('http://169.254.169.254/latest/dynamic/instance-identity/document')
-    return response.json() if response.ok else {}
+    return boto.utils.get_instance_identity()['document']
 
 
 @retry
 def associate_address(ec2, allocation_id, instance_id):
-    return ec2.associate_address(AllocationId=allocation_id, InstanceId=instance_id, AllowReassociation=True)
+    return ec2.associate_address(instance_id=instance_id, allocation_id=allocation_id, allow_reassociation=True)
 
 
 @retry
 def tag_instance(ec2, instance_id, tags):
-    return ec2.create_tags(Resources=[instance_id], Tags=tags)
+    return ec2.create_tags([instance_id], tags)
 
 
 @retry
 def list_volumes(ec2, instance_id):
-    paginator = ec2.get_paginator('describe_volumes')
-    for record_set in paginator.paginate(Filters=[{'Name': 'attachment.instance-id', 'Values': [instance_id]}]):
-        for volume in record_set['Volumes']:
-            yield volume['VolumeId']
+    volumes = ec2.get_all_volumes(filters={'attachment.instance-id': instance_id})
+    return [v.id for v in volumes]
 
 
 @retry
-def tag_volumes(ec2, instance_id, tags):
-    return ec2.create_tags(Resources=list(list_volumes(ec2, instance_id)), Tags=tags)
+def tag_volumes(ec2, volumes, tags):
+    return ec2.create_tags(volumes, tags)
 
 
 def main():
@@ -73,16 +61,17 @@ def main():
 
     instance_id = metadata['instanceId']
 
-    ec2 = boto3.client('ec2', region_name=metadata['region'])
+    ec2 = boto.ec2.connect_to_region(metadata['region'])
 
     if role == 'master' and action in ('on_start', 'on_role_change'):
         associate_address(ec2, sys.argv[1], instance_id)
 
-    tags = [{'Key': 'Role', 'Value': role}]
+    tags = {'Role': role}
     tag_instance(ec2, instance_id, tags)
 
-    tags += [{'Key': 'Instance', 'Value': instance_id}, {'Key': 'Name', 'Value': 'spilo_' + cluster}]
-    tag_volumes(ec2, instance_id, tags)
+    tags.update({'Instance': instance_id, 'Name': 'spilo_' + cluster})
+    volumes = list_volumes(ec2, instance_id)
+    tag_volumes(ec2, volumes, tags)
 
 
 if __name__ == '__main__':
