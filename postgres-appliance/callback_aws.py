@@ -35,19 +35,18 @@ def associate_address(ec2, allocation_id, instance_id):
 
 
 @retry
-def tag_instance(ec2, instance_id, tags):
-    return ec2.create_tags([instance_id], tags)
+def tag_resource(ec2, resource_id, tags):
+    return ec2.create_tags([resource_id], tags)
 
 
 @retry
 def list_volumes(ec2, instance_id):
-    volumes = ec2.get_all_volumes(filters={'attachment.instance-id': instance_id})
-    return [v.id for v in volumes]
+    return ec2.get_all_volumes(filters={'attachment.instance-id': instance_id})
 
 
 @retry
-def tag_volumes(ec2, volumes, tags):
-    return ec2.create_tags(volumes, tags)
+def get_instance(ec2, instance_id):
+    return ec2.get_only_instances([instance_id])[0]
 
 
 def main():
@@ -63,15 +62,28 @@ def main():
 
     ec2 = boto.ec2.connect_to_region(metadata['region'])
 
+    instance = get_instance(ec2, instance_id)
+
     if role == 'master' and action in ('on_start', 'on_role_change'):
         associate_address(ec2, sys.argv[1], instance_id)
 
     tags = {'Role': role}
-    tag_instance(ec2, instance_id, tags)
+    tag_resource(ec2, instance_id, tags)
 
-    tags.update({'Instance': instance_id, 'Name': 'spilo_' + cluster})
+    tags.update({'Instance': instance_id})
+
     volumes = list_volumes(ec2, instance_id)
-    tag_volumes(ec2, volumes, tags)
+    for v in volumes:
+        if 'Name' in v.tags:
+            tags_to_update = tags
+        else:
+            if v.attach_data.device == instance.root_device_name:
+                volume_device = 'root'
+            else:
+                volume_device = 'data'
+            tags_to_update = dict(tags, Name='spilo_{}_{}'.format(cluster, volume_device))
+
+        tag_resource(ec2, v.id, tags_to_update)
 
 
 if __name__ == '__main__':
