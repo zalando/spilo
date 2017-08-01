@@ -44,6 +44,11 @@ def list_volumes(ec2, instance_id):
     return ec2.get_all_volumes(filters={'attachment.instance-id': instance_id})
 
 
+@retry
+def get_instance(ec2, instance_id):
+    return ec2.get_only_instances([instance_id])[0]
+
+
 def main():
     logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', level=logging.INFO)
     if len(sys.argv) != 5 or sys.argv[2] not in ('on_start', 'on_stop', 'on_role_change'):
@@ -57,6 +62,8 @@ def main():
 
     ec2 = boto.ec2.connect_to_region(metadata['region'])
 
+    instance = get_instance(ec2, instance_id)
+
     if role == 'master' and action in ('on_start', 'on_role_change'):
         associate_address(ec2, sys.argv[1], instance_id)
 
@@ -64,11 +71,18 @@ def main():
     tag_resource(ec2, instance_id, tags)
 
     tags.update({'Instance': instance_id})
-    name_tag = 'spilo_' + cluster
 
     volumes = list_volumes(ec2, instance_id)
     for v in volumes:
-        tags_to_update = tags if 'Name' in v.tags else dict(tags, Name=name_tag)
+        if 'Name' in v.tags:
+            tags_to_update = tags
+        else:
+            if v.attach_data.device == instance.root_device_name:
+                volume_device = 'root'
+            else:
+                volume_device = 'data'
+            tags_to_update = dict(tags, Name='spilo_{}_{}'.format(cluster, volume_device))
+
         tag_resource(ec2, v.id, tags_to_update)
 
 
