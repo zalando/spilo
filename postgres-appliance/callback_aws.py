@@ -35,19 +35,13 @@ def associate_address(ec2, allocation_id, instance_id):
 
 
 @retry
-def tag_instance(ec2, instance_id, tags):
-    return ec2.create_tags([instance_id], tags)
+def tag_resource(ec2, resource_id, tags):
+    return ec2.create_tags([resource_id], tags)
 
 
 @retry
 def list_volumes(ec2, instance_id):
-    volumes = ec2.get_all_volumes(filters={'attachment.instance-id': instance_id})
-    return [v.id for v in volumes]
-
-
-@retry
-def tag_volumes(ec2, volumes, tags):
-    return ec2.create_tags(volumes, tags)
+    return ec2.get_all_volumes(filters={'attachment.instance-id': instance_id})
 
 
 def main():
@@ -67,11 +61,15 @@ def main():
         associate_address(ec2, sys.argv[1], instance_id)
 
     tags = {'Role': role}
-    tag_instance(ec2, instance_id, tags)
+    tag_resource(ec2, instance_id, tags)
 
-    tags.update({'Instance': instance_id, 'Name': 'spilo_' + cluster})
+    tags.update({'Instance': instance_id})
+    name_tag = 'spilo_' + cluster
+
     volumes = list_volumes(ec2, instance_id)
-    tag_volumes(ec2, volumes, tags)
+    for v in volumes:
+        tags_to_update = tags if 'Name' in v.tags else dict(tags, Name=name_tag)
+        tag_resource(ec2, v.id, tags_to_update)
 
 
 if __name__ == '__main__':
