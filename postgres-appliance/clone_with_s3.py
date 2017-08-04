@@ -24,11 +24,13 @@ def read_configuration():
                         help='find a matching backup and build the wal-e command to fetch that backup without running it')
     args = parser.parse_args()
 
-    options = namedtuple('Options', 'datadir wale_envdir')
+    options = namedtuple('Options', 'name datadir wale_envdir recovery_target_time dry_run')
     if args.recovery_target_time_string:
         recovery_target_time = parse(args.recovery_target_time_string)
         if recovery_target_time.tzinfo is None:
             raise Exception("recovery target time must contain a timezone")
+    else:
+        recovery_target_time = None
 
     result=options(name=args.scope, datadir=args.datadir,
                    wale_envdir=args.wale_envdir,
@@ -56,6 +58,7 @@ def choose_backup(output, t):
     backup_list = list(reader)
     if len(backup_list) <= 0:
         raise Exception("wal-e could not found any backups")
+    match = None
     for i, backup in enumerate(backup_list):
         last_modified = parse(backup['last_modified'])
         if last_modified < t:
@@ -70,7 +73,7 @@ def run_clone_from_s3(options):
     backup_name = 'LATEST'
     if options.recovery_target_time:
         backup_list_cmd = build_wale_command(options.wale_envdir, 'backup-list')
-        backup_list = subprocess.call(backup_list_cmd)
+        backup_list = subprocess.check_output(backup_list_cmd)
         backup_name = choose_backup(backup_list, options.recovery_target_time)
     backup_fetch_cmd = build_wale_command(options.wale_envdir, 'backup-fetch', datadir=options.datadir, backup=backup_name)
     logger.info("cloning cluster {0} using {1}".format(options.name, ' '.join(backup_fetch_cmd)))
