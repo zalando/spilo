@@ -172,7 +172,7 @@ ADD supervisor.d /etc/supervisor/conf.d/
 ADD pgq_ticker.ini $PGHOME
 ADD motd /etc/
 RUN echo "source /etc/motd" >> /root/.bashrc
-RUN echo "export TERM=linux\nexport LC_ALL=C.UTF-8\nexport LANG=C.UTF-8" >> /etc/bash.bashrc
+RUN echo "export TERM=linux\nexport LC_ALL=C.UTF-8\nexport LANG=C.UTF-8\nexport EDITOR=vim" >> /etc/bash.bashrc
 RUN chmod 700 /postgres_*
 
 ENV ETCD_DISCOVERY_DOMAIN=postgres.acid.example.com LC_ALL=en_US.utf-8
