@@ -22,13 +22,56 @@ def read_configuration():
     result=options(name=args.scope, datadir=args.datadir, bindir=args.bindir, pgpassfile=args.from_pgpass)
     return result
 
-def parse_pgpass(pgpassfile):
+def parse_pgpass_file(pgpassfile):
     with open(pgpassfile, 'r') as f:
         line = f.readline()
-        fields = line.strip().split(':')
-        if len(fields) != 5:
-            raise Exception("pgpass file must be in a format 'hostname:port:database:username:password'")
-        return namedtuple('pgpass', 'host port dbname user')._make(fields[:4])
+        return parse_pgpass_line(line)
+
+
+def parse_pgpass_line(line):
+    """ parses a single pgpass line and returns a connection string (without the password)
+
+        >>> parse_pgpass_line('127.0.0.1:5432:db:user:pass')
+        pgpass(host='127.0.0.1', port='5432', dbname='db', user='user')
+        >>> parse_pgpass_line('\:\:1:5432:"ba\\\\\\\\z":qiz:foo')
+        pgpass(host='::1', port='5432', dbname='"ba\\\\z"', user='qiz')
+        >>> parse_pgpass_line('127.0.0.1:1234:db:user:')
+        Traceback (most recent call last):
+            ...
+        Exception: pgpass file contains an empty field
+        >>> parse_pgpass_line('127\.0.0.1:1234:db:user:')
+        Traceback (most recent call last):
+            ...
+        Exception: pgpass file has unescaped '\\' character
+    """
+
+    fields = []
+    escape = False
+    current = []
+    for c in line:
+        if c == ':' and not escape:
+            if len(current) == 0:
+                raise Exception("pgpass file contains an empty field")
+            fields.append(''.join(current))
+            current = []
+            continue
+        if c == '\\' and not escape:
+            escape = True
+            continue
+        if escape:
+            if c not in (':', '\\'):
+                raise Exception("pgpass file has unescaped '\\' character")
+            escape = False
+        current.append(c)
+    # process the last field in line
+    if escape:
+        raise Exception("pgpass file has unescaped '\\' character")
+    if len(current) == 0:
+        raise Exception("pgpass file contains an empty field")
+    fields.append(''.join(current))
+    if len(fields) != 5:
+        raise Exception("pgpass file must be in a format 'hostname:port:database:username:password'")
+    return namedtuple('pgpass', 'host port dbname user')._make(fields[:4])
 
 def escape_value(val):
     quote = False
@@ -43,7 +86,7 @@ def escape_value(val):
     return result if not quote else '\'{0}\''.format(result)
 
 def prepare_connection(options):
-    pgpass = parse_pgpass(options.pgpassfile)
+    pgpass = parse_pgpass_file(options.pgpassfile)
     connection = []
     for attname in ('host', 'port', 'user', 'dbname'):
         attvalue = getattr(pgpass, attname)

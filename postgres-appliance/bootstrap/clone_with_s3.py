@@ -14,7 +14,7 @@ def read_configuration():
     parser = argparse.ArgumentParser(description="Script to clone from S3 with support for point-in-time-recovery")
     parser.add_argument('--scope', required=True, help='target cluster name')
     parser.add_argument('--datadir', required=True, help='target cluster postgres data directory')
-    parser.add_argument('--wale-envdir', required=True,
+    parser.add_argument('--envdir', required=True,
                         help='path to the pgpass file containing credentials for the instance to be cloned')
     parser.add_argument('--recovery-target-time',
                         help='the time stamp up to which recovery will proceed (including time zone)',
