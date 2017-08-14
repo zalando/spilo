@@ -152,6 +152,7 @@ restapi:
   listen: 0.0.0.0:{{APIPORT}}
   connect_address: {{instance_data.ip}}:{{APIPORT}}
 postgresql:
+  use_unix_socket: true
   name: '{{instance_data.id}}'
   scope: *scope
   listen: 0.0.0.0:{{PGPORT}}
