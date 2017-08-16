@@ -13,7 +13,7 @@ def read_configuration():
     parser = argparse.ArgumentParser(description="Script to clone from another cluster using pg_basebackup")
     parser.add_argument('--scope', required=True, help='target cluster name')
     parser.add_argument('--datadir', required=True, help='target cluster postgres data directory')
-    parser.add_argument('--bindir', required=True, help='the directory with pg_basebackup')
+    parser.add_argument('--bindir', default='', help='the directory with pg_basebackup')
     parser.add_argument('--from-pgpass', required=True, help='path to the pgpass file containing credentials for the instance to be cloned')
     args = parser.parse_args()
 
