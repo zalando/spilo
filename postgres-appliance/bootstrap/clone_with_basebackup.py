@@ -99,7 +99,7 @@ def run_basebackup(options):
     pg_basebackup = os.path.join(options.bindir, 'pg_basebackup')
     try:
         connstr, env = prepare_connection(options)
-        logger.info("cloning cluster {0} using \"{1}\"".format(options.name, connstr))
+        logger.info("cloning cluster {0} from \"{1}\"".format(options.name, connstr))
         ret = subprocess.call([pg_basebackup, '--pgdata={0}'.format(options.datadir), '-X', 'stream', '--dbname={0}'.format(connstr), '-w'], env=env)
         if ret != 0:
             raise Exception("pg_basebackup exited with code={0}".format(ret))
