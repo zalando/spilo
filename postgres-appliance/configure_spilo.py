@@ -197,10 +197,10 @@ postgresql:
   {{/USE_WALE}}
   authentication:
     superuser:
-      username: postgres
+      username: {{PGUSER_SUPERUSER}}
       password: '{{PGPASSWORD_SUPERUSER}}'
     replication:
-      username: standby
+      username: {{PGUSER_STANDBY}}
       password: '{{PGPASSWORD_STANDBY}}'
  {{#CALLBACK_SCRIPT}}
   callbacks:
@@ -305,7 +305,9 @@ def get_placeholders(provider):
     placeholders.setdefault('PGROOT', os.path.join(placeholders['PGHOME'], 'pgroot'))
     placeholders.setdefault('WALE_TMPDIR', os.path.abspath(os.path.join(placeholders['PGROOT'], '../tmp')))
     placeholders.setdefault('PGDATA', os.path.join(placeholders['PGROOT'], 'pgdata'))
+    placeholders.setdefault('PGUSER_STANDBY', 'standby')
     placeholders.setdefault('PGPASSWORD_STANDBY', 'standby')
+    placeholders.setdefault('PGUSER_SUPERUSER', 'postgres')
     placeholders.setdefault('PGPASSWORD_SUPERUSER', 'zalando')
     placeholders.setdefault('PGPORT', '5432')
     placeholders.setdefault('SCOPE', 'dummy')
