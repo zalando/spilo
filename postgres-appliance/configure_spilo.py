@@ -18,6 +18,7 @@ import requests
 
 PROVIDER_AWS = "aws"
 PROVIDER_GOOGLE = "google"
+PROVIDER_OPENSTACK = "openstack"
 PROVIDER_LOCAL = "local"
 PROVIDER_UNSUPPORTED = "unsupported"
 USE_KUBERNETES = os.environ.get('KUBERNETES_SERVICE_HOST') is not None
@@ -210,16 +211,20 @@ postgresql:
 
 def get_provider():
     try:
-        logging.info("Figuring out my environment (Google? AWS? Local?)")
+        logging.info("Figuring out my environment (Google? AWS? Openstack? Local?)")
         r = requests.get('http://169.254.169.254', timeout=2)
         if r.headers.get('Metadata-Flavor', '') == 'Google':
             return PROVIDER_GOOGLE
         else:
-            r = requests.get('http://169.254.169.254/latest/meta-data/ami-id')  # should be only accessible on AWS
+            r = requests.get('http://instance-data/latest/meta-data/ami-id')  # should be only accessible on AWS
             if r.ok:
                 return PROVIDER_AWS
             else:
-                return PROVIDER_UNSUPPORTED
+                r = requests.get('http://169.254.169.254/latest/meta-data/ami-id')  # is accessible from both AWS and Openstack, Possiblity of misidentification if the guest can't resolve the host instance-data
+                if r.ok:
+                    return PROVIDER_OPENSTACK
+                else:
+                    return PROVIDER_UNSUPPORTED
     except (requests.exceptions.ConnectTimeout, requests.exceptions.ConnectionError):
         logging.info("Could not connect to 169.254.169.254, assuming local Docker setup")
         return PROVIDER_LOCAL
@@ -240,8 +245,8 @@ def get_instance_metadata(provider):
         mapping = {'zone': 'zone'}
         if not USE_KUBERNETES:
             mapping.update({'id': 'id'})
-    elif provider == PROVIDER_AWS:
-        url = 'http://instance-data/latest/meta-data'
+    elif provider == PROVIDER_AWS or provider == PROVIDER_OPENSTACK:
+        url = 'http://169.254.169.254/latest/meta-data'
         mapping = {'zone': 'placement/availability-zone'}
         if not USE_KUBERNETES:
             mapping.update({'ip': 'local-ipv4', 'id': 'instance-id'})
