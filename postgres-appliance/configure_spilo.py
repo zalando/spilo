@@ -216,10 +216,11 @@ def get_provider():
         if r.headers.get('Metadata-Flavor', '') == 'Google':
             return PROVIDER_GOOGLE
         else:
-            r = requests.get('http://instance-data/latest/meta-data/ami-id')  # should be only accessible on AWS
-            if r.ok:
-                return PROVIDER_AWS
-            else:
+            try:
+                r = requests.get('http://instance-data/latest/meta-data/ami-id')  # accessible on AWS, will fail on Openstack
+                if r.ok:
+                    return PROVIDER_AWS
+            except (requests.exceptions.ConnectTimeout, requests.exceptions.ConnectionError):
                 r = requests.get('http://169.254.169.254/latest/meta-data/ami-id')  # is accessible from both AWS and Openstack, Possiblity of misidentification if the guest can't resolve the host instance-data
                 if r.ok:
                     return PROVIDER_OPENSTACK
@@ -511,6 +512,7 @@ def main():
 
     provider = os.environ.get('DEVELOP', '').lower() in ['1', 'true', 'on'] and PROVIDER_LOCAL or get_provider()
     placeholders = get_placeholders(provider)
+    logging.info('Looks like your running %s', provider )
 
     if provider == PROVIDER_LOCAL and not USE_KUBERNETES:
         write_etcd_configuration(placeholders)
