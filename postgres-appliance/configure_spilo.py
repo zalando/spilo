@@ -144,9 +144,9 @@ bootstrap:
   {{#CLONE_WITH_WALE}}
   method: clone_with_wale
   clone_with_wale:
-    command: /clone_with_s3.py --envdir "{{CLONE_WALE_ENVDIR}}" --recovery-target-time="{{CLONE_TARGET_TIME}}"
+    command: /clone_with_s3.py --envdir "{{CLONE_WALE_ENV_DIR}}" --recovery-target-time="{{CLONE_TARGET_TIME}}"
     recovery_conf:
-        restore_command: envdir "{{CLONE_WALE_ENVDIR}}" /wale_restore_command.sh "%f" "%p"
+        restore_command: envdir "{{CLONE_WALE_ENV_DIR}}" /wale_restore_command.sh "%f" "%p"
         recovery_target_timeline: latest
         {{#CLONE_TARGET_TIME}}
         recovery_target_time: "{{CLONE_TARGET_TIME}}"
@@ -287,7 +287,7 @@ def set_clone_with_wale_placeholders(placeholders, provider):
     clone_cluster = placeholders.get('CLONE_SCOPE')
     if placeholders.get(clone_bucket_placeholder) and clone_cluster:
         placeholders['CLONE_WITH_WALE'] = True
-        placeholders.setdefault('CLONE_WALE_ENVDIR', os.path.join(placeholders['PGHOME'],
+        placeholders.setdefault('CLONE_WALE_ENV_DIR', os.path.join(placeholders['PGHOME'],
                                                               'etc', 'wal-e.d', 'env-clone-{0}'.format(clone_cluster)))
     else:
         logging.warning("Clone method is set to WAL-E, but no '{0}' "
