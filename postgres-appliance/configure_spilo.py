@@ -144,7 +144,7 @@ bootstrap:
   {{#CLONE_WITH_WALE}}
   method: clone_with_wale
   clone_with_wale:
-    command: /clone_with_s3.py --envdir "{{CLONE_WALE_ENV_DIR}}" --recovery-target-time="{{CLONE_TARGET_TIME}}"
+    command: python3 /clone_with_s3.py --envdir "{{CLONE_WALE_ENV_DIR}}" --recovery-target-time="{{CLONE_TARGET_TIME}}"
     recovery_conf:
         restore_command: envdir "{{CLONE_WALE_ENV_DIR}}" /wale_restore_command.sh "%f" "%p"
         recovery_target_timeline: latest
@@ -156,7 +156,7 @@ bootstrap:
   {{#CLONE_WITH_BASEBACKUP}}
   method: clone_with_basebackup
   clone_with_basebackup:
-    command: /clone_with_basebackup.py --from-pgpass={{CLONE_PGPASS}}
+    command: python3 /clone_with_basebackup.py --from-pgpass={{CLONE_PGPASS}}
   {{/CLONE_WITH_BASEBACKUP}}
   {{/CLONE_WITH_WALE}}
   initdb:
@@ -410,10 +410,11 @@ def write_wale_environment(placeholders, provider, prefix, overwrite):
 
     for name in ('SCOPE', 'WALE_ENV_DIR', 'WAL_S3_BUCKET', 'WAL_GCS_BUCKET'):
         rename = prefix + name
-        wale[name] = placeholders[rename]
+        if rename in placeholders:
+            wale[name] = placeholders[rename]
 
     if not os.path.exists(wale['WALE_ENV_DIR']):
-        os.makedirs()
+        os.makedirs(wale['WALE_ENV_DIR'])
 
     if provider == PROVIDER_AWS:
         write_file('s3://{WAL_S3_BUCKET}/spilo/{SCOPE}/wal/'.format(**wale),

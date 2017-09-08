@@ -33,7 +33,7 @@ def read_configuration():
         recovery_target_time = None
 
     result=options(name=args.scope, datadir=args.datadir,
-                   wale_envdir=args.wale_envdir,
+                   wale_envdir=args.envdir,
                    recovery_target_time=recovery_target_time,
                    dry_run=options.dry_run)
     return result
