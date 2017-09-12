@@ -35,7 +35,7 @@ def read_configuration():
     result=options(name=args.scope, datadir=args.datadir,
                    wale_envdir=args.envdir,
                    recovery_target_time=recovery_target_time,
-                   dry_run=options.dry_run)
+                   dry_run=args.dry_run)
     return result
 
 def build_wale_command(envdir, command, **kwargs):
@@ -79,7 +79,7 @@ def run_clone_from_s3(options):
     logger.info("cloning cluster {0} using {1}".format(options.name, ' '.join(backup_fetch_cmd)))
     if not options.dry_run:
         ret = subprocess.call(backup_fetch_cmd)
-        if not ret:
+        if ret:
             raise Exception("wal-e backup-fetch exited with exit code {0}".format(ret))
     return 0
 
