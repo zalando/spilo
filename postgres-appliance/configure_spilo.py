@@ -148,6 +148,12 @@ bootstrap:
     recovery_conf:
         restore_command: envdir "{{CLONE_WALE_ENV_DIR}}" /wale_restore_command.sh "%f" "%p"
         recovery_target_timeline: latest
+        {{#USE_PAUSE_AT_RECOVERY_TARGET}}
+        pause_at_recovery_target: false
+        {{/USE_PAUSE_AT_RECOVERY_TARGET}}
+        {{^USE_PAUSE_AT_RECOVERY_TARGET}}
+        recovery_target_action: promote
+        {{/USE_PAUSE_AT_RECOVERY_TARGET}}
         {{#CLONE_TARGET_TIME}}
         recovery_target_time: "{{CLONE_TARGET_TIME}}"
         {{/CLONE_TARGET_TIME}}
@@ -317,6 +323,7 @@ def get_placeholders(provider):
     placeholders.setdefault('WALE_BACKUP_THRESHOLD_PERCENTAGE', 30)
     placeholders.setdefault('WALE_ENV_DIR', os.path.join(placeholders['PGHOME'], 'etc', 'wal-e.d', 'env'))
     placeholders.setdefault('USE_WALE', False)
+    placeholders.setdefault('USE_PAUSE_AT_RECOVERY_TARGET', False)
     placeholders.setdefault('CALLBACK_SCRIPT', '')
     placeholders.setdefault('CLONE_METHOD', '')
     placeholders.setdefault('CLONE_WITH_WALE', '')
