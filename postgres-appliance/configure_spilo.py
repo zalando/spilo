@@ -148,8 +148,8 @@ bootstrap:
     - hostssl all all 0.0.0.0/0 md5
     - host    all all 0.0.0.0/0 md5
   users:
-    admin:
-      password: '{{PGPASSWORD_ADMIN}}'
+    {{PGUSER_ADMIN}}:
+      password: {{PGPASSWORD_ADMIN}}
       options:
         - createrole
         - createdb
@@ -274,6 +274,7 @@ def get_placeholders(provider):
     placeholders.setdefault('PGDATA', os.path.join(placeholders['PGROOT'], 'pgdata'))
     placeholders.setdefault('PGUSER_STANDBY', 'standby')
     placeholders.setdefault('PGPASSWORD_STANDBY', 'standby')
+    placeholders.setdefault('PGUSER_ADMIN', 'admin')
     placeholders.setdefault('PGPASSWORD_ADMIN', 'cola')
     placeholders.setdefault('PGUSER_SUPERUSER', 'postgres')
     placeholders.setdefault('PGPASSWORD_SUPERUSER', 'zalando')

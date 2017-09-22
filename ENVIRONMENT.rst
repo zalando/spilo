@@ -10,7 +10,11 @@ Environment Configuration Settings
 - **PGROOT**: a directory where we put the pgdata (by default /home/postgres/pgroot). One may adjust it to point to the mount point of the persistent volume, such as EBS.
 - **WALE_TMPDIR**: directory to store WAL-E temporary files. PGROOT/../tmp by default, make sure it has a few GBs of free space.
 - **PGDATA**: location of PostgreSQL data directory, by default PGROOT/pgdata.
+- **PGUSER_STANDBY**: username for the replication user, 'standby' by default.
 - **PGPASSWORD_STANDBY**: a password for the replication user, 'standby' by default.
+- **PGUSER_ADMIN**: username for the default admin user, 'admin' by default.
+- **PGPASSWORD_ADMIN**: a password for the default admin user, 'cola' by default.
+- **PGUSER_SUPERUSER**: username for the superuser, 'postgres' by default.
 - **PGPASSWORD_SUPERUSER**: a password for the superuser, 'zalando' by default
 - **PGPORT**: port PostgreSQL listens to for client connections, 5432 by default
 - **SCOPE**: cluster name, multiple Spilos belonging to the same cluster must have identical scope.
