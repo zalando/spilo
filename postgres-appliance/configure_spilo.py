@@ -153,6 +153,7 @@ bootstrap:
       options:
         - createrole
         - createdb
+        - login
 scope: &scope '{{SCOPE}}'
 restapi:
   listen: 0.0.0.0:{{APIPORT}}
