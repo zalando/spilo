@@ -276,7 +276,7 @@ def get_placeholders(provider):
     placeholders.setdefault('PGDATA', os.path.join(placeholders['PGROOT'], 'pgdata'))
     placeholders.setdefault('PGUSER_STANDBY', 'standby')
     placeholders.setdefault('PGPASSWORD_STANDBY', 'standby')
-    placeholders.setdefault('USE_ADMIN', True)
+    placeholders.setdefault('USE_ADMIN', 'PGUSER_ADMIN' in placeholders)
     placeholders.setdefault('PGUSER_ADMIN', 'admin')
     placeholders.setdefault('PGPASSWORD_ADMIN', 'cola')
     placeholders.setdefault('PGUSER_SUPERUSER', 'postgres')
