@@ -147,14 +147,14 @@ bootstrap:
   pg_hba:
     - hostssl all all 0.0.0.0/0 md5
     - host    all all 0.0.0.0/0 md5
-  {{#PGUSER_ADMIN?}}
+  {{#USE_ADMIN}}
   users:
     {{PGUSER_ADMIN}}:
       password: {{PGPASSWORD_ADMIN}}
       options:
         - createrole
         - createdb
-  {{/PGUSER_ADMIN?}}
+  {{/USE_ADMIN}}
 scope: &scope '{{SCOPE}}'
 restapi:
   listen: 0.0.0.0:{{APIPORT}}
@@ -276,6 +276,7 @@ def get_placeholders(provider):
     placeholders.setdefault('PGDATA', os.path.join(placeholders['PGROOT'], 'pgdata'))
     placeholders.setdefault('PGUSER_STANDBY', 'standby')
     placeholders.setdefault('PGPASSWORD_STANDBY', 'standby')
+    placeholders.setdefault('USE_ADMIN', True)
     placeholders.setdefault('PGUSER_ADMIN', 'admin')
     placeholders.setdefault('PGPASSWORD_ADMIN', 'cola')
     placeholders.setdefault('PGUSER_SUPERUSER', 'postgres')
