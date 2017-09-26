@@ -154,7 +154,7 @@ bootstrap:
       options:
         - createrole
         - createdb
-  {{/PGUSER_ADMIN}}
+  {{/PGUSER_ADMIN?}}
 scope: &scope '{{SCOPE}}'
 restapi:
   listen: 0.0.0.0:{{APIPORT}}
