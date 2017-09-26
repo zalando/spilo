@@ -147,13 +147,14 @@ bootstrap:
   pg_hba:
     - hostssl all all 0.0.0.0/0 md5
     - host    all all 0.0.0.0/0 md5
+  {{#PGUSER_ADMIN?}}
   users:
     {{PGUSER_ADMIN}}:
       password: {{PGPASSWORD_ADMIN}}
       options:
         - createrole
         - createdb
-        - login
+  {{/PGUSER_ADMIN}}
 scope: &scope '{{SCOPE}}'
 restapi:
   listen: 0.0.0.0:{{APIPORT}}
