@@ -217,13 +217,13 @@ def get_provider():
             return PROVIDER_GOOGLE
         else:
             try:
-                r = requests.get('http://instance-data/latest/meta-data/ami-id')  # accessible on AWS, will fail on Openstack
-                if r.ok:
-                    return PROVIDER_AWS
-            except (requests.exceptions.ConnectTimeout, requests.exceptions.ConnectionError):
-                r = requests.get('http://169.254.169.254/latest/meta-data/ami-id')  # is accessible from both AWS and Openstack, Possiblity of misidentification if the guest can't resolve the host instance-data
+                r = requests.get('http://169.254.169.254/openstack/latest/meta_data.json')  # accessible on Openstack, will fail on AWS
                 if r.ok:
                     return PROVIDER_OPENSTACK
+            except Exception:
+                r = requests.get('http://169.254.169.254/latest/meta-data/ami-id')  # is accessible from both AWS and Openstack, Possiblity of misidentification if previous try fails
+                if r.ok:
+                    return PROVIDER_AWS
                 else:
                     return PROVIDER_UNSUPPORTED
     except (requests.exceptions.ConnectTimeout, requests.exceptions.ConnectionError):
