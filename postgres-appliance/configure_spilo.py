@@ -241,7 +241,7 @@ def get_instance_metadata(provider):
         if not USE_KUBERNETES:
             mapping.update({'id': 'id'})
     elif provider == PROVIDER_AWS:
-        url = 'http://instance-data/latest/meta-data'
+        url = 'http://169.254.169.254/latest/meta-data'
         mapping = {'zone': 'placement/availability-zone'}
         if not USE_KUBERNETES:
             mapping.update({'ip': 'local-ipv4', 'id': 'instance-id'})
