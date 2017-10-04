@@ -338,9 +338,10 @@ def get_placeholders(provider):
 def write_file(config, filename, overwrite):
     if not overwrite and os.path.exists(filename):
         logging.warning('File {} already exists, not overwriting. (Use option --force if necessary)'.format(filename))
-    with open(filename, 'w') as f:
-        logging.info('Writing to file {}'.format(filename))
-        f.write(config)
+    else:
+        with open(filename, 'w') as f:
+            logging.info('Writing to file {}'.format(filename))
+            f.write(config)
 
 
 def pystache_render(*args, **kwargs):
@@ -525,7 +526,10 @@ def main():
     placeholders = get_placeholders(provider)
     logging.info('Looks like your running %s', provider )
 
-    if provider == PROVIDER_LOCAL and not USE_KUBERNETES:
+    if (provider == PROVIDER_LOCAL and
+            not USE_KUBERNETES and
+            'ETCD_HOST' not in placeholders and
+            'ETCD_DISCOVERY_DOMAIN' not in placeholders):
         write_etcd_configuration(placeholders)
 
     config = yaml.load(pystache_render(TEMPLATE, placeholders))
