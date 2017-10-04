@@ -54,6 +54,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && export DECODEBUFS_COMMIT=d08a75593c68897600e10f5250133337624bcf63 \
     && curl -s -L https://github.com/debezium/postgres-decoderbufs/archive/$DECODEBUFS_COMMIT.tar.gz | tar xz \
 
+    && export POSTGIS_VERSION=2.4 \
+
     && for version in ${PGOLDVERSIONS} ${PGVERSION}; do \
             # next two lines are necessary to install exact versions of libpq5 and libpq-dev (to compile extensions)
             sed -i "s/ main.*$/ main $version/g" /etc/apt/sources.list.d/pgdg.list \
@@ -62,7 +64,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             # Install PostgreSQL binaries, contrib, pgq, plproxy, pgq and multiple pl's
             && apt-get install --allow-downgrades -y postgresql-${version} postgresql-${version}-dbg \
                         postgresql-client-${version} postgresql-contrib-${version} postgresql-${version}-plproxy \
-                        postgresql-${version}-pgq3 postgresql-${version}-postgis-2.3 postgresql-plpython3-${version} \
+                        postgresql-${version}-pgq3 postgresql-${version}-postgis-${POSTGIS_VERSION} \
+                        postgresql-${version}-postgis-${POSTGIS_VERSION}-scripts postgresql-plpython3-${version} \
                         postgresql-plpython-${version} postgresql-${version}-plr postgresql-pltcl-${version} \
                         postgresql-${version}-plv8 postgresql-${version}-pllua postgresql-plperl-${version} \
                         libpq5=$version* libpq-dev=$version* postgresql-server-dev-${version} \
