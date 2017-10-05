@@ -11,20 +11,24 @@ RUN deluser postgres && addgroup -g 70 postgres && adduser -u 70 -h $PGHOME -s /
 
 ENV PATRONIVERSION=1.3.5
 
+ENV PG_MAJOR 9.6
+ENV PG_VERSION 9.6.5
+ENV PG_SHA256 06da12a7e3dddeb803962af8309fa06da9d6989f49e22865335f0a14bad0744c
+
 RUN set -ex \
         && apk add --no-cache --virtual .spilo-rundeps \
                 bash \
                 curl \
+                jq \
                 tzdata \
                 openssl \
                 less \
                 libevent \
                 libcurl \
                 linux-pam \
-                postgresql \
-                postgresql-contrib \
-                postgresql-plpython3 \
-                python3 py3-gevent \
+                xz \
+                python3 \
+                py3-gevent \
                 py3-psycopg2 \
                 py3-yaml \
                 py3-requests \
@@ -52,9 +56,86 @@ RUN set -ex \
                 linux-headers \
                 linux-pam-dev \
                 curl-dev \
-                postgresql-dev \
                 libevent-dev \
                 python3-dev \
+                bison \
+                coreutils \
+                dpkg-dev dpkg \
+                flex \
+                libedit-dev \
+                libxml2-dev \
+                libxslt-dev \
+                openssl-dev \
+                perl \
+                perl-ipc-run \
+                util-linux-dev \
+                zlib-dev \
+
+        && wget -O postgresql.tar.bz2 "https://ftp.postgresql.org/pub/source/v$PG_VERSION/postgresql-$PG_VERSION.tar.bz2" \
+        && echo "$PG_SHA256 *postgresql.tar.bz2" | sha256sum -c - \
+        && mkdir -p /usr/src/postgresql \
+        && tar \
+                --extract \
+                --file postgresql.tar.bz2 \
+                --directory /usr/src/postgresql \
+                --strip-components 1 \
+        && rm postgresql.tar.bz2 \
+
+	&& cd /usr/src/postgresql \
+# update "DEFAULT_PGSOCKET_DIR" to "/var/run/postgresql" (matching Debian)
+# see https://anonscm.debian.org/git/pkg-postgresql/postgresql.git/tree/debian/patches/51-default-sockets-in-var.patch?id=8b539fcb3e093a521c095e70bdfa76887217b89f
+	&& awk '$1 == "#define" && $2 == "DEFAULT_PGSOCKET_DIR" && $3 == "\"/tmp\"" { $3 = "\"/var/run/postgresql\""; print; next } { print }' src/include/pg_config_manual.h > src/include/pg_config_manual.h.new \
+	&& grep '/var/run/postgresql' src/include/pg_config_manual.h.new \
+	&& mv src/include/pg_config_manual.h.new src/include/pg_config_manual.h \
+	&& gnuArch="$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)" \
+# explicitly update autoconf config.guess and config.sub so they support more arches/libcs
+	&& wget -O config/config.guess 'https://git.savannah.gnu.org/cgit/config.git/plain/config.guess?id=7d3d27baf8107b630586c962c057e22149653deb' \
+	&& wget -O config/config.sub 'https://git.savannah.gnu.org/cgit/config.git/plain/config.sub?id=7d3d27baf8107b630586c962c057e22149653deb' \
+        && export PYTHON=/usr/bin/python3 \
+# configure options taken from:
+# https://anonscm.debian.org/cgit/pkg-postgresql/postgresql.git/tree/debian/rules?h=9.5
+	&& ./configure \
+		--build="$gnuArch" \
+# "/usr/src/postgresql/src/backend/access/common/tupconvert.c:105: undefined reference to `libintl_gettext'"
+#		--enable-nls \
+		--enable-integer-datetimes \
+		--enable-thread-safety \
+#		--enable-tap-tests \
+# skip debugging info -- we want tiny size instead
+#		--enable-debug \
+		--disable-rpath \
+		--with-uuid=e2fs \
+		--with-gnu-ld \
+		--with-pgport=5432 \
+		--with-system-tzdata=/usr/share/zoneinfo \
+		--prefix=/usr/local \
+		--with-includes=/usr/local/include \
+		--with-libraries=/usr/local/lib \
+		\
+# these make our image abnormally large (at least 100MB larger), which seems uncouth for an "Alpine" (ie, "small") variant :)
+#		--with-krb5 \
+#		--with-gssapi \
+#		--with-ldap \
+#		--with-tcl \
+#		--with-perl \
+		--with-python \
+		--with-pam \
+		--with-openssl \
+		--with-libxml \
+		--with-libxslt \
+	&& make -j "$(nproc)" world \
+	&& make install-world \
+	&& make -C contrib install \
+	\
+	&& runDeps="$( \
+		scanelf --needed --nobanner --format '%n#p' --recursive /usr/local \
+			| tr ',' '\n' \
+			| sort -u \
+			| awk 'system("[ -e /usr/local/lib/" $1 " ]") == 0 { next } { print "so:" $1 }' \
+	)" \
+        && echo $runDeps \
+	&& apk add --no-cache --virtual .postgresql-rundeps \
+		$runDeps \
 
         && mkdir -p /usr/src/tmpdir && cd /usr/src/tmpdir \
 
@@ -82,14 +163,21 @@ RUN set -ex \
         && sed -i 's/^\(    for i in range(0,\) num_retries):.*/\1 100):/g' /usr/lib/python3.6/site-packages/boto/utils.py \
         && echo 4.0.0.dev0 > /usr/lib/python3.6/site-packages/supervisor/version.txt \
 
-        && mkdir /var/log/supervisor /run/postgresql \
-        && chown postgres /run/postgresql \
+        && mkdir /var/log/supervisor /var/run/postgresql \
+        && chown postgres:postgres /var/run/postgresql \
+        && chmod 2777 /var/run/postgresql \
 
         && apk del .build-deps \
         && cd / \
-        && rm -rf /usr/src/tmpdir /root/.cache \
-        && tar -cpjf usr.tar.bz2 usr \
-        && rm -fr usr
+        && rm -rf /usr/src/tmpdir /usr/src/postgresql /usr/local/share/doc /usr/local/share/man /root/.cache \
+        && find /usr/local -name '*.a' -delete \
+        && tar -cpJf usr.tar.xz usr \
+        && cp -a usr/bin/xz /usr/lib/liblzma.so* /tmp \
+        && rm -fr usr \
+        && mkdir -p usr/bin usr/lib \
+        && mv /tmp/liblzma.so* usr/lib/ \
+        && mv /tmp/xz usr/bin/
+
 
 ADD scm-source.json configure_spilo.py launch.sh postgres_backup.sh patroni_wait.sh post_init.sh _zmon_schema.dump callback_endpoint.py basebackup.sh wale_restore_command.sh wal-e-wal-fetch.sh create_user_functions.sql /
 ADD supervisor.d/patroni.conf supervisor.d/cron.conf /etc/supervisor/conf.d/

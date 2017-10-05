@@ -143,10 +143,13 @@ bootstrap:
         autovacuum_analyze_scale_factor: 0.02
       pg_hba:
         - local   all             all                                     trust
+        - hostssl all             +zalandos       127.0.0.1/32            pam
         - host    all             all             127.0.0.1/32            md5
+        - hostssl all             +zalandos       ::1/128                 pam
         - host    all             all             ::1/128                 md5
         - hostssl replication     standby         all                     md5
         - hostnossl all           all             all                     reject
+        - hostssl all             +zalandos       all                     pam
         - hostssl all             all             all                     md5
   initdb:
     - encoding: UTF8
