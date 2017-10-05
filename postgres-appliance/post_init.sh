@@ -63,7 +63,7 @@ GRANT SELECT ON postgres_log_5 TO ADMIN;
 GRANT SELECT ON postgres_log_6 TO ADMIN;
 GRANT SELECT ON postgres_log_7 TO ADMIN;
 
-CREATE LANGUAGE plpythonu;
+CREATE LANGUAGE plpython3u;
 \i /_zmon_schema.dump
 \c template1
 CREATE EXTENSION btree_gin;
@@ -73,7 +73,7 @@ CREATE EXTENSION intarray;
 CREATE EXTENSION ltree;
 CREATE EXTENSION pgcrypto;
 CREATE EXTENSION pg_stat_statements;
-CREATE EXTENSION pgq;
+--CREATE EXTENSION pgq;
 CREATE EXTENSION pg_trgm;
 CREATE EXTENSION postgres_fdw;
 CREATE EXTENSION "uuid-ossp";

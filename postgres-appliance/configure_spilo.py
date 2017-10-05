@@ -141,13 +141,17 @@ bootstrap:
         autovacuum_max_workers: 5
         autovacuum_vacuum_scale_factor: 0.05
         autovacuum_analyze_scale_factor: 0.02
+      pg_hba:
+        - local   all             all                                     trust
+        - host    all             all             127.0.0.1/32            md5
+        - host    all             all             ::1/128                 md5
+        - hostssl replication     standby         all                     md5
+        - hostnossl all           all             all                     reject
+        - hostssl all             all             all                     md5
   initdb:
-  - encoding: UTF8
-  - locale: en_US.UTF-8
-  - data-checksums
-  pg_hba:
-    - hostssl all all 0.0.0.0/0 md5
-    - host    all all 0.0.0.0/0 md5
+    - encoding: UTF8
+    - locale: en_US.UTF-8
+    - data-checksums
   {{#USE_ADMIN}}
   users:
     {{PGUSER_ADMIN}}:
@@ -296,6 +300,7 @@ def get_placeholders(provider):
     placeholders.setdefault('WALE_ENV_DIR', os.path.join(placeholders['PGHOME'], 'etc', 'wal-e.d', 'env'))
     placeholders.setdefault('USE_WALE', False)
     placeholders.setdefault('CALLBACK_SCRIPT', '')
+    placeholders.setdefault('DCS_ENABLE_KUBERNETES_API', '')
 
     if provider == PROVIDER_AWS:
         if 'WAL_S3_BUCKET' in placeholders:
@@ -311,7 +316,7 @@ def get_placeholders(provider):
 
     # Kubernetes requires a callback to change the labels in order to point to the new master
     if USE_KUBERNETES:
-        placeholders['CALLBACK_SCRIPT'] = '/callback_role.py'
+        placeholders['CALLBACK_SCRIPT'] = 'python3 /callback_endpoint.py'
 
     placeholders.setdefault('postgresql', {})
     placeholders['postgresql'].setdefault('parameters', {})
@@ -349,7 +354,10 @@ def pystache_render(*args, **kwargs):
 
 
 def get_dcs_config(config, placeholders):
-    if 'ZOOKEEPER_HOSTS' in placeholders:
+    if USE_KUBERNETES and placeholders.get('DCS_ENABLE_KUBERNETES_API'):
+        config = {'kubernetes': {'namespace': os.environ.get('POD_NAMESPACE', 'default'),
+                                 'scope_label': 'version', 'labels': {'application': 'spilo'}}}
+    elif 'ZOOKEEPER_HOSTS' in placeholders:
         config = {'zookeeper': {'hosts': yaml.load(placeholders['ZOOKEEPER_HOSTS'])}}
     elif 'EXHIBITOR_HOSTS' in placeholders and 'EXHIBITOR_PORT' in placeholders:
         config = {'exhibitor': {'hosts': yaml.load(placeholders['EXHIBITOR_HOSTS']),
@@ -539,7 +547,7 @@ def main():
     config = deep_update(user_config, config)
 
     # Ensure replication is available
-    if not any(['replication' in i for i in config['bootstrap']['pg_hba']]):
+    if 'pg_hba' in config['bootstrap'] and not any(['replication' in i for i in config['bootstrap']['pg_hba']]):
         rep_hba = 'hostssl replication {} 0.0.0.0/0 md5'.\
             format(config['postgresql']['authentication']['replication']['username'])
         config['bootstrap']['pg_hba'].insert(0, rep_hba)
@@ -550,7 +558,8 @@ def main():
             patroni_configfile = os.path.join(placeholders['PGHOME'], 'postgres.yml')
             write_file(yaml.dump(config, default_flow_style=False, width=120), patroni_configfile, args['force'])
         elif section == 'patronictl':
-            patronictl_config = {k: v for k, v in config.items() if k in ['zookeeper', 'etcd', 'consul']}
+            patronictl_config = {k: v for k, v in config.items()
+                                 if k in ['exhibitor', 'zookeeper', 'etcd', 'consul', 'kubernetes']}
             patronictl_configfile = os.path.join(placeholders['PGHOME'], '.config', 'patroni', 'patronictl.yaml')
             if not os.path.exists(os.path.dirname(patronictl_configfile)):
                 os.makedirs(os.path.dirname(patronictl_configfile))

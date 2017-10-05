@@ -140,7 +140,7 @@ SECURITY DEFINER;
 DO $DO$
 BEGIN
 
-IF EXISTS( SELECT 1 FROM pg_language WHERE lanname = 'plpythonu' ) THEN
+IF EXISTS( SELECT 1 FROM pg_language WHERE lanname = 'plpython3u' ) THEN
 
 CREATE OR REPLACE FUNCTION zmon_utils.get_database_cluster_system_information()
 RETURNS SETOF zmon_utils.system_information
@@ -417,17 +417,17 @@ if vm_info:
 return result.items()
 
 $BODY$
-LANGUAGE plpythonu
+LANGUAGE plpython3u
 SECURITY DEFINER;
 
-ELSE -- there is not plpythonu installation on that machine
+ELSE -- there is not plpython3u installation on that machine
 
 CREATE OR REPLACE FUNCTION zmon_utils.get_database_cluster_system_information()
 RETURNS SETOF system_information
 AS
 $BODY$
 BEGIN
-    RETURN QUERY SELECT 'error'::text, 'plpythonu not installed'::text;
+    RETURN QUERY SELECT 'error'::text, 'plpython3u not installed'::text;
 END;
 $BODY$
 LANGUAGE plpgsql
