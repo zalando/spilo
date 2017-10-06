@@ -4,7 +4,7 @@ CONNSTRING=$1
 psql -d $CONNSTRING <<EOF
 CREATE EXTENSION file_fdw;
 CREATE SERVER pglog FOREIGN DATA WRAPPER file_fdw;
-CREATE ROLE admin CREATEROLE CREATEDB NOLOGIN;
+CREATE ROLE admin CREATEDB NOLOGIN;
 CREATE ROLE robot_zmon;
 
 CREATE TABLE postgres_log (
@@ -65,6 +65,9 @@ GRANT SELECT ON postgres_log_7 TO ADMIN;
 
 CREATE LANGUAGE plpython3u;
 \i /_zmon_schema.dump
+
+\i /create_user_functions.sql
+
 \c template1
 CREATE EXTENSION btree_gin;
 CREATE EXTENSION btree_gist;
@@ -73,8 +76,11 @@ CREATE EXTENSION intarray;
 CREATE EXTENSION ltree;
 CREATE EXTENSION pgcrypto;
 CREATE EXTENSION pg_stat_statements;
---CREATE EXTENSION pgq;
+CREATE EXTENSION pgq;
 CREATE EXTENSION pg_trgm;
 CREATE EXTENSION postgres_fdw;
 CREATE EXTENSION "uuid-ossp";
+
+\i /create_user_functions.sql
+
 EOF

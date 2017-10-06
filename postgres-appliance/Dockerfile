@@ -11,9 +11,9 @@ RUN deluser postgres && addgroup -g 70 postgres && adduser -u 70 -h $PGHOME -s /
 
 ENV PATRONIVERSION=1.3.5
 
-ENV PG_MAJOR 9.6
-ENV PG_VERSION 9.6.5
-ENV PG_SHA256 06da12a7e3dddeb803962af8309fa06da9d6989f49e22865335f0a14bad0744c
+ENV PG_MAJOR 10
+ENV PG_VERSION 10.0
+ENV PG_SHA256 712f5592e27b81c5b454df96b258c14d94b6b03836831e015c65d6deeae57fd1
 
 RUN set -ex \
         && apk add --no-cache --virtual .spilo-rundeps \
@@ -70,6 +70,10 @@ RUN set -ex \
                 perl-ipc-run \
                 util-linux-dev \
                 zlib-dev \
+                libtool \
+                autoconf \
+                automake \
+                python-dev \
 
         && wget -O postgresql.tar.bz2 "https://ftp.postgresql.org/pub/source/v$PG_VERSION/postgresql-$PG_VERSION.tar.bz2" \
         && echo "$PG_SHA256 *postgresql.tar.bz2" | sha256sum -c - \
@@ -137,7 +141,24 @@ RUN set -ex \
 	&& apk add --no-cache --virtual .postgresql-rundeps \
 		$runDeps \
 
-        && mkdir -p /usr/src/tmpdir && cd /usr/src/tmpdir \
+        && cd /usr/src \
+
+        # install pgq extension and pgqd
+        && unset PYTHON \
+        && git clone https://github.com/pgq/skytools-legacy.git \
+        && cd skytools-legacy \
+        && git submodule init \
+        && git submodule update \
+        && sed -i 's|parser/keywords.h|common/keywords.h|' sql/pgq/triggers/stringutil.c \
+        && sed -i 's|^SUBDIRS .*|SUBDIRS = pgq ticker|' sql/Makefile \
+        && ./autogen.sh \
+        && ./configure \
+        && make -C sql install \
+        && cd .. \
+
+        # install pg_repack
+        && git clone https://github.com/reorg/pg_repack.git \
+        && make -C pg_repack install \
 
         # install bg_mon
         && export BG_MON_COMMIT=796690f2bee2778321a45233fe4012fc06b75f02 \
@@ -169,7 +190,7 @@ RUN set -ex \
 
         && apk del .build-deps \
         && cd / \
-        && rm -rf /usr/src/tmpdir /usr/src/postgresql /usr/local/share/doc /usr/local/share/man /root/.cache \
+        && rm -rf /usr/src /usr/local/share/doc /usr/local/share/man /root/.cache \
         && find /usr/local -name '*.a' -delete \
         && tar -cpJf usr.tar.xz usr \
         && cp -a usr/bin/xz /usr/lib/liblzma.so* /tmp \
@@ -180,7 +201,8 @@ RUN set -ex \
 
 
 ADD scm-source.json configure_spilo.py launch.sh postgres_backup.sh patroni_wait.sh post_init.sh _zmon_schema.dump callback_endpoint.py basebackup.sh wale_restore_command.sh wal-e-wal-fetch.sh create_user_functions.sql /
-ADD supervisor.d/patroni.conf supervisor.d/cron.conf /etc/supervisor/conf.d/
+ADD pgq_ticker.ini $PGHOME
+ADD supervisor.d /etc/supervisor/conf.d/
 ADD motd supervisord.conf /etc/
 RUN echo "source /etc/motd" >> /root/.bashrc
 RUN echo "export TERM=linux\nexport LC_ALL=C.UTF-8\nexport LANG=C.UTF-8\nexport EDITOR=vi" >> /etc/bash.bashrc
