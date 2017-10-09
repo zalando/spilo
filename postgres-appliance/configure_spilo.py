@@ -186,7 +186,7 @@ postgresql:
     ssl: 'on'
     ssl_cert_file: {{SSL_CERTIFICATE_FILE}}
     ssl_key_file: {{SSL_PRIVATE_KEY_FILE}}
-    shared_preload_libraries: 'bg_mon,pg_stat_statements,pg_cron'
+    shared_preload_libraries: 'bg_mon,pg_stat_statements,pg_cron,set_user'
     bg_mon.listen_address: '0.0.0.0'
   {{#USE_WALE}}
   recovery_conf:
