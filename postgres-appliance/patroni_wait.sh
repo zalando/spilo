@@ -59,7 +59,7 @@ do
     shift
 done
 
-CUTOFF=$(date --date="$TIMEOUT seconds" +%s)
+[ ! -z "$TIMEOUT" ] && CUTOFF=$(($(date +%s)+$TIMEOUT))
 
 while :
 do
