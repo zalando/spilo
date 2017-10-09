@@ -2,6 +2,7 @@
 
 CONNSTRING=$1
 psql -d $CONNSTRING <<EOF
+CREATE EXTENSION pg_cron;
 CREATE EXTENSION file_fdw;
 CREATE SERVER pglog FOREIGN DATA WRAPPER file_fdw;
 CREATE ROLE admin CREATEDB NOLOGIN;
@@ -80,6 +81,9 @@ CREATE EXTENSION pgq;
 CREATE EXTENSION pg_trgm;
 CREATE EXTENSION postgres_fdw;
 CREATE EXTENSION "uuid-ossp";
+CREATE EXTENSION hypopg;
+CREATE EXTENSION set_user;
+GRANT EXECUTE ON FUNCTION set_user(text) TO admin;
 
 \i /create_user_functions.sql
 
