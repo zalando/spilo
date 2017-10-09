@@ -158,13 +158,11 @@ bootstrap:
         recovery_target_time: "{{CLONE_TARGET_TIME}}"
         {{/CLONE_TARGET_TIME}}
   {{/CLONE_WITH_WALE}}
-  {{^CLONE_WITH_WALE}}
   {{#CLONE_WITH_BASEBACKUP}}
   method: clone_with_basebackup
   clone_with_basebackup:
     command: python3 /clone_with_basebackup.py --from-pgpass={{CLONE_PGPASS}}
   {{/CLONE_WITH_BASEBACKUP}}
-  {{/CLONE_WITH_WALE}}
   initdb:
   - encoding: UTF8
   - locale: en_US.UTF-8
@@ -449,28 +447,14 @@ def write_wale_environment(placeholders, provider, prefix, overwrite):
     write_file(placeholders['WALE_TMPDIR'], os.path.join(wale['WALE_ENV_DIR'], 'TMPDIR'), True)
 
 
-def write_wale_command_environment(placeholders, provider, overwrite):
-    if not placeholders['USE_WALE']:
-        return
-
-    write_wale_environment(placeholders, provider, '', overwrite)
-
-
-def write_wale_clone_environment(placeholders, provider, overwrite):
-    if not placeholders['CLONE_WITH_WALE']:
-        return
-
-    write_wale_environment(placeholders, provider, 'CLONE_', overwrite)
-
-
 def write_bootstrap_configuration(placeholders, provider, overwrite):
-    write_wale_clone_environment(placeholders, provider, overwrite)
-    write_clone_pgpass(placeholders, overwrite)
+    if placeholders['CLONE_WITH_WALE']:
+        write_wale_environment(placeholders, provider, 'CLONE_', overwrite)
+    if placeholders['CLONE_WITH_BASEBACKUP']:
+        write_clone_pgpass(placeholders, overwrite)
 
 
 def write_clone_pgpass(placeholders, overwrite):
-    if not placeholders['CLONE_WITH_BASEBACKUP']:
-        return
     pgpassfile = placeholders['CLONE_PGPASS']
     # pgpass is host:port:database:user:password
     r = {'host': escape_pgpass_value(placeholders['CLONE_HOST']),
@@ -644,7 +628,8 @@ def main():
                 os.makedirs(os.path.dirname(patronictl_configfile))
             write_file(yaml.dump(patronictl_config), patronictl_configfile, args['force'])
         elif section == 'wal-e':
-            write_wale_command_environment(placeholders, provider, args['force'])
+            if placeholders['USE_WALE']:
+                write_wale_environment(placeholders, provider, '', args['force'])
         elif section == 'certificate':
             write_certificates(placeholders, args['force'])
         elif section == 'crontab':

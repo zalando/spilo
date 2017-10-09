@@ -63,7 +63,7 @@ def choose_backup(output, t):
         last_modified = parse(backup['last_modified'])
         if last_modified < t:
             if match is None or last_modified > match_timestamp:
-                match = backup_list[i]
+                match = backup
                 match_timestamp = last_modified
     if match is None:
         raise Exception("wal-e could not found any backups prior to the point in time {0}".format(t))
@@ -79,7 +79,7 @@ def run_clone_from_s3(options):
     logger.info("cloning cluster {0} using {1}".format(options.name, ' '.join(backup_fetch_cmd)))
     if not options.dry_run:
         ret = subprocess.call(backup_fetch_cmd)
-        if ret:
+        if ret != 0:
             raise Exception("wal-e backup-fetch exited with exit code {0}".format(ret))
     return 0
 
