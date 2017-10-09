@@ -232,11 +232,13 @@ def get_provider():
             return PROVIDER_GOOGLE
         else:
             try:
-                r = requests.get('http://169.254.169.254/openstack/latest/meta_data.json')  # accessible on Openstack, will fail on AWS
+                # accessible on Openstack, will fail on AWS
+                r = requests.get('http://169.254.169.254/openstack/latest/meta_data.json')
                 if r.ok:
                     return PROVIDER_OPENSTACK
             except Exception:
-                r = requests.get('http://169.254.169.254/latest/meta-data/ami-id')  # is accessible from both AWS and Openstack, Possiblity of misidentification if previous try fails
+                # is accessible from both AWS and Openstack, Possiblity of misidentification if previous try fails
+                r = requests.get('http://169.254.169.254/latest/meta-data/ami-id')
                 if r.ok:
                     return PROVIDER_AWS
                 else:
@@ -304,6 +306,7 @@ def get_placeholders(provider):
     placeholders.setdefault('USE_WALE', False)
     placeholders.setdefault('CALLBACK_SCRIPT', '')
     placeholders.setdefault('DCS_ENABLE_KUBERNETES_API', '')
+    placeholders.setdefault('KUBERNETES_USE_ENDPOINTS', '')
 
     if provider == PROVIDER_AWS:
         if 'WAL_S3_BUCKET' in placeholders:
@@ -318,7 +321,7 @@ def get_placeholders(provider):
         placeholders.setdefault('GOOGLE_APPLICATION_CREDENTIALS', '')
 
     # Kubernetes requires a callback to change the labels in order to point to the new master
-    if USE_KUBERNETES:
+    if USE_KUBERNETES and not placeholders.get('KUBERNETES_USE_ENDPOINTS'):
         placeholders['CALLBACK_SCRIPT'] = 'python3 /callback_endpoint.py'
 
     placeholders.setdefault('postgresql', {})
@@ -360,6 +363,8 @@ def get_dcs_config(config, placeholders):
     if USE_KUBERNETES and placeholders.get('DCS_ENABLE_KUBERNETES_API'):
         config = {'kubernetes': {'namespace': os.environ.get('POD_NAMESPACE', 'default'),
                                  'scope_label': 'version', 'labels': {'application': 'spilo'}}}
+        if placeholders.get('KUBERNETES_USE_ENDPOINTS'):
+            config['kubernetes'].update({'use_endpoints': True, 'pod_ip': placeholders['instance_data']['ip']})
     elif 'ZOOKEEPER_HOSTS' in placeholders:
         config = {'zookeeper': {'hosts': yaml.load(placeholders['ZOOKEEPER_HOSTS'])}}
     elif 'EXHIBITOR_HOSTS' in placeholders and 'EXHIBITOR_PORT' in placeholders:
@@ -534,7 +539,7 @@ def main():
 
     provider = os.environ.get('DEVELOP', '').lower() in ['1', 'true', 'on'] and PROVIDER_LOCAL or get_provider()
     placeholders = get_placeholders(provider)
-    logging.info('Looks like your running %s', provider )
+    logging.info('Looks like your running %s', provider)
 
     if provider == PROVIDER_LOCAL and not USE_KUBERNETES:
         write_etcd_configuration(placeholders)
