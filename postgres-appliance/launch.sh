@@ -1,8 +1,8 @@
 #!/bin/bash
 
 cd /
-tar -xpJf usr.tar.xz
-rm usr.tar.xz
+tar -xpJf a.tar.xz
+rm a.tar.xz
 
 pgrep supervisord > /dev/null
 if [ $? -ne 1 ]; then echo "ERROR: Supervisord is already running"; exit 1; fi
