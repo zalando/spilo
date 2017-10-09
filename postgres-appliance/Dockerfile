@@ -2,23 +2,19 @@
 FROM alpine:3.6
 MAINTAINER Alexander Kukushkin <alexander.kukushkin@zalando.de>
 
-ENV LANG en_US.utf8
-ENV PGHOME=/home/postgres
+ENV LANG=en_US.utf8 PGHOME=/home/postgres
 ENV PGROOT=$PGHOME/pgdata/pgroot
 ENV PGDATA=$PGROOT/data PGLOG=$PGROOT/pg_log WALE_ENV_DIR=$PGHOME/etc/wal-e.d/env
-
-RUN deluser postgres && addgroup -g 70 postgres && adduser -u 70 -h $PGHOME -s /bin/bash -S postgres
-
-ENV PATRONIVERSION=1.3.5
-
 ENV PG_VERSION=10.0 PG_SHA256=712f5592e27b81c5b454df96b258c14d94b6b03836831e015c65d6deeae57fd1
-ENV POSTGIS=2.4.0 PROJ=4.9.3 GEOS=svn-3.6 GDAL=2.2.2
+ENV PATRONIVERSION=1.3.5 POSTGIS=2.4.0 PROJ=4.9.3 GEOS=svn-3.6 GDAL=2.2.2
 
 RUN set -ex \
         && cd / \
         && echo usr/bin/xz >> /exclude \
         && export saveDirs="usr lib bin sbin etc" \
         && for d in $saveDirs; do find $d -not -type d >> /exclude; done \
+        && sed -i "s|/var/lib/postgresql.*|$PGHOME:/bin/bash|" /etc/passwd \
+        && sed -i "s|:root:/root:.*|:root:/root:/bin/bash|" /etc/passwd \
 
         && apk add --no-cache --virtual .spilo-rundeps \
                 bash \
@@ -287,14 +283,18 @@ RUN set -ex \
         && for d in $saveDirs; do find $d -type d -depth -exec rmdir -p {} \; 2> /dev/null; done
 
 ADD scm-source.json configure_spilo.py launch.sh postgres_backup.sh patroni_wait.sh post_init.sh _zmon_schema.dump callback_endpoint.py basebackup.sh wale_restore_command.sh wal-e-wal-fetch.sh create_user_functions.sql /
-ADD pgq_ticker.ini $PGHOME
 ADD supervisor.d /etc/supervisor/conf.d/
 ADD motd supervisord.conf /etc/
-RUN echo "source /etc/motd" >> /root/.bashrc
-RUN echo "export TERM=linux\nexport LC_ALL=C.UTF-8\nexport LANG=C.UTF-8\nexport EDITOR=vi" >> /etc/bash.bashrc
-RUN ln -s /etc/supervisord.conf /etc/supervisor/supervisord.conf
-RUN chmod 700 /postgres_*
-RUN chown -R postgres:postgres /postgres_* $PGHOME
+
+RUN mkdir $PGHOME \
+    && echo -e "export TERM=linux\nexport LC_ALL=C.UTF-8\nexport LANG=C.UTF-8\nexport EDITOR=vi" >> /etc/bashrc \
+    && echo -e "source /etc/bashrc\nsource /etc/motd" >> /root/.bashrc \
+    && echo -e "source /etc/bashrc" >> $PGHOME/.bashrc \
+    && ln -s /etc/supervisord.conf /etc/supervisor/supervisord.conf
+
+ADD pgq_ticker.ini $PGHOME
+RUN chown -R postgres:postgres /postgres_* $PGHOME \
+    && chmod 700 /postgres_*
 
 WORKDIR $PGHOME
 EXPOSE 5432 8008 8080
