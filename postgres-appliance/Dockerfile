@@ -36,15 +36,12 @@ RUN set -ex \
 # pulls libldap, libpq and so on
 #               py3-psycopg2 \
                 py3-yaml \
-                py3-requests \
                 py3-six \
                 py3-click \
                 py3-dateutil \
                 py3-psutil \
                 py3-greenlet \
                 py3-idna \
-                py3-certifi \
-                py3-chardet \
                 py3-tz \
                 py3-websocket-client \
                 py3-ipaddress \
@@ -223,6 +220,14 @@ RUN set -ex \
         && sed -i 's/ -Werror//' pg_cron/Makefile \
         && make -C pg_cron install-strip \
 
+        # install hypopg
+        && git clone https://github.com/dalibo/hypopg.git \
+        && make -C hypopg install-strip \
+
+        # install set_user
+        && git clone https://github.com/pgaudit/set_user.git \
+        && make -C set_user USE_PGXS=1 install-strip \
+
         # install pam_oauth2.so
         && export PAM_OAUTH_COMMIT=bed1f8d31840d1fda49365921449112a7421b8ca \
         && export JSMN_COMMIT=1682c32e9ae5990ddd0f0e907270a0f6dde5cbe9 \
@@ -240,9 +245,11 @@ RUN set -ex \
         && apk add --no-cache --virtual .spilo-rundeps \
                 $runDeps \
 
-        && pip3 install envdir wal-e[aws] pystache \
+        && pip3 install --upgrade setuptools \
+        && pip3 install envdir pystache \
             'git+https://github.com/zalando/patroni.git@feature/k8s#egg=patroni[kubernetes,aws]' \
             'git+https://github.com/Supervisor/supervisor.git@master#egg=supervisor' \
+            'git+https://github.com/wal-e/wal-e@master#egg=wal-e[aws,google]' \
 
         && sed -i 's/^\(    for i in range(0,\) num_retries):.*/\1 100):/g' /usr/lib/python3.6/site-packages/boto/utils.py \
         && echo 4.0.0.dev0 > /usr/lib/python3.6/site-packages/supervisor/version.txt \
@@ -267,6 +274,12 @@ RUN set -ex \
         && rm usr/lib/libevent_* \
         && find usr/local -name '*.a' -delete \
         && find usr/lib/python3.6/ -type d -name tests | xargs rm -fr \
+        && find usr/lib/python3.6/ -type f -name 'test_*.py' -delete \
+        && find usr/lib/python3.6/ -type f -name 'test_*.pyc' -delete \
+        && find usr/lib/python3.6/ -type f -name 'unittest_*.py' -delete \
+        && find usr/lib/python3.6/ -type f -name 'unittest_*.pyc' -delete \
+        && find usr/lib/python3.6/ -type f -name '*_test.py' -delete \
+        && find usr/lib/python3.6/ -type f -name '*_test.cpython*.pyc' -delete \
 
         && XZ_OPT=-e9v tar -X /exclude -cpJf a.tar.xz $saveDirs \
         && rm -fr /usr/lib/python* \
