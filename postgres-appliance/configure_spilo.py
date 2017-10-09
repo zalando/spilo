@@ -361,7 +361,7 @@ def pystache_render(*args, **kwargs):
 
 def get_dcs_config(config, placeholders):
     if USE_KUBERNETES and placeholders.get('DCS_ENABLE_KUBERNETES_API'):
-        config = {'kubernetes': {'namespace': os.environ.get('POD_NAMESPACE', 'default'),
+        config = {'kubernetes': {'namespace': os.environ.get('POD_NAMESPACE', 'default'), 'role_label': 'spilo-role',
                                  'scope_label': 'version', 'labels': {'application': 'spilo'}}}
         if placeholders.get('KUBERNETES_USE_ENDPOINTS'):
             config['kubernetes'].update({'use_endpoints': True, 'pod_ip': placeholders['instance_data']['ip']})
