@@ -8,7 +8,13 @@ CREATE ROLE admin CREATEDB NOLOGIN;
 CREATE ROLE robot_zmon;
 
 CREATE EXTENSION pg_cron;
+
 ALTER TABLE cron.job ALTER COLUMN nodename SET DEFAULT '/var/run/postgresql';
+ALTER POLICY cron_job_policy ON cron.job USING (username = current_user OR pg_has_role(current_user, 'admin', 'MEMBER') AND pg_has_role(username, 'admin', 'MEMBER') AND NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname = username AND rolsuper));
+REVOKE SELECT ON cron.job FROM public;
+GRANT SELECT ON cron.job TO admin;
+GRANT UPDATE (database) ON cron.job TO admin;
+
 CREATE OR REPLACE FUNCTION cron.schedule(p_schedule text, p_database text, p_command text)
 RETURNS bigint
 LANGUAGE plpgsql
@@ -21,9 +27,11 @@ BEGIN
     RETURN l_jobid;
 END;
 $function$;
-GRANT UPDATE (database) ON cron.job TO admin;
+REVOKE EXECUTE ON FUNCTION cron.schedule(text, text) FROM public;
 GRANT EXECUTE ON FUNCTION cron.schedule(text, text) TO admin;
+REVOKE EXECUTE ON FUNCTION cron.schedule(text, text, text) FROM public;
 GRANT EXECUTE ON FUNCTION cron.schedule(text, text, text) TO admin;
+REVOKE EXECUTE ON FUNCTION cron.unschedule(bigint) FROM public;
 GRANT EXECUTE ON FUNCTION cron.unschedule(bigint) TO admin;
 GRANT USAGE ON SCHEMA cron TO admin;
 
