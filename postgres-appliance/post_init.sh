@@ -2,11 +2,30 @@
 
 CONNSTRING=$1
 psql -d $CONNSTRING <<EOF
-CREATE EXTENSION pg_cron;
 CREATE EXTENSION file_fdw;
 CREATE SERVER pglog FOREIGN DATA WRAPPER file_fdw;
 CREATE ROLE admin CREATEDB NOLOGIN;
 CREATE ROLE robot_zmon;
+
+CREATE EXTENSION pg_cron;
+ALTER TABLE cron.job ALTER COLUMN nodename SET DEFAULT '/var/run/postgresql';
+CREATE OR REPLACE FUNCTION cron.schedule(p_schedule text, p_database text, p_command text)
+RETURNS bigint
+LANGUAGE plpgsql
+AS $function$
+DECLARE
+    l_jobid bigint;
+BEGIN
+    SELECT schedule INTO l_jobid FROM cron.schedule(p_schedule, p_command);
+    UPDATE cron.job SET database = p_database WHERE jobid = l_jobid;
+    RETURN l_jobid;
+END;
+$function$;
+GRANT UPDATE (database) ON cron.job TO admin;
+GRANT EXECUTE ON FUNCTION cron.schedule(text, text) TO admin;
+GRANT EXECUTE ON FUNCTION cron.schedule(text, text, text) TO admin;
+GRANT EXECUTE ON FUNCTION cron.unschedule(bigint) TO admin;
+GRANT USAGE ON SCHEMA cron TO admin;
 
 CREATE TABLE postgres_log (
     log_time timestamp(3) with time zone,
