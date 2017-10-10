@@ -36,7 +36,7 @@ class CoreV1Api(k8s_client.CoreV1Api):
 
 def patch_master_endpoint(api, namespace, cluster):
     addresses = [k8s_client.V1EndpointAddress(ip=os.environ['POD_IP'])]
-    ports = [k8s_client.V1EndpointPort(port=5432)]
+    ports = [k8s_client.V1EndpointPort(name='postgresql', port=5432)]
     subsets = [k8s_client.V1EndpointSubset(addresses=addresses, ports=ports)]
     body = k8s_client.V1Endpoints(subsets=subsets)
     return api.patch_namespaced_endpoints(cluster, namespace, body)
