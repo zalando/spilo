@@ -3,7 +3,6 @@
 import argparse
 from collections import namedtuple
 import logging
-import os
 import subprocess
 
 logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', level=logging.INFO)
@@ -13,13 +12,12 @@ def read_configuration():
     parser = argparse.ArgumentParser(description="Script to clone from another cluster using pg_basebackup")
     parser.add_argument('--scope', required=True, help='target cluster name')
     parser.add_argument('--datadir', required=True, help='target cluster postgres data directory')
-    parser.add_argument('--bindir', default='', help='the directory with pg_basebackup')
     parser.add_argument('--from-pgpass', required=True, help='path to the pgpass file containing credentials for the instance to be cloned')
     args = parser.parse_args()
 
-    options = namedtuple('Options', 'name datadir bindir pgpassfile')
+    options = namedtuple('Options', 'name datadir pgpassfile')
 
-    result=options(name=args.scope, datadir=args.datadir, bindir=args.bindir, pgpassfile=args.from_pgpass)
+    result=options(name=args.scope, datadir=args.datadir, pgpassfile=args.from_pgpass)
     return result
 
 def parse_pgpass_file(pgpassfile):
@@ -96,11 +94,9 @@ def prepare_connection(options):
     return ' '.join(connection), {'PGPASSFILE': options.pgpassfile}
 
 def run_basebackup(options):
-    pg_basebackup = os.path.join(options.bindir, 'pg_basebackup')
-
     connstr, env = prepare_connection(options)
     logger.info("cloning cluster {0} from \"{1}\"".format(options.name, connstr))
-    ret = subprocess.call([pg_basebackup, '--pgdata={0}'.format(options.datadir), '-X', 'stream', '--dbname={0}'.format(connstr), '-w'], env=env)
+    ret = subprocess.call(['pg_basebackup', '--pgdata={0}'.format(options.datadir), '-X', 'stream', '--dbname={0}'.format(connstr), '-w'], env=env)
     if ret != 0:
         raise Exception("pg_basebackup exited with code={0}".format(ret))
     return 0
