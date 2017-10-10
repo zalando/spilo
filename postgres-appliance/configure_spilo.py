@@ -157,6 +157,9 @@ bootstrap:
         {{#CLONE_TARGET_TIME}}
         recovery_target_time: "{{CLONE_TARGET_TIME}}"
         {{/CLONE_TARGET_TIME}}
+        {{^CLONE_TARGET_INCLUSIVE}}
+        recovery_target_inclusive: false
+        {{/CLONE_TARGET_INCLUSIVE}}
   {{/CLONE_WITH_WALE}}
   {{#CLONE_WITH_BASEBACKUP}}
   method: clone_with_basebackup
@@ -327,6 +330,7 @@ def get_placeholders(provider):
     placeholders.setdefault('CLONE_WITH_WALE', '')
     placeholders.setdefault('CLONE_WITH_BASEBACKUP', '')
     placeholders.setdefault('CLONE_TARGET_TIME', '')
+    placeholders.setdefault('CLONE_TARGET_INCLUSIVE', True)
 
     if placeholders['CLONE_METHOD'] == 'CLONE_WITH_WALE':
         # set_clone_with_wale_placeholders would modify placeholders and take care of error cases
