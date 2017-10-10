@@ -10,66 +10,15 @@ logger = logging.getLogger(__name__)
 
 def read_configuration():
     parser = argparse.ArgumentParser(description="Script to clone from another cluster using pg_basebackup")
-    parser.add_argument('--scope', required=True, help='target cluster name')
+    parser.add_argument('--scope', required=True, help='target cluster name', dest='name')
     parser.add_argument('--datadir', required=True, help='target cluster postgres data directory')
-    parser.add_argument('--from-pgpass', required=True, help='path to the pgpass file containing credentials for the instance to be cloned')
-    args = parser.parse_args()
-
-    options = namedtuple('Options', 'name datadir pgpassfile')
-
-    result=options(name=args.scope, datadir=args.datadir, pgpassfile=args.from_pgpass)
-    return result
-
-def parse_pgpass_file(pgpassfile):
-    with open(pgpassfile, 'r') as f:
-        line = f.readline()
-        return parse_pgpass_line(line)
-
-
-def parse_pgpass_line(line):
-    """ parses a single pgpass line and returns a connection string (without the password)
-
-        >>> parse_pgpass_line('127.0.0.1:5432:db:user:pass')
-        pgpass(host='127.0.0.1', port='5432', dbname='db', user='user')
-        >>> parse_pgpass_line('\:\:1:5432:"ba\\\\\\\\z":qiz:foo')
-        pgpass(host='::1', port='5432', dbname='"ba\\\\z"', user='qiz')
-        >>> parse_pgpass_line('127.0.0.1:1234:db:user:')
-        Traceback (most recent call last):
-            ...
-        Exception: pgpass file contains an empty field
-        >>> parse_pgpass_line('127\.0.0.1:1234:db:user:')
-        Traceback (most recent call last):
-            ...
-        Exception: pgpass file has unescaped '\\' character
-    """
-
-    fields = []
-    escape = False
-    current = []
-    for c in line:
-        if c == ':' and not escape:
-            if len(current) == 0:
-                raise Exception("pgpass file contains an empty field")
-            fields.append(''.join(current))
-            current = []
-            continue
-        if c == '\\' and not escape:
-            escape = True
-            continue
-        if escape:
-            if c not in (':', '\\'):
-                raise Exception("pgpass file has unescaped '\\' character")
-            escape = False
-        current.append(c)
-    # process the last field in line
-    if escape:
-        raise Exception("pgpass file has unescaped '\\' character")
-    if len(current) == 0:
-        raise Exception("pgpass file contains an empty field")
-    fields.append(''.join(current))
-    if len(fields) != 5:
-        raise Exception("pgpass file must be in a format 'hostname:port:database:username:password'")
-    return namedtuple('pgpass', 'host port dbname user')._make(fields[:4])
+    parser.add_argument('--pgpass', required=True,
+                        help='path to the pgpass file containing credentials for the instance to be cloned')
+    parser.add_argument('--host', required=True, help='hostname or IP address of the master to connect to')
+    parser.add_argument('--port', required=False, help='PostgreSQL port master listens to', default=5432)
+    parser.add_argument('--dbname', required=False, help='PostgreSQL database to connect to', default='postgres')
+    parser.add_argument('--user', required=True, help='PostgreSQL user to connect with')
+    return parser.parse_args()
 
 def escape_value(val):
     quote = False
@@ -84,14 +33,12 @@ def escape_value(val):
     return result if not quote else '\'{0}\''.format(result)
 
 def prepare_connection(options):
-    pgpass = parse_pgpass_file(options.pgpassfile)
     connection = []
     for attname in ('host', 'port', 'user', 'dbname'):
-        attvalue = getattr(pgpass, attname)
-        if attvalue and attvalue != '*':
-            connection.append('{0}={1}'.format(attname, escape_value(attvalue)))
+        attvalue = getattr(options, attname)
+        connection.append('{0}={1}'.format(attname, escape_value(attvalue)))
 
-    return ' '.join(connection), {'PGPASSFILE': options.pgpassfile}
+    return ' '.join(connection), {'PGPASSFILE': options.pgpass}
 
 def run_basebackup(options):
     connstr, env = prepare_connection(options)

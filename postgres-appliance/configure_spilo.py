@@ -164,7 +164,7 @@ bootstrap:
   {{#CLONE_WITH_BASEBACKUP}}
   method: clone_with_basebackup
   clone_with_basebackup:
-    command: python3 /clone_with_basebackup.py --from-pgpass={{CLONE_PGPASS}}
+    command: python3 /clone_with_basebackup.py --pgpass={{CLONE_PGPASS}} --host={{CLONE_HOST}} --port={{CLONE_PORT}} --user="{{CLONE_USER}}"
   {{/CLONE_WITH_BASEBACKUP}}
   initdb:
   - encoding: UTF8
