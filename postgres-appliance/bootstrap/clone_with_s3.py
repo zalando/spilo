@@ -59,7 +59,7 @@ def choose_backup(output, t):
     if len(backup_list) <= 0:
         raise Exception("wal-e could not found any backups")
     match = None
-    for i, backup in enumerate(backup_list):
+    for backup in enumerate(backup_list):
         last_modified = parse(backup['last_modified'])
         if last_modified < t:
             if match is None or last_modified > match_timestamp:
