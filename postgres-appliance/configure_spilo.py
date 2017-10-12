@@ -224,16 +224,14 @@ def get_provider():
         if r.headers.get('Metadata-Flavor', '') == 'Google':
             return PROVIDER_GOOGLE
         else:
-            try:
-                r = requests.get('http://169.254.169.254/openstack/latest/meta_data.json')  # accessible on Openstack, will fail on AWS
-                if r.ok:
-                    return PROVIDER_OPENSTACK
-            except Exception:
-                r = requests.get('http://169.254.169.254/latest/meta-data/ami-id')  # is accessible from both AWS and Openstack, Possiblity of misidentification if previous try fails
-                if r.ok:
-                    return PROVIDER_AWS
-                else:
-                    return PROVIDER_UNSUPPORTED
+            # accessible on Openstack, will fail on AWS
+            r = requests.get('http://169.254.169.254/openstack/latest/meta_data.json')
+            if r.ok:
+                return PROVIDER_OPENSTACK
+
+            # is accessible from both AWS and Openstack, Possiblity of misidentification if previous try fails
+            r = requests.get('http://169.254.169.254/latest/meta-data/ami-id')
+            return PROVIDER_AWS if r.ok else PROVIDER_UNSUPPORTED
     except (requests.exceptions.ConnectTimeout, requests.exceptions.ConnectionError):
         logging.info("Could not connect to 169.254.169.254, assuming local Docker setup")
         return PROVIDER_LOCAL
@@ -523,7 +521,7 @@ def main():
 
     provider = os.environ.get('DEVELOP', '').lower() in ['1', 'true', 'on'] and PROVIDER_LOCAL or get_provider()
     placeholders = get_placeholders(provider)
-    logging.info('Looks like your running %s', provider )
+    logging.info('Looks like your running %s', provider)
 
     if provider == PROVIDER_LOCAL and not USE_KUBERNETES:
         write_etcd_configuration(placeholders)
