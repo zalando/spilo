@@ -18,7 +18,7 @@ GRANT UPDATE (database) ON cron.job TO admin;
 CREATE OR REPLACE FUNCTION cron.schedule(p_schedule text, p_database text, p_command text)
 RETURNS bigint
 LANGUAGE plpgsql
-AS $function$
+AS \$function\$
 DECLARE
     l_jobid bigint;
 BEGIN
@@ -26,7 +26,7 @@ BEGIN
     UPDATE cron.job SET database = p_database WHERE jobid = l_jobid;
     RETURN l_jobid;
 END;
-$function$;
+\$function\$;
 REVOKE EXECUTE ON FUNCTION cron.schedule(text, text) FROM public;
 GRANT EXECUTE ON FUNCTION cron.schedule(text, text) TO admin;
 REVOKE EXECUTE ON FUNCTION cron.schedule(text, text, text) FROM public;
