@@ -545,9 +545,7 @@ def main():
     config.update(get_dcs_config(config, placeholders))
 
     user_config = yaml.load(os.environ.get('SPILO_CONFIGURATION', os.environ.get('PATRONI_CONFIGURATION', ''))) or {}
-    if isinstance(user_config, dict):
-        user_config.get('postgresql', {}).pop('bin_dir', None)
-    else:
+    if not isinstance(user_config, dict):
         config_var_name = 'SPILO_CONFIGURATION' if 'SPILO_CONFIGURATION' in os.environ else 'PATRONI_CONFIGURATION'
         raise ValueError('{0} should contain a dict, yet it is a {1}'.format(config_var_name, type(user_config)))
 
