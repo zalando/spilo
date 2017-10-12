@@ -16,7 +16,7 @@ chown -R postgres:postgres "$PGLOG"
 
 if python3 /configure_spilo.py all; then
     (
-        su postgres /patroni_wait.sh -t 3600 -- /postgres_backup.sh "$WALE_ENV_DIR" "$PGDATA"
+        su postgres -c "/patroni_wait.sh -t 3600 -- /postgres_backup.sh $WALE_ENV_DIR $PGDATA"
     ) &
 fi
 
