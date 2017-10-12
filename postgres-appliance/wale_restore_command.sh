@@ -10,7 +10,7 @@ readonly wal_fast_source=$(dirname $(dirname $(realpath $wal_dir)))/wal_fast/$wa
 
 [[ -f $wal_fast_source ]] && exec mv "${wal_fast_source}" "${wal_destination}"
 
-POOL_SIZE=$(($(nproc)-1))
+POOL_SIZE=$(($(grep -c ^processor /proc/cpuinfo 2>/dev/null || 1)-1))
 [[ $POOL_SIZE -gt 8 ]] && POOL_SIZE=8
 
 if [[ -z $WALE_S3_PREFIX ]]; then  # non AWS environment?
