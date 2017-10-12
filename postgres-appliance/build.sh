@@ -1,5 +1,6 @@
 #!/bin/bash
 
+BUILDIMG=minispilo
 DOCKERCMD="docker build"
 
 function usage()
@@ -24,11 +25,19 @@ cat > scm-source.json <<__EOT__
 }
 __EOT__
 
-${DOCKERCMD} $@
-EXITCODE=$?
+function run_or_fail() {
+    $@
+    EXITCODE=$?
+    if  [[ $EXITCODE != 0 ]]; then
+        echo "'$@' failed with exitcode $EXITCODE"
+        exit $EXITCODE
+    fi
+}
 
-if [[ $EXITCODE != 0 ]]
-then
-    echo "Docker build failed, exitcode is ${EXITCODE}"
-    exit ${EXITCODE}
-fi
+BUILD_ID=$(docker images -q $BUILDIMG:build)
+run_or_fail ${DOCKERCMD} -t $BUILDIMG:build . -f Dockerfile.build
+
+[[ "$(docker images -q $BUILDIMG:build)" != "$BUILD_ID" || -z "$(docker images -q $BUILDIMG:squashed)" ]] \
+    && run_or_fail docker-squash -t $BUILDIMG:squashed $BUILDIMG:build
+
+run_or_fail ${DOCKERCMD} $@

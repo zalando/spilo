@@ -1,0 +1,403 @@
+# vim:set ft=dockerfile:
+FROM alpine:3.6
+MAINTAINER Alexander Kukushkin <alexander.kukushkin@zalando.de>
+
+# build postgis dependencies
+ENV PROJ=4.9.3 GEOS=svn-3.6 GDAL=2.2.2
+RUN set -ex \
+        && cd / \
+        && echo "usr lib bin sbin etc" > /saveDirs \
+        && echo usr/bin/xz >> /exclude \
+        && for d in $(cat /saveDirs); do find $d -not -type d >> /exclude; done \
+
+        && apk add --no-cache --virtual .spilo-rundeps \
+                ca-certificates \
+                openssl \
+                xz \
+
+        && apk add --no-cache --virtual .build-deps \
+                git \
+                make \
+                gcc \
+                libc-dev \
+                linux-headers \
+                libtool \
+                autoconf \
+                automake \
+        && apk add --no-cache g++ \
+
+        && NPROC=$(grep -c ^processor /proc/cpuinfo 2>/dev/null || 1) \
+
+        && mkdir /usr/src \
+        && cd /usr/src \
+        && wget -q -O - http://download.osgeo.org/proj/proj-${PROJ}.tar.gz | tar xz \
+        && cd proj-${PROJ} \
+        && ./configure --prefix=/usr/local --disable-static --without-mutex --without-jni \
+        && export DESTDIR=/tmp/proj \
+        && make -j $NPROC install-strip \
+        && unset DESTDIR \
+        && cp -a /tmp/proj/usr/local/lib /tmp/proj/usr/local/include /usr/local/ \
+
+        && cd /usr/src \
+        && git clone --depth 1 -b $GEOS https://github.com/libgeos/libgeos \
+        && cd libgeos \
+        && ./autogen.sh \
+        && ./configure --prefix=/usr/local --disable-static --disable-cassert --disable-glibcxx-debug --disable-python --disable-ruby \
+        && make -j $NPROC install-strip \
+
+        && cd /usr/src \
+        && wget -q -O - http://download.osgeo.org/gdal/${GDAL}/gdal-${GDAL}.tar.xz | tar xJ \
+        && cd gdal-${GDAL} \
+        && ./configure --prefix=/usr/local --without-grib --without-mrf --without-pam --without-libtool --without-perl \
+                --without-java --without-python --without-pcidsk --without-libz --without-qhull --without-curl \
+                --without-png --without-gif --without-jpeg --without-jpeg12 --without-pcre --without-sqlite3 \
+                --without-libkml --without-pg --without-pcraster --without-xml2 --disable-static \
+        && export DESTDIR=/tmp/gdal \
+        && make -j $NPROC && make install \
+        && strip  /tmp/gdal/usr/local/lib/libgdal.so \
+        && cp -a /tmp/gdal/usr/local/lib /tmp/gdal/usr/local/include /usr/local/ \
+        && cp -a /tmp/gdal/usr/local/bin/gdal-config  /usr/local/bin \
+        && apk del --no-cache g++ \
+        && rm -fr /tmp/* /usr/src/* /usr/local/share/doc /usr/local/share/man
+
+ENV PAM_OAUTH_COMMIT=bed1f8d31840d1fda49365921449112a7421b8ca JSMN_COMMIT=1682c32e9ae5990ddd0f0e907270a0f6dde5cbe9
+RUN set -ex \
+        && apk add --no-cache --virtual .spilo-rundeps \
+                linux-pam \
+                libcurl \
+        && apk add --no-cache --virtual .build-deps \
+                linux-pam-dev \
+        && apk add --no-cache curl-dev \
+
+        && cd /usr/src \
+        && wget -q -O - https://github.com/CyberDem0n/pam-oauth2/archive/$PAM_OAUTH_COMMIT.tar.gz | tar xz \
+        && cd pam-oauth2-$PAM_OAUTH_COMMIT \
+        && wget -q -O - https://github.com/zserge/jsmn/archive/$JSMN_COMMIT.tar.gz | tar xz \
+        && rm -fr jsmn && mv jsmn-$JSMN_COMMIT jsmn \
+        && make install \
+        && strip /lib/security/pam_oauth2.so \
+        && apk del --no-cache curl-dev \
+        && rm -fr /usr/src/*
+
+ENV LANG=en_US.utf8 \
+        PG_VERSION=10.0 \
+        PG_OLDVERSIONS="9.5.9 9.6.5"
+
+RUN set -ex \
+        && apk add --no-cache --virtual .build-deps \
+                bison \
+                flex \
+                zlib-dev \
+                openssl-dev \
+                libxml2-dev \
+
+        && apk add --no-cache --virtual .postgres-build-deps \
+                python3-dev \
+                dpkg-dev dpkg \
+                util-linux-dev \
+                libedit-dev \
+                libxslt-dev \
+                icu-dev \
+
+        && gnuArch="$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)" \
+        && NPROC=$(grep -c ^processor /proc/cpuinfo 2>/dev/null || 1) \
+
+        && for version in ${PG_OLDVERSIONS} ${PG_VERSION}; do \
+            cd /usr/src \
+            && export MAJOR_VER=${version%.*} \
+            && if [ "$MAJOR_VER" = "10" ]; then ICU="--with-icu"; else ICU=""; fi \
+            && wget "https://ftp.postgresql.org/pub/source/v$version/postgresql-$version.tar.bz2" \
+            && wget -q -O - "https://ftp.postgresql.org/pub/source/v$version/postgresql-$version.tar.bz2.sha256" | sha256sum -c - \
+            && tar xjf postgresql-$version.tar.bz2 \
+            && cd postgresql-$version \
+# per version include and lib dirs (matching Debian)
+            && wget -q -O - "https://anonscm.debian.org/cgit/pkg-postgresql/postgresql.git/plain/debian/patches/50-per-version-dirs.patch?h=$MAJOR_VER" | patch -p1 \
+# update "DEFAULT_PGSOCKET_DIR" to "/var/run/postgresql" (matching Debian)
+            && wget -q -O - "https://anonscm.debian.org/cgit/pkg-postgresql/postgresql.git/plain/debian/patches/51-default-sockets-in-var.patch?h=$MAJOR_VER" | patch -p1 \
+# explicitly update autoconf config.guess and config.sub so they support more arches/libcs
+            && wget -O config/config.guess 'https://git.savannah.gnu.org/cgit/config.git/plain/config.guess?id=7d3d27baf8107b630586c962c057e22149653deb' \
+            && wget -O config/config.sub 'https://git.savannah.gnu.org/cgit/config.git/plain/config.sub?id=7d3d27baf8107b630586c962c057e22149653deb' \
+            && export PYTHON=/usr/bin/python3 \
+# configure options taken from:
+# https://anonscm.debian.org/cgit/pkg-postgresql/postgresql.git/tree/debian/rules?h=9.5
+            && ./configure \
+                --build="$gnuArch" \
+                --enable-integer-datetimes \
+                --enable-thread-safety \
+                --disable-rpath \
+                --with-uuid=e2fs \
+                --with-gnu-ld \
+                --with-pgport=5432 \
+                --with-system-tzdata=/usr/share/zoneinfo \
+                --datadir=/usr/share/postgresql/$MAJOR_VER \
+                --bindir=/usr/lib/postgresql/$MAJOR_VER/bin \
+                --libdir=/usr/lib \
+                --includedir=/usr/include/postgresql/ \
+                --libexecdir=/usr/lib/postgresql/ \
+                --with-includes=/usr/local/include \
+                --with-libraries=/usr/local/lib \
+                --with-python \
+                --with-pam \
+                --with-openssl \
+                --with-libxml \
+                --with-libxslt \
+                $ICU \
+            && make -j $NPROC install-strip \
+            && make -j $NPROC -C contrib install-strip; \
+        done \
+
+        && export PATH=/usr/lib/postgresql/$MAJOR_VER/bin:$PATH \
+        && pip3 install psycopg2 \
+        && strip /usr/lib/python3.6/site-packages/psycopg2/_psycopg.cpython*.so \
+
+        && runDeps="$( \
+                scanelf --needed --nobanner --format '%n#p' --recursive /usr/lib/postgresql \
+                    | tr ',' '\n' | grep -v libpq.so | sort -u | awk 'system("[ -e /usr/local/lib/" $1 " ]") == 0 { next } { print "so:" $1 }' \
+        )" \
+        && apk add --no-cache --virtual .spilo-rundeps \
+                $runDeps \
+                tzdata \
+
+        && apk del --no-cache .postgres-build-deps \
+        && rm -fr /usr/src/* /usr/local/share/doc /usr/local/pgsql \
+        && rm -f /usr/lib/libecpg* /usr/lib/postgresql/*/bin/ecpg \
+        && cd /usr/lib/postgresql/$MAJOR_VER/bin \
+        && for u in clusterdb createdb createuser dropuser dropdb pg_archivecleanup pg_basebackup pg_isready pg_test_fsync pg_test_timing pgbench pgsql2shp psql raster2pgsql reindexdb shp2pgsql vacuumdb vacuumlo; do \
+            for v in /usr/lib/postgresql/*; do \
+                if [ "$v" != "/usr/lib/postgresql/$MAJOR_VER" ] && [ -f "$v/bin/$u" ]; then \
+                    rm $v/bin/$u \
+                    && ln -s /usr/lib/postgresql/$MAJOR_VER/bin/$u $v/bin/$u; \
+                fi; \
+            done; \
+        done
+
+ENV \
+        POSTGIS=2.4.0 \
+        BG_MON_COMMIT=796690f2bee2778321a45233fe4012fc06b75f02 \
+        DECODEBUFS_COMMIT=d08a75593c68897600e10f5250133337624bcf63 \
+        PG_REPACK_COMMIT=4b86bb1c4117e56d2f69418dccfb7b46892c29fd \
+        PLPROXY=plproxy_2_8 \
+        PG_CRON=v1.0.2 \
+        HYPOPG=1.1.0 \
+        SET_USER=REL1_4_0
+
+RUN set -ex \
+        && apk add --no-cache --virtual .build-deps \
+                file \
+                libevent-dev \
+                json-c-dev \
+                protobuf-c-dev \
+                pcre-dev \
+                python-dev \
+
+        && OLD_PATH=$PATH \
+        && cd /usr/src \
+        && wget -q -O - http://download.osgeo.org/postgis/source/postgis-${POSTGIS}.tar.gz | tar xz \
+
+        && wget -q -O - https://github.com/debezium/postgres-decoderbufs/archive/$DECODEBUFS_COMMIT.tar.gz | tar xz \
+
+        && git clone -b $PLPROXY https://github.com/plproxy/plproxy.git \
+
+        && wget -q -O - https://github.com/reorg/pg_repack/archive/$PG_REPACK_COMMIT.tar.gz | tar xz \
+
+        && wget -q -O - https://github.com/CyberDem0n/bg_mon/archive/$BG_MON_COMMIT.tar.gz | tar xz \
+        && echo "#include <linux/limits.h>" > bg_mon-${BG_MON_COMMIT}/disk_stats.c.new \
+        && cat bg_mon-${BG_MON_COMMIT}/disk_stats.c >> bg_mon-${BG_MON_COMMIT}/disk_stats.c.new \
+        && mv bg_mon-${BG_MON_COMMIT}/disk_stats.c.new bg_mon-${BG_MON_COMMIT}/disk_stats.c \
+
+        && git clone -b v1.0.2 https://github.com/citusdata/pg_cron.git \
+        && sed -i 's/ -Werror//' pg_cron/Makefile \
+
+        && git clone -b $HYPOPG https://github.com/dalibo/hypopg.git \
+
+        && git clone -b $SET_USER https://github.com/pgaudit/set_user.git \
+
+        && git clone https://github.com/pgq/skytools-legacy.git \
+        && cd skytools-legacy \
+        && git submodule init \
+        && git submodule update \
+        && ./autogen.sh \
+        && sed -i 's|^SUBDIRS .*|SUBDIRS = pgq ticker|' sql/Makefile \
+
+        && NPROC=$(grep -c ^processor /proc/cpuinfo 2>/dev/null || 1) \
+
+        && for version in ${PG_OLDVERSIONS} ${PG_VERSION}; do \
+            export MAJOR_VER=${version%.*} \
+            && export PATH=/usr/lib/postgresql/$MAJOR_VER/bin:$OLD_PATH \
+
+            && cd /usr/src/skytools-legacy \
+            && if [ "$MAJOR_VER" != "9.5" ]; then sed -i 's|parser/keywords.h|common/keywords.h|' sql/pgq/triggers/stringutil.c; fi \
+            && ./configure \
+            && ln -snf ../../install-sh sql/ticker/install-sh \
+            && make -C sql clean \
+            && make -C sql install \
+            && strip /usr/lib/postgresql/$MAJOR_VER/lib/pgq_*.so /usr/local/bin/pgqd \
+
+            && cd /usr/src/postgis-${POSTGIS} \
+            && ./configure --with-geosconfig=/usr/local/bin/geos-config \
+            && make clean \
+            && make -j $NPROC \
+            && export DESTDIR=/tmp/postgis \
+            && make install \
+            && strip /tmp/postgis/usr/local/lib/liblwgeom.so /tmp/postgis/usr/lib/postgresql/$MAJOR_VER/lib/*.so \
+            && rm /tmp/postgis/usr/local/lib/liblwgeom.a \
+            && cp -a /tmp/postgis/usr/share/postgresql/$MAJOR_VER /usr/share/postgresql \
+            && cp -a /tmp/postgis/usr/lib/postgresql/$MAJOR_VER /usr/lib/postgresql \
+            && cp -a /tmp/postgis/usr/local /usr \
+            && rm -fr $DESTDIR \
+            && unset DESTDIR \
+
+            && cd /usr/src \
+            && make -C postgres-decoderbufs-$DECODEBUFS_COMMIT clean install-strip \
+
+            && make -C plproxy clean install-strip \
+
+            && make -C pg_repack-${PG_REPACK_COMMIT} clean install \
+            && strip /usr/lib/postgresql/$MAJOR_VER/lib/pg_repack.so /usr/lib/postgresql/$MAJOR_VER/bin/pg_repack \
+
+            && make -C bg_mon-${BG_MON_COMMIT} USE_PGXS=1 clean install-strip \
+
+            && make -C pg_cron clean install-strip \
+
+            && make -C hypopg clean install-strip \
+
+            && make -C set_user USE_PGXS=1 clean install-strip; \
+        done \
+        && runDeps="$( \
+                (scanelf --needed --nobanner --format '%n#p' --recursive /usr/local \
+                        && scanelf --needed --nobanner --format '%n#p' --recursive /usr/lib/postgresql) \
+                    | tr ',' '\n' | grep -v libpq.so | sort -u | awk 'system("[ -e /usr/local/lib/" $1 " ]") == 0 { next } { print "so:" $1 }' \
+        )" \
+        && apk add --no-cache --virtual .spilo-rundeps \
+                $runDeps \
+
+        && apk del .build-deps \
+
+        && find /usr -name '*.a' -delete \
+
+# protobuf, protobuf-c
+        && rm /usr/bin/protoc* /usr/lib/libprotoc.so* /usr/lib/libprotobuf-lite.so* /usr/lib/libprotobuf.so* \
+
+# libevent
+        && rm /usr/lib/libevent_* \
+
+        && rm -fr /usr/src /usr/local/share/doc /usr/local/pgsql /usr/include/postgresql /usr/local/include /usr/lib/postgresql/*/lib/pgx \
+        && for e in postgis postgis_tiger_geocoder postgis_topology address_standardizer address_standardizer_data_us; do \
+            cd /usr/share/postgresql/$MAJOR_VER/extension \
+            && orig=$(ls -1 $e--*--*.sql | head -n1) \
+            && for f in $e--*--*.sql; do if [ "$f" != "$orig" ] && diff $f $orig > /dev/null; then rm $f && ln -s $orig $f; fi; done \
+            && for v in /usr/share/postgresql/*; do \
+                if [ "$v" != "/usr/share/postgresql/$MAJOR_VER" ]; then \
+                    cd $v/extension \
+                    && if [ $e = "postgis" ]; then \
+                        for f in $e--*--*.sql; do \
+                            if [ "$f" != "$orig" ] && diff $f $orig > /dev/null; \
+                                then rm $f \
+                                && ln -s $orig $f; \
+                            fi; \
+                        done; \
+                    else \ 
+                        for f in $e--*--*.sql; do \
+                            if diff /usr/share/postgresql/$MAJOR_VER/extension/$f $f > /dev/null; then \
+                                rm $f \
+                                && ln -s /usr/share/postgresql/$MAJOR_VER/extension/$f $f; \
+                            fi; \
+                        done; \
+                    fi; \
+                fi; \
+            done; \
+        done \
+
+        && cd /usr/lib \
+        && for l in libpgtypes.so libpq.so; do \
+            good=$(readlink $l) \
+            && for f in $l.*.*; do \
+                if [ "$f" != "$good" ]; then rm $f; fi; \
+            done; \
+        done \
+
+        && cd /usr/share/postgresql/$MAJOR_VER/contrib \
+        && for f in *.sql *.html; do \
+            for v in /usr/share/postgresql/*; do \
+                if [ "$v" != "/usr/share/postgresql/$MAJOR_VER" ] && diff $v/contrib/$f $f > /dev/null; then \
+                    rm $v/contrib/$f \
+                    && ln -s /usr/share/postgresql/$MAJOR_VER/contrib/$f $v/contrib/$f; \
+                fi; \
+            done; \
+        done \
+
+        && export POSTGIS_MAJOR=${POSTGIS%.*} \
+        && cd /usr/share/postgresql/$MAJOR_VER/contrib/postgis-$POSTGIS_MAJOR \
+        && for f in *.sql *.pl; do \
+            for v in /usr/share/postgresql/*; do \
+                if [ "$v" != "/usr/share/postgresql/$MAJOR_VER" ] && diff $v/contrib/postgis-$POSTGIS_MAJOR/$f $f > /dev/null; then \
+                    rm $v/contrib/postgis-$POSTGIS_MAJOR/$f \
+                    && ln -s /usr/share/postgresql/$MAJOR_VER/contrib/postgis-$POSTGIS_MAJOR/$f $v/contrib/postgis-$POSTGIS_MAJOR/$f; \
+                fi; \
+            done; \
+        done
+
+ENV PATH=$PATH:/usr/lib/postgresql/${PG_VERSION}/bin
+ENV PATRONIVERSION=1.3.5
+RUN set -ex \
+        && apk add --no-cache --virtual .spilo-rundeps \
+                bash \
+                curl \
+                jq \
+                less \
+                e2fsprogs-extra \
+                py3-gevent \
+                py3-yaml \
+                py3-six \
+                py3-click \
+                py3-dateutil \
+                py3-psutil \
+                py3-greenlet \
+                py3-idna \
+                py3-tz \
+                py3-websocket-client \
+                py3-ipaddress \
+                py3-asn1 \
+                py3-asn1-modules \
+                py3-rsa \
+
+        && apk add --no-cache git \
+
+        && pip3 install --upgrade setuptools \
+        && pip3 install envdir pystache \
+            'git+https://github.com/zalando/patroni.git@feature/k8s#egg=patroni[etcd,kubernetes,aws]' \
+            'git+https://github.com/Supervisor/supervisor.git@master#egg=supervisor' \
+            'git+https://github.com/wal-e/wal-e@master#egg=wal-e[aws,google]' \
+
+        && sed -i 's/^\(    for i in range(0,\) num_retries):.*/\1 100):/g' /usr/lib/python3.6/site-packages/boto/utils.py \
+        && echo 4.0.0.dev0 > /usr/lib/python3.6/site-packages/supervisor/version.txt \
+
+        && mkdir /var/log/supervisor /var/run/postgresql \
+        && chown postgres:postgres /var/run/postgresql \
+        && chmod 2777 /var/run/postgresql \
+
+        && apk del --no-cache git \
+
+        && cd / \
+        && for a in usr/lib/liblzma.so*; do echo $a >> /exclude; done \
+        && rm -rf /tmp/* /usr/src /usr/local/include /usr/local/share/doc /usr/local/share/man /root/.cache \
+# libxslt
+        && rm usr/bin/xsltproc usr/lib/libexslt.so* \
+# libgcrypt
+        && rm usr/bin/dumpsexp usr/bin/hmac256 usr/bin/mpicalc usr/lib/libgcrypt.so* \
+# libgpg-error
+        && rm usr/bin/gpg-error usr/lib/libgpg-error.so* \
+        && find usr -name '*.a' -delete \
+        && find usr/lib/python3.6/ -type d -name tests | xargs rm -fr \
+        && find usr/lib/python3.6/ -type f -name 'test_*.py' -delete \
+        && find usr/lib/python3.6/ -type f -name 'test_*.pyc' -delete \
+        && find usr/lib/python3.6/ -type f -name 'unittest_*.py' -delete \
+        && find usr/lib/python3.6/ -type f -name 'unittest_*.pyc' -delete \
+        && find usr/lib/python3.6/ -type f -name '*_test.py' -delete \
+        && find usr/lib/python3.6/ -type f -name '*_test.cpython*.pyc' -delete \
+
+        && export saveDirs=$(cat /saveDirs) \
+        && XZ_OPT=-e9v tar -X /exclude -cpJf a.tar.xz $saveDirs \
+        && rm -fr /usr/lib/python* /saveDirs \
+        && (for d in $saveDirs; do find $d -not -type d; done && cat /exclude /exclude && echo exclude) | sort | uniq -u | xargs rm \
+        && for d in $saveDirs; do find $d -type d -depth -exec rmdir -p {} \; 2> /dev/null; done
