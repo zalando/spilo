@@ -231,18 +231,14 @@ def get_provider():
         if r.headers.get('Metadata-Flavor', '') == 'Google':
             return PROVIDER_GOOGLE
         else:
-            try:
-                # accessible on Openstack, will fail on AWS
-                r = requests.get('http://169.254.169.254/openstack/latest/meta_data.json')
-                if r.ok:
-                    return PROVIDER_OPENSTACK
-            except Exception:
-                # is accessible from both AWS and Openstack, Possiblity of misidentification if previous try fails
-                r = requests.get('http://169.254.169.254/latest/meta-data/ami-id')
-                if r.ok:
-                    return PROVIDER_AWS
-                else:
-                    return PROVIDER_UNSUPPORTED
+            # accessible on Openstack, will fail on AWS
+            r = requests.get('http://169.254.169.254/openstack/latest/meta_data.json')
+            if r.ok:
+                return PROVIDER_OPENSTACK
+
+            # is accessible from both AWS and Openstack, Possiblity of misidentification if previous try fails
+            r = requests.get('http://169.254.169.254/latest/meta-data/ami-id')
+            return PROVIDER_AWS if r.ok else PROVIDER_UNSUPPORTED
     except (requests.exceptions.ConnectTimeout, requests.exceptions.ConnectionError):
         logging.info("Could not connect to 169.254.169.254, assuming local Docker setup")
         return PROVIDER_LOCAL
