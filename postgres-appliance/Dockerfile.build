@@ -162,7 +162,7 @@ RUN set -ex \
         && rm -fr /usr/src/* /usr/local/share/doc /usr/local/pgsql \
         && rm -f /usr/lib/libecpg* /usr/lib/postgresql/*/bin/ecpg \
         && cd /usr/lib/postgresql/$MAJOR_VER/bin \
-        && for u in clusterdb createdb createuser dropuser dropdb pg_archivecleanup pg_basebackup pg_isready pg_test_fsync pg_test_timing pgbench pgsql2shp psql raster2pgsql reindexdb shp2pgsql vacuumdb vacuumlo; do \
+        && for u in clusterdb createdb createuser dropuser dropdb pg_archivecleanup pg_basebackup pg_isready pg_test_fsync pg_test_timing pgbench psql reindexdb vacuumdb vacuumlo; do \
             for v in /usr/lib/postgresql/*; do \
                 if [ "$v" != "/usr/lib/postgresql/$MAJOR_VER" ] && [ -f "$v/bin/$u" ]; then \
                     rm $v/bin/$u \
@@ -239,11 +239,11 @@ RUN set -ex \
             && make -j $NPROC \
             && export DESTDIR=/tmp/postgis \
             && make install \
-            && strip /tmp/postgis/usr/local/lib/liblwgeom.so /tmp/postgis/usr/lib/postgresql/$MAJOR_VER/lib/*.so \
-            && rm /tmp/postgis/usr/local/lib/liblwgeom.a \
-            && cp -a /tmp/postgis/usr/share/postgresql/$MAJOR_VER /usr/share/postgresql \
-            && cp -a /tmp/postgis/usr/lib/postgresql/$MAJOR_VER /usr/lib/postgresql \
-            && cp -a /tmp/postgis/usr/local /usr \
+            && strip $DESTDIR/usr/local/lib/liblwgeom.so $DESTDIR/usr/lib/postgresql/$MAJOR_VER/lib/*.so \
+            && rm $DESTDIR/usr/local/lib/liblwgeom.a \
+            && cp -a $DESTDIR/usr/share/postgresql/$MAJOR_VER /usr/share/postgresql \
+            && cp -a $DESTDIR/usr/lib/postgresql/$MAJOR_VER/bin /usr/lib/postgresql/$MAJOR_VER \
+            && cp -a $DESTDIR/usr/local /usr \
             && rm -fr $DESTDIR \
             && unset DESTDIR \
 
@@ -380,7 +380,7 @@ RUN set -ex \
 
         && cd / \
         && for a in usr/lib/liblzma.so*; do echo $a >> /exclude; done \
-        && rm -rf /tmp/* /usr/src /usr/local/include /usr/local/share/doc /usr/local/share/man /root/.cache \
+        && rm -rf /tmp/* /usr/src /usr/local/include /usr/include /usr/local/share/doc /usr/local/share/man /root/.cache \
 # libxslt
         && rm usr/bin/xsltproc usr/lib/libexslt.so* \
 # libgcrypt
