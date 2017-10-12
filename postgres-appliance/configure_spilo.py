@@ -411,19 +411,15 @@ def write_wale_command_environment(placeholders, overwrite, provider):
 
 def write_crontab(placeholders, path, overwrite):
 
-    if not overwrite:
-        with open(os.devnull, 'w') as devnull:
-            cron_exit = subprocess.call(['sudo', '-u', 'postgres', 'crontab', '-l'], stdout=devnull, stderr=devnull)
-            if cron_exit == 0:
-                logging.warning('Cron is already configured. (Use option --force to overwrite cron)')
-                return
+    if not overwrite and os.path.exists('/var/spool/cron/crontabs/postgres'):
+        return logging.warning('Cron is already configured. (Use option --force to overwrite cron)')
 
     lines = ['PATH={}'.format(path)]
     lines += ['{BACKUP_SCHEDULE} /postgres_backup.sh "{WALE_ENV_DIR}" "{PGDATA}" "{BACKUP_NUM_TO_RETAIN}"'.format(**placeholders)]
     lines += yaml.load(placeholders['CRONTAB'])
     lines += ['']  # EOF requires empty line for cron
 
-    c = subprocess.Popen(['sudo', '-u', 'postgres', 'crontab'], stdin=subprocess.PIPE)
+    c = subprocess.Popen(['crontab', '-u', 'postgres', '-'], stdin=subprocess.PIPE)
     c.communicate(input='\n'.join(lines).encode())
 
 
