@@ -117,7 +117,6 @@ bootstrap:
       parameters:
         archive_mode: "on"
         archive_timeout: 1800s
-        archive_command: {{{postgresql.parameters.archive_command}}}
         wal_level: hot_standby
         wal_keep_segments: 8
         wal_log_hints: 'on'
@@ -175,6 +174,7 @@ postgresql:
   connect_address: {{instance_data.ip}}:{{PGPORT}}
   data_dir: {{PGDATA}}
   parameters:
+    archive_command: {{{postgresql.parameters.archive_command}}}
     shared_buffers: {{postgresql.parameters.shared_buffers}}
     logging_collector: 'on'
     log_destination: csvlog
