@@ -410,12 +410,11 @@ def write_wale_command_environment(placeholders, overwrite, provider):
 
 
 def write_crontab(placeholders, path, overwrite):
-
-    if not overwrite and os.path.exists('/var/spool/cron/crontabs/postgres'):
+    if not overwrite and os.path.exists('/etc/crontabs/postgres'):
         return logging.warning('Cron is already configured. (Use option --force to overwrite cron)')
 
-    lines = ['PATH={}'.format(path)]
-    lines += ['{BACKUP_SCHEDULE} /postgres_backup.sh "{WALE_ENV_DIR}" "{PGDATA}" "{BACKUP_NUM_TO_RETAIN}"'.format(**placeholders)]
+    lines = ['{BACKUP_SCHEDULE} PATH={0} /postgres_backup.sh "{WALE_ENV_DIR}" "{PGDATA}"' +
+             ' "{BACKUP_NUM_TO_RETAIN}"'.format(path, **placeholders)]
     lines += yaml.load(placeholders['CRONTAB'])
     lines += ['']  # EOF requires empty line for cron
 
