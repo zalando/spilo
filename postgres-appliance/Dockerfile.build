@@ -58,7 +58,7 @@ RUN set -ex \
         && cp -a /tmp/gdal/usr/local/lib /tmp/gdal/usr/local/include /usr/local/ \
         && cp -a /tmp/gdal/usr/local/bin/gdal-config  /usr/local/bin \
         && apk del --no-cache g++ \
-        && rm -fr /tmp/* /usr/src/* /usr/local/share/doc /usr/local/share/man
+        && rm -fr /tmp/* /usr/src/* /usr/share/terminfo /usr/lib/terminfo /usr/local/share/doc /usr/local/share/man
 
 ENV PAM_OAUTH_COMMIT=bed1f8d31840d1fda49365921449112a7421b8ca JSMN_COMMIT=1682c32e9ae5990ddd0f0e907270a0f6dde5cbe9
 RUN set -ex \
@@ -161,6 +161,18 @@ RUN set -ex \
         && apk del --no-cache .postgres-build-deps \
         && rm -fr /usr/src/* /usr/local/share/doc /usr/local/pgsql \
         && rm -f /usr/lib/libecpg* /usr/lib/postgresql/*/bin/ecpg \
+        && cd /usr/share/postgresql/$MAJOR_VER/extension \
+        && for f in *.sql *.control; do \
+            for v in /usr/share/postgresql/*; do \
+                if [ "$v" != "/usr/share/postgresql/$MAJOR_VER" ] \
+                        && [ -f $v/extension/$f ] \
+                        && [ ! -L $v/extension/$f ] \
+                        && diff $v/extension/$f $f > /dev/null; then \
+                    rm $v/extension/$f \
+                    && ln -s /usr/share/postgresql/$MAJOR_VER/extension/$f $v/extension/$f; \
+                fi; \
+            done; \
+        done \
         && cd /usr/lib/postgresql/$MAJOR_VER/bin \
         && for u in clusterdb createdb createuser dropuser dropdb pg_archivecleanup pg_basebackup pg_isready pg_test_fsync pg_test_timing pgbench psql reindexdb vacuumdb vacuumlo; do \
             for v in /usr/lib/postgresql/*; do \
@@ -242,7 +254,7 @@ RUN set -ex \
             && strip $DESTDIR/usr/local/lib/liblwgeom.so $DESTDIR/usr/lib/postgresql/$MAJOR_VER/lib/*.so \
             && rm $DESTDIR/usr/local/lib/liblwgeom.a \
             && cp -a $DESTDIR/usr/share/postgresql/$MAJOR_VER /usr/share/postgresql \
-            && cp -a $DESTDIR/usr/lib/postgresql/$MAJOR_VER/bin /usr/lib/postgresql/$MAJOR_VER \
+            && cp -a $DESTDIR/usr/lib/postgresql/$MAJOR_VER/lib /usr/lib/postgresql/$MAJOR_VER \
             && cp -a $DESTDIR/usr/local /usr \
             && rm -fr $DESTDIR \
             && unset DESTDIR \
@@ -270,6 +282,7 @@ RUN set -ex \
         )" \
         && apk add --no-cache --virtual .spilo-rundeps \
                 $runDeps \
+                bash \
 
         && apk del .build-deps \
 
@@ -282,31 +295,38 @@ RUN set -ex \
         && rm /usr/lib/libevent_* \
 
         && rm -fr /usr/src /usr/local/share/doc /usr/local/pgsql /usr/include/postgresql /usr/local/include /usr/lib/postgresql/*/lib/pgx \
-        && for e in postgis postgis_tiger_geocoder postgis_topology address_standardizer address_standardizer_data_us; do \
-            cd /usr/share/postgresql/$MAJOR_VER/extension \
-            && orig=$(ls -1 $e--*--*.sql | head -n1) \
-            && for f in $e--*--*.sql; do if [ "$f" != "$orig" ] && diff $f $orig > /dev/null; then rm $f && ln -s $orig $f; fi; done \
-            && for v in /usr/share/postgresql/*; do \
-                if [ "$v" != "/usr/share/postgresql/$MAJOR_VER" ]; then \
-                    cd $v/extension \
-                    && if [ $e = "postgis" ]; then \
-                        for f in $e--*--*.sql; do \
-                            if [ "$f" != "$orig" ] && diff $f $orig > /dev/null; \
-                                then rm $f \
-                                && ln -s $orig $f; \
-                            fi; \
-                        done; \
-                    else \ 
-                        for f in $e--*--*.sql; do \
-                            if diff /usr/share/postgresql/$MAJOR_VER/extension/$f $f > /dev/null; then \
-                                rm $f \
-                                && ln -s /usr/share/postgresql/$MAJOR_VER/extension/$f $f; \
-                            fi; \
-                        done; \
-                    fi; \
+        && for v in /usr/share/postgresql/*; do \
+            cd $v/extension \
+            && orig=$(ls -1 postgis--*--*.sql | head -n1) \
+            && for f in postgis--*--*.sql; do \
+                if [ "$f" != "$orig" ] && diff $f $orig > /dev/null; then \
+                    rm $f \
+                    && ln -s $orig $f; \
                 fi; \
             done; \
         done \
+        && cd /usr/share/postgresql/$MAJOR_VER/extension \
+        && for e in postgis_tiger_geocoder postgis_topology address_standardizer address_standardizer_data_us; do \
+            orig=$(ls -1 $e--*--*.sql | head -n1) \
+            && for f in $e--*--*.sql; do \
+                if [ "$f" != "$orig" ] && diff $f $orig > /dev/null; then \
+                    rm $f \
+                    && ln -s $orig $f; \
+                fi; \
+            done; \
+        done \
+        && for f in *.sql *.control; do \
+            for v in /usr/share/postgresql/*; do \
+                if [ "$v" != "/usr/share/postgresql/$MAJOR_VER" ] \
+                        && [ -f $v/extension/$f ] \
+                        && [ ! -L $v/extension/$f ] \
+                        && diff $v/extension/$f $f > /dev/null; then \
+                    rm $v/extension/$f \
+                    && ln -s /usr/share/postgresql/$MAJOR_VER/extension/$f $v/extension/$f; \
+                fi; \
+            done; \
+        done \
+
 
         && cd /usr/lib \
         && for l in libpgtypes.so libpq.so; do \
@@ -342,7 +362,6 @@ ENV PATRONIVERSION=1.3.5
 RUN set -ex \
         && apk add --no-cache --virtual .spilo-rundeps \
                 dcron \
-                bash \
                 pv \
                 curl \
                 jq \
