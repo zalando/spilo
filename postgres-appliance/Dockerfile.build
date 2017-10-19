@@ -69,6 +69,11 @@ RUN set -ex \
                 linux-pam-dev \
         && apk add --no-cache curl-dev \
 
+        && rm -fr /sbin/pam* \
+                /sbin/unix_* \
+                /sbin/mkhomedir_helper \
+                /lib/security \
+
         && cd /usr/src \
         && wget -q -O - https://github.com/CyberDem0n/pam-oauth2/archive/$PAM_OAUTH_COMMIT.tar.gz | tar xz \
         && cd pam-oauth2-$PAM_OAUTH_COMMIT \
@@ -160,7 +165,17 @@ RUN set -ex \
 
         && apk del --no-cache .postgres-build-deps \
         && rm -fr /usr/src/* /usr/local/share/doc /usr/local/pgsql \
-        && rm -f /usr/lib/libecpg* /usr/lib/postgresql/*/bin/ecpg \
+        && rm -f /usr/lib/libecpg* \
+                /usr/lib/postgresql/*/bin/ecpg \
+                /usr/lib/postgresql/*/bin/createdb \
+                /usr/lib/postgresql/*/bin/createlang \
+                /usr/lib/postgresql/*/bin/createuser \
+                /usr/lib/postgresql/*/bin/dropdb \
+                /usr/lib/postgresql/*/bin/droplang \
+                /usr/lib/postgresql/*/bin/dropuser \
+                /usr/lib/postgresql/*/bin/pg_recvlogical \
+                /usr/lib/postgresql/*/bin/pg_standby \
+
         && cd /usr/share/postgresql/$MAJOR_VER/extension \
         && for f in *.sql *.control; do \
             for v in /usr/share/postgresql/*; do \
@@ -174,7 +189,7 @@ RUN set -ex \
             done; \
         done \
         && cd /usr/lib/postgresql/$MAJOR_VER/bin \
-        && for u in clusterdb createdb createuser dropuser dropdb pg_archivecleanup pg_basebackup pg_isready pg_test_fsync pg_test_timing pgbench psql reindexdb vacuumdb vacuumlo; do \
+        && for u in clusterdb pg_archivecleanup pg_basebackup pg_isready pg_test_fsync pg_test_timing pgbench psql reindexdb vacuumdb vacuumlo; do \
             for v in /usr/lib/postgresql/*; do \
                 if [ "$v" != "/usr/lib/postgresql/$MAJOR_VER" ] && [ -f "$v/bin/$u" ]; then \
                     rm $v/bin/$u \
@@ -221,7 +236,7 @@ RUN set -ex \
         && cat bg_mon-${BG_MON_COMMIT}/disk_stats.c >> bg_mon-${BG_MON_COMMIT}/disk_stats.c.new \
         && mv bg_mon-${BG_MON_COMMIT}/disk_stats.c.new bg_mon-${BG_MON_COMMIT}/disk_stats.c \
 
-        && git clone -b v1.0.2 https://github.com/citusdata/pg_cron.git \
+        && git clone -b $PG_CRON https://github.com/citusdata/pg_cron.git \
         && sed -i 's/ -Werror//' pg_cron/Makefile \
 
         && git clone -b $HYPOPG https://github.com/dalibo/hypopg.git \
@@ -310,11 +325,23 @@ RUN set -ex \
 
 # protobuf, protobuf-c
         && rm /usr/bin/protoc* /usr/lib/libprotoc.so* /usr/lib/libprotobuf-lite.so* /usr/lib/libprotobuf.so* \
-
 # libevent
         && rm /usr/lib/libevent_* \
+# libxslt
+        && rm /usr/bin/xsltproc /usr/lib/libexslt.so* \
+# libgcrypt
+        && rm /usr/bin/dumpsexp /usr/bin/hmac256 /usr/bin/mpicalc /usr/lib/libgcrypt.so* \
+# libgpg-error
+        && rm /usr/bin/gpg-error /usr/lib/libgpg-error.so* \
+# ncurses-libs
+        && rm /usr/lib/libformw.so* /usr/lib/libmenuw.so* /usr/lib/libpanelw.so* \
 
-        && rm -fr /usr/src /usr/local/share/doc /usr/local/pgsql /usr/include/postgresql /usr/local/include /usr/lib/postgresql/*/lib/pgx \
+        && rm -fr /usr/src /usr/local/share/doc /usr/local/pgsql /usr/local/include \
+                /usr/include/postgresql \
+                /usr/lib/postgresql/*/lib/pgxs \
+                /usr/lib/libpgtypes.so* \
+                /usr/lib/pkgconfig \
+
         && for v in /usr/share/postgresql/*; do \
             cd $v/extension \
             && orig=$(ls -1 postgis--*--*.sql | head -n1) \
@@ -349,11 +376,9 @@ RUN set -ex \
 
 
         && cd /usr/lib \
-        && for l in libpgtypes.so libpq.so; do \
-            good=$(readlink $l) \
-            && for f in $l.*.*; do \
-                if [ "$f" != "$good" ]; then rm $f; fi; \
-            done; \
+        good=$(readlink libpq.so) \
+        && for f in libpq.so.*.*; do \
+            if [ "$f" != "$good" ]; then rm $f; fi; \
         done \
 
         && cd /usr/share/postgresql/$MAJOR_VER/contrib \
@@ -423,12 +448,7 @@ RUN set -ex \
         && cd / \
         && for a in usr/lib/liblzma.so*; do echo $a >> /exclude; done \
         && rm -rf /tmp/* /usr/src /usr/local/include /usr/include /usr/local/share/doc /usr/local/share/man /root/.cache \
-# libxslt
-        && rm usr/bin/xsltproc usr/lib/libexslt.so* \
-# libgcrypt
-        && rm usr/bin/dumpsexp usr/bin/hmac256 usr/bin/mpicalc usr/lib/libgcrypt.so* \
-# libgpg-error
-        && rm usr/bin/gpg-error usr/lib/libgpg-error.so* \
+
         && find usr -name '*.a' -delete \
         && find usr/lib/python3.6/ -type d -name tests | xargs rm -fr \
         && find usr/lib/python3.6/ -type f -name 'test_*.py' -delete \
