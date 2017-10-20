@@ -409,12 +409,12 @@ def write_wale_command_environment(placeholders, overwrite, provider):
     write_file(placeholders['WALE_TMPDIR'], os.path.join(placeholders['WALE_ENV_DIR'], 'TMPDIR'), True)
 
 
-def write_crontab(placeholders, path, overwrite):
+def write_crontab(placeholders, overwrite):
     if not overwrite and os.path.exists('/etc/crontabs/postgres'):
         return logging.warning('Cron is already configured. (Use option --force to overwrite cron)')
 
-    lines = ['{BACKUP_SCHEDULE} PATH={0} /postgres_backup.sh "{WALE_ENV_DIR}" "{PGDATA}"' +
-             ' "{BACKUP_NUM_TO_RETAIN}"'.format(path, **placeholders)]
+    lines = [('{BACKUP_SCHEDULE} PATH={PATH} /postgres_backup.sh "{WALE_ENV_DIR}" "{PGDATA}"' +
+              ' "{BACKUP_NUM_TO_RETAIN}"').format(**placeholders)]
     lines += yaml.load(placeholders['CRONTAB'])
     lines += ['']  # EOF requires empty line for cron
 
@@ -570,7 +570,7 @@ def main():
             write_certificates(placeholders, args['force'])
         elif section == 'crontab':
             if placeholders['USE_WALE']:
-                write_crontab(placeholders, os.environ.get('PATH'), args['force'])
+                write_crontab(placeholders, args['force'])
         elif section == 'ldap':
             write_ldap_configuration(placeholders, args['force'])
         elif section == 'pam-oauth2':
