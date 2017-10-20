@@ -376,7 +376,7 @@ RUN set -ex \
 
 
         && cd /usr/lib \
-        good=$(readlink libpq.so) \
+        && good=$(readlink libpq.so) \
         && for f in libpq.so.*.*; do \
             if [ "$f" != "$good" ]; then rm $f; fi; \
         done \
