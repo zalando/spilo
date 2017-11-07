@@ -1,6 +1,30 @@
 #!/bin/bash
 
-BUILDIMG=minispilo
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -t|--tag )
+            build_args+=("$1" "$2-build")
+            final_args+=("$1" "$2")
+            IMGNAME="$2"
+            shift
+            ;;
+        -f|--file )
+            final_args+=("$1" "$2")
+            shift
+            ;;
+        --build-arg )
+            build_args+=("$1" "$2")
+            shift
+            ;;
+        * )
+            build_args+=("$1")
+            final_args+=("$1")
+            ;;
+    esac
+    shift
+done
+
+SQUASHED=minispilo:squashed
 DOCKERCMD="docker build"
 
 function usage()
@@ -34,10 +58,10 @@ function run_or_fail() {
     fi
 }
 
-BUILD_ID=$(docker images -q $BUILDIMG:build)
-run_or_fail ${DOCKERCMD} -t $BUILDIMG:build . -f Dockerfile.build
+BUILD_ID=$(docker images -q $IMGNAME-build)
+run_or_fail ${DOCKERCMD} ${build_args[@]} -f Dockerfile.build
 
-[[ "$(docker images -q $BUILDIMG:build)" != "$BUILD_ID" || -z "$(docker images -q $BUILDIMG:squashed)" ]] \
-    && run_or_fail docker-squash -t $BUILDIMG:squashed $BUILDIMG:build
+[[ "$(docker images -q $IMGNAME-build)" != "$BUILD_ID" || -z "$(docker images -q $SQUASHED)" ]] \
+    && run_or_fail docker-squash -t $SQUASHED $IMGNAME-build
 
-run_or_fail ${DOCKERCMD} $@
+run_or_fail ${DOCKERCMD} ${final_args[@]}

@@ -97,18 +97,7 @@ CREATE LANGUAGE plpython3u;
 \i /create_user_functions.sql
 
 \c template1
-CREATE EXTENSION btree_gin;
-CREATE EXTENSION btree_gist;
-CREATE EXTENSION hstore;
-CREATE EXTENSION intarray;
-CREATE EXTENSION ltree;
-CREATE EXTENSION pgcrypto;
 CREATE EXTENSION pg_stat_statements;
-CREATE EXTENSION pgq;
-CREATE EXTENSION pg_trgm;
-CREATE EXTENSION postgres_fdw;
-CREATE EXTENSION "uuid-ossp";
-CREATE EXTENSION hypopg;
 CREATE EXTENSION set_user;
 GRANT EXECUTE ON FUNCTION set_user(text) TO admin;
 
