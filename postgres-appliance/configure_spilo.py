@@ -303,7 +303,7 @@ def get_placeholders(provider):
     placeholders.setdefault('USE_WALE', False)
     placeholders.setdefault('CALLBACK_SCRIPT', '')
     placeholders.setdefault('DCS_ENABLE_KUBERNETES_API', '')
-    placeholders.setdefault('KUBERNETES_USE_ENDPOINTS', '')
+    placeholders.setdefault('KUBERNETES_USE_CONFIGMAPS', '')
 
     if provider == PROVIDER_AWS:
         if 'WAL_S3_BUCKET' in placeholders:
@@ -318,7 +318,7 @@ def get_placeholders(provider):
         placeholders.setdefault('GOOGLE_APPLICATION_CREDENTIALS', '')
 
     # Kubernetes requires a callback to change the labels in order to point to the new master
-    if USE_KUBERNETES and not placeholders.get('KUBERNETES_USE_ENDPOINTS'):
+    if USE_KUBERNETES and placeholders.get('KUBERNETES_USE_CONFIGMAPS'):
         placeholders['CALLBACK_SCRIPT'] = 'python3 /callback_endpoint.py'
 
     placeholders.setdefault('postgresql', {})
@@ -360,7 +360,7 @@ def get_dcs_config(config, placeholders):
     if USE_KUBERNETES and placeholders.get('DCS_ENABLE_KUBERNETES_API'):
         config = {'kubernetes': {'namespace': os.environ.get('POD_NAMESPACE', 'default'), 'role_label': 'spilo-role',
                                  'scope_label': 'version', 'labels': {'application': 'spilo'}}}
-        if placeholders.get('KUBERNETES_USE_ENDPOINTS'):
+        if not placeholders.get('KUBERNETES_USE_CONFIGMAPS'):
             config['kubernetes'].update({'use_endpoints': True, 'pod_ip': placeholders['instance_data']['ip'],
                                          'ports': [{'port': 5432, 'name': 'postgresql'}]})
     elif 'ZOOKEEPER_HOSTS' in placeholders:
