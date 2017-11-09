@@ -343,6 +343,28 @@ RUN set -ex \
 
             && if [ "$MAJOR_VER" = "9.6" ]; then make -C timescaledb -j $NPROC install-strip; fi; \
         done \
+
+        && if [ "$DEMO" != "true" ]; then \
+            git clone https://github.com/pgbouncer/pgbouncer.git \
+            && cd pgbouncer \
+            && git submodule init \
+            && git submodule update \
+            && ./autogen.sh \
+            && ./configure --prefix=/usr/local --with-pam --disable-debug \
+# Set last_connect_time for pool only when it really failed to connect
+            && wget -q -O - https://github.com/pgbouncer/pgbouncer/pull/127.diff | patch -p1 \
+# Fix compilation failure with PAM
+            && perl -ne 'print unless /Fix posix bug by accepting const pointer/ .. /Zeroing malloc/' lib/usual/base.h > base.h \
+            && mv base.h lib/usual/base.h \
+# Increase password size
+            && sed -i 's/\(MAX_PASSWORD\t\).*/\11024/' include/bouncer.h \
+# libressl-2.5.patch
+            && sed -i 's/ifdef USE_LIBSSL_INTERNALS/if defined(USE_LIBSSL_INTERNALS) \&\& LIBRESSL_VERSION_NUMBER < 0x2050100fL/' lib/usual/tls/tls.c \
+            && make -j $NPROC \
+            && strip pgbouncer \
+            && cp pgbouncer /usr/local/bin; \
+        fi \
+
         && runDeps="$( \
                 (scanelf --needed --nobanner --format '%n#p' --recursive /usr/local \
                         && scanelf --needed --nobanner --format '%n#p' --recursive /usr/lib/postgresql) \
