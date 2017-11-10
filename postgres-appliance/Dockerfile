@@ -5,7 +5,7 @@ ENV PGHOME=/home/postgres
 ENV PGROOT=$PGHOME/pgdata/pgroot
 ENV PGDATA=$PGROOT/data PGLOG=$PGROOT/pg_log WALE_ENV_DIR=$PGHOME/etc/wal-e.d/env
 
-ADD scm-source.json configure_spilo.py launch.sh postgres_backup.sh patroni_wait.sh post_init.sh _zmon_schema.dump callback_endpoint.py callback_role.py basebackup.sh wale_restore_command.sh wal-e-wal-fetch.sh create_user_functions.sql /
+ADD scm-source.json configure_spilo.py launch.sh postgres_backup.sh patroni_wait.sh post_init.sh _zmon_schema.dump callback_*.py basebackup.sh wale_restore_command.sh wal-e-wal-fetch.sh create_user_functions.sql /
 ADD supervisor.d /etc/supervisor/conf.d/
 ADD motd supervisord.conf /etc/
 
