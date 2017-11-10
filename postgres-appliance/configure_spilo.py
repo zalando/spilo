@@ -318,8 +318,12 @@ def get_placeholders(provider):
         placeholders.setdefault('GOOGLE_APPLICATION_CREDENTIALS', '')
 
     # Kubernetes requires a callback to change the labels in order to point to the new master
-    if USE_KUBERNETES and placeholders.get('KUBERNETES_USE_CONFIGMAPS'):
-        placeholders['CALLBACK_SCRIPT'] = 'python3 /callback_endpoint.py'
+    if USE_KUBERNETES:
+        if placeholders.get('DCS_ENABLE_KUBERNETES_API'):
+            if placeholders.get('KUBERNETES_USE_CONFIGMAPS'):
+                placeholders['CALLBACK_SCRIPT'] = 'python3 /callback_endpoint.py'
+        else:
+            placeholders['CALLBACK_SCRIPT'] = 'python3 /callback_role.py'
 
     placeholders.setdefault('postgresql', {})
     placeholders['postgresql'].setdefault('parameters', {})
