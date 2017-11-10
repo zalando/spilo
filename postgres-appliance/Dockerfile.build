@@ -3,6 +3,7 @@ FROM alpine:3.6
 MAINTAINER Alexander Kukushkin <alexander.kukushkin@zalando.de>
 
 ARG DEMO=false
+ENV DEMO=$DEMO
 
 # build postgis dependencies
 ENV PROJ=4.9.3 GEOS=svn-3.6 GDAL=2.2.2
@@ -92,8 +93,8 @@ RUN set -ex \
         && rm -fr /usr/src/*
 
 ENV LANG=en_US.utf8
-ARG PG_VERSION=10.0
-ARG PG_OLDVERSIONS="9.5.9 9.6.5"
+ARG PG_VERSION=10.1
+ARG PG_OLDVERSIONS="9.5.10 9.6.6"
 
 RUN set -ex \
         && if [ "$DEMO" = "true" ]; then \
@@ -226,7 +227,7 @@ ENV \
         SET_USER=REL1_4_0 \
         PLPGSQL_CHECK=v1.2.2 \
         PLPROFILER=REL3_2 \
-        TIMESCALEDB=0.6.0 \
+        TIMESCALEDB=0.6.1 \
         PGEXTWLIST=v1.6
 
 
@@ -535,5 +536,3 @@ RUN set -ex \
         && rm -fr /usr/lib/python* /saveDirs \
         && (for d in $saveDirs; do find $d -not -type d; done && cat /exclude /exclude && echo exclude) | sort | uniq -u | xargs rm \
         && for d in $saveDirs; do find $d -type d -depth -exec rmdir -p {} \; 2> /dev/null; done
-
-ENV DEMO=$DEMO
