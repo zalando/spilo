@@ -1,0 +1,67 @@
+--- debian/rules.orig	2016-02-10 16:17:44.000000000 +0000
++++ debian/rules	2017-11-14 12:14:19.000000000 +0000
+@@ -93,35 +93,42 @@
+ 			--with-rename-internal-libgeotiff-symbols=yes \
+ 			--with-libtiff=internal \
+ 			--with-geotiff=internal \
+-			--with-webp \
+-			--with-jasper \
+-			--with-netcdf \
+-			$(WITH_HDF5) \
+-			--with-xerces \
++			--without-grib \
++			--without-gif \
++			--without-hdf4 \
++			--without-xml2 \
++			--without-expat \
++			--without-pcre \
++			--without-jpeg \
++			--without-png \
++			--without-webp \
++			--without-jasper \
++			--without-netcdf \
++			--without-xerces \
+ 			--with-geos \
+-			--with-sqlite3 \
+-			--with-curl \
+-			--with-pg \
+-			--with-mysql \
+-			--with-perl \
++			--without-sqlite3 \
++			--without-curl \
++			--without-pg \
++			--without-mysql \
++			--without-perl \
+ 			--with-ruby=no \
+-			--with-java=/usr/lib/jvm/default-java \
+-			--with-python \
+-			--with-odbc \
+-			--with-ogdi \
+-			--with-dods-root=/usr \
++			--without-java \
++			--without-python \
++			--without-odbc \
++			--without-ogdi \
++			--without-dods \
+ 			--with-static-proj4=yes \
+-			--with-spatialite=/usr \
++			--without-spatialite \
+ 			--with-cfitsio=no \
+ 			--with-ecw=no \
+ 			--with-mrsid=no \
+-			--with-poppler=yes \
+-			--with-openjpeg=yes \
+-			--with-freexl=yes \
+-			--with-libkml=yes \
+-			--with-armadillo=yes \
++			--with-poppler=no \
++			--with-openjpeg=no \
++			--with-freexl=no \
++			--with-libkml=no \
++			--with-armadillo=no \
+ 			--with-liblzma=yes \
+-			--with-epsilon=/usr \
++			--without-epsilon \
+ 			CFLAGS="$(CFLAGS)" CXXFLAGS="$(CXXFLAGS)"; \
+ 		mv GDALmake.opt GDALmake.opt-$$V; \
+ 	done

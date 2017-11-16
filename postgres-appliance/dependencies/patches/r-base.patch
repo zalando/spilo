@@ -1,0 +1,20 @@
+--- debian/rules.orig	2017-11-14 20:27:16.112523978 +0000
++++ debian/rules	2017-11-14 20:27:31.660475981 +0000
+@@ -269,10 +269,13 @@
+ 	rincludedir=/usr/share/R/include		\
+ 	rdocdir=/usr/share/R/doc			\
+ 	./configure --prefix=/usr			\
+-		    --with-cairo			\
+-		    --with-jpeglib			\
+-		    --with-readline			\
+-		    --with-tcltk			\
++		    --without-cairo			\
++		    --without-x				\
++		    --without-libpng			\
++		    --without-libtiff			\
++		    --without-jpeglib			\
++		    --without-readline			\
++		    --without-tcltk			\
+ 		    --with-system-bzlib			\
+ 		    --with-system-pcre			\
+ 		    --with-system-zlib			\
