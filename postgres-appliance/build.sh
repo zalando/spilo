@@ -1,5 +1,30 @@
 #!/bin/bash
 
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -t|--tag )
+            build_args+=("$1" "$2-build")
+            final_args+=("$1" "$2")
+            IMGNAME="$2"
+            shift
+            ;;
+        -f|--file )
+            final_args+=("$1" "$2")
+            shift
+            ;;
+        --build-arg )
+            build_args+=("$1" "$2")
+            shift
+            ;;
+        * )
+            build_args+=("$1")
+            final_args+=("$1")
+            ;;
+    esac
+    shift
+done
+
+SQUASHED=spilo:squashed
 DOCKERCMD="docker build"
 
 function usage()
@@ -24,11 +49,19 @@ cat > scm-source.json <<__EOT__
 }
 __EOT__
 
-${DOCKERCMD} $@
-EXITCODE=$?
+function run_or_fail() {
+    $@
+    EXITCODE=$?
+    if  [[ $EXITCODE != 0 ]]; then
+        echo "'$@' failed with exitcode $EXITCODE"
+        exit $EXITCODE
+    fi
+}
 
-if [[ $EXITCODE != 0 ]]
-then
-    echo "Docker build failed, exitcode is ${EXITCODE}"
-    exit ${EXITCODE}
-fi
+BUILD_ID=$(docker images -q $IMGNAME-build)
+run_or_fail ${DOCKERCMD} ${build_args[@]} -f Dockerfile.build
+
+[[ "$(docker images -q $IMGNAME-build)" != "$BUILD_ID" || -z "$(docker images -q $SQUASHED)" ]] \
+    && run_or_fail docker-squash -t $SQUASHED $IMGNAME-build
+
+run_or_fail ${DOCKERCMD} ${final_args[@]}

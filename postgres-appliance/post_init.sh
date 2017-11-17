@@ -1,12 +1,38 @@
 #!/bin/bash
 
-CONNSTRING=$1
-psql -d $CONNSTRING <<EOF
-CREATE EXTENSION file_fdw;
-CREATE SERVER pglog FOREIGN DATA WRAPPER file_fdw;
-CREATE ROLE admin CREATEROLE CREATEDB NOLOGIN;
+(echo "CREATE ROLE admin CREATEDB NOLOGIN;
+CREATE ROLE $1;
 CREATE ROLE robot_zmon;
 
+CREATE EXTENSION pg_cron;
+ALTER TABLE cron.job ALTER COLUMN nodename SET DEFAULT '/var/run/postgresql';
+ALTER POLICY cron_job_policy ON cron.job USING (username = current_user OR pg_has_role(current_user, 'admin', 'MEMBER') AND pg_has_role(username, 'admin', 'MEMBER') AND NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname = username AND rolsuper));
+REVOKE SELECT ON cron.job FROM public;
+GRANT SELECT ON cron.job TO admin;
+GRANT UPDATE (database) ON cron.job TO admin;
+
+CREATE OR REPLACE FUNCTION cron.schedule(p_schedule text, p_database text, p_command text)
+RETURNS bigint
+LANGUAGE plpgsql
+AS \$function\$
+DECLARE
+    l_jobid bigint;
+BEGIN
+    SELECT schedule INTO l_jobid FROM cron.schedule(p_schedule, p_command);
+    UPDATE cron.job SET database = p_database WHERE jobid = l_jobid;
+    RETURN l_jobid;
+END;
+\$function\$;
+REVOKE EXECUTE ON FUNCTION cron.schedule(text, text) FROM public;
+GRANT EXECUTE ON FUNCTION cron.schedule(text, text) TO admin;
+REVOKE EXECUTE ON FUNCTION cron.schedule(text, text, text) FROM public;
+GRANT EXECUTE ON FUNCTION cron.schedule(text, text, text) TO admin;
+REVOKE EXECUTE ON FUNCTION cron.unschedule(bigint) FROM public;
+GRANT EXECUTE ON FUNCTION cron.unschedule(bigint) TO admin;
+GRANT USAGE ON SCHEMA cron TO admin;
+
+CREATE EXTENSION file_fdw;
+CREATE SERVER pglog FOREIGN DATA WRAPPER file_fdw;
 CREATE TABLE postgres_log (
     log_time timestamp(3) with time zone,
     user_name text,
@@ -33,48 +59,22 @@ CREATE TABLE postgres_log (
     application_name text,
     CONSTRAINT postgres_log_check CHECK (false) NO INHERIT
 );
+GRANT SELECT ON postgres_log TO ADMIN;"
 
--- Sunday could be 0 or 7 depending on the format, we just create both
-CREATE FOREIGN TABLE postgres_log_0 () INHERITS (postgres_log) SERVER pglog
-    OPTIONS (filename '../pg_log/postgresql-0.csv', format 'csv', header 'false');
-CREATE FOREIGN TABLE postgres_log_7 () INHERITS (postgres_log) SERVER pglog
-    OPTIONS (filename '../pg_log/postgresql-7.csv', format 'csv', header 'false');
+# Sunday could be 0 or 7 depending on the format, we just create both
+for i in $(seq 0 7); do
+    echo "CREATE FOREIGN TABLE postgres_log_$i () INHERITS (postgres_log) SERVER pglog
+    OPTIONS (filename '../pg_log/postgresql-$1.csv', format 'csv', header 'false');
+GRANT SELECT ON postgres_log_$i TO ADMIN;"
+done
 
-CREATE FOREIGN TABLE postgres_log_1 () INHERITS (postgres_log) SERVER pglog
-    OPTIONS (filename '../pg_log/postgresql-1.csv', format 'csv', header 'false');
-CREATE FOREIGN TABLE postgres_log_2 () INHERITS (postgres_log) SERVER pglog
-    OPTIONS (filename '../pg_log/postgresql-2.csv', format 'csv', header 'false');
-CREATE FOREIGN TABLE postgres_log_3 () INHERITS (postgres_log) SERVER pglog
-    OPTIONS (filename '../pg_log/postgresql-3.csv', format 'csv', header 'false');
-CREATE FOREIGN TABLE postgres_log_4 () INHERITS (postgres_log) SERVER pglog
-    OPTIONS (filename '../pg_log/postgresql-4.csv', format 'csv', header 'false');
-CREATE FOREIGN TABLE postgres_log_5 () INHERITS (postgres_log) SERVER pglog
-    OPTIONS (filename '../pg_log/postgresql-5.csv', format 'csv', header 'false');
-CREATE FOREIGN TABLE postgres_log_6 () INHERITS (postgres_log) SERVER pglog
-    OPTIONS (filename '../pg_log/postgresql-6.csv', format 'csv', header 'false');
+cat /_zmon_schema.dump
 
-GRANT SELECT ON postgres_log TO ADMIN;
-GRANT SELECT ON postgres_log_0 TO ADMIN;
-GRANT SELECT ON postgres_log_1 TO ADMIN;
-GRANT SELECT ON postgres_log_2 TO ADMIN;
-GRANT SELECT ON postgres_log_3 TO ADMIN;
-GRANT SELECT ON postgres_log_4 TO ADMIN;
-GRANT SELECT ON postgres_log_5 TO ADMIN;
-GRANT SELECT ON postgres_log_6 TO ADMIN;
-GRANT SELECT ON postgres_log_7 TO ADMIN;
+sed "s/:HUMAN_ROLE/$1/" /create_user_functions.sql
 
-CREATE LANGUAGE plpythonu;
-\i /_zmon_schema.dump
-\c template1
-CREATE EXTENSION btree_gin;
-CREATE EXTENSION btree_gist;
-CREATE EXTENSION hstore;
-CREATE EXTENSION intarray;
-CREATE EXTENSION ltree;
-CREATE EXTENSION pgcrypto;
+echo "\c template1
 CREATE EXTENSION pg_stat_statements;
-CREATE EXTENSION pgq;
-CREATE EXTENSION pg_trgm;
-CREATE EXTENSION postgres_fdw;
-CREATE EXTENSION "uuid-ossp";
-EOF
+CREATE EXTENSION set_user;
+GRANT EXECUTE ON FUNCTION set_user(text) TO admin;"
+
+sed "s/:HUMAN_ROLE/$1/" /create_user_functions.sql) | psql -d $2
