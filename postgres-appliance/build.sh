@@ -50,7 +50,7 @@ cat > scm-source.json <<__EOT__
 __EOT__
 
 function run_or_fail() {
-    $@
+    "$@"
     EXITCODE=$?
     if  [[ $EXITCODE != 0 ]]; then
         echo "'$@' failed with exitcode $EXITCODE"
@@ -59,9 +59,9 @@ function run_or_fail() {
 }
 
 BUILD_ID=$(docker images -q $IMGNAME-build)
-run_or_fail ${DOCKERCMD} ${build_args[@]} -f Dockerfile.build
+run_or_fail ${DOCKERCMD} "${build_args[@]}" -f Dockerfile.build
 
 [[ "$(docker images -q $IMGNAME-build)" != "$BUILD_ID" || -z "$(docker images -q $SQUASHED)" ]] \
     && run_or_fail docker-squash -t $SQUASHED $IMGNAME-build
 
-run_or_fail ${DOCKERCMD} ${final_args[@]}
+run_or_fail ${DOCKERCMD} "${final_args[@]}"
