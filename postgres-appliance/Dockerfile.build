@@ -15,6 +15,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && apt-get upgrade -y \
 
     && apt-get install -y curl ca-certificates less locales jq vim-tiny sudo xz-utils \
+
     && if [ "$DEMO" != "true" ]; then \
         apt-get install -y cron \
                 # Required for wal-e
@@ -43,8 +44,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 
     # Clean up
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* /usr/share/doc /usr/share/man \
-    && find /etc/alternatives -xtype l -delete
+    && rm -rf /var/lib/apt/lists/* /var/cache/debconf/* /usr/share/doc /usr/share/man /usr/share/locale \
+    && find /var/log -type f -exec truncate --size 0 {} \;
 
 ADD dependencies/debs /builddeps
 
@@ -317,11 +318,15 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         rm -f /usr/share/locale/*/LC_MESSAGES/*-$version.mo; \
     done \
 
+    && find /var/log -type f -exec truncate --size 0 {} \; \
+
     && rm -rf /var/lib/apt/lists/* \
+            /var/cache/debconf/* \
             /builddeps \
             /usr/share/doc \
             /usr/share/man \
             /usr/share/info \
+            /usr/share/locale \
             /usr/share/postgresql/*/man \
             /usr/lib/postgresql/*/bin/createdb \
             /usr/lib/postgresql/*/bin/createlang \
@@ -366,12 +371,15 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && apt-get purge -y ${BUILD_PACKAGES} \
     && apt-get autoremove -y \
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* /root/.cache \
+    && rm -rf /var/lib/apt/lists/* \
+            /var/cache/debconf/* \
+            /root/.cache \
             /usr/share/doc \
             /usr/share/man \
+            /usr/share/locale \
             /usr/share/info \
 
-    && find /etc/alternatives -xtype l -delete \
+    && find /var/log -type f -exec truncate --size 0 {} \; \
 
     && cd /usr/local/lib/python3.5/dist-packages \
     && find . -type d -name tests | xargs rm -fr \
@@ -386,13 +394,18 @@ ARG COMPRESS=false
 
 RUN set -ex \
     && if [ "$COMPRESS" = "true" ]; then \
-        cd / \
-        && files="/bin/tar /bin/sh /bin/dash /usr/bin/xz /bin/rm /bin/rmdir /bin/sed /bin/mkdir /bin/chmod /bin/chown /bin/ln /usr/bin/find" \
+        apt-get update \
+        && apt-get install -y busybox \
+        && apt-get clean \
+        && rm -rf /var/lib/apt/lists/* /var/cache/debconf/* /usr/share/doc /usr/share/man \
+        && ln -snf /bin/busybox /bin/sh \
+        && files="/bin/sh" \
         && libs="$(ldd $files | awk '{print $3;}' | grep '^/' | sort -u) /lib/x86_64-linux-gnu/ld-linux-x86-64.so.* /lib/x86_64-linux-gnu/libnsl.so.* /lib/x86_64-linux-gnu/libnss_compat.so.*" \
-        && (echo $files $libs | tr ' ' '\n' && realpath $libs) | sort -u | sed 's/^\///' > /exclude \
-        && save_dirs="usr lib var bin sbin" \
+        && (echo /var/run $files $libs | tr ' ' '\n' && realpath $files $libs) | sort -u | sed 's/^\///' > /exclude \
+        && find /etc/alternatives -xtype l -delete \
+        && save_dirs="usr lib var bin sbin etc/ssl etc/init.d" \
         && XZ_OPT=-e9v tar -X /exclude -cpJf a.tar.xz $save_dirs etc/alternatives \
         && rm -fr /usr/local/lib/python* \
-        && (for d in $save_dirs; do find $d -not -type d; done && cat /exclude /exclude && echo exclude) | sort | uniq -u | xargs rm \
-        && for d in $save_dirs; do find $d -type d -depth -exec rmdir -p {} \; 2> /dev/null; done; \
+        && /bin/busybox sh -c "(for d in $save_dirs; do find \$d -not -type d; done && cat /exclude /exclude && echo exclude) | sort | uniq -u | xargs rm" \
+        && /bin/busybox sh -c "for d in $save_dirs; do find \$d -type d -depth -exec rmdir -p {} \; 2> /dev/null; done"; \
     fi
