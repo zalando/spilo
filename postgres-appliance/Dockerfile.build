@@ -314,10 +314,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         done; \
     fi \
 
-    && for version in ${PGOLDVERSIONS} ${PGVERSION}; do \
-        rm -f /usr/share/locale/*/LC_MESSAGES/*-$version.mo; \
-    done \
-
     && find /var/log -type f -exec truncate --size 0 {} \; \
 
     && rm -rf /var/lib/apt/lists/* \
