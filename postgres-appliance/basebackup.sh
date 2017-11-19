@@ -1,8 +1,5 @@
 #!/bin/bash
 
-PARSED=$(getopt --options v --longoptions connstring:,retries:,datadir: --name "$0" -- "$@" 2> /dev/null)
-eval set -- "$PARSED"
-
 RETRIES=2
 
 while getopts ":-:" optchar; do

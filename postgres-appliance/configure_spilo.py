@@ -159,7 +159,6 @@ restapi:
 postgresql:
   use_unix_socket: true
   name: '{{instance_data.id}}'
-  scope: *scope
   listen: 0.0.0.0:{{PGPORT}}
   connect_address: {{instance_data.ip}}:{{PGPORT}}
   data_dir: {{PGDATA}}
@@ -430,13 +429,13 @@ def write_crontab(placeholders, overwrite):
             if cron_exit == 0:
                 return logging.warning('Cron is already configured. (Use option --force to overwrite cron)')
 
-    lines = ['PATH={}'.format(**placeholders)]
+    lines = ['PATH={PATH}'.format(**placeholders)]
     lines += ['{BACKUP_SCHEDULE} /postgres_backup.sh "{WALE_ENV_DIR}" "{PGDATA}" "{BACKUP_NUM_TO_RETAIN}"'.format(**placeholders)]
 
     lines += yaml.load(placeholders['CRONTAB'])
     lines += ['']  # EOF requires empty line for cron
 
-    c = subprocess.Popen(['crontab', '-u', 'postgres'], stdin=subprocess.PIPE)
+    c = subprocess.Popen(['sudo', '-u', 'postgres', 'crontab'], stdin=subprocess.PIPE)
     c.communicate(input='\n'.join(lines).encode())
 
 

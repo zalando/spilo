@@ -13,7 +13,8 @@ ADD motd supervisord.conf /etc/
 
 RUN mkdir -p $PGHOME /var/log/supervisor \
         && sed -i "s|/var/lib/postgresql.*|$PGHOME:/bin/bash|" /etc/passwd \
-        && echo "export TERM=linux\nexport LC_ALL=C.UTF-8\nexport LANG=C.UTF-8\nexport EDITOR=vi" >> /etc/bash.bashrc \
+        && sed -i 's/set compatible/set nocompatible/' /etc/vim/vimrc.tiny \
+        && echo -e "export TERM=linux\nexport LC_ALL=C.UTF-8\nexport LANG=C.UTF-8\nexport EDITOR=vi" >> /etc/bash.bashrc \
         && echo "source /etc/motd" >> /root/.bashrc \
         && ln -s /etc/supervisord.conf /etc/supervisor/supervisord.conf
 
