@@ -341,7 +341,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && set -ex \
     && BUILD_PACKAGES="python3-pip python3-dev gcc git" \
     && apt-get update \
-    && apt-get install -y python3 python3-pystache python3-prettytable python3-six ${BUILD_PACKAGES} \
+    && apt-get install -y python3 python3-click python3-yaml python3-six python3-pystache python3-prettytable \
+                python3-psycopg2 python3-pyasn1-modules python3-rsa python3-dateutil ${BUILD_PACKAGES} \
 
     && pip3 install setuptools pip --upgrade \
 
@@ -349,6 +350,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         EXTRAS=""; \
     else \
         EXTRAS=",etcd,consul,zookeeper,aws" \
+        && apt-get install -y python3-dnspython python3-kazoo python3-meld3 \
         && pip3 install envdir wal-e[aws,google]==$WALE_VERSION \
                 'git+https://github.com/Supervisor/supervisor.git@master#egg=supervisor' \
 
@@ -363,6 +365,16 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     fi \
     && pip3 install "git+https://github.com/zalando/patroni.git@feature/k8s#egg=patroni[kubernetes$EXTRAS]" \
 
+    && for d in /usr/lib/python3 /usr/local/lib/python3.5; do \
+        cd $d/dist-packages \
+        && find . -type d -name tests | xargs rm -fr \
+        && find . -type f -name 'test_*.py*' -delete; \
+    done \
+    && find . -type f -name '*.so' -exec strip {} \; \
+    && find . -type f -name 'unittest_*.py*' -delete \
+    && find . -type f -name '*_test.py' -delete \
+    && find . -type f -name '*_test.cpython*.pyc' -delete \
+
     # Clean up
     && apt-get purge -y ${BUILD_PACKAGES} \
     && apt-get autoremove -y \
@@ -375,16 +387,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             /usr/share/locale \
             /usr/share/info \
 
-    && find /var/log -type f -exec truncate --size 0 {} \; \
-
-    && cd /usr/local/lib/python3.5/dist-packages \
-    && find . -type d -name tests | xargs rm -fr \
-    && find . -type f -name 'test_*.py' -delete \
-    && find . -type f -name 'test_*.pyc' -delete \
-    && find . -type f -name 'unittest_*.py' -delete \
-    && find . -type f -name 'unittest_*.pyc' -delete \
-    && find . -type f -name '*_test.py' -delete \
-    && find . -type f -name '*_test.cpython*.pyc' -delete
+    && find /var/log -type f -exec truncate --size 0 {} \;
 
 ARG COMPRESS=false
 
@@ -394,7 +397,7 @@ RUN set -ex \
         && apt-get install -y busybox \
         && apt-get clean \
         && rm -rf /var/lib/apt/lists/* /var/cache/debconf/* /usr/share/doc /usr/share/man \
-        && ln -snf /bin/busybox /bin/sh \
+        && ln -snf busybox /bin/sh \
         && files="/bin/sh" \
         && libs="$(ldd $files | awk '{print $3;}' | grep '^/' | sort -u) /lib/x86_64-linux-gnu/ld-linux-x86-64.so.* /lib/x86_64-linux-gnu/libnsl.so.* /lib/x86_64-linux-gnu/libnss_compat.so.*" \
         && (echo /var/run $files $libs | tr ' ' '\n' && realpath $files $libs) | sort -u | sed 's/^\///' > /exclude \

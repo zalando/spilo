@@ -5,7 +5,7 @@ if [ -f /a.tar.xz ]; then
     cd /
     tar -xpJf a.tar.xz
     rm a.tar.xz
-    ln -snf /bin/dash /bin/sh
+    ln -snf dash /bin/sh
 fi
 
 if [ "$DEMO" != "true" ]; then
