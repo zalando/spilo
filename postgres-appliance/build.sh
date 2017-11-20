@@ -24,21 +24,10 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
-SQUASHED=spilo:squashed
-DOCKERCMD="docker build"
-
-function usage()
-{
-    cat <<__EOF__
-Usage: $0 [DOCKER ARGUMENTS]
-
-__EOF__
-}
-
-REV=$(git rev-parse HEAD)
-URL=$(git config --get remote.origin.url)
-STATUS=$(git status --porcelain)
-GITAUTHOR=$(git show -s --format="%aN <%aE>" "$REV")
+readonly REV=$(git rev-parse HEAD)
+readonly URL=$(git config --get remote.origin.url)
+readonly STATUS=$(git status --porcelain)
+readonly GITAUTHOR=$(git show -s --format="%aN <%aE>" "$REV")
 
 cat > scm-source.json <<__EOT__
 {
@@ -51,17 +40,32 @@ __EOT__
 
 function run_or_fail() {
     "$@"
-    EXITCODE=$?
+    local EXITCODE=$?
     if  [[ $EXITCODE != 0 ]]; then
         echo "'$@' failed with exitcode $EXITCODE"
         exit $EXITCODE
     fi
 }
 
-BUILD_ID=$(docker images -q $IMGNAME-build)
-run_or_fail ${DOCKERCMD} "${build_args[@]}" -f Dockerfile.build
+readonly OLD_BUILD_ID=$(docker images -q $IMGNAME-build)
 
-[[ "$(docker images -q $IMGNAME-build)" != "$BUILD_ID" || -z "$(docker images -q $SQUASHED)" ]] \
-    && run_or_fail docker-squash -t $SQUASHED $IMGNAME-build
+function squash_new_image() {
+    local NEW_BUILD_ID=$(docker images -q $IMGNAME-build)
+    local TAG_OF=$(docker images --format "{{.ID}} {{.Repository}}:{{.Tag}}" \
+            | grep "^$NEW_BUILD_ID " | grep -v "^$NEW_BUILD_ID $IMGNAME-build" \
+            | awk '{print $2; exit 0}')
 
-run_or_fail ${DOCKERCMD} "${final_args[@]}"
+    # new "-build" image has the same id as already exiting one
+    [[ ! -z $TAG_OF ]] && docker tag ${TAG_OF%-build}-squashed $IMGNAME-squashed && return 0
+
+    [[ "$OLD_BUILD_ID" != "$NEW_BUILD_ID" || -z "$(docker images -q $IMGNAME-squashed)" ]] \
+            && run_or_fail docker-squash -t $IMGNAME-squashed $IMGNAME-build
+}
+
+run_or_fail docker build "${build_args[@]}" -f Dockerfile.build
+
+squash_new_image
+
+run_or_fail docker tag $IMGNAME-squashed spilo:squashed
+
+run_or_fail docker build "${final_args[@]}"
