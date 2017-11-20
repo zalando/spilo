@@ -9,8 +9,11 @@ ENV ETCD_DISCOVERY_DOMAIN=postgres.acid.example.com \
     PATH=$PATH:/usr/lib/postgresql/${PGVERSION}/bin \
     PGHOME=/home/postgres
 
-ENV PGROOT=$PGHOME/pgdata/pgroot
-ENV PGDATA=$PGROOT/data PGLOG=$PGROOT/pg_log WALE_ENV_DIR=$PGHOME/etc/wal-e.d/env
+ENV WALE_ENV_DIR=$PGHOME/etc/wal-e.d/env \
+    PGROOT=$PGHOME/pgdata/pgroot
+
+ENV PGDATA=$PGROOT/data \
+    PGLOG=$PGROOT/pg_log
 
 WORKDIR $PGHOME
 
