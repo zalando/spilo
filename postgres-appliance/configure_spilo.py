@@ -292,7 +292,7 @@ def get_placeholders(provider):
     placeholders.setdefault('PGROOT', os.path.join(placeholders['PGHOME'], 'pgroot'))
     placeholders.setdefault('WALE_TMPDIR', os.path.abspath(os.path.join(placeholders['PGROOT'], '../tmp')))
     placeholders.setdefault('PGDATA', os.path.join(placeholders['PGROOT'], 'pgdata'))
-    placeholders.setdefault('HUMAN_ROLE', 'humans')
+    placeholders.setdefault('HUMAN_ROLE', 'zalandos')
     placeholders.setdefault('PGUSER_STANDBY', 'standby')
     placeholders.setdefault('PGPASSWORD_STANDBY', 'standby')
     placeholders.setdefault('USE_ADMIN', 'PGPASSWORD_ADMIN' in placeholders)
