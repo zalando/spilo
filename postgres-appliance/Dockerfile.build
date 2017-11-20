@@ -49,6 +49,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 
 ADD dependencies/debs /builddeps
 
+ARG WITH_PERL=false
 ARG PGOLDVERSIONS="9.3 9.4 9.5 9.6"
 
 # Install PostgreSQL, extensions and contribs
@@ -74,17 +75,17 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         PGOLDVERSIONS=""; \
     else \
         BUILD_PACKAGES="$BUILD_PACKAGES libprotobuf-c-dev liblwgeom-dev libproj-dev" \
-        && apt-get install -y equivs \
-
-        && p=perl \
-        && version=$(apt-cache show $p | sed -n 's/^Version: //p' | sort -rV | head -n 1) \
-        && echo "Section: misc\nPriority: optional\nStandards-Version: 3.9.2\nPackage: $p\nReplaces: perl-base\nVersion: $version\nDescription: $p" > $p \
-        && equivs-build $p \
+        && if [ "$WITH_PERL" != "true" ]; then \
+            apt-get install -y equivs \
+            && version=$(apt-cache show perl | sed -n 's/^Version: //p' | sort -rV | head -n 1) \
+            && echo "Section: misc\nPriority: optional\nStandards-Version: 3.9.2\nPackage: perl\nReplaces: perl-base\nVersion: $version\nDescription: perl" > perl \
+            && equivs-build perl \
+            && dpkg -i perl*.deb; \
+        fi \
 
         && dpkg -i libcgal[^-]*_amd64.deb \
                     libgdal[^-]*_amd64.deb \
                     libsfcgal[^-]*_amd64.deb \
-                    perl*.deb \
                 || apt-get -y -f install \
         && apt-get install -y libprotobuf-c1 \
 
@@ -140,7 +141,10 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 apt-get install -y postgresql-${version}-plv8 \
                             postgresql-${version}-postgis-${POSTGIS_VERSION} \
                             postgresql-${version}-postgis-${POSTGIS_VERSION}-scripts \
-                            postgresql-pltcl-${version} postgresql-${version}-pllua; \
+                            postgresql-pltcl-${version} postgresql-${version}-pllua \
+                && if [ "$WITH_PERL" = "true" ]; then \
+                    apt-get install -y postgresql-plperl-${version}; \
+                fi; \
             fi \
 
             # Install 3rd stuff
@@ -396,14 +400,14 @@ RUN set -ex \
         apt-get update \
         && apt-get install -y busybox \
         && apt-get clean \
-        && rm -rf /var/lib/apt/lists/* /var/cache/debconf/* /usr/share/doc /usr/share/man \
+        && rm -rf /var/lib/apt/lists/* /var/cache/debconf/* /usr/share/doc /usr/share/man /etc/rc?.d /etc/systemd \
         && ln -snf busybox /bin/sh \
         && files="/bin/sh" \
         && libs="$(ldd $files | awk '{print $3;}' | grep '^/' | sort -u) /lib/x86_64-linux-gnu/ld-linux-x86-64.so.* /lib/x86_64-linux-gnu/libnsl.so.* /lib/x86_64-linux-gnu/libnss_compat.so.*" \
         && (echo /var/run $files $libs | tr ' ' '\n' && realpath $files $libs) | sort -u | sed 's/^\///' > /exclude \
         && find /etc/alternatives -xtype l -delete \
-        && save_dirs="usr lib var bin sbin etc/ssl etc/init.d" \
-        && XZ_OPT=-e9v tar -X /exclude -cpJf a.tar.xz $save_dirs etc/alternatives \
+        && save_dirs="usr lib var bin sbin etc/ssl etc/init.d etc/alternatives etc/apt" \
+        && XZ_OPT=-e9v tar -X /exclude -cpJf a.tar.xz $save_dirs \
         && rm -fr /usr/local/lib/python* \
         && /bin/busybox sh -c "(for d in $save_dirs; do find \$d -not -type d; done && cat /exclude /exclude && echo exclude) | sort | uniq -u | xargs rm" \
         && /bin/busybox sh -c "for d in $save_dirs; do find \$d -type d -depth -exec rmdir -p {} \; 2> /dev/null; done"; \
