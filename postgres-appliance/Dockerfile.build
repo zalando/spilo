@@ -208,7 +208,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && cd ../.. \
 
     # Clean up
-    && apt-get purge -y ${BUILD_PACKAGES} \
+    && apt-get purge -y ${BUILD_PACKAGES} libmagic1 bsdmainutils \
     && apt-get autoremove -y \
 
     && apt-get clean \
