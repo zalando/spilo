@@ -92,7 +92,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && curl -s -L https://github.com/debezium/postgres-decoderbufs/archive/$DECODEBUFS_COMMIT.tar.gz | tar xz; \
     fi \
 
-    && apt-get install -y libevent-2.0 libevent-pthreads-2.0 python3.5 $BUILD_PACKAGES \
+    && apt-get install -y libcurl3 libevent-2.0 libevent-pthreads-2.0 python3.5 $BUILD_PACKAGES \
 
     # prepare 3rd sources
     && curl -s -L https://github.com/CyberDem0n/bg_mon/archive/$BG_MON_COMMIT.tar.gz | tar xz \
