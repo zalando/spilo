@@ -14,7 +14,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && apt-get update \
     && apt-get upgrade -y \
 
-    && apt-get install -y curl ca-certificates less locales jq vim-tiny sudo xz-utils \
+    && apt-get install -y curl ca-certificates less locales jq vim-tiny \
 
     && if [ "$DEMO" != "true" ]; then \
         apt-get install -y cron \
@@ -63,14 +63,14 @@ ENV PGVERSION=10 \
     SET_USER=REL1_4_0 \
     PLPGSQL_CHECK=v1.2.2 \
     PLPROFILER=REL3_2 \
-    TIMESCALEDB=0.6.1 \
+    TIMESCALEDB=0.7.0 \
     PGEXTWLIST=v1.6
 
 RUN export DEBIAN_FRONTEND=noninteractive \
     && set -ex \
     && apt-get update \
     && cd /builddeps \
-    && BUILD_PACKAGES="devscripts build-essential equivs gcc automake autogen libtool pgxnclient libedit-dev zlib1g-dev libssl-dev libselinux1-dev libkrb5-dev libxslt1-dev libxml2-dev libpam0g-dev libcurl4-openssl-dev pkg-config libevent-dev git" \
+    && BUILD_PACKAGES="devscripts build-essential equivs gcc automake autogen libtool cmake pgxnclient libedit-dev zlib1g-dev libssl-dev libselinux1-dev libkrb5-dev libxslt1-dev libxml2-dev libpam0g-dev libcurl4-openssl-dev pkg-config libevent-dev git" \
     && if [ "$DEMO" = "true" ]; then \
         PGOLDVERSIONS=""; \
     else \
@@ -158,8 +158,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 make -C $n USE_PGXS=1 clean install-strip; \
             done \
 
-            && if [ "$version" = "9.6" ]; then make -C timescaledb install-strip; fi \
-
             && if [ "$version" != "9.3" ] && [ "$DEMO" != "true" ]; then \
                 make -C postgres-decoderbufs-$DECODEBUFS_COMMIT clean install-strip; \
             fi \
@@ -173,8 +171,18 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 && rm -fr pg_rewind-${REWIND_VER} postgresql-${version}*; \
             fi \
 
-            && cd skytools-legacy \
-            && if [ "$version" = "9.6" ] || [ "$version" = "10" ]; then sed -i 's|parser/keywords.h|common/keywords.h|' sql/pgq/triggers/stringutil.c; fi \
+            && if [ "$version" = "9.6" ] || [ "$version" = "10" ]; then \
+                cd /builddeps/timescaledb \
+                && rm -fr build \
+                && ./bootstrap \
+                && make -C build install \
+                && strip /usr/lib/postgresql/$version/lib/timescaledb.so \
+
+                && sed -i 's|parser/keywords.h|common/keywords.h|' \
+                        /builddeps/skytools-legacy/sql/pgq/triggers/stringutil.c; \
+            fi \
+
+            && cd /builddeps/skytools-legacy \
             && ./configure \
             && ln -snf ../../install-sh sql/ticker/install-sh \
             && make -C sql clean \
@@ -398,7 +406,7 @@ ARG COMPRESS=false
 RUN set -ex \
     && if [ "$COMPRESS" = "true" ]; then \
         apt-get update \
-        && apt-get install -y busybox \
+        && apt-get install -y busybox xz-utils \
         && apt-get clean \
         && rm -rf /var/lib/apt/lists/* /var/cache/debconf/* /usr/share/doc /usr/share/man /etc/rc?.d /etc/systemd \
         && ln -snf busybox /bin/sh \

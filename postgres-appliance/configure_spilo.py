@@ -425,17 +425,18 @@ def write_wale_command_environment(placeholders, overwrite, provider):
 def write_crontab(placeholders, overwrite):
     if not overwrite:
         with open(os.devnull, 'w') as devnull:
-            cron_exit = subprocess.call(['sudo', '-u', 'postgres', 'crontab', '-l'], stdout=devnull, stderr=devnull)
+            cron_exit = subprocess.call(['crontab', '-lu', 'postgres'], stdout=devnull, stderr=devnull)
             if cron_exit == 0:
                 return logging.warning('Cron is already configured. (Use option --force to overwrite cron)')
 
     lines = ['PATH={PATH}'.format(**placeholders)]
-    lines += ['{BACKUP_SCHEDULE} /postgres_backup.sh "{WALE_ENV_DIR}" "{PGDATA}" "{BACKUP_NUM_TO_RETAIN}"'.format(**placeholders)]
+    lines += ['{BACKUP_SCHEDULE} /postgres_backup.sh "{WALE_ENV_DIR}" "{PGDATA}" "{BACKUP_NUM_TO_RETAIN}"'
+              .format(**placeholders)]
 
     lines += yaml.load(placeholders['CRONTAB'])
     lines += ['']  # EOF requires empty line for cron
 
-    c = subprocess.Popen(['sudo', '-u', 'postgres', 'crontab'], stdin=subprocess.PIPE)
+    c = subprocess.Popen(['crontab', '-u', 'postgres', '-'], stdin=subprocess.PIPE)
     c.communicate(input='\n'.join(lines).encode())
 
 
@@ -448,7 +449,7 @@ user=postgres
 autostart=1
 priority=10
 directory=/
-command=env -i /bin/etcd --data-dir /tmp/etcd.data -advertise-client-urls=http://127.0.0.1:2379 -listen-client-urls=http://0.0.0.0:2379 -listen-peer-urls=http://0.0.0.0:2380
+command=env -i /bin/etcd --data-dir /tmp/etcd.data
 stdout_logfile=/dev/stdout
 stdout_logfile_maxbytes=0
 redirect_stderr=true
