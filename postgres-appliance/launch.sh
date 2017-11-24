@@ -29,11 +29,11 @@ if [ "$DEMO" = "true" ]; then
     (
         su postgres -c 'env -i PGAPPNAME="pgq ticker" /patroni_wait.sh --role master -- /usr/local/bin/pgqd /home/postgres/pgq_ticker.ini'
     ) &
-    exec su postgres -c 'exec patroni /home/postgres/postgres.yml'
+    exec su postgres -c "PATH=$PATH exec patroni /home/postgres/postgres.yml"
 else
     if python3 /configure_spilo.py all; then
         (
-            su postgres -c "/patroni_wait.sh -t 3600 -- /postgres_backup.sh $WALE_ENV_DIR $PGDATA"
+            su postgres -c "PATH=$PATH /patroni_wait.sh -t 3600 -- /postgres_backup.sh $WALE_ENV_DIR $PGDATA"
         ) &
     fi
     exec supervisord --configuration=/etc/supervisor/supervisord.conf --nodaemon
