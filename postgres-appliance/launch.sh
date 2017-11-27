@@ -27,7 +27,7 @@ if [ "$DEMO" = "true" ]; then
     sed -i '/motd/d' /root/.bashrc
     python3 /configure_spilo.py patroni patronictl certificate pam-oauth2
     (
-        su postgres -c 'env -i PGAPPNAME="pgq ticker" /patroni_wait.sh --role master -- /usr/local/bin/pgqd /home/postgres/pgq_ticker.ini'
+        su postgres -c 'env -i PGAPPNAME="pgq ticker" /patroni_wait.sh --role master -- /usr/bin/pgqd /home/postgres/pgq_ticker.ini'
     ) &
     exec su postgres -c "PATH=$PATH exec patroni /home/postgres/postgres.yml"
 else
