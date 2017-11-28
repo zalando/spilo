@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 
 import argparse
-from collections import namedtuple
 import logging
 import subprocess
 
 logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
+
 
 def read_configuration():
     parser = argparse.ArgumentParser(description="Script to clone from another cluster using pg_basebackup")
@@ -20,6 +20,7 @@ def read_configuration():
     parser.add_argument('--user', required=True, help='PostgreSQL user to connect with')
     return parser.parse_args()
 
+
 def escape_value(val):
     quote = False
     temp = []
@@ -32,6 +33,7 @@ def escape_value(val):
     result = ''.join(temp)
     return result if not quote else '\'{0}\''.format(result)
 
+
 def prepare_connection(options):
     connection = []
     for attname in ('host', 'port', 'user', 'dbname'):
@@ -40,21 +42,24 @@ def prepare_connection(options):
 
     return ' '.join(connection), {'PGPASSFILE': options.pgpass}
 
+
 def run_basebackup(options):
     connstr, env = prepare_connection(options)
-    logger.info("cloning cluster {0} from \"{1}\"".format(options.name, connstr))
-    ret = subprocess.call(['pg_basebackup', '--pgdata={0}'.format(options.datadir), '-X', 'stream', '--dbname={0}'.format(connstr), '-w'], env=env)
+    logger.info('cloning cluster %s from "%s"', options.name, connstr)
+    ret = subprocess.call(['pg_basebackup', '-D', options.datadir, '-X', 'stream', '-d', connstr, '-w'], env=env)
     if ret != 0:
         raise Exception("pg_basebackup exited with code={0}".format(ret))
     return 0
+
 
 def main():
     options = read_configuration()
     try:
         return run_basebackup(options)
-    except:
+    except Exception:
         logger.exception("Clone failed")
         return 1
+
 
 if __name__ == '__main__':
     main()

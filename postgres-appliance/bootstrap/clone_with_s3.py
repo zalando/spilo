@@ -10,6 +10,7 @@ import subprocess
 logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 def read_configuration():
     parser = argparse.ArgumentParser(description="Script to clone from S3 with support for point-in-time-recovery")
     parser.add_argument('--scope', required=True, help='target cluster name')
@@ -19,9 +20,8 @@ def read_configuration():
     parser.add_argument('--recovery-target-time',
                         help='the time stamp up to which recovery will proceed (including time zone)',
                         dest='recovery_target_time_string')
-    parser.add_argument('--dry-run',
-                        action='store_true',
-                        help='find a matching backup and build the wal-e command to fetch that backup without running it')
+    parser.add_argument('--dry-run', action='store_true', help='find a matching backup and build the wal-e '
+                        'command to fetch that backup without running it')
     args = parser.parse_args()
 
     options = namedtuple('Options', 'name datadir wale_envdir recovery_target_time dry_run')
@@ -32,42 +32,39 @@ def read_configuration():
     else:
         recovery_target_time = None
 
-    result=options(name=args.scope, datadir=args.datadir,
-                   wale_envdir=args.envdir,
-                   recovery_target_time=recovery_target_time,
-                   dry_run=args.dry_run)
-    return result
+    return options(args.scope, args.datadir, args.envdir, recovery_target_time, args.dry_run)
 
-def build_wale_command(envdir, command, **kwargs):
+
+def build_wale_command(envdir, command, datadir=None, backup=None):
     cmd = ['envdir', envdir, 'wal-e', '--aws-instance-profile']
     if command == 'backup-list':
         cmd.extend([command, '--detail'])
     elif command == 'backup-fetch':
-        if 'datadir' not in kwargs or 'backup' not in kwargs:
+        if datadir is None or backup is None:
             raise Exception("backup-fetch requires datadir and backup arguments")
-        datadir=kwargs['datadir']
-        backup=kwargs['backup']
         cmd.extend([command, datadir, backup])
     else:
         raise Exception("invalid wal-e command {0}".format(command))
     return cmd
 
-def choose_backup(output, t):
-    """ pick up the latest backup file starting before time t"""
+
+def choose_backup(output, recovery_target_time):
+    """ pick up the latest backup file starting before time recovery_target_time"""
     reader = csv.DictReader(output.decode('utf-8').splitlines(), dialect='excel-tab')
     backup_list = list(reader)
     if len(backup_list) <= 0:
         raise Exception("wal-e could not found any backups")
-    match = None
-    for backup in enumerate(backup_list):
+    match_timestamp = match = None
+    for backup in backup_list:
         last_modified = parse(backup['last_modified'])
-        if last_modified < t:
+        if last_modified < recovery_target_time:
             if match is None or last_modified > match_timestamp:
                 match = backup
                 match_timestamp = last_modified
     if match is None:
-        raise Exception("wal-e could not found any backups prior to the point in time {0}".format(t))
+        raise Exception("wal-e could not found any backups prior to the point in time {0}".format(recovery_target_time))
     return match['name']
+
 
 def run_clone_from_s3(options):
     backup_name = 'LATEST'
@@ -75,21 +72,23 @@ def run_clone_from_s3(options):
         backup_list_cmd = build_wale_command(options.wale_envdir, 'backup-list')
         backup_list = subprocess.check_output(backup_list_cmd)
         backup_name = choose_backup(backup_list, options.recovery_target_time)
-    backup_fetch_cmd = build_wale_command(options.wale_envdir, 'backup-fetch', datadir=options.datadir, backup=backup_name)
-    logger.info("cloning cluster {0} using {1}".format(options.name, ' '.join(backup_fetch_cmd)))
+    backup_fetch_cmd = build_wale_command(options.wale_envdir, 'backup-fetch', options.datadir, backup_name)
+    logger.info("cloning cluster %s using %s", options.name, ' '.join(backup_fetch_cmd))
     if not options.dry_run:
         ret = subprocess.call(backup_fetch_cmd)
         if ret != 0:
             raise Exception("wal-e backup-fetch exited with exit code {0}".format(ret))
     return 0
 
+
 def main():
     options = read_configuration()
     try:
         return run_clone_from_s3(options)
-    except:
+    except Exception:
         logger.exception("Clone failed")
         return 1
+
 
 if __name__ == '__main__':
     main()

@@ -102,6 +102,7 @@ def deep_update(a, b):
 
     return a if a is not None else b
 
+
 TEMPLATE = \
     '''
 bootstrap:
@@ -280,6 +281,7 @@ def get_instance_metadata(provider):
 
     return metadata
 
+
 def set_clone_with_wale_placeholders(placeholders, provider):
     """ checks that enough parameters are provided to configure cloning with WAL-E """
     if provider == PROVIDER_AWS:
@@ -294,11 +296,11 @@ def set_clone_with_wale_placeholders(placeholders, provider):
     clone_cluster = placeholders.get('CLONE_SCOPE')
     if placeholders.get(clone_bucket_placeholder) and clone_cluster:
         placeholders['CLONE_WITH_WALE'] = True
-        placeholders.setdefault('CLONE_WALE_ENV_DIR', os.path.join(placeholders['PGHOME'],
-                                                              'etc', 'wal-e.d', 'env-clone-{0}'.format(clone_cluster)))
+        placeholders.setdefault('CLONE_WALE_ENV_DIR', os.path.join(placeholders['PGHOME'], 'etc', 'wal-e.d',
+                                                                   'env-clone-{0}'.format(clone_cluster)))
     else:
-        logging.warning("Clone method is set to WAL-E, but no '{0}' "
-                        "or'CLONE_SCOPE' specified".format(clone_bucket_placeholder))
+        logging.warning("Clone method is set to WAL-E, but no '%s' or 'CLONE_SCOPE' specified",
+                        clone_bucket_placeholder)
 
 
 def get_placeholders(provider):
@@ -337,12 +339,12 @@ def get_placeholders(provider):
         set_clone_with_wale_placeholders(placeholders, provider)
     elif placeholders['CLONE_METHOD'] == 'CLONE_WITH_BASEBACKUP':
         clone_scope = placeholders.get('CLONE_SCOPE')
-        if clone_scope and placeholders.get('CLONE_HOST')\
-            and placeholders.get('CLONE_USER') and placeholders.get('CLONE_PASSWORD'):
-                placeholders['CLONE_WITH_BASEBACKUP'] = True
-                placeholders.setdefault('CLONE_PGPASS',
-                                        os.path.join(placeholders['PGHOME'], '.pgpass_{0}'.format(clone_scope)))
-                placeholders.setdefault('CLONE_PORT', 5432)
+        if clone_scope and placeholders.get('CLONE_HOST') \
+                and placeholders.get('CLONE_USER') and placeholders.get('CLONE_PASSWORD'):
+            placeholders['CLONE_WITH_BASEBACKUP'] = True
+            placeholders.setdefault('CLONE_PGPASS', os.path.join(placeholders['PGHOME'],
+                                                                 '.pgpass_{0}'.format(clone_scope)))
+            placeholders.setdefault('CLONE_PORT', 5432)
         else:
             logging.warning("Clone method is set to basebackup, but no 'CLONE_SCOPE' "
                             "or 'CLONE_HOST' or 'CLONE_USER' or 'CLONE_PASSWORD' specified")
@@ -465,13 +467,13 @@ def write_clone_pgpass(placeholders, overwrite):
          'port': placeholders['CLONE_PORT'],
          'database': '*',
          'user': escape_pgpass_value(placeholders['CLONE_USER']),
-         'password': escape_pgpass_value(placeholders['CLONE_PASSWORD'])
-        }
+         'password': escape_pgpass_value(placeholders['CLONE_PASSWORD'])}
     pgpass_string = "{host}:{port}:{database}:{user}:{password}".format(**r)
     write_file(pgpass_string, pgpassfile, overwrite)
     uid = os.stat(placeholders['PGHOME']).st_uid
     os.chmod(pgpassfile, 0o600)
     os.chown(pgpassfile, uid, -1)
+
 
 def write_crontab(placeholders, path, overwrite):
 
@@ -653,6 +655,7 @@ def main():
     # We will abuse non zero exit code as an indicator for the launch.sh that it should not even try to create a backup
     sys.exit(int(not placeholders['USE_WALE']))
 
+
 def escape_pgpass_value(val):
     output = []
     for c in val:
@@ -660,6 +663,7 @@ def escape_pgpass_value(val):
             output.append('\\')
         output.append(c)
     return ''.join(output)
+
 
 if __name__ == '__main__':
     main()
