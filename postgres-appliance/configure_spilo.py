@@ -26,7 +26,8 @@ MEMORY_LIMIT_IN_BYTES_PATH = '/sys/fs/cgroup/memory/memory.limit_in_bytes'
 
 
 def parse_args():
-    sections = ['all', 'patroni', 'patronictl', 'certificate', 'wal-e', 'crontab', 'ldap', 'pam-oauth2', 'pgbouncer']
+    sections = ['all', 'patroni', 'patronictl', 'certificate', 'wal-e', 'crontab',
+                'ldap', 'pam-oauth2', 'pgbouncer', 'bootstrap']
     argp = argparse.ArgumentParser(description='Configures Spilo',
                                    epilog="Choose from the following sections:\n\t{}".format('\n\t'.join(sections)),
                                    formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -102,6 +103,7 @@ def deep_update(a, b):
 
     return a if a is not None else b
 
+
 TEMPLATE = \
     '''
 bootstrap:
@@ -141,6 +143,31 @@ bootstrap:
         autovacuum_max_workers: 5
         autovacuum_vacuum_scale_factor: 0.05
         autovacuum_analyze_scale_factor: 0.02
+  {{#CLONE_WITH_WALE}}
+  method: clone_with_wale
+  clone_with_wale:
+    command: python3 /clone_with_s3.py --envdir "{{CLONE_WALE_ENV_DIR}}" --recovery-target-time="{{CLONE_TARGET_TIME}}"
+    recovery_conf:
+        restore_command: envdir "{{CLONE_WALE_ENV_DIR}}" /wale_restore_command.sh "%f" "%p"
+        recovery_target_timeline: latest
+        {{#USE_PAUSE_AT_RECOVERY_TARGET}}
+        pause_at_recovery_target: false
+        {{/USE_PAUSE_AT_RECOVERY_TARGET}}
+        {{^USE_PAUSE_AT_RECOVERY_TARGET}}
+        recovery_target_action: promote
+        {{/USE_PAUSE_AT_RECOVERY_TARGET}}
+        {{#CLONE_TARGET_TIME}}
+        recovery_target_time: "{{CLONE_TARGET_TIME}}"
+        {{/CLONE_TARGET_TIME}}
+        {{^CLONE_TARGET_INCLUSIVE}}
+        recovery_target_inclusive: false
+        {{/CLONE_TARGET_INCLUSIVE}}
+  {{/CLONE_WITH_WALE}}
+  {{#CLONE_WITH_BASEBACKUP}}
+  method: clone_with_basebackup
+  clone_with_basebackup:
+    command: python3 /clone_with_basebackup.py --pgpass={{CLONE_PGPASS}} --host={{CLONE_HOST}} --port={{CLONE_PORT}} --user="{{CLONE_USER}}"
+  {{/CLONE_WITH_BASEBACKUP}}
   initdb:
   - encoding: UTF8
   - locale: en_US.UTF-8
@@ -267,6 +294,27 @@ def get_instance_metadata(provider):
     return metadata
 
 
+def set_clone_with_wale_placeholders(placeholders, provider):
+    """ checks that enough parameters are provided to configure cloning with WAL-E """
+    if provider == PROVIDER_AWS:
+        clone_bucket_placeholder = 'CLONE_WAL_S3_BUCKET'
+    elif provider == PROVIDER_GOOGLE:
+        clone_bucket_placeholder = 'CLONE_WAL_GSC_BUCKET'
+    else:
+        logging.warning('Cloning with WAL-E is only possible when running on AWS or GCP')
+        return
+    # XXX: Cloning from one provider into another (i.e. Google from Amazon) is not possible.
+    # No WAL-E related limitations, but credentials would have to be passsed explicitely.
+    clone_cluster = placeholders.get('CLONE_SCOPE')
+    if placeholders.get(clone_bucket_placeholder) and clone_cluster:
+        placeholders['CLONE_WITH_WALE'] = True
+        placeholders.setdefault('CLONE_WALE_ENV_DIR', os.path.join(placeholders['PGHOME'], 'etc', 'wal-e.d',
+                                                                   'env-clone-{0}'.format(clone_cluster)))
+    else:
+        logging.warning("Clone method is set to WAL-E, but no '%s' or 'CLONE_SCOPE' specified",
+                        clone_bucket_placeholder)
+
+
 def get_placeholders(provider):
     placeholders = dict(os.environ)
 
@@ -293,7 +341,28 @@ def get_placeholders(provider):
     placeholders.setdefault('WALE_BACKUP_THRESHOLD_PERCENTAGE', 30)
     placeholders.setdefault('WALE_ENV_DIR', os.path.join(placeholders['PGHOME'], 'etc', 'wal-e.d', 'env'))
     placeholders.setdefault('USE_WALE', False)
+    placeholders.setdefault('USE_PAUSE_AT_RECOVERY_TARGET', False)
     placeholders.setdefault('CALLBACK_SCRIPT', '')
+    placeholders.setdefault('CLONE_METHOD', '')
+    placeholders.setdefault('CLONE_WITH_WALE', '')
+    placeholders.setdefault('CLONE_WITH_BASEBACKUP', '')
+    placeholders.setdefault('CLONE_TARGET_TIME', '')
+    placeholders.setdefault('CLONE_TARGET_INCLUSIVE', True)
+
+    if placeholders['CLONE_METHOD'] == 'CLONE_WITH_WALE':
+        # set_clone_with_wale_placeholders would modify placeholders and take care of error cases
+        set_clone_with_wale_placeholders(placeholders, provider)
+    elif placeholders['CLONE_METHOD'] == 'CLONE_WITH_BASEBACKUP':
+        clone_scope = placeholders.get('CLONE_SCOPE')
+        if clone_scope and placeholders.get('CLONE_HOST') \
+                and placeholders.get('CLONE_USER') and placeholders.get('CLONE_PASSWORD'):
+            placeholders['CLONE_WITH_BASEBACKUP'] = True
+            placeholders.setdefault('CLONE_PGPASS', os.path.join(placeholders['PGHOME'],
+                                                                 '.pgpass_{0}'.format(clone_scope)))
+            placeholders.setdefault('CLONE_PORT', 5432)
+        else:
+            logging.warning("Clone method is set to basebackup, but no 'CLONE_SCOPE' "
+                            "or 'CLONE_HOST' or 'CLONE_USER' or 'CLONE_PASSWORD' specified")
 
     if provider == PROVIDER_AWS:
         if 'WAL_S3_BUCKET' in placeholders:
@@ -363,36 +432,63 @@ def get_dcs_config(config, placeholders):
     return config
 
 
-def write_wale_command_environment(placeholders, overwrite, provider):
-    if not placeholders['USE_WALE']:
-        return
+def write_wale_environment(placeholders, provider, prefix, overwrite):
+    wale = {}
 
-    if not os.path.exists(placeholders['WALE_ENV_DIR']):
-        os.makedirs(placeholders['WALE_ENV_DIR'])
+    for name in ('SCOPE', 'WALE_ENV_DIR', 'WAL_S3_BUCKET', 'WAL_GCS_BUCKET'):
+        rename = prefix + name
+        if rename in placeholders:
+            wale[name] = placeholders[rename]
+
+    if not os.path.exists(wale['WALE_ENV_DIR']):
+        os.makedirs(wale['WALE_ENV_DIR'])
 
     if provider == PROVIDER_AWS:
-        write_file('s3://{WAL_S3_BUCKET}/spilo/{SCOPE}/wal/'.format(**placeholders),
-                   os.path.join(placeholders['WALE_ENV_DIR'], 'WALE_S3_PREFIX'), overwrite)
-        match = re.search(r'.*(eu-\w+-\d+)-.*', placeholders['WAL_S3_BUCKET'])
+        write_file('s3://{WAL_S3_BUCKET}/spilo/{SCOPE}/wal/'.format(**wale),
+                   os.path.join(wale['WALE_ENV_DIR'], 'WALE_S3_PREFIX'), overwrite)
+        match = re.search(r'.*(eu-\w+-\d+)-.*', wale['WAL_S3_BUCKET'])
         if match:
             region = match.group(1)
         else:
             region = placeholders['instance_data']['zone'][:-1]
         write_file('https+path://s3-{}.amazonaws.com:443'.format(region),
-                   os.path.join(placeholders['WALE_ENV_DIR'], 'WALE_S3_ENDPOINT'), overwrite)
+                   os.path.join(wale['WALE_ENV_DIR'], 'WALE_S3_ENDPOINT'), overwrite)
     elif provider == PROVIDER_GOOGLE:
-        write_file('gs://{WAL_GCS_BUCKET}/spilo/{SCOPE}/wal/'.format(**placeholders),
-                   os.path.join(placeholders['WALE_ENV_DIR'], 'WALE_GS_PREFIX'), overwrite)
+        write_file('gs://{WAL_GCS_BUCKET}/spilo/{SCOPE}/wal/'.format(**wale),
+                   os.path.join(wale['WALE_ENV_DIR'], 'WALE_GS_PREFIX'), overwrite)
         if placeholders['GOOGLE_APPLICATION_CREDENTIALS']:
             write_file('{GOOGLE_APPLICATION_CREDENTIALS}'.format(**placeholders),
-                       os.path.join(placeholders['WALE_ENV_DIR'], 'GOOGLE_APPLICATION_CREDENTIALS'), overwrite)
+                       os.path.join(wale['WALE_ENV_DIR'], 'GOOGLE_APPLICATION_CREDENTIALS'), overwrite)
     else:
         return
+
     if not os.path.exists(placeholders['WALE_TMPDIR']):
         os.makedirs(placeholders['WALE_TMPDIR'])
         os.chmod(placeholders['WALE_TMPDIR'], 0o1777)
 
-    write_file(placeholders['WALE_TMPDIR'], os.path.join(placeholders['WALE_ENV_DIR'], 'TMPDIR'), True)
+    write_file(placeholders['WALE_TMPDIR'], os.path.join(wale['WALE_ENV_DIR'], 'TMPDIR'), True)
+
+
+def write_bootstrap_configuration(placeholders, provider, overwrite):
+    if placeholders['CLONE_WITH_WALE']:
+        write_wale_environment(placeholders, provider, 'CLONE_', overwrite)
+    if placeholders['CLONE_WITH_BASEBACKUP']:
+        write_clone_pgpass(placeholders, overwrite)
+
+
+def write_clone_pgpass(placeholders, overwrite):
+    pgpassfile = placeholders['CLONE_PGPASS']
+    # pgpass is host:port:database:user:password
+    r = {'host': escape_pgpass_value(placeholders['CLONE_HOST']),
+         'port': placeholders['CLONE_PORT'],
+         'database': '*',
+         'user': escape_pgpass_value(placeholders['CLONE_USER']),
+         'password': escape_pgpass_value(placeholders['CLONE_PASSWORD'])}
+    pgpass_string = "{host}:{port}:{database}:{user}:{password}".format(**r)
+    write_file(pgpass_string, pgpassfile, overwrite)
+    uid = os.stat(placeholders['PGHOME']).st_uid
+    os.chmod(pgpassfile, 0o600)
+    os.chown(pgpassfile, uid, -1)
 
 
 def write_crontab(placeholders, path, overwrite):
@@ -558,7 +654,8 @@ def main():
                 os.makedirs(os.path.dirname(patronictl_configfile))
             write_file(yaml.dump(patronictl_config), patronictl_configfile, args['force'])
         elif section == 'wal-e':
-            write_wale_command_environment(placeholders, args['force'], provider)
+            if placeholders['USE_WALE']:
+                write_wale_environment(placeholders, provider, '', args['force'])
         elif section == 'certificate':
             write_certificates(placeholders, args['force'])
         elif section == 'crontab':
@@ -570,11 +667,22 @@ def main():
             write_pam_oauth2_configuration(placeholders, args['force'])
         elif section == 'pgbouncer':
             write_pgbouncer_configuration(placeholders, args['force'])
+        elif section == 'bootstrap':
+            write_bootstrap_configuration(placeholders, provider, args['force'])
         else:
             raise Exception('Unknown section: {}'.format(section))
 
     # We will abuse non zero exit code as an indicator for the launch.sh that it should not even try to create a backup
     sys.exit(int(not placeholders['USE_WALE']))
+
+
+def escape_pgpass_value(val):
+    output = []
+    for c in val:
+        if c in ('\\', ':'):
+            output.append('\\')
+        output.append(c)
+    return ''.join(output)
 
 
 if __name__ == '__main__':
