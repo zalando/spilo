@@ -4,8 +4,7 @@ MAINTAINER Alexander Kukushkin <alexander.kukushkin@zalando.de>
 
 EXPOSE 5432 8008 8080
 
-ENV ETCD_DISCOVERY_DOMAIN=postgres.acid.example.com \
-    LC_ALL=en_US.utf-8 \
+ENV LC_ALL=en_US.utf-8 \
     PATH=$PATH:/usr/lib/postgresql/${PGVERSION}/bin \
     PGHOME=/home/postgres
 
