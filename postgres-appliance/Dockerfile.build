@@ -111,6 +111,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && perl -ne 'print unless /PG_TRY/ .. /PG_CATCH/' pgextwlist/pgextwlist.c > pgextwlist.c.f \
     && egrep -v '(PG_END_TRY|EmitWarningsOnPlaceholders)' pgextwlist.c.f > pgextwlist/pgextwlist.c \
 
+    && git clone git://www.sigaev.ru/plantuner.git \
+
     && git clone --recurse-submodules https://github.com/pgq/skytools-legacy.git \
     && cd skytools-legacy \
     && ./autogen.sh \
@@ -152,7 +154,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             done \
 
             && cd /builddeps \
-            && for n in bg_mon-${BG_MON_COMMIT} hypopg set_user plpgsql_check plprofiler pgextwlist; do \
+            && for n in bg_mon-${BG_MON_COMMIT} hypopg set_user plpgsql_check plprofiler pgextwlist plantuner; do \
                 make -C $n USE_PGXS=1 clean install-strip; \
             done \
 
