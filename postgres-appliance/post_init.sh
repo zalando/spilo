@@ -64,7 +64,7 @@ GRANT SELECT ON postgres_log TO ADMIN;"
 # Sunday could be 0 or 7 depending on the format, we just create both
 for i in $(seq 0 7); do
     echo "CREATE FOREIGN TABLE postgres_log_$i () INHERITS (postgres_log) SERVER pglog
-    OPTIONS (filename '../pg_log/postgresql-$1.csv', format 'csv', header 'false');
+    OPTIONS (filename '../pg_log/postgresql-$i.csv', format 'csv', header 'false');
 GRANT SELECT ON postgres_log_$i TO ADMIN;"
 done
 
