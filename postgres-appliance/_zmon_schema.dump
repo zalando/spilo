@@ -366,7 +366,7 @@ def get_vm_info():
                   '/proc/sys/vm/overcommit_ratio' : 'vm.overcommit_ratio'
                 }
     try:
-        for fname, kname in file_keys.iteritems():
+        for fname, kname in file_keys.tems():
             try:
                 fp = open(fname, 'r')
                 val = int(fp.read().strip())
