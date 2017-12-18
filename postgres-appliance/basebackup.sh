@@ -30,11 +30,27 @@ fi
 readonly WAL_FAST=$(dirname $DATA_DIR)/wal_fast
 mkdir -p $WAL_FAST
 
-# make sure that there is no receivewal running
-exec 9>$WAL_FAST/receivewal.lock
-if flock -x -n 9; then
-    $PG_RECEIVEWAL --directory="${WAL_FAST}" --dbname="${CONNSTR}" &
-    receivewal_pid=$!
+rm -fr ${DATA_DIR} ${WAL_FAST}/*
+
+function sigterm_handler() {
+    kill $receivewal_pid $basebackup_pid
+}
+
+trap sigterm_handler QUIT TERM EXIT INT
+
+
+function start_receivewal() {
+    local receivewal_pid=$BASHPID
+
+    # wait for backup_label
+    while [[ ! -f ${DATA_DIR}/backup_label ]]; do
+        sleep 1
+    done
+
+    # get the first wal segment necessary for recovery from backup label
+    SEGMENT=$(sed -n 's/^START WAL LOCATION: .*file \([0-9A-F]\{24\}\).*$/\1/p' ${DATA_DIR}/backup_label)
+
+    [ -z $SEGMENT ] && exit 1
 
     # run pg_receivewal until postgres will not start streaming
     (
@@ -46,17 +62,48 @@ if flock -x -n 9; then
         kill $receivewal_pid && sleep 1
         rm -f ${WAL_FAST}/*
     )&
+
+    # calculate the name of previous segment
+    timeline=${SEGMENT:0:8}
+    log=$((16#${SEGMENT:8:8}))
+    seg=$((16#${SEGMENT:16:8}))
+    if [[ $seg == 0 ]]; then
+        seg=255
+        log=$((log-1))
+    else
+        seg=$((seg-1))
+    fi
+
+    SEGMENT=$(printf "%s%08X%08X\n" $timeline $log $seg)
+
+    # pg_receivewal doesn't have an argument to specify position to start stream from
+    # therefore we will "precreate" previous file and pg_receivewal will start fetching the next one
+    dd if=/dev/zero of=${WAL_FAST}/${SEGMENT} bs=16k count=1k
+
+    exec $PG_RECEIVEWAL --directory="${WAL_FAST}" --dbname="${CONNSTR}"
+}
+
+# make sure that there is only one receivewal running
+exec 9>$WAL_FAST/receivewal.lock
+if flock -x -n 9; then
+    start_receivewal &
+    receivewal_pid=$!
+    echo $receivewal_pid > $WAL_FAST/receivewal.pid
+else
+    receivewal_pid=$(cat $WAL_FAST/receivewal.pid)
 fi
 
 ATTEMPT=0
 while [[ $((ATTEMPT++)) -le $RETRIES ]]; do
-    rm -fr "${DATA_DIR}"
-    pg_basebackup --pgdata="${DATA_DIR}" ${PG_BASEBACKUP_OPTS} --dbname="${CONNSTR}"
+    pg_basebackup --pgdata="${DATA_DIR}" ${PG_BASEBACKUP_OPTS} --dbname="${CONNSTR}" &
+    basebackup_pid=$!
+    wait
     EXITCODE=$?
     if [[ $EXITCODE == 0 ]]; then
         break
     elif [[ $ATTEMPT -le $RETRIES ]]; then
         sleep $((ATTEMPT*10))
+        rm -fr "${DATA_DIR}"
     fi
 done
 
