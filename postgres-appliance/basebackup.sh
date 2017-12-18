@@ -33,7 +33,8 @@ mkdir -p $WAL_FAST
 rm -fr ${DATA_DIR} ${WAL_FAST}/*
 
 function sigterm_handler() {
-    kill $receivewal_pid $basebackup_pid
+    kill -SIGTERM $receivewal_pid $basebackup_pid
+    exit 143
 }
 
 trap sigterm_handler QUIT TERM EXIT INT
@@ -97,7 +98,7 @@ ATTEMPT=0
 while [[ $((ATTEMPT++)) -le $RETRIES ]]; do
     pg_basebackup --pgdata="${DATA_DIR}" ${PG_BASEBACKUP_OPTS} --dbname="${CONNSTR}" &
     basebackup_pid=$!
-    wait
+    wait $basebackup_pid
     EXITCODE=$?
     if [[ $EXITCODE == 0 ]]; then
         break
