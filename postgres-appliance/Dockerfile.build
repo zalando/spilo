@@ -44,8 +44,16 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 
     # Clean up
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* /var/cache/debconf/* /usr/share/doc /usr/share/man /usr/share/locale \
-    && find /var/log -type f -exec truncate --size 0 {} \;
+    && rm -rf /var/lib/apt/lists/* \
+            /var/cache/debconf/* \
+            /usr/share/doc \
+            /usr/share/man \
+            /usr/share/locale/?? \
+            /usr/share/locale/??_?? \
+    && find /var/log -type f -exec truncate --size 0 {} \; \
+    && find /usr/share/i18n/charmaps/ -type f ! -name UTF-8.gz -delete \
+    && find /usr/share/i18n/locales/ -type f ! -name en_US -delete \
+    && echo 'en_US.UTF-8 UTF-8' > /usr/share/i18n/SUPPORTED
 
 ADD dependencies/debs /builddeps
 
@@ -70,7 +78,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && set -ex \
     && apt-get update \
     && cd /builddeps \
-    && BUILD_PACKAGES="devscripts build-essential equivs gcc automake autogen libtool cmake pgxnclient libedit-dev zlib1g-dev libssl-dev libselinux1-dev libkrb5-dev libxslt1-dev libxml2-dev libpam0g-dev libcurl4-openssl-dev pkg-config libevent-dev git" \
+    && BUILD_PACKAGES="devscripts build-essential equivs gcc automake autogen libtool cmake pgxnclient libedit-dev zlib1g-dev libssl-dev libselinux1-dev libkrb5-dev libxslt1-dev libxml2-dev libpam0g-dev libcurl4-openssl-dev pkg-config libevent-dev git dh-autoreconf python-docutils" \
     && if [ "$DEMO" = "true" ]; then \
         PGOLDVERSIONS=""; \
     else \
@@ -328,7 +336,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             /usr/share/doc \
             /usr/share/man \
             /usr/share/info \
-            /usr/share/locale \
+            /usr/share/locale/?? \
+            /usr/share/locale/??_?? \
             /usr/share/postgresql/*/man \
             /usr/lib/postgresql/*/bin/createdb \
             /usr/lib/postgresql/*/bin/createlang \
@@ -390,7 +399,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             /root/.cache \
             /usr/share/doc \
             /usr/share/man \
-            /usr/share/locale \
+            /usr/share/locale/?? \
+            /usr/share/locale/??_?? \
             /usr/share/info \
 
     && find /var/log -type f -exec truncate --size 0 {} \;
