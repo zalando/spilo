@@ -37,7 +37,7 @@ function sigterm_handler() {
     exit 143
 }
 
-trap sigterm_handler QUIT TERM EXIT INT
+trap sigterm_handler QUIT TERM INT
 
 
 function start_receivewal() {
