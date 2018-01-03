@@ -70,7 +70,7 @@ ENV PGVERSION=10 \
     SET_USER=REL1_4_0 \
     PLPGSQL_CHECK=v1.2.2 \
     PLPROFILER=REL3_2 \
-    TIMESCALEDB=0.7.1 \
+    TIMESCALEDB=0.8.0 \
     PGEXTWLIST=v1.6 \
     PAM_OAUTH2=v1.0
 
@@ -121,11 +121,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 
     && git clone git://www.sigaev.ru/plantuner.git \
 
-    && git clone --recurse-submodules https://github.com/pgq/skytools-legacy.git \
-    && cd skytools-legacy \
-    && ./autogen.sh \
-    && sed -i 's|^SUBDIRS .*|SUBDIRS = pgq|' sql/Makefile \
-
     && for version in ${PGOLDVERSIONS} ${PGVERSION}; do \
             sed -i "s/ main.*$/ main $version/g" /etc/apt/sources.list.d/pgdg.list \
             && apt-get update \
@@ -143,7 +138,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             && apt-get install --allow-downgrades -y postgresql-contrib-${version} $EXTRAS \
                         postgresql-${version}-plproxy postgresql-plpython3-${version} \
                         postgresql-${version}-repack postgresql-${version}-pldebugger \
-                        libpq5=$version* libpq-dev=$version* postgresql-server-dev-${version} \
+                        postgresql-${version}-pgq3 libpq5=$version* \
+                        libpq-dev=$version* postgresql-server-dev-${version} \
 
             && if [ "$DEMO" != "true" ]; then \
                 apt-get install -y postgresql-${version}-plv8 \
@@ -184,30 +180,23 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 && rm -fr build \
                 && ./bootstrap \
                 && make -C build install \
-                && strip /usr/lib/postgresql/$version/lib/timescaledb.so \
-
-                && sed -i 's|parser/keywords.h|common/keywords.h|' \
-                        /builddeps/skytools-legacy/sql/pgq/triggers/stringutil.c; \
+                && strip /usr/lib/postgresql/$version/lib/timescaledb.so; \
             fi \
-
-            && cd /builddeps/skytools-legacy \
-            && ./configure \
-            && ln -snf ../../install-sh sql/ticker/install-sh \
-            && make -C sql clean \
-            && make -C sql install \
-            && strip /usr/lib/postgresql/$version/lib/pgq_*.so \
 
             && apt-get purge -y libpq-dev=$version* postgresql-server-dev-${version}; \
     done \
 
-    && apt-get install -y skytools3-ticker \
+    && apt-get install -y skytools3-ticker pspg \
 
     && if [ "$DEMO" != "true" ]; then \
         # patch, build and install pgbouncer
         mkdir pgbouncer && cd pgbouncer \
         && apt-get source pgbouncer \
         && cd $(ls -d pgbouncer-*) \
+        # Set last_connect_time for pool only when it really failed to connect
         && curl -sL https://github.com/pgbouncer/pgbouncer/pull/127.diff | patch -p1 \
+        # Increase password size
+        && sed -i 's/\(MAX_PASSWORD\t\).*/\11024/' include/bouncer.h \
         && debuild -b -uc -us \
         && dpkg -i ../pgbouncer_*.deb \
         && cd ../..; \
@@ -354,12 +343,12 @@ ENV PATRONIVERSION=1.3.6
 ENV WALE_VERSION=1.1.0
 RUN export DEBIAN_FRONTEND=noninteractive \
     && set -ex \
-    && BUILD_PACKAGES="python3-pip python3-dev gcc git" \
+    && BUILD_PACKAGES="python3-pip python3-wheel python3-dev gcc git" \
     && apt-get update \
     && apt-get install -y python3 python3-click python3-yaml python3-six python3-pystache python3-prettytable \
                 python3-psycopg2 python3-pyasn1-modules python3-rsa python3-dateutil ${BUILD_PACKAGES} \
 
-    && pip3 install setuptools pip --upgrade \
+    && pip3 install setuptools --upgrade \
 
     && if [ "$DEMO" = "true" ]; then \
         EXTRAS=""; \
@@ -368,17 +357,23 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && apt-get install -y python3-dnspython python3-kazoo python3-meld3 \
         && pip3 install envdir wal-e[aws,google]==$WALE_VERSION \
                 'git+https://github.com/Supervisor/supervisor.git@master#egg=supervisor' \
+                'git+https://github.com/zalando/pg_view.git@master#egg=pg-view' \
+
+        # pg_view installs useless pytest
+        && pip3 uninstall -y attrs pluggy pytest py \
+        && sed -i '/^pytest/d' /usr/local/lib/python3.5/dist-packages/pg_view-*/requires.txt \
 
         # https://github.com/wal-e/wal-e/issues/318
         && sed -i 's/^\(    for i in range(0,\) num_retries):.*/\1 100):/g' /usr/local/lib/python3.5/dist-packages/boto/utils.py \
 
-        # install pg_view
-        && curl -L https://raw.githubusercontent.com/zalando/pg_view/2ea99479460d81361bdb7601a1564072ddd584ac/pg_view.py \
-                | sed -e 's/env python/env python3/g' > /usr/local/bin/pg_view.py && chmod +x /usr/local/bin/pg_view.py \
-
         && echo 4.0.0.dev0 > /usr/local/lib/python3.5/dist-packages/supervisor/version.txt; \
     fi \
     && pip3 install "git+https://github.com/zalando/patroni.git@feature/k8s#egg=patroni[kubernetes$EXTRAS]" \
+
+    # use system tzdata to save space
+    && mv /usr/local/lib/python3.5/dist-packages/pytz/zoneinfo/tzdata.zi /usr/share/zoneinfo/ \
+    && rm -fr /usr/local/lib/python3.5/dist-packages/pytz/zoneinfo \
+    && ln -s /usr/share/zoneinfo /usr/local/lib/python3.5/dist-packages/pytz/zoneinfo \
 
     && for d in /usr/lib/python3 /usr/local/lib/python3.5; do \
         cd $d/dist-packages \
@@ -386,6 +381,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && find . -type f -name 'test_*.py*' -delete; \
     done \
     && find . -type f -name '*.so' -exec strip {} \; \
+    && find . -type f -name '*.c' -delete \
     && find . -type f -name 'unittest_*.py*' -delete \
     && find . -type f -name '*_test.py' -delete \
     && find . -type f -name '*_test.cpython*.pyc' -delete \

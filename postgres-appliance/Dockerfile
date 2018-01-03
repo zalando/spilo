@@ -28,6 +28,7 @@ RUN mkdir -p /var/log/supervisor \
         && for e in TERM=linux LC_ALL=C.UTF-8 LANG=C.UTF-8 EDITOR=vi; \
             do echo "export $e" >> /etc/bash.bashrc; \
         done \
+        && echo "export PAGER='pspg -bX --no-mouse'" >> /etc/bash.bashrc \
         && echo "source /etc/motd" >> /root/.bashrc
 
 ADD scm-source.json configure_spilo.py launch.sh postgres_backup.sh patroni_wait.sh post_init.sh _zmon_schema.dump callback_*.py basebackup.sh wale_restore_command.sh wal-e-wal-fetch.sh create_user_functions.sql bootstrap /
