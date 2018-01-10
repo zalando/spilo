@@ -362,7 +362,8 @@ def get_placeholders(provider):
                                 if USE_KUBERNETES and placeholders.get('DCS_ENABLE_KUBERNETES_API') else '')
     # use namespaces to set WAL bucket prefix scope naming the folder namespace-clustername for non-default namespace.
     placeholders.setdefault('WAL_BUCKET_SCOPE_PREFIX',
-                            '{0}-'.format(placeholders['NAMESPACE']) if placeholders['NAMESPACE'] != 'default' else '')
+                            '{0}-'.format(placeholders['NAMESPACE'])\
+                                if placeholders['NAMESPACE'] not in ('', 'default') else '')
     placeholders.setdefault('WAL_BUCKET_SCOPE_SUFFIX', '')
     placeholders.setdefault('WALE_ENV_DIR', os.path.join(placeholders['PGHOME'], 'etc', 'wal-e.d', 'env'))
     placeholders.setdefault('USE_WALE', False)
@@ -470,7 +471,7 @@ def get_dcs_config(config, placeholders):
     else:
         config = {}  # Configuration can also be specified using either SPILO_CONFIGURATION or PATRONI_CONFIGURATION
 
-    if placeholders['NAMESPACE'] != 'default':
+    if placeholders['NAMESPACE'] not in ('default', ''):
         config['namespace'] =  placeholders['NAMESPACE']
 
     return config
