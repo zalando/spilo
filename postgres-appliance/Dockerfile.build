@@ -64,7 +64,7 @@ ARG PGOLDVERSIONS="9.3 9.4 9.5 9.6"
 ENV PGVERSION=10 \
     PGOLDVERSIONS="$PGOLDVERSIONS" \
     POSTGIS_VERSION=2.4 \
-    BG_MON_COMMIT=9412922efba655491ccebbcbfc5b7308d79b90c4 \
+    BG_MON_COMMIT=57f50fd9b92a9ed3cdb185118fbce27d4d56984c \
     DECODEBUFS_COMMIT=d08a75593c68897600e10f5250133337624bcf63 \
     HYPOPG=1.1.0 \
     SET_USER=REL1_4_0 \
@@ -339,7 +339,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             /usr/lib/postgresql/*/bin/pltcl_*
 
 # Install patroni and WAL-e
-ENV PATRONIVERSION=1.3.6
+ENV PATRONIVERSION=1.4
 ENV WALE_VERSION=1.1.0
 RUN export DEBIAN_FRONTEND=noninteractive \
     && set -ex \
@@ -368,7 +368,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 
         && echo 4.0.0.dev0 > /usr/local/lib/python3.5/dist-packages/supervisor/version.txt; \
     fi \
-    && pip3 install "git+https://github.com/zalando/patroni.git@feature/k8s#egg=patroni[kubernetes$EXTRAS]" \
+    && pip3 install "patroni[kubernetes$EXTRAS]" \
 
     # use system tzdata to save space
     && mv /usr/local/lib/python3.5/dist-packages/pytz/zoneinfo/tzdata.zi /usr/share/zoneinfo/ \
@@ -417,6 +417,7 @@ RUN set -ex \
         && save_dirs="usr lib var bin sbin etc/ssl etc/init.d etc/alternatives etc/apt" \
         && XZ_OPT=-e9v tar -X /exclude -cpJf a.tar.xz $save_dirs \
         && rm -fr /usr/local/lib/python* \
-        && /bin/busybox sh -c "(for d in $save_dirs; do find \$d -not -type d; done && cat /exclude /exclude && echo exclude) | sort | uniq -u | xargs rm" \
-        && /bin/busybox sh -c "for d in $save_dirs; do find \$d -type d -depth -exec rmdir -p {} \; 2> /dev/null; done"; \
+        && /bin/busybox sh -c "(find $save_dirs -not -type d && cat /exclude /exclude && echo exclude) | sort | uniq -u | xargs /bin/busybox rm" \
+#        && /bin/busybox --install -s \
+        && /bin/busybox sh -c "find $save_dirs -type d -depth -exec rmdir -p {} \; 2> /dev/null"; \
     fi
