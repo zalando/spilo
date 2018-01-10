@@ -29,8 +29,8 @@ IN_RECOVERY=$(psql -tXqAc "select pg_is_in_recovery()")
 envdir "${WALE_ENV_DIR}" wal-e --aws-instance-profile delete --confirm retain "${NUM_TO_RETAIN}"
 
 # Ensure we don't have more workes than CPU's
-POOL_SIZE=4
-[ $(nproc) -lt $POOL_SIZE ] && POOL_SIZE=$(nproc)
+POOL_SIZE=$(grep -c ^processor /proc/cpuinfo 2>/dev/null || 1)
+[ $POOL_SIZE -gt 4 ] && POOL_SIZE=4
 
 # push a new base backup
 log "producing a new backup"

@@ -107,7 +107,7 @@ def deep_update(a, b):
 TEMPLATE = \
     '''
 bootstrap:
-  post_init: /post_init.sh
+  post_init: /post_init.sh "{{HUMAN_ROLE}}"
   dcs:
     ttl: 30
     loop_wait: &loop_wait 10
@@ -119,7 +119,6 @@ bootstrap:
       parameters:
         archive_mode: "on"
         archive_timeout: 1800s
-        archive_command: {{{postgresql.parameters.archive_command}}}
         wal_level: hot_standby
         wal_keep_segments: 8
         wal_log_hints: 'on'
@@ -169,12 +168,9 @@ bootstrap:
     command: python3 /clone_with_basebackup.py --pgpass={{CLONE_PGPASS}} --host={{CLONE_HOST}} --port={{CLONE_PORT}} --user="{{CLONE_USER}}"
   {{/CLONE_WITH_BASEBACKUP}}
   initdb:
-  - encoding: UTF8
-  - locale: en_US.UTF-8
-  - data-checksums
-  pg_hba:
-    - hostssl all all 0.0.0.0/0 md5
-    - host    all all 0.0.0.0/0 md5
+    - encoding: UTF8
+    - locale: en_US.UTF-8
+    - data-checksums
   {{#USE_ADMIN}}
   users:
     {{PGUSER_ADMIN}}:
@@ -190,11 +186,11 @@ restapi:
 postgresql:
   use_unix_socket: true
   name: '{{instance_data.id}}'
-  scope: *scope
   listen: 0.0.0.0:{{PGPORT}}
   connect_address: {{instance_data.ip}}:{{PGPORT}}
   data_dir: {{PGDATA}}
   parameters:
+    archive_command: {{{postgresql.parameters.archive_command}}}
     shared_buffers: {{postgresql.parameters.shared_buffers}}
     logging_collector: 'on'
     log_destination: csvlog
@@ -206,8 +202,26 @@ postgresql:
     ssl: 'on'
     ssl_cert_file: {{SSL_CERTIFICATE_FILE}}
     ssl_key_file: {{SSL_PRIVATE_KEY_FILE}}
-    shared_preload_libraries: 'bg_mon,pg_stat_statements'
+    shared_preload_libraries: 'bg_mon,pg_stat_statements,pg_cron,set_user,pgextwlist'
     bg_mon.listen_address: '0.0.0.0'
+    extwlist.extensions: 'btree_gin,btree_gist,hstore,intarray,ltree,pgcrypto,pgq,pg_trgm,postgres_fdw,uuid-ossp,hypopg'
+  pg_hba:
+    - local   all             all                                   trust
+    {{#PAM_OAUTH2}}
+    - hostssl all             +{{HUMAN_ROLE}}    127.0.0.1/32       pam
+    {{/PAM_OAUTH2}}
+    - host    all             all                127.0.0.1/32       md5
+    {{#PAM_OAUTH2}}
+    - hostssl all             +{{HUMAN_ROLE}}    ::1/128            pam
+    {{/PAM_OAUTH2}}
+    - host    all             all                ::1/128            md5
+    - hostssl replication     {{PGUSER_STANDBY}} all                md5
+    - hostnossl all           all                all                reject
+    {{#PAM_OAUTH2}}
+    - hostssl all             +{{HUMAN_ROLE}}    all                pam
+    {{/PAM_OAUTH2}}
+    - hostssl all             all                all                md5
+
   {{#USE_WALE}}
   recovery_conf:
     restore_command: envdir "{{WALE_ENV_DIR}}" /wale_restore_command.sh "%f" "%p"
@@ -326,6 +340,7 @@ def get_placeholders(provider):
     placeholders.setdefault('PGROOT', os.path.join(placeholders['PGHOME'], 'pgroot'))
     placeholders.setdefault('WALE_TMPDIR', os.path.abspath(os.path.join(placeholders['PGROOT'], '../tmp')))
     placeholders.setdefault('PGDATA', os.path.join(placeholders['PGROOT'], 'pgdata'))
+    placeholders.setdefault('HUMAN_ROLE', 'zalandos')
     placeholders.setdefault('PGUSER_STANDBY', 'standby')
     placeholders.setdefault('PGPASSWORD_STANDBY', 'standby')
     placeholders.setdefault('USE_ADMIN', 'PGPASSWORD_ADMIN' in placeholders)
@@ -341,8 +356,11 @@ def get_placeholders(provider):
     placeholders.setdefault('WALE_BACKUP_THRESHOLD_PERCENTAGE', 30)
     placeholders.setdefault('WALE_ENV_DIR', os.path.join(placeholders['PGHOME'], 'etc', 'wal-e.d', 'env'))
     placeholders.setdefault('USE_WALE', False)
-    placeholders.setdefault('USE_PAUSE_AT_RECOVERY_TARGET', False)
+    placeholders.setdefault('PAM_OAUTH2', '')
     placeholders.setdefault('CALLBACK_SCRIPT', '')
+    placeholders.setdefault('DCS_ENABLE_KUBERNETES_API', '')
+    placeholders.setdefault('KUBERNETES_USE_CONFIGMAPS', '')
+    placeholders.setdefault('USE_PAUSE_AT_RECOVERY_TARGET', False)
     placeholders.setdefault('CLONE_METHOD', '')
     placeholders.setdefault('CLONE_WITH_WALE', '')
     placeholders.setdefault('CLONE_WITH_BASEBACKUP', '')
@@ -380,7 +398,11 @@ def get_placeholders(provider):
 
     # Kubernetes requires a callback to change the labels in order to point to the new master
     if USE_KUBERNETES:
-        placeholders['CALLBACK_SCRIPT'] = '/callback_role.py'
+        if placeholders.get('DCS_ENABLE_KUBERNETES_API'):
+            if placeholders.get('KUBERNETES_USE_CONFIGMAPS'):
+                placeholders['CALLBACK_SCRIPT'] = 'python3 /callback_endpoint.py'
+        else:
+            placeholders['CALLBACK_SCRIPT'] = 'python3 /callback_role.py'
 
     placeholders.setdefault('postgresql', {})
     placeholders['postgresql'].setdefault('parameters', {})
@@ -419,7 +441,13 @@ def pystache_render(*args, **kwargs):
 
 
 def get_dcs_config(config, placeholders):
-    if 'ZOOKEEPER_HOSTS' in placeholders:
+    if USE_KUBERNETES and placeholders.get('DCS_ENABLE_KUBERNETES_API'):
+        config = {'kubernetes': {'namespace': os.environ.get('POD_NAMESPACE', 'default'), 'role_label': 'spilo-role',
+                                 'scope_label': 'version', 'labels': {'application': 'spilo'}}}
+        if not placeholders.get('KUBERNETES_USE_CONFIGMAPS'):
+            config['kubernetes'].update({'use_endpoints': True, 'pod_ip': placeholders['instance_data']['ip'],
+                                         'ports': [{'port': 5432, 'name': 'postgresql'}]})
+    elif 'ZOOKEEPER_HOSTS' in placeholders:
         config = {'zookeeper': {'hosts': yaml.load(placeholders['ZOOKEEPER_HOSTS'])}}
     elif 'EXHIBITOR_HOSTS' in placeholders and 'EXHIBITOR_PORT' in placeholders:
         config = {'exhibitor': {'hosts': yaml.load(placeholders['EXHIBITOR_HOSTS']),
@@ -493,21 +521,21 @@ def write_clone_pgpass(placeholders, overwrite):
     os.chown(pgpassfile, uid, -1)
 
 
-def write_crontab(placeholders, path, overwrite):
-
+def write_crontab(placeholders, overwrite):
     if not overwrite:
         with open(os.devnull, 'w') as devnull:
-            cron_exit = subprocess.call(['sudo', '-u', 'postgres', 'crontab', '-l'], stdout=devnull, stderr=devnull)
+            cron_exit = subprocess.call(['crontab', '-lu', 'postgres'], stdout=devnull, stderr=devnull)
             if cron_exit == 0:
-                logging.warning('Cron is already configured. (Use option --force to overwrite cron)')
-                return
+                return logging.warning('Cron is already configured. (Use option --force to overwrite cron)')
 
-    lines = ['PATH={}'.format(path)]
-    lines += ['{BACKUP_SCHEDULE} /postgres_backup.sh "{WALE_ENV_DIR}" "{PGDATA}" "{BACKUP_NUM_TO_RETAIN}"'.format(**placeholders)]
+    lines = ['PATH={PATH}'.format(**placeholders)]
+    lines += ['{BACKUP_SCHEDULE} /postgres_backup.sh "{WALE_ENV_DIR}" "{PGDATA}" "{BACKUP_NUM_TO_RETAIN}"'
+              .format(**placeholders)]
+
     lines += yaml.load(placeholders['CRONTAB'])
     lines += ['']  # EOF requires empty line for cron
 
-    c = subprocess.Popen(['sudo', '-u', 'postgres', 'crontab'], stdin=subprocess.PIPE)
+    c = subprocess.Popen(['crontab', '-u', 'postgres', '-'], stdin=subprocess.PIPE)
     c.communicate(input='\n'.join(lines).encode())
 
 
@@ -520,7 +548,7 @@ user=postgres
 autostart=1
 priority=10
 directory=/
-command=env -i /bin/etcd --data-dir /tmp/etcd.data -advertise-client-urls=http://127.0.0.1:2379 -listen-client-urls=http://0.0.0.0:2379 -listen-peer-urls=http://0.0.0.0:2380
+command=env -i /bin/etcd --data-dir /tmp/etcd.data
 stdout_logfile=/dev/stdout
 stdout_logfile_maxbytes=0
 redirect_stderr=true
@@ -639,7 +667,7 @@ def main():
     config = deep_update(user_config, config)
 
     # Ensure replication is available
-    if not any(['replication' in i for i in config['bootstrap']['pg_hba']]):
+    if 'pg_hba' in config['bootstrap'] and not any(['replication' in i for i in config['bootstrap']['pg_hba']]):
         rep_hba = 'hostssl replication {} 0.0.0.0/0 md5'.\
             format(config['postgresql']['authentication']['replication']['username'])
         config['bootstrap']['pg_hba'].insert(0, rep_hba)
@@ -650,7 +678,8 @@ def main():
             patroni_configfile = os.path.join(placeholders['PGHOME'], 'postgres.yml')
             write_file(yaml.dump(config, default_flow_style=False, width=120), patroni_configfile, args['force'])
         elif section == 'patronictl':
-            patronictl_config = {k: v for k, v in config.items() if k in ['zookeeper', 'etcd', 'consul']}
+            patronictl_config = {k: v for k, v in config.items()
+                                 if k in ['exhibitor', 'zookeeper', 'etcd', 'consul', 'kubernetes']}
             patronictl_configfile = os.path.join(placeholders['PGHOME'], '.config', 'patroni', 'patronictl.yaml')
             if not os.path.exists(os.path.dirname(patronictl_configfile)):
                 os.makedirs(os.path.dirname(patronictl_configfile))
@@ -662,7 +691,7 @@ def main():
             write_certificates(placeholders, args['force'])
         elif section == 'crontab':
             if placeholders['USE_WALE']:
-                write_crontab(placeholders, os.environ.get('PATH'), args['force'])
+                write_crontab(placeholders, args['force'])
         elif section == 'ldap':
             write_ldap_configuration(placeholders, args['force'])
         elif section == 'pam-oauth2':

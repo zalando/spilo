@@ -1,0 +1,55 @@
+diff -uN debian.orig/libcgal-dev.install debian/libcgal-dev.install
+--- debian.orig/libcgal-dev.install	2017-11-15 11:48:52.383075792 +0000
++++ debian/libcgal-dev.install	2017-11-15 11:56:00.689444237 +0000
+@@ -2,10 +2,8 @@
+ usr/include/*
+ usr/lib/*/libCGAL.a
+ usr/lib/*/libCGAL_Core.a
+-usr/lib/*/libCGAL_ImageIO.a
+ usr/lib/*/libCGAL.so
+ usr/lib/*/libCGAL_Core.so
+-usr/lib/*/libCGAL_ImageIO.so
+ usr/lib/*/cmake/CGAL/*
+ # usr/share/cmake-2.8/Modules/*
+ usr/share/man/man1/cgal_create_cmake_script.1
+diff -uN debian.orig/libcgal-qt5-11.install debian/libcgal-qt5-11.install
+--- debian.orig/libcgal-qt5-11.install	2017-11-15 11:48:52.387075775 +0000
++++ debian/libcgal-qt5-11.install	2017-11-15 11:56:00.689444237 +0000
+@@ -1 +0,0 @@
+-usr/lib/*/libCGAL_Qt5.so.*
+diff -uN debian.orig/libcgal-qt5-dev.install debian/libcgal-qt5-dev.install
+--- debian.orig/libcgal-qt5-dev.install	2017-11-15 11:48:52.387075775 +0000
++++ debian/libcgal-qt5-dev.install	2017-11-15 11:56:00.689444237 +0000
+@@ -1,5 +1,3 @@
+ # The next entry is disabled here because it overlaps with the corresponding
+ # entry in libcgal-dev.install. The files are moved in debian/rules.
+ # usr/include/CGAL/Qt
+-usr/lib/*/libCGAL_Qt5.a
+-usr/lib/*/libCGAL_Qt5.so
+diff -uN debian.orig/libcgal11v5.install debian/libcgal11v5.install
+--- debian.orig/libcgal11v5.install	2017-11-15 11:48:52.391075758 +0000
++++ debian/libcgal11v5.install	2017-11-15 11:56:00.689444237 +0000
+@@ -1,4 +1,3 @@
+ usr/lib/*/libCGAL.so.*
+ usr/lib/*/libCGAL_Core.so.*
+-usr/lib/*/libCGAL_ImageIO.so.*
+ usr/share/doc/cgal/changelog   usr/share/doc/libcgal11v5
+diff -uN debian.orig/rules debian/rules
+--- debian.orig/rules	2017-11-15 11:59:40.872708000 +0000
++++ debian/rules	2017-11-15 11:59:15.928789148 +0000
+@@ -28,6 +28,7 @@
+ 	cd static && QTDIR= cmake .. \
+ 	  -DCMAKE_VERBOSE_MAKEFILE=ON -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release \
+ 	  -DWITH_GMPXX=ON -DWITH_CGAL_Qt3=OFF -DWITH_demos=OFF -DWITH_examples=OFF \
++	  -DWITH_CGAL_ImageIO=OFF -DWITH_CGAL_Qt5=OFF \
+ 	  -DCGAL_ENABLE_PRECONFIG=OFF -DBUILD_SHARED_LIBS=FALSE \
+ 	  -DCGAL_INSTALL_LIB_DIR=lib/$(DEB_HOST_MULTIARCH) \
+ 	  -DCGAL_INSTALL_CMAKE_DIR=lib/$(DEB_HOST_MULTIARCH)/cmake/CGAL
+@@ -35,6 +36,7 @@
+ 	cd shared && QTDIR= cmake .. \
+ 	  -DCMAKE_VERBOSE_MAKEFILE=ON -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release \
+ 	  -DWITH_GMPXX=ON -DWITH_CGAL_Qt3=OFF -DWITH_demos=OFF -DWITH_examples=OFF \
++	  -DWITH_CGAL_ImageIO=OFF -DWITH_CGAL_Qt5=OFF \
+ 	  -DCGAL_ENABLE_PRECONFIG=OFF -DBUILD_SHARED_LIBS=TRUE -DCMAKE_SKIP_RPATH=TRUE \
+ 	  -DCGAL_INSTALL_LIB_DIR=lib/$(DEB_HOST_MULTIARCH) \
+ 	  -DCGAL_INSTALL_CMAKE_DIR=lib/$(DEB_HOST_MULTIARCH)/cmake/CGAL
