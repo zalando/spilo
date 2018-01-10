@@ -310,12 +310,12 @@ def get_instance_metadata(provider):
 
 def set_clone_with_wale_placeholders(placeholders, provider):
     """ checks that enough parameters are provided to configure cloning with WAL-E """
-    if provider == PROVIDER_AWS:
+    if 'CLONE_WAL_S3_BUCKET' in placeholders:
         clone_bucket_placeholder = 'CLONE_WAL_S3_BUCKET'
-    elif provider == PROVIDER_GOOGLE:
+    elif 'CLONE_WAL_GSC_BUCKET' in placeholders:
         clone_bucket_placeholder = 'CLONE_WAL_GSC_BUCKET'
     else:
-        logging.warning('Cloning with WAL-E is only possible when running on AWS or GCP')
+        logging.warning('Cloning with WAL-E is only possible when CLONE_WAL_S3_BUCKET or CLONE_WAL_GSC_BUCKET is set.')
         return
     # XXX: Cloning from one provider into another (i.e. Google from Amazon) is not possible.
     # No WAL-E related limitations, but credentials would have to be passsed explicitely.
@@ -383,14 +383,16 @@ def get_placeholders(provider):
                             "or 'CLONE_HOST' or 'CLONE_USER' or 'CLONE_PASSWORD' specified")
 
     if provider == PROVIDER_AWS:
-        if 'WAL_S3_BUCKET' in placeholders:
-            placeholders['USE_WALE'] = True
         if not USE_KUBERNETES:  # AWS specific callback to tag the instances with roles
             if placeholders.get('EIP_ALLOCATION'):
                 placeholders['CALLBACK_SCRIPT'] = 'python3 /callback_aws.py {0}'.format(placeholders['EIP_ALLOCATION'])
             else:
                 placeholders['CALLBACK_SCRIPT'] = 'patroni_aws'
-    elif provider == PROVIDER_GOOGLE and 'WAL_GCS_BUCKET' in placeholders:
+
+    if 'WAL_S3_BUCKET' in placeholders:
+            placeholders['USE_WALE'] = True
+            
+    elif 'WAL_GCS_BUCKET' in placeholders:
         placeholders['USE_WALE'] = True
         placeholders.setdefault('GOOGLE_APPLICATION_CREDENTIALS', '')
 
@@ -471,7 +473,7 @@ def write_wale_environment(placeholders, provider, prefix, overwrite):
     if not os.path.exists(wale['WALE_ENV_DIR']):
         os.makedirs(wale['WALE_ENV_DIR'])
 
-    if provider == PROVIDER_AWS:
+    if 'WAL_S3_BUCKET' in placeholders:
         write_file('s3://{WAL_S3_BUCKET}/spilo/{SCOPE}/wal/'.format(**wale),
                    os.path.join(wale['WALE_ENV_DIR'], 'WALE_S3_PREFIX'), overwrite)
         match = re.search(r'.*(eu-\w+-\d+)-.*', wale['WAL_S3_BUCKET'])
@@ -481,7 +483,7 @@ def write_wale_environment(placeholders, provider, prefix, overwrite):
             region = placeholders['instance_data']['zone'][:-1]
         write_file('https+path://s3-{}.amazonaws.com:443'.format(region),
                    os.path.join(wale['WALE_ENV_DIR'], 'WALE_S3_ENDPOINT'), overwrite)
-    elif provider == PROVIDER_GOOGLE:
+    elif 'WAL_GCS_BUCKET' in placeholders:
         write_file('gs://{WAL_GCS_BUCKET}/spilo/{SCOPE}/wal/'.format(**wale),
                    os.path.join(wale['WALE_ENV_DIR'], 'WALE_GS_PREFIX'), overwrite)
         if placeholders['GOOGLE_APPLICATION_CREDENTIALS']:
