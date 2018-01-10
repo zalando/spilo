@@ -354,6 +354,16 @@ def get_placeholders(provider):
     placeholders.setdefault('SSL_PRIVATE_KEY_FILE', os.path.join(placeholders['PGHOME'], 'server.key'))
     placeholders.setdefault('WALE_BACKUP_THRESHOLD_MEGABYTES', 1024)
     placeholders.setdefault('WALE_BACKUP_THRESHOLD_PERCENTAGE', 30)
+    # if Kubernetes is defined as a DCS, derive the namespace from the POD_NAMESPACE, if not set explicitely.
+    # We only do this for Kubernetes DCS, as we don't want to suddently change, i.e. DCS base path when running
+    # in Kubernetes with Etcd in a non-default namespace
+    placeholders.setdefault('NAMESPACE',
+                            placeholders.get('POD_NAMESPACE', 'default')
+                                if USE_KUBERNETES and placeholders.get('DCS_ENABLE_KUBERNETES_API') else '')
+    # use namespaces to set WAL bucket prefix scope naming the folder namespace-clustername for non-default namespace.
+    placeholders.setdefault('WAL_BUCKET_SCOPE_PREFIX',
+                            '{0}-'.format(placeholders['NAMESPACE']) if placeholders['NAMESPACE'] != 'default' else '')
+    placeholders.setdefault('WAL_BUCKET_SCOPE_SUFFIX', '')
     placeholders.setdefault('WALE_ENV_DIR', os.path.join(placeholders['PGHOME'], 'etc', 'wal-e.d', 'env'))
     placeholders.setdefault('USE_WALE', False)
     placeholders.setdefault('PAM_OAUTH2', '')
@@ -391,7 +401,7 @@ def get_placeholders(provider):
 
     if 'WAL_S3_BUCKET' in placeholders:
             placeholders['USE_WALE'] = True
-            
+
     elif 'WAL_GCS_BUCKET' in placeholders:
         placeholders['USE_WALE'] = True
         placeholders.setdefault('GOOGLE_APPLICATION_CREDENTIALS', '')
@@ -441,8 +451,9 @@ def pystache_render(*args, **kwargs):
 
 
 def get_dcs_config(config, placeholders):
+
     if USE_KUBERNETES and placeholders.get('DCS_ENABLE_KUBERNETES_API'):
-        config = {'kubernetes': {'namespace': os.environ.get('POD_NAMESPACE', 'default'), 'role_label': 'spilo-role',
+        config = {'kubernetes': {'role_label': 'spilo-role',
                                  'scope_label': 'version', 'labels': {'application': 'spilo'}}}
         if not placeholders.get('KUBERNETES_USE_CONFIGMAPS'):
             config['kubernetes'].update({'use_endpoints': True, 'pod_ip': placeholders['instance_data']['ip'],
@@ -459,13 +470,17 @@ def get_dcs_config(config, placeholders):
     else:
         config = {}  # Configuration can also be specified using either SPILO_CONFIGURATION or PATRONI_CONFIGURATION
 
+    if placeholders['NAMESPACE'] != 'default':
+        config['namespace'] =  placeholders['NAMESPACE']
+
     return config
 
 
 def write_wale_environment(placeholders, provider, prefix, overwrite):
     wale = {}
 
-    for name in ('SCOPE', 'WALE_ENV_DIR', 'WAL_S3_BUCKET', 'WAL_GCS_BUCKET'):
+    for name in ('SCOPE', 'WALE_ENV_DIR', 'WAL_S3_BUCKET',
+                 'WAL_BUCKET_SCOPE_PREFIX', 'WAL_BUCKET_SCOPE_SUFFIX', 'WAL_GCS_BUCKET'):
         rename = prefix + name
         if rename in placeholders:
             wale[name] = placeholders[rename]
@@ -474,7 +489,7 @@ def write_wale_environment(placeholders, provider, prefix, overwrite):
         os.makedirs(wale['WALE_ENV_DIR'])
 
     if 'WAL_S3_BUCKET' in placeholders:
-        write_file('s3://{WAL_S3_BUCKET}/spilo/{SCOPE}/wal/'.format(**wale),
+        write_file('s3://{WAL_S3_BUCKET}/spilo/{WAL_BUCKET_SCOPE_PREFIX}{SCOPE}{WAL_BUCKET_SCOPE_SUFFIX}/wal/'.format(**wale),
                    os.path.join(wale['WALE_ENV_DIR'], 'WALE_S3_PREFIX'), overwrite)
         match = re.search(r'.*(eu-\w+-\d+)-.*', wale['WAL_S3_BUCKET'])
         if match:
@@ -484,7 +499,7 @@ def write_wale_environment(placeholders, provider, prefix, overwrite):
         write_file('https+path://s3-{}.amazonaws.com:443'.format(region),
                    os.path.join(wale['WALE_ENV_DIR'], 'WALE_S3_ENDPOINT'), overwrite)
     elif 'WAL_GCS_BUCKET' in placeholders:
-        write_file('gs://{WAL_GCS_BUCKET}/spilo/{SCOPE}/wal/'.format(**wale),
+        write_file('gs://{WAL_GCS_BUCKET}/spilo/{WAL_BUCKET_SCOPE_PREFIX}{SCOPE}{WAL_BUCKET_SCOPE_SUFFIX}/wal/'.format(**wale),
                    os.path.join(wale['WALE_ENV_DIR'], 'WALE_GS_PREFIX'), overwrite)
         if placeholders['GOOGLE_APPLICATION_CREDENTIALS']:
             write_file('{GOOGLE_APPLICATION_CREDENTIALS}'.format(**placeholders),
