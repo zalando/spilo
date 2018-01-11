@@ -5,11 +5,15 @@ CREATE ROLE $1;
 CREATE ROLE robot_zmon;
 
 CREATE EXTENSION pg_cron;
-ALTER TABLE cron.job ALTER COLUMN nodename SET DEFAULT '/var/run/postgresql';
-ALTER POLICY cron_job_policy ON cron.job USING (username = current_user OR pg_has_role(current_user, 'admin', 'MEMBER') AND pg_has_role(username, 'admin', 'MEMBER') AND NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname = username AND rolsuper));
+
+ALTER POLICY cron_job_policy ON cron.job USING (username = current_user OR
+    (pg_has_role(current_user, 'admin', 'MEMBER')
+    AND pg_has_role(username, 'admin', 'MEMBER')
+    AND NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname = username AND rolsuper)
+    ));
 REVOKE SELECT ON cron.job FROM public;
 GRANT SELECT ON cron.job TO admin;
-GRANT UPDATE (database) ON cron.job TO admin;
+GRANT UPDATE (database, nodename) ON cron.job TO admin;
 
 CREATE OR REPLACE FUNCTION cron.schedule(p_schedule text, p_database text, p_command text)
 RETURNS bigint
@@ -18,8 +22,12 @@ AS \$function\$
 DECLARE
     l_jobid bigint;
 BEGIN
+    IF NOT (SELECT rolcanlogin FROM pg_roles WHERE rolname = current_user)
+    THEN RAISE 'You cannot create a job using a role that cannot log in';
+    END IF;
+
     SELECT schedule INTO l_jobid FROM cron.schedule(p_schedule, p_command);
-    UPDATE cron.job SET database = p_database WHERE jobid = l_jobid;
+    UPDATE cron.job SET database = p_database, nodename = '' WHERE jobid = l_jobid;
     RETURN l_jobid;
 END;
 \$function\$;
