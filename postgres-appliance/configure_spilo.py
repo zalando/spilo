@@ -27,7 +27,7 @@ MEMORY_LIMIT_IN_BYTES_PATH = '/sys/fs/cgroup/memory/memory.limit_in_bytes'
 
 def parse_args():
     sections = ['all', 'patroni', 'patronictl', 'certificate', 'wal-e', 'crontab',
-                'ldap', 'pam-oauth2', 'pgbouncer', 'bootstrap']
+                'pam-oauth2', 'pgbouncer', 'bootstrap']
     argp = argparse.ArgumentParser(description='Configures Spilo',
                                    epilog="Choose from the following sections:\n\t{}".format('\n\t'.join(sections)),
                                    formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -357,13 +357,11 @@ def get_placeholders(provider):
     # if Kubernetes is defined as a DCS, derive the namespace from the POD_NAMESPACE, if not set explicitely.
     # We only do this for Kubernetes DCS, as we don't want to suddently change, i.e. DCS base path when running
     # in Kubernetes with Etcd in a non-default namespace
-    placeholders.setdefault('NAMESPACE',
-                            placeholders.get('POD_NAMESPACE', 'default')
-                                if USE_KUBERNETES and placeholders.get('DCS_ENABLE_KUBERNETES_API') else '')
+    placeholders.setdefault('NAMESPACE', placeholders.get('POD_NAMESPACE', 'default')
+                            if USE_KUBERNETES and placeholders.get('DCS_ENABLE_KUBERNETES_API') else '')
     # use namespaces to set WAL bucket prefix scope naming the folder namespace-clustername for non-default namespace.
-    placeholders.setdefault('WAL_BUCKET_SCOPE_PREFIX',
-                            '{0}-'.format(placeholders['NAMESPACE'])\
-                                if placeholders['NAMESPACE'] not in ('', 'default') else '')
+    placeholders.setdefault('WAL_BUCKET_SCOPE_PREFIX', '{0}-'.format(placeholders['NAMESPACE'])
+                            if placeholders['NAMESPACE'] != 'default' else '')
     placeholders.setdefault('WAL_BUCKET_SCOPE_SUFFIX', '')
     placeholders.setdefault('WALE_ENV_DIR', os.path.join(placeholders['PGHOME'], 'etc', 'wal-e.d', 'env'))
     placeholders.setdefault('USE_WALE', False)
@@ -400,12 +398,7 @@ def get_placeholders(provider):
             else:
                 placeholders['CALLBACK_SCRIPT'] = 'patroni_aws'
 
-    if 'WAL_S3_BUCKET' in placeholders:
-            placeholders['USE_WALE'] = True
-
-    elif 'WAL_GCS_BUCKET' in placeholders:
-        placeholders['USE_WALE'] = True
-        placeholders.setdefault('GOOGLE_APPLICATION_CREDENTIALS', '')
+    placeholders['USE_WALE'] = bool(placeholders.get('WAL_S3_BUCKET') or placeholders.get('WAL_GCS_BUCKET'))
 
     # Kubernetes requires a callback to change the labels in order to point to the new master
     if USE_KUBERNETES:
@@ -452,10 +445,9 @@ def pystache_render(*args, **kwargs):
 
 
 def get_dcs_config(config, placeholders):
-
     if USE_KUBERNETES and placeholders.get('DCS_ENABLE_KUBERNETES_API'):
-        config = {'kubernetes': {'role_label': 'spilo-role',
-                                 'scope_label': 'version', 'labels': {'application': 'spilo'}}}
+        config = {'kubernetes': {'role_label': 'spilo-role', 'scope_label': 'version',
+                                 'labels': {'application': 'spilo'}}}
         if not placeholders.get('KUBERNETES_USE_CONFIGMAPS'):
             config['kubernetes'].update({'use_endpoints': True, 'pod_ip': placeholders['instance_data']['ip'],
                                          'ports': [{'port': 5432, 'name': 'postgresql'}]})
@@ -471,8 +463,8 @@ def get_dcs_config(config, placeholders):
     else:
         config = {}  # Configuration can also be specified using either SPILO_CONFIGURATION or PATRONI_CONFIGURATION
 
-    if placeholders['NAMESPACE'] not in ('default', ''):
-        config['namespace'] =  placeholders['NAMESPACE']
+    if placeholders['NAMESPACE'] != 'default':
+        config['namespace'] = placeholders['NAMESPACE']
 
     return config
 
@@ -480,8 +472,8 @@ def get_dcs_config(config, placeholders):
 def write_wale_environment(placeholders, provider, prefix, overwrite):
     wale = {}
 
-    for name in ('SCOPE', 'WALE_ENV_DIR', 'WAL_S3_BUCKET',
-                 'WAL_BUCKET_SCOPE_PREFIX', 'WAL_BUCKET_SCOPE_SUFFIX', 'WAL_GCS_BUCKET'):
+    for name in ('SCOPE', 'WALE_ENV_DIR', 'WAL_S3_BUCKET', 'WAL_BUCKET_SCOPE_PREFIX', 'WAL_BUCKET_SCOPE_SUFFIX',
+                 'WAL_GCS_BUCKET', 'GOOGLE_APPLICATION_CREDENTIALS'):
         rename = prefix + name
         if rename in placeholders:
             wale[name] = placeholders[rename]
@@ -489,7 +481,7 @@ def write_wale_environment(placeholders, provider, prefix, overwrite):
     if not os.path.exists(wale['WALE_ENV_DIR']):
         os.makedirs(wale['WALE_ENV_DIR'])
 
-    if 'WAL_S3_BUCKET' in placeholders:
+    if wale.get('WAL_S3_BUCKET'):
         write_file('s3://{WAL_S3_BUCKET}/spilo/{WAL_BUCKET_SCOPE_PREFIX}{SCOPE}{WAL_BUCKET_SCOPE_SUFFIX}/wal/'.format(**wale),
                    os.path.join(wale['WALE_ENV_DIR'], 'WALE_S3_PREFIX'), overwrite)
         match = re.search(r'.*(eu-\w+-\d+)-.*', wale['WAL_S3_BUCKET'])
@@ -499,11 +491,11 @@ def write_wale_environment(placeholders, provider, prefix, overwrite):
             region = placeholders['instance_data']['zone'][:-1]
         write_file('https+path://s3-{}.amazonaws.com:443'.format(region),
                    os.path.join(wale['WALE_ENV_DIR'], 'WALE_S3_ENDPOINT'), overwrite)
-    elif 'WAL_GCS_BUCKET' in placeholders:
+    elif wale.get('WAL_GCS_BUCKET'):
         write_file('gs://{WAL_GCS_BUCKET}/spilo/{WAL_BUCKET_SCOPE_PREFIX}{SCOPE}{WAL_BUCKET_SCOPE_SUFFIX}/wal/'.format(**wale),
                    os.path.join(wale['WALE_ENV_DIR'], 'WALE_GS_PREFIX'), overwrite)
-        if placeholders['GOOGLE_APPLICATION_CREDENTIALS']:
-            write_file('{GOOGLE_APPLICATION_CREDENTIALS}'.format(**placeholders),
+        if wale.get('GOOGLE_APPLICATION_CREDENTIALS'):
+            write_file(wale['GOOGLE_APPLICATION_CREDENTIALS'],
                        os.path.join(wale['WALE_ENV_DIR'], 'GOOGLE_APPLICATION_CREDENTIALS'), overwrite)
     else:
         return
@@ -570,45 +562,6 @@ stdout_logfile_maxbytes=0
 redirect_stderr=true
 """
     write_file(etcd_config, '/etc/supervisor/conf.d/etcd.conf', overwrite)
-
-
-def write_ldap_configuration(placeholders, overwrite):
-    ldap_url = placeholders.get('LDAP_URL')
-    if ldap_url is None:
-        return logging.info("No LDAP_URL was specified, skipping LDAP configuration")
-
-    r = urlparse(ldap_url)
-    if not r.scheme:
-        return logging.error('LDAP_URL should contain a scheme: %s', r)
-
-    host, port = r.hostname, r.port
-    if not port:
-        port = 636 if r.scheme == 'ldaps' else 389
-
-    stunnel_config = """\
-foreground = yes
-options = NO_SSLv2
-
-[ldaps]
-connect = {0}:{1}
-client = yes
-accept = 389
-verify = 2
-CApath = /etc/ssl/certs
-""".format(host, port)
-    write_file(stunnel_config, '/etc/stunnel/ldap.conf', overwrite)
-
-    supervisord_config = """\
-[program:ldaptunnel]
-autostart=true
-priority=500
-directory=/
-command=env -i /usr/bin/stunnel4 /etc/stunnel/ldap.conf
-stdout_logfile=/dev/stdout
-stdout_logfile_maxbytes=0
-redirect_stderr=true
-"""
-    write_file(supervisord_config, '/etc/supervisor/conf.d/ldaptunnel.conf', overwrite)
 
 
 def write_pam_oauth2_configuration(placeholders, overwrite):
@@ -708,8 +661,6 @@ def main():
         elif section == 'crontab':
             if placeholders['USE_WALE']:
                 write_crontab(placeholders, args['force'])
-        elif section == 'ldap':
-            write_ldap_configuration(placeholders, args['force'])
         elif section == 'pam-oauth2':
             write_pam_oauth2_configuration(placeholders, args['force'])
         elif section == 'pgbouncer':
