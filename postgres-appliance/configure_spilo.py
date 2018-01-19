@@ -428,10 +428,10 @@ def get_placeholders(provider):
 
 def write_file(config, filename, overwrite):
     if not overwrite and os.path.exists(filename):
-        logging.warning('File {} already exists, not overwriting. (Use option --force if necessary)'.format(filename))
+        logging.warning('File %s already exists, not overwriting. (Use option --force if necessary)', filename)
     else:
         with open(filename, 'w') as f:
-            logging.info('Writing to file {}'.format(filename))
+            logging.info('Writing to file %s', filename)
             f.write(config)
 
 
@@ -672,18 +672,21 @@ def main():
             format(config['postgresql']['authentication']['replication']['username'])
         config['bootstrap']['pg_hba'].insert(0, rep_hba)
 
+    patroni_configfile = os.path.join(placeholders['PGHOME'], 'postgres.yml')
+
     for section in args['sections']:
         logging.info('Configuring {}'.format(section))
         if section == 'patroni':
-            patroni_configfile = os.path.join(placeholders['PGHOME'], 'postgres.yml')
             write_file(yaml.dump(config, default_flow_style=False, width=120), patroni_configfile, args['force'])
         elif section == 'patronictl':
-            patronictl_config = {k: v for k, v in config.items()
-                                 if k in ['exhibitor', 'zookeeper', 'etcd', 'consul', 'kubernetes']}
-            patronictl_configfile = os.path.join(placeholders['PGHOME'], '.config', 'patroni', 'patronictl.yaml')
-            if not os.path.exists(os.path.dirname(patronictl_configfile)):
-                os.makedirs(os.path.dirname(patronictl_configfile))
-            write_file(yaml.dump(patronictl_config), patronictl_configfile, args['force'])
+            configdir = os.path.join(placeholders['PGHOME'], '.config', 'patroni')
+            configfile = os.path.join(configdir, 'patronictl.yaml')
+            if not os.path.exists(configdir):
+                os.makedirs(configdir)
+            if os.path.exists(configfile) and not args['force']:
+                logging.warning('File %s already exists, not overriding. (Use option --force if necessary)', configfile)
+            else:
+                os.symlink(patroni_configfile, configfile)
         elif section == 'wal-e':
             if placeholders['USE_WALE']:
                 write_wale_environment(placeholders, provider, '', args['force'])
