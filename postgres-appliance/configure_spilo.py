@@ -649,13 +649,16 @@ def main():
             write_file(yaml.dump(config, default_flow_style=False, width=120), patroni_configfile, args['force'])
         elif section == 'patronictl':
             configdir = os.path.join(placeholders['PGHOME'], '.config', 'patroni')
-            configfile = os.path.join(configdir, 'patronictl.yaml')
+            patronictl_configfile = os.path.join(configdir, 'patronictl.yaml')
             if not os.path.exists(configdir):
                 os.makedirs(configdir)
-            if os.path.exists(configfile) and not args['force']:
-                logging.warning('File %s already exists, not overriding. (Use option --force if necessary)', configfile)
-            else:
-                os.symlink(patroni_configfile, configfile)
+            if os.path.exists(patronictl_configfile):
+                if not args['force']:
+                    logging.warning('File %s already exists, not overriding. (Use option --force if necessary)',
+                                    patronictl_configfile)
+                    continue
+                os.unlink(patronictl_configfile)
+            os.symlink(patroni_configfile, patronictl_configfile)
         elif section == 'wal-e':
             if placeholders['USE_WALE']:
                 write_wale_environment(placeholders, provider, '', args['force'])
