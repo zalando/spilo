@@ -59,9 +59,10 @@ ADD dependencies/debs /builddeps
 
 ARG WITH_PERL=false
 ARG PGOLDVERSIONS="9.3 9.4 9.5 9.6"
+ARG PGVERSION="10"
 
 # Install PostgreSQL, extensions and contribs
-ENV PGVERSION=10 \
+ENV PGVERSION="$PGVERSION" \
     PGOLDVERSIONS="$PGOLDVERSIONS" \
     POSTGIS_VERSION=2.4 \
     BG_MON_COMMIT=57f50fd9b92a9ed3cdb185118fbce27d4d56984c \
