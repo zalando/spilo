@@ -121,6 +121,23 @@ COMMENT ON FUNCTION revoke_admin(text) IS 'Use this function to make a human use
 ie. when you want to grant someone read privileges only';
 
 
+CREATE OR REPLACE FUNCTION drop_user(username text)
+ RETURNS void
+ LANGUAGE plpgsql
+AS $function$
+BEGIN
+    EXECUTE format($$ DROP ROLE %I $$, username);
+END
+$function$
+SECURITY DEFINER;
+
+REVOKE ALL ON FUNCTION drop_user(text) FROM public;
+GRANT EXECUTE ON FUNCTION drop_user(text) TO admin;
+
+COMMENT ON FUNCTION drop_user(test) IS 'Drop a human or application user.  Intended for cleanup (either after team changes or mistakes in role setup).
+Roles (= users) that own database objects cannot be dropped.';
+
+
 CREATE OR REPLACE FUNCTION terminate_backend(pid integer)
  RETURNS boolean
  LANGUAGE sql
