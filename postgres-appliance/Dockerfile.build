@@ -59,13 +59,14 @@ ADD dependencies/debs /builddeps
 
 ARG WITH_PERL=false
 ARG PGOLDVERSIONS="9.3 9.4 9.5 9.6"
+ARG PGVERSION="10"
 
 # Install PostgreSQL, extensions and contribs
-ENV PGVERSION=10 \
+ENV PGVERSION="$PGVERSION" \
     PGOLDVERSIONS="$PGOLDVERSIONS" \
     POSTGIS_VERSION=2.4 \
     BG_MON_COMMIT=57f50fd9b92a9ed3cdb185118fbce27d4d56984c \
-    DECODEBUFS_COMMIT=d08a75593c68897600e10f5250133337624bcf63 \
+    DECODEBUFS_COMMIT=d9477a5b994edc5ce71f5ebd22b2ada977f61f8f \
     HYPOPG=1.1.0 \
     SET_USER=REL1_4_0 \
     PLPGSQL_CHECK=v1.2.2 \
@@ -114,6 +115,9 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && git clone -b $PLPROFILER https://bitbucket.org/openscg/plprofiler.git \
 
     && git clone -b $TIMESCALEDB https://github.com/timescale/timescaledb.git \
+    && cd timescaledb \
+    && curl -sL https://github.com/timescale/timescaledb/pull/428.diff | patch -p1 \
+    && cd ../ \
 
     && git clone -b $PGEXTWLIST https://github.com/dimitri/pgextwlist.git \
     && perl -ne 'print unless /PG_TRY/ .. /PG_CATCH/' pgextwlist/pgextwlist.c > pgextwlist.c.f \
@@ -339,7 +343,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             /usr/lib/postgresql/*/bin/pltcl_*
 
 # Install patroni and WAL-e
-ENV PATRONIVERSION=1.4.1
+ENV PATRONIVERSION=1.4.2
 ENV WALE_VERSION=1.1.0
 RUN export DEBIAN_FRONTEND=noninteractive \
     && set -ex \
