@@ -115,6 +115,9 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && git clone -b $PLPROFILER https://bitbucket.org/openscg/plprofiler.git \
 
     && git clone -b $TIMESCALEDB https://github.com/timescale/timescaledb.git \
+    && cd timescaledb \
+    && curl -sL https://github.com/timescale/timescaledb/pull/428.diff | patch -p1 \
+    && cd ../ \
 
     && git clone -b $PGEXTWLIST https://github.com/dimitri/pgextwlist.git \
     && perl -ne 'print unless /PG_TRY/ .. /PG_CATCH/' pgextwlist/pgextwlist.c > pgextwlist.c.f \
