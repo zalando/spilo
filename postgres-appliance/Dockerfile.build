@@ -332,6 +332,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             /usr/share/locale/?? \
             /usr/share/locale/??_?? \
             /usr/share/postgresql/*/man \
+            /etc/pgbouncer/* \
             /usr/lib/postgresql/*/bin/createdb \
             /usr/lib/postgresql/*/bin/createlang \
             /usr/lib/postgresql/*/bin/createuser \
