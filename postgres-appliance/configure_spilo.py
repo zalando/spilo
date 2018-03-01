@@ -10,6 +10,7 @@ import subprocess
 import sys
 
 from six.moves.urllib_parse import urlparse
+from collections import defaultdict
 
 import yaml
 import pystache
@@ -470,13 +471,21 @@ def get_dcs_config(config, placeholders):
 
 
 def write_wale_environment(placeholders, provider, prefix, overwrite):
-    wale = {}
-
-    for name in ('SCOPE', 'WALE_ENV_DIR', 'WAL_S3_BUCKET', 'WAL_BUCKET_SCOPE_PREFIX', 'WAL_BUCKET_SCOPE_SUFFIX',
-                 'WAL_GCS_BUCKET', 'GOOGLE_APPLICATION_CREDENTIALS'):
-        rename = prefix + name
-        if rename in placeholders:
-            wale[name] = placeholders[rename]
+    # Propagate missing variables as empty strings as that's generally easier
+    # to work around than an exception in this code.
+    wale = defaultdict(lambda: '')
+    wale.update({
+        name: placeholders.get(prefix + name, '')
+        for name in [
+            'SCOPE',
+            'WALE_ENV_DIR',
+            'WAL_S3_BUCKET',
+            'WAL_BUCKET_SCOPE_PREFIX',
+            'WAL_BUCKET_SCOPE_SUFFIX',
+            'WAL_GCS_BUCKET',
+            'GOOGLE_APPLICATION_CREDENTIALS',
+        ]
+    })
 
     if not os.path.exists(wale['WALE_ENV_DIR']):
         os.makedirs(wale['WALE_ENV_DIR'])
