@@ -66,7 +66,7 @@ ENV PGVERSION="$PGVERSION" \
     PGOLDVERSIONS="$PGOLDVERSIONS" \
     POSTGIS_VERSION=2.4 \
     BG_MON_COMMIT=57f50fd9b92a9ed3cdb185118fbce27d4d56984c \
-    DECODEBUFS_COMMIT=d9477a5b994edc5ce71f5ebd22b2ada977f61f8f \
+    DECODEBUFS_COMMIT=0d4db2816bc16cae81c06dd06a3fda00b7491fba \
     HYPOPG=1.1.0 \
     SET_USER=REL1_4_0 \
     PLPGSQL_CHECK=v1.2.2 \
@@ -106,7 +106,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     # prepare 3rd sources
     && curl -s -L https://github.com/CyberDem0n/bg_mon/archive/$BG_MON_COMMIT.tar.gz | tar xz \
 
-    && git clone -b $HYPOPG https://github.com/dalibo/hypopg.git \
+    && git clone -b $HYPOPG https://github.com/HypoPG/hypopg.git \
 
     && git clone -b $SET_USER https://github.com/pgaudit/set_user.git \
 
@@ -344,7 +344,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             /usr/lib/postgresql/*/bin/pltcl_*
 
 # Install patroni and WAL-e
-ENV PATRONIVERSION=1.4.2
+ENV PATRONIVERSION=1.4.3
 ENV WALE_VERSION=1.1.0
 RUN export DEBIAN_FRONTEND=noninteractive \
     && set -ex \
@@ -373,7 +373,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 
         && echo 4.0.0.dev0 > /usr/local/lib/python3.5/dist-packages/supervisor/version.txt; \
     fi \
-    && pip3 install "patroni[kubernetes$EXTRAS]" \
+    && pip3 install "patroni[kubernetes$EXTRAS]==$PATRONIVERSION" \
 
     # use system tzdata to save space
     && mv /usr/local/lib/python3.5/dist-packages/pytz/zoneinfo/tzdata.zi /usr/share/zoneinfo/ \
