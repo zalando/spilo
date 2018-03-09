@@ -134,7 +134,7 @@ SECURITY DEFINER;
 REVOKE ALL ON FUNCTION drop_user(text) FROM public;
 GRANT EXECUTE ON FUNCTION drop_user(text) TO admin;
 
-COMMENT ON FUNCTION drop_user(test) IS 'Drop a human or application user.  Intended for cleanup (either after team changes or mistakes in role setup).
+COMMENT ON FUNCTION drop_user(text) IS 'Drop a human or application user.  Intended for cleanup (either after team changes or mistakes in role setup).
 Roles (= users) that own database objects cannot be dropped.';
 
 
