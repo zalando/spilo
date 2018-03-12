@@ -138,6 +138,21 @@ COMMENT ON FUNCTION drop_user(text) IS 'Drop a human or application user.  Inten
 Roles (= users) that own database objects cannot be dropped.';
 
 
+CREATE OR REPLACE FUNCTION drop_role(username text)
+ RETURNS void
+ LANGUAGE sql
+AS $function$
+SELECT user_management.drop_user(username);
+$function$
+SECURITY DEFINER;
+
+REVOKE ALL ON FUNCTION drop_role(text) FROM public;
+GRANT EXECUTE ON FUNCTION drop_role(text) TO admin;
+
+COMMENT ON FUNCTION drop_role(text) IS 'Drop a human or application user.  Intended for cleanup (either after team changes or mistakes in role setup).
+Roles (= users) that own database objects cannot be dropped.';
+
+
 CREATE OR REPLACE FUNCTION terminate_backend(pid integer)
  RETURNS boolean
  LANGUAGE sql
