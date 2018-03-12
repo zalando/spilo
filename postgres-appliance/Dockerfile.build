@@ -125,6 +125,10 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 
     && git clone git://www.sigaev.ru/plantuner.git \
 
+    && git clone https://github.com/reorg/pg_repack.git \
+    && cd pg_repack \
+    && curl -sL https://github.com/reorg/pg_repack/pull/171.diff | patch -p1 \
+
     && for version in ${PGOLDVERSIONS} ${PGVERSION}; do \
             sed -i "s/ main.*$/ main $version/g" /etc/apt/sources.list.d/pgdg.list \
             && apt-get update \
@@ -141,7 +145,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             # Install PostgreSQL binaries, contrib, plproxy and multiple pl's
             && apt-get install --allow-downgrades -y postgresql-contrib-${version} $EXTRAS \
                         postgresql-${version}-plproxy postgresql-plpython3-${version} \
-                        postgresql-${version}-repack postgresql-${version}-pldebugger \
+                        postgresql-${version}-pldebugger \
                         postgresql-${version}-pgq3 libpq5=$version* \
                         libpq-dev=$version* postgresql-server-dev-${version} \
 
@@ -165,6 +169,9 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             && for n in bg_mon-${BG_MON_COMMIT} hypopg set_user plpgsql_check plprofiler pgextwlist plantuner; do \
                 make -C $n USE_PGXS=1 clean install-strip; \
             done \
+
+            && make -C pg_repack USE_PGXS=1 clean install \
+            && strip /usr/lib/postgresql/$version/lib/pg_repack.so /usr/lib/postgresql/$version/bin/pg_repack \
 
             && if [ "$version" != "9.3" ] && [ "$DEMO" != "true" ]; then \
                 make -C postgres-decoderbufs-$DECODEBUFS_COMMIT clean install-strip; \
