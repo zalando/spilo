@@ -1,6 +1,6 @@
-==================================
+=========================================
 Spilo: HA PostgreSQL Clusters with Docker
-==================================
+=========================================
 
 Spilo is a Docker image that provides PostgreSQL and `Patroni <https://github.com/zalando/patroni>`__ bundled together. Patroni is a template for PostgreSQL HA. Multiple Spilos can create a resilient High Available PostgreSQL cluster. For this, you'll need to start all participating Spilos with identical `etcd <https://github.com/coreos/etcd>`__ addresses and cluster names. 
 
@@ -15,6 +15,15 @@ How to Use This Docker Image
 ============================
 
 Spilo's setup assumes that you've correctly configured a load balancer (HAProxy, ELB, Google load balancer) that directs client connections to the master. There are two ways to achieve this: A) if the load balancer relies on the status code to distinguish between the healthy and failed nodes (like ELB), then one needs to configure it to poll the API URL; otherwise, B) you can use callback scripts to change the load balancer configuration dynamically.
+
+How to Build This Docker Image
+==============================
+
+    sudo pip3 install 'docker<3' docker-squash
+    postgres-appliance/build.sh --build-arg COMPRESS=true --tag $YOUR_TAG
+
+The first command requires older Docker version to avoid `the known docker-squash bug <https://github.com/goldmann/docker-squash/issues/158>`__
+You may also need to remove `mentions of pg_repack <https://github.com/zalando/spilo/issues/219>`__ from Dockerfile.build.
 
 Connecting to PostgreSQL
 ------------------------
