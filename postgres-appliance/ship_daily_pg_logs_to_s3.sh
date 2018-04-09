@@ -1,0 +1,1 @@
+echo "$PG_DAILY_LOG_S3_BUCKET"
