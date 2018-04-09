@@ -205,7 +205,7 @@ postgresql:
     ssl_key_file: {{SSL_PRIVATE_KEY_FILE}}
     shared_preload_libraries: 'bg_mon,pg_stat_statements,pg_cron,set_user,pgextwlist'
     bg_mon.listen_address: '0.0.0.0'
-    extwlist.extensions: 'btree_gin,btree_gist,citext,hstore,intarray,ltree,pgcrypto,pgq,pg_trgm,postgres_fdw,uuid-ossp,hypopg'
+    extwlist.extensions: 'btree_gin,btree_gist,citext,hstore,intarray,ltree,pgcrypto,pgq,pg_trgm,postgres_fdw,uuid-ossp,hypopg,pg_partman'
   pg_hba:
     - local   all             all                                   trust
     {{#PAM_OAUTH2}}
