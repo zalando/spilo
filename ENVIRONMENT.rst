@@ -30,3 +30,5 @@ Environment Configuration Settings
 - **GOOGLE_APPLICATION_CREDENTIALS**: credentials for WAL-E when running in Google Cloud.
 - **CALLBACK_SCRIPT**: the callback script to run on various cluster actions (on start, on stop, on restart, on role change). The script will receive the cluster name, connection string and the current action. See `Patroni <http://patroni.readthedocs.io/en/latest/SETTINGS.html?highlight=callback#postgresql>`__ documentation for details.
 - **PG_DAILY_LOG_S3_BUCKET**: path to the S3 bucket used for PostgreSQL daily log files (i.e. s3://foobar). Spilo will add /spilo/scope/pg_daily_logs to that path.
+- **SHIP_PG_DAILY_LOGS_TO_S3**: whether to ship compressed logs from ``pg_log`` to S3 bucket. Disabled by default.
+- **SHIP_PG_DAILY_LOGS_SCHEDULE**: cron schedule for shipping compressed logs from ``pg_log``(if this feature is enabled, '00 02 * * *' by default)

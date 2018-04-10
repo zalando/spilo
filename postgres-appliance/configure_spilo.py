@@ -377,6 +377,9 @@ def get_placeholders(provider):
     placeholders.setdefault('CLONE_TARGET_TIME', '')
     placeholders.setdefault('CLONE_TARGET_INCLUSIVE', True)
 
+    placeholders.setdefault('SHIP_PG_DAILY_LOGS_TO_S3', False)
+    placeholders.setdefault('SHIP_PG_DAILY_LOGS_SCHEDULE', '00 02 * * *')
+
     if placeholders['CLONE_METHOD'] == 'CLONE_WITH_WALE':
         # set_clone_with_wale_placeholders would modify placeholders and take care of error cases
         set_clone_with_wale_placeholders(placeholders, provider)
@@ -546,7 +549,12 @@ def write_crontab(placeholders, overwrite):
                 return logging.warning('Cron is already configured. (Use option --force to overwrite cron)')
 
     lines = ['PATH={PATH}'.format(**placeholders)]
-    lines += ['{BACKUP_SCHEDULE} /postgres_backup.sh "{WALE_ENV_DIR}" "{PGDATA}" "{BACKUP_NUM_TO_RETAIN}"'
+    if placeholders['USE_WALE']:
+       lines += ['{BACKUP_SCHEDULE} /postgres_backup.sh "{WALE_ENV_DIR}" "{PGDATA}" "{BACKUP_NUM_TO_RETAIN}"'
+              .format(**placeholders)]
+
+    if placeholders['SHIP_PG_DAILY_LOGS_TO_S3']:
+       lines += ['{SHIP_PG_DAILY_LOGS_SCHEDULE} /ship_daily_pg_logs_to_s3.sh'
               .format(**placeholders)]
 
     lines += yaml.load(placeholders['CRONTAB'])
@@ -673,9 +681,8 @@ def main():
                 write_wale_environment(placeholders, provider, '', args['force'])
         elif section == 'certificate':
             write_certificates(placeholders, args['force'])
-        elif section == 'crontab':
-            if placeholders['USE_WALE']:
-                write_crontab(placeholders, args['force'])
+        elif section == 'crontab':           
+            write_crontab(placeholders, args['force'])
         elif section == 'pam-oauth2':
             write_pam_oauth2_configuration(placeholders, args['force'])
         elif section == 'pgbouncer':

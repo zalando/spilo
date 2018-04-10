@@ -29,9 +29,8 @@ RUN mkdir -p /var/log/supervisor \
             do echo "export $e" >> /etc/bash.bashrc; \
         done \
         && echo "export PAGER='pspg -bX --no-mouse'" >> /etc/bash.bashrc \
-        && echo "source /etc/motd" >> /root/.bashrc \
-        && pip3 install awscli
+        && echo "source /etc/motd" >> /root/.bashrc
 
-ADD scm-source.json configure_spilo.py launch.sh postgres_backup.sh patroni_wait.sh post_init.sh _zmon_schema.dump callback_*.py basebackup.sh wale_restore_command.sh wal-e-wal-fetch.sh create_user_functions.sql bootstrap /
+ADD scm-source.json configure_spilo.py launch.sh postgres_backup.sh patroni_wait.sh post_init.sh _zmon_schema.dump callback_*.py basebackup.sh wale_restore_command.sh wal-e-wal-fetch.sh create_user_functions.sql bootstrap ship_daily_pg_logs_to_s3.sh /
 
 CMD ["/bin/sh", "/launch.sh"]
