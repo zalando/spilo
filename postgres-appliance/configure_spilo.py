@@ -644,6 +644,13 @@ def main():
 
     config = deep_update(user_config, config)
 
+    # try to build bin_dir from PGVERSION environment variable if postgresql.bin_dir wasn't set in SPILO_CONFIGURATION
+    if 'bin_dir' not in config['postgresql']:
+        bin_dir = os.path.join('/usr/lib/postgresql', os.environ.get('PGVERSION', ''), 'bin')
+        postgres = os.path.join(bin_dir, 'postgres')
+        if os.path.isfile(postgres) and os.access(postgres, os.X_OK):  # check that there is postgres binary inside
+            config['postgresql']['bin_dir'] = bin_dir
+
     # Ensure replication is available
     if 'pg_hba' in config['bootstrap'] and not any(['replication' in i for i in config['bootstrap']['pg_hba']]):
         rep_hba = 'hostssl replication {} 0.0.0.0/0 md5'.\
