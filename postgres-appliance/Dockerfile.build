@@ -167,9 +167,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 make -C $n USE_PGXS=1 clean install-strip; \
             done \
 
-            && make -C pg_repack USE_PGXS=1 clean install \
-            && strip /usr/lib/postgresql/$version/lib/pg_repack.so /usr/lib/postgresql/$version/bin/pg_repack \
-
             && if [ "$version" != "9.3" ] && [ "$DEMO" != "true" ]; then \
                 make -C postgres-decoderbufs-$DECODERBUFS_COMMIT clean install-strip; \
             fi \
@@ -395,6 +392,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && echo 4.0.0.dev0 > /usr/local/lib/python3.5/dist-packages/supervisor/version.txt; \
     fi \
     && pip3 install "patroni[kubernetes$EXTRAS]==$PATRONIVERSION" \
+    && pip3 install awscli \
 
     # use system tzdata to save space
     && mv /usr/local/lib/python3.5/dist-packages/pytz/zoneinfo/tzdata.zi /usr/share/zoneinfo/ \
