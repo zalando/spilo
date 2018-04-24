@@ -1,0 +1,31 @@
+build_steps:
+    - desc: Prepare Environment
+      cmd: |
+        apt-get update
+        apt-get install -y python3 python3-pip
+        pip3 install scm-source 'docker<3.0.0' docker-squash
+
+    - desc: Install Docker
+      cmd: 'curl -sSL https://get.docker.com/ | sh'
+
+    - desc: Build and push docker images
+      cmd: |
+        cd  postgres-appliance
+
+        IMAGE="registry-write.opensource.zalan.do/acid/spilo-cdp-10"
+        COMPRESS=false
+
+        # compress and push docker images only for commits to the master branch
+        if [ "x${CDP_SOURCE_BRANCH}" == "x" ] && [ "x${CDP_TARGET_BRANCH}" == "xmaster" ]; then
+            COMPRESS=true
+            PATRONIVERSION=$(sed -n 's/^ENV PATRONIVERSION=\([1-9][0-9]*\.[1-9][0-9]*\).*$/\1/p' Dockerfile.build)
+            IMAGE="${IMAGE}:${PATRONIVERSION}-p${CDP_TARGET_BRANCH_COUNTER}"
+        fi
+
+        ./build.sh --build-arg COMPRESS=${COMPRESS} -t "${IMAGE}" .
+
+        docker images
+
+        if [ "${COMPRESS}" == "true" ]; then
+            docker push "${IMAGE}"
+        fi
