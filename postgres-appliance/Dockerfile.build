@@ -66,7 +66,7 @@ ENV PGVERSION="$PGVERSION" \
     PGOLDVERSIONS="$PGOLDVERSIONS" \
     POSTGIS_VERSION=2.4 \
     BG_MON_COMMIT=57f50fd9b92a9ed3cdb185118fbce27d4d56984c \
-    DECODEBUFS_COMMIT=0d4db2816bc16cae81c06dd06a3fda00b7491fba \
+    DECODERBUFS_COMMIT=e2da72713909d4315aa63f46819412ec4f9f6a42 \
     SET_USER=REL1_4_0 \
     PLPGSQL_CHECK=v1.2.2 \
     PLPROFILER=REL3_2 \
@@ -97,7 +97,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 || apt-get -y -f install \
         && apt-get install -y libprotobuf-c1 \
 
-        && curl -s -L https://github.com/debezium/postgres-decoderbufs/archive/$DECODEBUFS_COMMIT.tar.gz | tar xz; \
+        && curl -s -L https://github.com/debezium/postgres-decoderbufs/archive/$DECODERBUFS_COMMIT.tar.gz | tar xz; \
     fi \
 
     && apt-get install -y libcurl3 libevent-2.0 libevent-pthreads-2.0 python3.5 $BUILD_PACKAGES \
@@ -168,7 +168,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             && strip /usr/lib/postgresql/$version/lib/pg_repack.so /usr/lib/postgresql/$version/bin/pg_repack \
 
             && if [ "$version" != "9.3" ] && [ "$DEMO" != "true" ]; then \
-                make -C postgres-decoderbufs-$DECODEBUFS_COMMIT clean install-strip; \
+                make -C postgres-decoderbufs-$DECODERBUFS_COMMIT clean install-strip; \
             fi \
 
             # Install pg_rewind on 9.3 and 9.4
