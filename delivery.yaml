@@ -1,0 +1,30 @@
+build_steps:
+    - desc: Prepare Environment
+      cmd: |
+        apt-get update
+        apt-get install -y python3 python3-pip
+        pip3 install scm-source 'docker<3.0.0' docker-squash
+
+    - desc: Install Docker
+      cmd: 'curl -sSL https://get.docker.com/ | sh'
+
+    - desc: Build and push docker images
+      cmd: |
+        cd  postgres-appliance
+        PATRONIVERSION=$(sed -n 's/^ENV PATRONIVERSION=\([1-9][0-9]*\.[1-9][0-9]*\).*$/\1/p' Dockerfile.build)
+        VERSION=$(($(git rev-list HEAD --count --no-merges)-409))
+        IMAGE="registry-write.opensource.zalan.do/acid/spilo-cdp-10:${PATRONIVERSION}-p${VERSION}"
+
+        if [ "x$CDP_SOURCE_BRANCH" == "x" ]; then
+            COMPRESS=true
+        else
+            COMPRESS=false
+        fi
+
+        ./build.sh --build-arg COMPRESS=${COMPRESS} -t "${IMAGE}" .
+
+        docker images
+
+        if [ "x$CDP_SOURCE_BRANCH" == "x" ]; then
+            docker push "${IMAGE}"
+        fi
