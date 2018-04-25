@@ -9,7 +9,8 @@ ENV LC_ALL=en_US.utf-8 \
     PGHOME=/home/postgres
 
 ENV WALE_ENV_DIR=$PGHOME/etc/wal-e.d/env \
-    PGROOT=$PGHOME/pgdata/pgroot
+    PGROOT=$PGHOME/pgdata/pgroot \
+    PG_DAILY_LOG_ENV_DIR=$PGHOME/etc/pg_daily_log.d/env
 
 ENV PGDATA=$PGROOT/data \
     PGLOG=$PGROOT/pg_log
@@ -31,6 +32,6 @@ RUN mkdir -p /var/log/supervisor \
         && echo "export PAGER='pspg -bX --no-mouse'" >> /etc/bash.bashrc \
         && echo "source /etc/motd" >> /root/.bashrc
 
-ADD scm-source.json configure_spilo.py launch.sh postgres_backup.sh patroni_wait.sh post_init.sh _zmon_schema.dump callback_*.py basebackup.sh wale_restore_command.sh wal-e-wal-fetch.sh create_user_functions.sql bootstrap ship_daily_pg_logs_to_s3.sh /
+ADD scm-source.json configure_spilo.py launch.sh postgres_backup.sh patroni_wait.sh post_init.sh _zmon_schema.dump callback_*.py basebackup.sh wale_restore_command.sh wal-e-wal-fetch.sh create_user_functions.sql bootstrap ship_yesterday_pg_log_to_s3.sh backup_daily_pg_log.sh /
 
 CMD ["/bin/sh", "/launch.sh"]

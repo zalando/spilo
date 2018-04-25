@@ -22,7 +22,7 @@ then
 
   # upload file if it does not exist in the bucket
   # exclude/include filters - in that particular order - ensure the operation syncs only a single file
-  aws s3 sync ${PGLOG} s3://"$WAL_S3_BUCKET" --exclude '*' --include "'${archive_name_with_date}'"
+  aws s3 sync ${PGLOG} ${PG_DAILY_LOG_S3_PREFIX} --exclude '*' --include "'${archive_name_with_date}'"
   rm "$archive_name_with_date"
 
 fi
