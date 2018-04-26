@@ -32,5 +32,5 @@ Environment Configuration Settings
 - **PG_DAILY_LOG_S3_BUCKET**: path to the S3 bucket used for PostgreSQL daily log files (i.e. s3://foobar). Spilo will add /spilo/scope/pg_daily_logs to that path.
 - **SHIP_PG_DAILY_LOG_TO_S3**: whether to ship compressed logs from ``pg_log`` to S3 bucket. Disabled by default.
 - **SHIP_PG_DAILY_LOG_SCHEDULE**: cron schedule for shipping compressed logs from ``pg_log``(if this feature is enabled, '00 02 * * *' by default)
-- **PG_DAILY_LOG_ENV_DIR**: directory to store environment variables necessary fo rlog shipping
+- **PG_DAILY_LOG_ENV_DIR**: directory to store environment variables necessary for log shipping
 - **PG_DAILY_LOG_TMPDIR**: directory to store temporary compressed daily log files. PGROOT/../tmp by default.
