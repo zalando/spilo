@@ -17,12 +17,12 @@ then
   # get the yesterday's date from the log itself
   yesterday=$(head -1 "$log_file" | cut -d " " -f 1)
 
-  archive_name_with_date="${PGLOG}/postgresql-"$yesterday".csv.gz"
+  archive_name_with_date="${PG_DAILY_LOG_TMPDIR}/postgresql-"$yesterday".csv.gz"
   tar cz -f "$archive_name_with_date" "$log_file"
 
   # upload file if it does not exist in the bucket
   # exclude/include filters - in that particular order - ensure the operation syncs only a single file
-  aws s3 sync ${PGLOG} ${PG_DAILY_LOG_S3_PREFIX} --exclude '*' --include "'${archive_name_with_date}'"
+  aws s3 sync ${PG_DAILY_LOG_TMPDIR} ${PG_DAILY_LOG_S3_PREFIX} --exclude '*' --include "'${archive_name_with_date}'"
   rm "$archive_name_with_date"
 
 fi

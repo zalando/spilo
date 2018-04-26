@@ -380,6 +380,7 @@ def get_placeholders(provider):
     placeholders.setdefault('SHIP_PG_DAILY_LOG_SCHEDULE', '00 02 * * *')
     placeholders.setdefault('PG_DAILY_LOG_S3_BUCKET', '')
     placeholders.setdefault('SHIP_PG_DAILY_LOG_TO_S3', bool(placeholders.get('PG_DAILY_LOG_S3_BUCKET'))
+    placeholders.setdefault('PG_DAILY_LOG_TMPDIR', os.path.abspath(os.path.join(placeholders['PGROOT'], '../tmp')))
 
     if placeholders['CLONE_METHOD'] == 'CLONE_WITH_WALE':
         # set_clone_with_wale_placeholders would modify placeholders and take care of error cases
@@ -493,6 +494,12 @@ def write_pg_daily_log_environment(placeholders, provider, prefix, overwrite):
     if daily_log.get('PG_DAILY_LOG_S3_BUCKET'):
         write_file('s3://{PG_DAILY_LOG_S3_BUCKET}/spilo/{PG_DAILY_LOG_BUCKET_SCOPE_PREFIX}{SCOPE}{PG_DAILY_LOG_BUCKET_SCOPE_SUFFIX}/pg_daily_log/{HOSTNAME}'.format(**daily_log),
                    os.path.join(daily_log['PG_DAILY_LOG_ENV_DIR'], 'PG_DAILY_LOG_S3_PREFIX'), overwrite)
+
+    if not os.path.exists(placeholders['PG_LOG_TMPDIR']):
+        os.makedirs(placeholders['PG_LOG_TMPDIR'])
+        os.chmod(placeholders['PG_LOG_TMPDIR'], 0o1777)
+
+    write_file(placeholders['PG_LOG_TMPDIR'], os.path.join(wale['PG_LOG_ENV_DIR'], 'TMPDIR'), True)
 
     return
 
