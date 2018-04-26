@@ -379,11 +379,11 @@ def get_placeholders(provider):
 
     placeholders.setdefault('SHIP_PG_DAILY_LOG_SCHEDULE', '00 02 * * *')
     placeholders.setdefault('PG_DAILY_LOG_S3_BUCKET', '')
-    placeholders.setdefault('SHIP_PG_DAILY_LOG_TO_S3', bool(placeholders.get('PG_DAILY_LOG_S3_BUCKET'))
+    placeholders.setdefault('SHIP_PG_DAILY_LOG_TO_S3', bool(placeholders.get('PG_DAILY_LOG_S3_BUCKET')))
     placeholders.setdefault('PG_DAILY_LOG_TMPDIR', os.path.abspath(os.path.join(placeholders['PGROOT'], '../tmp')))
     placeholders.setdefault('PG_DAILY_LOG_BUCKET_SCOPE_SUFFIX', '')
 
-    # see comment for wale bucket prefix
+    # see comment for wal-e bucket prefix
     placeholders.setdefault('PG_DAILY_LOG_BUCKET_PREFIX', '{0}-'.format(placeholders['NAMESPACE'])
                             if placeholders['NAMESPACE'] not in ('default', '') else '')
 
@@ -500,11 +500,11 @@ def write_pg_daily_log_environment(placeholders, provider, prefix, overwrite):
         write_file('s3://{PG_DAILY_LOG_S3_BUCKET}/spilo/{PG_DAILY_LOG_BUCKET_SCOPE_PREFIX}{SCOPE}{PG_DAILY_LOG_BUCKET_SCOPE_SUFFIX}/pg_daily_log/{HOSTNAME}'.format(**daily_log),
                    os.path.join(daily_log['PG_DAILY_LOG_ENV_DIR'], 'PG_DAILY_LOG_S3_PREFIX'), overwrite)
 
-    if not os.path.exists(placeholders['PG_LOG_TMPDIR']):
-        os.makedirs(placeholders['PG_LOG_TMPDIR'])
-        os.chmod(placeholders['PG_LOG_TMPDIR'], 0o1777)
+    if not os.path.exists(placeholders['PG_DAILY_LOG_TMPDIR']):
+        os.makedirs(placeholders['PG_DAILY_LOG_TMPDIR'])
+        os.chmod(placeholders['PG_DAILY_LOG_TMPDIR'], 0o1777)
 
-    write_file(placeholders['PG_LOG_TMPDIR'], os.path.join(wale['PG_LOG_ENV_DIR'], 'TMPDIR'), True)
+    write_file(placeholders['PG_DAILY_LOG_TMPDIR'], os.path.join(daily_log['PG_DAILY_LOG_ENV_DIR'], 'PG_DAILY_LOG_TMPDIR'), True)
 
     return
 

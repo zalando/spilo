@@ -13,4 +13,4 @@ PG_DAILY_LOG_ENV_DIR=$1
 shift
 
 log "compressing and uploading to the cloud the postgres daily log"
-exec nice -n 5 envdir "${PG_DAILY_LOG_ENV_DIR}" ship_daily_pg_logs_to_s3.sh
+exec nice -n 5 envdir "${PG_DAILY_LOG_ENV_DIR}" ship_yesterday_pg_log_to_s3.sh
