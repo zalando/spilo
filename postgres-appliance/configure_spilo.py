@@ -381,6 +381,11 @@ def get_placeholders(provider):
     placeholders.setdefault('PG_DAILY_LOG_S3_BUCKET', '')
     placeholders.setdefault('SHIP_PG_DAILY_LOG_TO_S3', bool(placeholders.get('PG_DAILY_LOG_S3_BUCKET'))
     placeholders.setdefault('PG_DAILY_LOG_TMPDIR', os.path.abspath(os.path.join(placeholders['PGROOT'], '../tmp')))
+    placeholders.setdefault('PG_DAILY_LOG_BUCKET_SCOPE_SUFFIX', '')
+
+    # see comment for wale bucket prefix
+    placeholders.setdefault('PG_DAILY_LOG_BUCKET_PREFIX', '{0}-'.format(placeholders['NAMESPACE'])
+                            if placeholders['NAMESPACE'] not in ('default', '') else '')
 
     if placeholders['CLONE_METHOD'] == 'CLONE_WITH_WALE':
         # set_clone_with_wale_placeholders would modify placeholders and take care of error cases
