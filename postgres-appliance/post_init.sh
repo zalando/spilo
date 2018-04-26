@@ -73,7 +73,16 @@ GRANT SELECT ON postgres_log TO ADMIN;"
 for i in $(seq 0 7); do
     echo "CREATE FOREIGN TABLE postgres_log_$i () INHERITS (postgres_log) SERVER pglog
     OPTIONS (filename '../pg_log/postgresql-$i.csv', format 'csv', header 'false');
-GRANT SELECT ON postgres_log_$i TO ADMIN;"
+GRANT SELECT ON postgres_log_$i TO ADMIN;
+
+CREATE OR REPLACE VIEW failed_authentication_$i WITH (security_barrier) AS
+SELECT *
+  FROM postgres_log_$i
+ WHERE command_tag = 'authentication'
+   AND error_severity = 'FATAL';
+ALTER VIEW failed_authentication_$i OWNER TO postgres;
+GRANT SELECT ON TABLE failed_authentication_$i TO robot_zmon;
+"
 done
 
 cat /_zmon_schema.dump
