@@ -28,7 +28,7 @@ MEMORY_LIMIT_IN_BYTES_PATH = '/sys/fs/cgroup/memory/memory.limit_in_bytes'
 
 def parse_args():
     sections = ['all', 'patroni', 'patronictl', 'certificate', 'wal-e', 'crontab',
-                'pam-oauth2', 'pgbouncer', 'bootstrap', 'pg_daily_log']
+                'pam-oauth2', 'pgbouncer', 'bootstrap', 'log']
     argp = argparse.ArgumentParser(description='Configures Spilo',
                                    epilog="Choose from the following sections:\n\t{}".format('\n\t'.join(sections)),
                                    formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -377,14 +377,14 @@ def get_placeholders(provider):
     placeholders.setdefault('CLONE_TARGET_TIME', '')
     placeholders.setdefault('CLONE_TARGET_INCLUSIVE', True)
 
-    placeholders.setdefault('SHIP_PG_DAILY_LOG_SCHEDULE', '00 02 * * *')
-    placeholders.setdefault('PG_DAILY_LOG_S3_BUCKET', '')
-    placeholders.setdefault('SHIP_PG_DAILY_LOG_TO_S3', bool(placeholders.get('PG_DAILY_LOG_S3_BUCKET')))
-    placeholders.setdefault('PG_DAILY_LOG_TMPDIR', os.path.abspath(os.path.join(placeholders['PGROOT'], '../tmp')))
-    placeholders.setdefault('PG_DAILY_LOG_BUCKET_SCOPE_SUFFIX', '')
+    placeholders.setdefault('SHIP_LOG_SCHEDULE', '00 02 * * *')
+    placeholders.setdefault('LOG_S3_BUCKET', '')
+    placeholders.setdefault('SHIP_LOG_TO_S3', bool(placeholders.get('LOG_S3_BUCKET')))
+    placeholders.setdefault('LOG_TMPDIR', os.path.abspath(os.path.join(placeholders['PGROOT'], '../tmp')))
+    placeholders.setdefault('LOG_BUCKET_SCOPE_SUFFIX', '')
 
     # see comment for wal-e bucket prefix
-    placeholders.setdefault('PG_DAILY_LOG_BUCKET_PREFIX', '{0}-'.format(placeholders['NAMESPACE'])
+    placeholders.setdefault('LOG_BUCKET_PREFIX', '{0}-'.format(placeholders['NAMESPACE'])
                             if placeholders['NAMESPACE'] not in ('default', '') else '')
 
     if placeholders['CLONE_METHOD'] == 'CLONE_WITH_WALE':
@@ -480,31 +480,31 @@ def get_dcs_config(config, placeholders):
     return config
 
 
-def write_pg_daily_log_environment(placeholders, provider, prefix, overwrite):
-    daily_log = defaultdict(lambda: '')
-    daily_log.update({
+def write_log_environment(placeholders, provider, prefix, overwrite):
+    log = defaultdict(lambda: '')
+    log.update({
         name: placeholders.get(prefix + name, '')
         for name in [
             'SCOPE',
-            'PG_DAILY_LOG_ENV_DIR',
-            'PG_DAILY_LOG_S3_BUCKET',
-            'PG_DAILY_LOG_BUCKET_SCOPE_PREFIX',
-            'PG_DAILY_LOG_BUCKET_SCOPE_SUFFIX',
+            'LOG_ENV_DIR',
+            'LOG_S3_BUCKET',
+            'LOG_BUCKET_SCOPE_PREFIX',
+            'LOG_BUCKET_SCOPE_SUFFIX',
         ]
     })
 
-    if not os.path.exists(daily_log['PG_DAILY_LOG_ENV_DIR']):
-        os.makedirs(daily_log['PG_DAILY_LOG_ENV_DIR'])
+    if not os.path.exists(log['LOG_ENV_DIR']):
+        os.makedirs(log['LOG_ENV_DIR'])
 
-    if daily_log.get('PG_DAILY_LOG_S3_BUCKET'):
-        write_file('s3://{PG_DAILY_LOG_S3_BUCKET}/spilo/{PG_DAILY_LOG_BUCKET_SCOPE_PREFIX}{SCOPE}{PG_DAILY_LOG_BUCKET_SCOPE_SUFFIX}/pg_daily_log/{HOSTNAME}'.format(**daily_log),
-                   os.path.join(daily_log['PG_DAILY_LOG_ENV_DIR'], 'PG_DAILY_LOG_S3_PREFIX'), overwrite)
+    if log.get('LOG_S3_BUCKET'):
+        write_file('s3://{LOG_S3_BUCKET}/spilo/{LOG_BUCKET_SCOPE_PREFIX}{SCOPE}{LOG_BUCKET_SCOPE_SUFFIX}/log/{HOSTNAME}'.format(**log),
+                   os.path.join(log['LOG_ENV_DIR'], 'LOG_S3_PREFIX'), overwrite)
 
-    if not os.path.exists(placeholders['PG_DAILY_LOG_TMPDIR']):
-        os.makedirs(placeholders['PG_DAILY_LOG_TMPDIR'])
-        os.chmod(placeholders['PG_DAILY_LOG_TMPDIR'], 0o1777)
+    if not os.path.exists(placeholders['LOG_TMPDIR']):
+        os.makedirs(placeholders['LOG_TMPDIR'])
+        os.chmod(placeholders['LOG_TMPDIR'], 0o1777)
 
-    write_file(placeholders['PG_DAILY_LOG_TMPDIR'], os.path.join(daily_log['PG_DAILY_LOG_ENV_DIR'], 'PG_DAILY_LOG_TMPDIR'), True)
+    write_file(placeholders['LOG_TMPDIR'], os.path.join(log['LOG_ENV_DIR'], 'LOG_TMPDIR'), True)
 
     return
 
@@ -590,8 +590,8 @@ def write_crontab(placeholders, overwrite):
        lines += ['{BACKUP_SCHEDULE} /postgres_backup.sh "{WALE_ENV_DIR}" "{PGDATA}" "{BACKUP_NUM_TO_RETAIN}"'
               .format(**placeholders)]
 
-    if placeholders['SHIP_PG_DAILY_LOG_TO_S3']:
-       lines += ['{SHIP_PG_DAILY_LOG_SCHEDULE} /backup_daily_pg_log.sh "{PG_DAILY_LOG_ENV_DIR}"'
+    if placeholders['SHIP_LOG_TO_S3']:
+       lines += ['{SHIP_LOG_SCHEDULE} /backup_log.sh "{LOG_ENV_DIR}"'
               .format(**placeholders)]
 
     lines += yaml.load(placeholders['CRONTAB'])
@@ -713,9 +713,9 @@ def main():
                     continue
                 os.unlink(patronictl_configfile)
             os.symlink(patroni_configfile, patronictl_configfile)
-        elif section == 'pg_daily_log':
-            if placeholders['SHIP_PG_DAILY_LOG_TO_S3']:
-               write_pg_daily_log_environment(placeholders, provider, '', args['force'])    
+        elif section == 'log':
+            if placeholders['SHIP_LOG_TO_S3']:
+               write_log_environment(placeholders, provider, '', args['force'])    
         elif section == 'wal-e':
             if placeholders['USE_WALE']:
                 write_wale_environment(placeholders, provider, '', args['force'])

@@ -65,7 +65,7 @@ spec:
           value: 'test-etcd.default.svc.cluster.local:2379' # where is your etcd?
         - name: WAL_S3_BUCKET
           value: example-spilo-dbaas
-        - name: PG_DAILY_LOG_S3_BUCKET # may be the same as WAL_S3_BUCKET
+        - name: LOG_S3_BUCKET # may be the same as WAL_S3_BUCKET
           value: example-spilo-dbaas 
         - name: BACKUP_SCHEDULE
           value: "00 01 * * *"
