@@ -21,6 +21,6 @@ then
   gzip --best --stdout "$log_file" > "$archived_log_with_date"
 
   aws s3 cp "${archived_log_with_date}" ${LOG_S3_PREFIX}${HOSTNAME}/
-  rm "$archived_log_with_date"
-
+else
+  echo "Postgres log from yesterday ${log_file} is empty. Was this Spilo pod started today ?"
 fi

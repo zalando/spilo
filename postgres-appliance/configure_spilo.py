@@ -504,7 +504,8 @@ def write_log_environment(placeholders, provider, prefix, overwrite):
         os.makedirs(placeholders['LOG_TMPDIR'])
         os.chmod(placeholders['LOG_TMPDIR'], 0o1777)
 
-    write_file(placeholders['LOG_TMPDIR'], os.path.join(log['LOG_ENV_DIR'], 'LOG_TMPDIR'), True)
+    for envvar in ['LOG_TMPDIR', 'HOSTNAME', 'PGLOG']:
+       write_file(placeholders[envvar], os.path.join(log['LOG_ENV_DIR'], envvar), True)
 
     return
 
