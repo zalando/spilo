@@ -379,7 +379,6 @@ def get_placeholders(provider):
 
     placeholders.setdefault('SHIP_LOG_SCHEDULE', '00 02 * * *')
     placeholders.setdefault('LOG_S3_BUCKET', '')
-    placeholders.setdefault('SHIP_LOG_TO_S3', bool(placeholders.get('LOG_S3_BUCKET')))
     placeholders.setdefault('LOG_TMPDIR', os.path.abspath(os.path.join(placeholders['PGROOT'], '../tmp')))
     placeholders.setdefault('LOG_BUCKET_SCOPE_SUFFIX', '')
 
@@ -591,7 +590,7 @@ def write_crontab(placeholders, overwrite):
        lines += ['{BACKUP_SCHEDULE} /postgres_backup.sh "{WALE_ENV_DIR}" "{PGDATA}" "{BACKUP_NUM_TO_RETAIN}"'
               .format(**placeholders)]
 
-    if placeholders['SHIP_LOG_TO_S3']:
+    if bool(placeholders.get('LOG_S3_BUCKET')):
        lines += ['{SHIP_LOG_SCHEDULE} /backup_log.sh "{LOG_ENV_DIR}"'
               .format(**placeholders)]
 
@@ -715,7 +714,7 @@ def main():
                 os.unlink(patronictl_configfile)
             os.symlink(patroni_configfile, patronictl_configfile)
         elif section == 'log':
-            if placeholders['SHIP_LOG_TO_S3']:
+            if bool(placeholders.get('LOG_S3_BUCKET')):
                write_log_environment(placeholders, provider, '', args['force'])    
         elif section == 'wal-e':
             if placeholders['USE_WALE']:
