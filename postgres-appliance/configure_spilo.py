@@ -721,8 +721,10 @@ def main():
                 write_wale_environment(placeholders, provider, '', args['force'])
         elif section == 'certificate':
             write_certificates(placeholders, args['force'])
-        elif section == 'crontab':           
-            write_crontab(placeholders, args['force'])
+        elif section == 'crontab':
+            # create crontab only if there are tasks for it
+            if placeholders['USE_WALE'] or bool(placeholders.get('LOG_S3_BUCKET')):
+                write_crontab(placeholders, args['force'])
         elif section == 'pam-oauth2':
             write_pam_oauth2_configuration(placeholders, args['force'])
         elif section == 'pgbouncer':
