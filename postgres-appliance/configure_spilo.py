@@ -377,7 +377,7 @@ def get_placeholders(provider):
     placeholders.setdefault('CLONE_TARGET_TIME', '')
     placeholders.setdefault('CLONE_TARGET_INCLUSIVE', True)
 
-    placeholders.setdefault('SHIP_LOG_SCHEDULE', '00 02 * * *')
+    placeholders.setdefault('LOG_SHIP_SCHEDULE', '00 02 * * *')
     placeholders.setdefault('LOG_S3_BUCKET', '')
     placeholders.setdefault('LOG_TMPDIR', os.path.abspath(os.path.join(placeholders['PGROOT'], '../tmp')))
     placeholders.setdefault('LOG_BUCKET_SCOPE_SUFFIX', '')
@@ -591,7 +591,7 @@ def write_crontab(placeholders, overwrite):
               .format(**placeholders)]
 
     if bool(placeholders.get('LOG_S3_BUCKET')):
-       lines += ['{SHIP_LOG_SCHEDULE} /backup_log.sh "{LOG_ENV_DIR}"'
+       lines += ['{LOG_SHIP_SCHEDULE} /backup_log.sh "{LOG_ENV_DIR}"'
               .format(**placeholders)]
 
     lines += yaml.load(placeholders['CRONTAB'])
