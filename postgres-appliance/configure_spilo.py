@@ -479,10 +479,10 @@ def get_dcs_config(config, placeholders):
     return config
 
 
-def write_log_environment(placeholders, provider, prefix, overwrite):
+def write_log_environment(placeholders, overwrite):
     log = defaultdict(lambda: '')
     log.update({
-        name: placeholders.get(prefix + name, '')
+        name: placeholders.get(name, '')
         for name in [
             'SCOPE',
             'LOG_ENV_DIR',
@@ -507,7 +507,6 @@ def write_log_environment(placeholders, provider, prefix, overwrite):
        write_file(placeholders[envvar], os.path.join(log['LOG_ENV_DIR'], envvar), True)
 
     return
-
 
 
 def write_wale_environment(placeholders, provider, prefix, overwrite):
@@ -715,7 +714,7 @@ def main():
             os.symlink(patroni_configfile, patronictl_configfile)
         elif section == 'log':
             if bool(placeholders.get('LOG_S3_BUCKET')):
-               write_log_environment(placeholders, provider, '', args['force'])    
+               write_log_environment(placeholders, args['force'])    
         elif section == 'wal-e':
             if placeholders['USE_WALE']:
                 write_wale_environment(placeholders, provider, '', args['force'])
