@@ -167,6 +167,9 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 make -C $n USE_PGXS=1 clean install-strip; \
             done \
 
+            && make -C pg_repack USE_PGXS=1 clean install \
+            && strip /usr/lib/postgresql/$version/lib/pg_repack.so /usr/lib/postgresql/$version/bin/pg_repack \
+
             && if [ "$version" != "9.3" ] && [ "$DEMO" != "true" ]; then \
                 make -C postgres-decoderbufs-$DECODERBUFS_COMMIT clean install-strip; \
             fi \
