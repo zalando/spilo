@@ -25,7 +25,12 @@ Environment Configuration Settings
 - **WALE_BACKUP_THRESHOLD_PERCENTAGE**: maximum ratio (in percents) of the accumulated WAL files to the base backup to consider WAL-E restore instead of pg_basebackup.
 - **WALE_ENV_DIR**: directory where to store WAL-E environment variables
 - **WAL_S3_BUCKET**: path to the S3 bucket used for WAL-E base backups (i.e. s3://foobar). Spilo will add /spilo/scope/wal to that path.
+- **AWS_ACCESS_KEY_ID**: (optional) aws access key
+- **AWS_SECRET_ACCESS_KEY**: (optional) aws secret key
+- **AWS_REGION**: (optional) region of S3 bucket
+- **AWS_ENDPOINT**: (optional) in format 'https://s3.AWS_REGION.amazonaws.com:443', if not specified will be calculated from AWS_REGION
+- **WALE_S3_ENDPOINT**: (optional) in format 'https+path://s3.AWS_REGION.amazonaws.com:443', if not specified will be calculated from AWS_ENDPOINT or AWS_REGION
+- **WALG_DELTA_MAX_STEPS**, **WALG_DELTA_ORIGIN**, **WALG_DOWNLOAD_CONCURRENCY**, **WALG_UPLOAD_CONCURRENCY**, **WALG_UPLOAD_DISK_CONCURRENCY**: (optional) configuration options for wal-g. If at least of the options is specified, wal-g will be used instead of wal-e.
 - **WAL_GCS_BUCKET**: ditto for the Google Cloud Storage (WAL-E supports both S3 and GCS).
-- **USE_WALE**: whether to consider base backup/restore with WAL-E.
 - **GOOGLE_APPLICATION_CREDENTIALS**: credentials for WAL-E when running in Google Cloud.
 - **CALLBACK_SCRIPT**: the callback script to run on various cluster actions (on start, on stop, on restart, on role change). The script will receive the cluster name, connection string and the current action. See `Patroni <http://patroni.readthedocs.io/en/latest/SETTINGS.html?highlight=callback#postgresql>`__ documentation for details.

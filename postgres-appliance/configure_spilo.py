@@ -473,6 +473,9 @@ def get_dcs_config(config, placeholders):
 def write_wale_environment(placeholders, provider, prefix, overwrite):
     # Propagate missing variables as empty strings as that's generally easier
     # to work around than an exception in this code.
+    envdir_names = ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'WALE_S3_ENDPOINT', 'AWS_ENDPOINT',
+                    'AWS_REGION', 'WALG_DELTA_MAX_STEPS', 'WALG_DELTA_ORIGIN',
+                    'WALG_DOWNLOAD_CONCURRENCY', 'WALG_UPLOAD_CONCURRENCY', 'WALG_UPLOAD_DISK_CONCURRENCY']
     wale = defaultdict(lambda: '')
     wale.update({
         name: placeholders.get(prefix + name, '')
@@ -486,28 +489,45 @@ def write_wale_environment(placeholders, provider, prefix, overwrite):
             'GOOGLE_APPLICATION_CREDENTIALS',
         ]
     })
+    wale.update({name: placeholders[prefix + name] for name in envdir_names if prefix + name in placeholders})
+    wale['BUCKET_PATH'] = '/spilo/{WAL_BUCKET_SCOPE_PREFIX}{SCOPE}{WAL_BUCKET_SCOPE_SUFFIX}/wal/'.format(**wale)
 
     if not os.path.exists(wale['WALE_ENV_DIR']):
         os.makedirs(wale['WALE_ENV_DIR'])
 
     if wale.get('WAL_S3_BUCKET'):
-        write_file('s3://{WAL_S3_BUCKET}/spilo/{WAL_BUCKET_SCOPE_PREFIX}{SCOPE}{WAL_BUCKET_SCOPE_SUFFIX}/wal/'.format(**wale),
-                   os.path.join(wale['WALE_ENV_DIR'], 'WALE_S3_PREFIX'), overwrite)
-        match = re.search(r'.*(eu-\w+-\d+)-.*', wale['WAL_S3_BUCKET'])
-        if match:
-            region = match.group(1)
-        else:
-            region = placeholders['instance_data']['zone'][:-1]
-        write_file('https+path://s3-{}.amazonaws.com:443'.format(region),
-                   os.path.join(wale['WALE_ENV_DIR'], 'WALE_S3_ENDPOINT'), overwrite)
+        wale_endpoint = wale.get('WALE_S3_ENDPOINT')
+        aws_endpoint = wale.get('AWS_ENDPOINT')
+        aws_region = wale.get('AWS_REGION')
+
+        if not aws_region:
+            match = re.search(r'.*(\w{2}-\w+-\d)-.*', wale_endpoint or aws_endpoint or wale['WAL_S3_BUCKET'])
+            if match:
+                aws_region = match.group(1)
+            else:
+                aws_region = placeholders['instance_data']['zone'][:-1]
+
+        if not aws_endpoint:
+            if wale_endpoint:
+                aws_endpoint = wale_endpoint.replace('+path://', '://')
+            else:
+                aws_endpoint = 'https://s3.{0}.amazonaws.com:443'.format(aws_region)
+
+        if not wale_endpoint and aws_endpoint:
+            wale_endpoint = aws_endpoint.replace('://', '+path://')
+
+        wale['WALE_S3_PREFIX'] = 's3://{WAL_S3_BUCKET}{BUCKET_PATH}'.format(**wale)
+        wale.update(WALE_S3_ENDPOINT=wale_endpoint, AWS_ENDPOINT=aws_endpoint, AWS_REGION=aws_region)
+        write_envdir_names = ['WALE_S3_PREFIX'] + envdir_names
     elif wale.get('WAL_GCS_BUCKET'):
-        write_file('gs://{WAL_GCS_BUCKET}/spilo/{WAL_BUCKET_SCOPE_PREFIX}{SCOPE}{WAL_BUCKET_SCOPE_SUFFIX}/wal/'.format(**wale),
-                   os.path.join(wale['WALE_ENV_DIR'], 'WALE_GS_PREFIX'), overwrite)
-        if wale.get('GOOGLE_APPLICATION_CREDENTIALS'):
-            write_file(wale['GOOGLE_APPLICATION_CREDENTIALS'],
-                       os.path.join(wale['WALE_ENV_DIR'], 'GOOGLE_APPLICATION_CREDENTIALS'), overwrite)
+        wale['WALE_GS_PREFIX'] = 'gs://{WAL_GCS_BUCKET}{BUCKET_PATH}'.format(**wale)
+        write_envdir_names = ['WALE_GS_PREFIX', 'GOOGLE_APPLICATION_CREDENTIALS']
     else:
         return
+
+    for name in write_envdir_names:
+        if wale.get(name):
+            write_file(wale[name], os.path.join(wale['WALE_ENV_DIR'], name), overwrite)
 
     if not os.path.exists(placeholders['WALE_TMPDIR']):
         os.makedirs(placeholders['WALE_TMPDIR'])
