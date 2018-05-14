@@ -32,6 +32,6 @@ RUN mkdir -p /var/log/supervisor \
         && echo "export PAGER='pspg -bX --no-mouse'" >> /etc/bash.bashrc \
         && echo "source /etc/motd" >> /root/.bashrc
 
-ADD scm-source.json configure_spilo.py launch.sh postgres_backup.sh patroni_wait.sh post_init.sh _zmon_schema.dump callback_*.py basebackup.sh wale_restore_command.sh wal-e-wal-fetch.sh create_user_functions.sql bootstrap ship_log_file_to_s3.sh backup_log.sh /
+ADD scm-source.json configure_spilo.py launch.sh postgres_backup.sh patroni_wait.sh post_init.sh _zmon_schema.dump callback_*.py basebackup.sh wale_restore_command.sh wal-e-wal-fetch.sh create_user_functions.sql bootstrap upload_pg_log_to_s3.py backup_log.sh /
 
 CMD ["/bin/sh", "/launch.sh"]

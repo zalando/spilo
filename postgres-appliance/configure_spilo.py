@@ -479,9 +479,9 @@ def get_dcs_config(config, placeholders):
     return config
 
 
-def write_log_environment(placeholders, overwrite):
-    log = defaultdict(lambda: '')
-    log.update({
+def write_log_environment(placeholders):
+    log_env = defaultdict(lambda: '')
+    log_env.update({
         name: placeholders.get(name, '')
         for name in [
             'SCOPE',
@@ -489,22 +489,34 @@ def write_log_environment(placeholders, overwrite):
             'LOG_S3_BUCKET',
             'LOG_BUCKET_SCOPE_PREFIX',
             'LOG_BUCKET_SCOPE_SUFFIX',
+            'LOG_TMPDIR',
+            'HOSTNAME',
+            'PGLOG'
         ]
     })
 
-    if not os.path.exists(log['LOG_ENV_DIR']):
-        os.makedirs(log['LOG_ENV_DIR'])
+    region = placeholders['instance_data']['zone'][:-1]
+    log_env['LOG_S3_HOST'] = 's3.{}.amazonaws.com'.format(region)
 
-    if log.get('LOG_S3_BUCKET'):
-        write_file('s3://{LOG_S3_BUCKET}/spilo/{LOG_BUCKET_SCOPE_PREFIX}{SCOPE}{LOG_BUCKET_SCOPE_SUFFIX}/log/{HOSTNAME}'.format(**log),
-                   os.path.join(log['LOG_ENV_DIR'], 'LOG_S3_PREFIX'), overwrite)
+    log_s3_key = 'spilo/{LOG_BUCKET_SCOPE_PREFIX}{SCOPE}{LOG_BUCKET_SCOPE_SUFFIX}/log/{HOSTNAME}'.format(**log_env)
+    log_env['LOG_S3_KEY'] = log_s3_key
 
-    if not os.path.exists(placeholders['LOG_TMPDIR']):
-        os.makedirs(placeholders['LOG_TMPDIR'])
-        os.chmod(placeholders['LOG_TMPDIR'], 0o1777)
+    if not os.path.exists(log_env['LOG_TMPDIR']):
+        os.makedirs(log_env['LOG_TMPDIR'])
+        os.chmod(log_env['LOG_TMPDIR'], 0o1777)
 
-    for envvar in ['LOG_TMPDIR', 'HOSTNAME', 'PGLOG']:
-       write_file(placeholders[envvar], os.path.join(log['LOG_ENV_DIR'], envvar), True)
+    if not os.path.exists(log_env['LOG_ENV_DIR']):
+        os.makedirs(log_env['LOG_ENV_DIR'])
+
+    for var in [
+        'LOG_TMPDIR', 
+        'LOG_S3_HOST', 
+        'LOG_S3_KEY', 
+        'LOG_S3_BUCKET', 
+        'HOSTNAME', 
+        'PGLOG', 
+        ]:
+          write_file(log_env[var], os.path.join(log_env['LOG_ENV_DIR'], var), True)
 
     return
 
@@ -714,7 +726,7 @@ def main():
             os.symlink(patroni_configfile, patronictl_configfile)
         elif section == 'log':
             if bool(placeholders.get('LOG_S3_BUCKET')):
-               write_log_environment(placeholders, args['force'])    
+               write_log_environment(placeholders)
         elif section == 'wal-e':
             if placeholders['USE_WALE']:
                 write_wale_environment(placeholders, provider, '', args['force'])
