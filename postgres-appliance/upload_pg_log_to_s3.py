@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import boto, os, logging, gzip, shutil, requests
+import boto, os, logging, gzip, shutil, requests, math
 
 from datetime import datetime, timedelta
 from filechunkio import FileChunkIO
