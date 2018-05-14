@@ -2,7 +2,10 @@
 # -*- coding: utf-8 -*-
 
 import boto, os, logging, gzip, shutil, requests
+
 from datetime import datetime, timedelta
+from filechunkio import FileChunkIO
+
 
 def compress_pg_log():
 
@@ -32,9 +35,20 @@ def upload_to_s3(local_file_path):
     bucket_name = os.getenv('LOG_S3_BUCKET')
     bucket = conn.get_bucket(bucket_name, validate = False)
 
-    object_to_upload = boto.s3.key.Key(bucket)
-    object_to_upload.key = os.getenv('LOG_S3_KEY') + '/' + os.path.basename(local_file_path)
-    object_to_upload.set_contents_from_filename(local_file_path)
+    key_name = os.getenv('LOG_S3_KEY') + '/' + os.path.basename(local_file_path)
+    mp_upload = bucket.initiate_multipart_upload(key_name)
+
+    chunk_size = 52428800 # 50 MiB
+    local_file_size = os.stat(local_file_path).st_size
+    chunk_count = int(math.ceil(local_file_size / float(chunk_size)))
+
+    for i in range(chunk_count):
+        offset = chunk_size * i
+        bytes = min(chunk_size, local_file_size - offset)
+        with FileChunkIO(local_file_path, 'r', offset=offset, bytes=bytes) as fp:
+            mp.upload_part_from_file(fp, part_num=i + 1)
+
+    mp_upload.complete_upload()
 
 
 def main():

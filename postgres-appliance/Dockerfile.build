@@ -375,7 +375,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 python3-psycopg2 python3-pyasn1-modules python3-rsa python3-dateutil ${BUILD_PACKAGES} \
 
     && pip3 install setuptools --upgrade \
-
+    && pip3 install filechunkio \
+    
     && if [ "$DEMO" = "true" ]; then \
         EXTRAS=""; \
     else \
