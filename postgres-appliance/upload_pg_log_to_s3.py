@@ -27,7 +27,7 @@ def upload_to_s3(local_file_path):
 
     # specifying the region also sets the correct AWS SignatureVersion
     # see https://github.com/boto/boto/issues/2741
-    conn = boto.connect_s3(host = os.getenv('LOG_S3_HOST'))
+    conn = boto.connect_s3(host = os.getenv('LOG_AWS_HOST'))
 
     bucket_name = os.getenv('LOG_S3_BUCKET')
     bucket = conn.get_bucket(bucket_name, validate = False)

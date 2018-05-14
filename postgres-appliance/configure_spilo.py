@@ -496,7 +496,7 @@ def write_log_environment(placeholders):
     })
 
     region = placeholders['instance_data']['zone'][:-1]
-    log_env['LOG_S3_HOST'] = 's3.{}.amazonaws.com'.format(region)
+    log_env['LOG_AWS_HOST'] = 's3.{}.amazonaws.com'.format(region)
 
     log_s3_key = 'spilo/{LOG_BUCKET_SCOPE_PREFIX}{SCOPE}{LOG_BUCKET_SCOPE_SUFFIX}/log/{HOSTNAME}'.format(**log_env)
     log_env['LOG_S3_KEY'] = log_s3_key
@@ -510,7 +510,7 @@ def write_log_environment(placeholders):
 
     for var in [
         'LOG_TMPDIR', 
-        'LOG_S3_HOST', 
+        'LOG_AWS_HOST', 
         'LOG_S3_KEY', 
         'LOG_S3_BUCKET', 
         'HOSTNAME', 
