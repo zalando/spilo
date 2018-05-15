@@ -21,7 +21,7 @@ def compress_pg_log():
     archived_log_file = os.getenv('LOG_TMPDIR') + "/" + yesterday.strftime('%Y-%m-%d') + ".csv.gz"
 
     if os.path.getsize(log_file) == 0:
-        logging.info("Postgres log from yesterday '%s' is empty. \ Was this Spilo pod started today ?", log_file)
+        logging.info("Postgres log from yesterday '%s' is empty. Was this Spilo pod started today ?", log_file)
         exit(0)
 
     with open(log_file, 'rb') as f_in:
