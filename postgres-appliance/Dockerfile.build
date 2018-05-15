@@ -375,14 +375,13 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 python3-psycopg2 python3-pyasn1-modules python3-rsa python3-dateutil ${BUILD_PACKAGES} \
 
     && pip3 install setuptools --upgrade \
-    && pip3 install filechunkio \
-    
+
     && if [ "$DEMO" = "true" ]; then \
         EXTRAS=""; \
     else \
         EXTRAS=",etcd,consul,zookeeper,aws" \
         && apt-get install -y python3-dnspython python3-kazoo python3-meld3 \
-        && pip3 install envdir wal-e[aws,google]==$WALE_VERSION \
+        && pip3 install filechunkio envdir wal-e[aws,google]==$WALE_VERSION \
                 'git+https://github.com/Supervisor/supervisor.git@master#egg=supervisor' \
                 'git+https://github.com/zalando/pg_view.git@master#egg=pg-view' \
 
