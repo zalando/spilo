@@ -46,7 +46,7 @@ def upload_to_s3(local_file_path):
         offset = chunk_size * i
         bytes = min(chunk_size, local_file_size - offset)
         with FileChunkIO(local_file_path, 'r', offset=offset, bytes=bytes) as fp:
-            mp.upload_part_from_file(fp, part_num=i + 1)
+            mp_upload.upload_part_from_file(fp, part_num=i + 1)
 
     mp_upload.complete_upload()
 
