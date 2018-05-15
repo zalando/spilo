@@ -9,7 +9,7 @@ import gzip
 import shutil
 
 from datetime import datetime, timedelta
-from filechunkio import FileChunkIO as fcio
+from filechunkio import FileChunkIO
 
 
 def compress_pg_log():
@@ -17,14 +17,11 @@ def compress_pg_log():
     yesterday = datetime.now() - timedelta(days=1)
     yesterday_day_number = yesterday.strftime('%u')
 
-    log_file = os.getenv('PGLOG') + "/postgresql-"
-    + yesterday_day_number + ".csv"
-    archived_log_file = os.getenv('LOG_TMPDIR') + "/"
-    + yesterday.strftime('%Y-%m-%d') + ".csv.gz"
+    log_file = os.getenv('PGLOG') + "/postgresql-" + yesterday_day_number + ".csv"
+    archived_log_file = os.getenv('LOG_TMPDIR') + "/" + yesterday.strftime('%Y-%m-%d') + ".csv.gz"
 
     if os.path.getsize(log_file) == 0:
-        logging.info("Postgres log from yesterday '%s' is empty. \
-        Was this Spilo pod started today ?", log_file)
+        logging.info("Postgres log from yesterday '%s' is empty. \ Was this Spilo pod started today ?", log_file)
         exit(0)
 
     with open(log_file, 'rb') as f_in:
@@ -43,8 +40,7 @@ def upload_to_s3(local_file_path):
     bucket_name = os.getenv('LOG_S3_BUCKET')
     bucket = conn.get_bucket(bucket_name, validate=False)
 
-    key_name = os.getenv('LOG_S3_KEY') + '/'
-    + os.path.basename(local_file_path)
+    key_name = os.getenv('LOG_S3_KEY') + '/' + os.path.basename(local_file_path)
     mp_upload = bucket.initiate_multipart_upload(key_name)
 
     chunk_size = 52428800  # 50 MiB
@@ -54,7 +50,7 @@ def upload_to_s3(local_file_path):
     for i in range(chunk_count):
         offset = chunk_size * i
         bytes = min(chunk_size, file_size - offset)
-        with fcio(local_file_path, 'r', offset=offset, bytes=bytes) as fp:
+        with FileChunkIO(local_file_path, 'r', offset=offset, bytes=bytes) as fp:
             mp_upload.upload_part_from_file(fp, part_num=i + 1)
 
     mp_upload.complete_upload()
