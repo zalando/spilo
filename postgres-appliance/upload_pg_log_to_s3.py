@@ -33,7 +33,9 @@ def compress_pg_log():
 
 def upload_to_s3(local_file_path):
 
-    # specifying the region also sets the correct AWS SignatureVersion
+    # boto picks up AWS credentials automatically when run within a EC2 instance
+
+    # host sets a region and the correct AWS SignatureVersion along the way
     # see https://github.com/boto/boto/issues/2741
     conn = boto.connect_s3(host=os.getenv('LOG_AWS_HOST'))
 
