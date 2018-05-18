@@ -7,6 +7,7 @@ import os
 import logging
 import gzip
 import shutil
+import time
 
 from datetime import datetime, timedelta
 from filechunkio import FileChunkIO
@@ -21,7 +22,7 @@ def compress_pg_log():
     archived_log_file = os.getenv('LOG_TMPDIR') + "/" + yesterday.strftime('%Y-%m-%d') + ".csv.gz"
 
     if os.path.getsize(log_file) == 0:
-        logging.info("Postgres log from yesterday '%s' is empty. Was this Spilo pod started today ?", log_file)
+        logging.warn("Postgres log from yesterday '%s' is empty.", log_file)
         exit(0)
 
     with open(log_file, 'rb') as f_in:
@@ -53,9 +54,41 @@ def upload_to_s3(local_file_path):
         offset = chunk_size * i
         bytes = min(chunk_size, file_size - offset)
         with FileChunkIO(local_file_path, 'r', offset=offset, bytes=bytes) as fp:
-            mp_upload.upload_part_from_file(fp, part_num=i + 1)
+            try:
+                mp_upload.upload_part_from_file(fp, part_num=i + 1)
+            except Exception as e:
+                logging.critical(
+                    "Failed to upload the {} to the bucket {} under the key {}. Cancelling the multipart upload {}: {}"
+                    .format(local_file_path, mp_upload.bucket_name, mp_upload.key_name, mp_upload.id, e))
+                cancel_multipart_upload(mp_upload)
+                exit(1)
 
+    # assumes all parts are already uploaded
     mp_upload.complete_upload()
+
+
+def is_successfully_cancelled(mp_upload):
+    uploaded_parts = mp_upload.bucket.list_multipart_uploads(upload_id_marker=mp_upload.id)
+    return len(uploaded_parts) == 0
+
+
+def cancel_multipart_upload(mp_upload, max_retries=3):
+    """
+    Attempt to free storage consumed by already uploaded parts to avoid extra charges from S3.
+    """
+
+    # cancellation might fail for uploads currently in progress
+    for _ in range(max_retries):
+        mp_upload.cancel_upload()
+        if is_successfully_cancelled(mp_upload):
+            break
+        time.sleep(10)
+
+    if not is_successfully_cancelled(mp_upload):
+        logging.warn("Unable to delete some of the already uploaded log parts.\
+        Leftover parts incur monetary charges from S3.")
+
+    return
 
 
 def main():
