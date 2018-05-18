@@ -95,5 +95,6 @@ def main():
 
     upload_to_s3(compress_pg_log())
 
+
 if __name__ == '__main__':
     main()

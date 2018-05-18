@@ -509,14 +509,14 @@ def write_log_environment(placeholders):
         os.makedirs(log_env['LOG_ENV_DIR'])
 
     for var in [
-        'LOG_TMPDIR', 
-        'LOG_AWS_HOST', 
-        'LOG_S3_KEY', 
-        'LOG_S3_BUCKET', 
-        'HOSTNAME', 
-        'PGLOG', 
-        ]:
-          write_file(log_env[var], os.path.join(log_env['LOG_ENV_DIR'], var), True)
+        'LOG_TMPDIR',
+        'LOG_AWS_HOST',
+        'LOG_S3_KEY',
+        'LOG_S3_BUCKET',
+        'HOSTNAME',
+        'PGLOG',
+    ]:
+        write_file(log_env[var], os.path.join(log_env['LOG_ENV_DIR'], var), True)
 
     return
 
@@ -542,8 +542,9 @@ def write_wale_environment(placeholders, provider, prefix, overwrite):
         os.makedirs(wale['WALE_ENV_DIR'])
 
     if wale.get('WAL_S3_BUCKET'):
-        write_file('s3://{WAL_S3_BUCKET}/spilo/{WAL_BUCKET_SCOPE_PREFIX}{SCOPE}{WAL_BUCKET_SCOPE_SUFFIX}/wal/'.format(**wale),
-                   os.path.join(wale['WALE_ENV_DIR'], 'WALE_S3_PREFIX'), overwrite)
+        write_file(
+            's3://{WAL_S3_BUCKET}/spilo/{WAL_BUCKET_SCOPE_PREFIX}{SCOPE}{WAL_BUCKET_SCOPE_SUFFIX}/wal/'
+            .format(**wale), os.path.join(wale['WALE_ENV_DIR'], 'WALE_S3_PREFIX'), overwrite)
         match = re.search(r'.*(eu-\w+-\d+)-.*', wale['WAL_S3_BUCKET'])
         if match:
             region = match.group(1)
@@ -552,8 +553,9 @@ def write_wale_environment(placeholders, provider, prefix, overwrite):
         write_file('https+path://s3-{}.amazonaws.com:443'.format(region),
                    os.path.join(wale['WALE_ENV_DIR'], 'WALE_S3_ENDPOINT'), overwrite)
     elif wale.get('WAL_GCS_BUCKET'):
-        write_file('gs://{WAL_GCS_BUCKET}/spilo/{WAL_BUCKET_SCOPE_PREFIX}{SCOPE}{WAL_BUCKET_SCOPE_SUFFIX}/wal/'.format(**wale),
-                   os.path.join(wale['WALE_ENV_DIR'], 'WALE_GS_PREFIX'), overwrite)
+        write_file(
+            'gs://{WAL_GCS_BUCKET}/spilo/{WAL_BUCKET_SCOPE_PREFIX}{SCOPE}{WAL_BUCKET_SCOPE_SUFFIX}/wal/'
+            .format(**wale), os.path.join(wale['WALE_ENV_DIR'], 'WALE_GS_PREFIX'), overwrite)
         if wale.get('GOOGLE_APPLICATION_CREDENTIALS'):
             write_file(wale['GOOGLE_APPLICATION_CREDENTIALS'],
                        os.path.join(wale['WALE_ENV_DIR'], 'GOOGLE_APPLICATION_CREDENTIALS'), overwrite)
@@ -598,12 +600,14 @@ def write_crontab(placeholders, overwrite):
 
     lines = ['PATH={PATH}'.format(**placeholders)]
     if placeholders['USE_WALE']:
-       lines += ['{BACKUP_SCHEDULE} /postgres_backup.sh "{WALE_ENV_DIR}" "{PGDATA}" "{BACKUP_NUM_TO_RETAIN}"'
-              .format(**placeholders)]
+        lines += [
+            '{BACKUP_SCHEDULE} /postgres_backup.sh "{WALE_ENV_DIR}" " {PGDATA}" "{BACKUP_NUM_TO_RETAIN}"'
+            .format(**placeholders)]
 
     if bool(placeholders.get('LOG_S3_BUCKET')):
-       lines += ['{LOG_SHIP_SCHEDULE} /backup_log.sh "{LOG_ENV_DIR}"'
-              .format(**placeholders)]
+        lines += [
+            '{LOG_SHIP_SCHEDULE} /backup_log.sh "{LOG_ENV_DIR}"'
+            .format(**placeholders)]
 
     lines += yaml.load(placeholders['CRONTAB'])
     lines += ['']  # EOF requires empty line for cron
@@ -726,7 +730,7 @@ def main():
             os.symlink(patroni_configfile, patronictl_configfile)
         elif section == 'log':
             if bool(placeholders.get('LOG_S3_BUCKET')):
-               write_log_environment(placeholders)
+                write_log_environment(placeholders)
         elif section == 'wal-e':
             if placeholders['USE_WALE']:
                 write_wale_environment(placeholders, provider, '', args['force'])
