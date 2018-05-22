@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import argparse
+import json
 import logging
 import re
 import os
@@ -23,6 +24,7 @@ PROVIDER_OPENSTACK = "openstack"
 PROVIDER_LOCAL = "local"
 PROVIDER_UNSUPPORTED = "unsupported"
 USE_KUBERNETES = os.environ.get('KUBERNETES_SERVICE_HOST') is not None
+KUBERNETES_DEFAULT_LABELS = '{"application": "spilo"}'
 MEMORY_LIMIT_IN_BYTES_PATH = '/sys/fs/cgroup/memory/memory.limit_in_bytes'
 
 
@@ -369,6 +371,9 @@ def get_placeholders(provider):
     placeholders.setdefault('PAM_OAUTH2', '')
     placeholders.setdefault('CALLBACK_SCRIPT', '')
     placeholders.setdefault('DCS_ENABLE_KUBERNETES_API', '')
+    placeholders.setdefault('KUBERNETES_ROLE_LABEL', 'spilo-role')
+    placeholders.setdefault('KUBERNETES_SCOPE_LABEL', 'version')
+    placeholders.setdefault('KUBERNETES_LABELS', KUBERNETES_DEFAULT_LABELS)
     placeholders.setdefault('KUBERNETES_USE_CONFIGMAPS', '')
     placeholders.setdefault('USE_PAUSE_AT_RECOVERY_TARGET', False)
     placeholders.setdefault('CLONE_METHOD', '')
@@ -456,8 +461,16 @@ def pystache_render(*args, **kwargs):
 
 def get_dcs_config(config, placeholders):
     if USE_KUBERNETES and placeholders.get('DCS_ENABLE_KUBERNETES_API'):
-        config = {'kubernetes': {'role_label': 'spilo-role', 'scope_label': 'version',
-                                 'labels': {'application': 'spilo'}}}
+        try:
+            kubernetes_labels = json.loads(placeholders.get('KUBERNETES_LABELS'))
+        except (TypeError, ValueError) as e:
+            logging.warning("could not parse kubernetes labels as a JSON: {0}, "
+                            "reverting to the default: {1}".format(e, KUBERNETES_DEFAULT_LABELS))
+            kubernetes_labels = json.loads(KUBERNETES_DEFAULT_LABELS)
+
+        config = {'kubernetes': {'role_label': placeholders.get('KUBERNETES_ROLE_LABEL'),
+                                 'scope_label': placeholders.get('KUBERNETES_SCOPE_LABEL'),
+                                 'labels': kubernetes_labels}}
         if not placeholders.get('KUBERNETES_USE_CONFIGMAPS'):
             config['kubernetes'].update({'use_endpoints': True, 'pod_ip': placeholders['instance_data']['ip'],
                                          'ports': [{'port': 5432, 'name': 'postgresql'}]})
@@ -524,6 +537,9 @@ def write_log_environment(placeholders):
 def write_wale_environment(placeholders, provider, prefix, overwrite):
     # Propagate missing variables as empty strings as that's generally easier
     # to work around than an exception in this code.
+    envdir_names = ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'WALE_S3_ENDPOINT', 'AWS_ENDPOINT',
+                    'AWS_REGION', 'WALG_DELTA_MAX_STEPS', 'WALG_DELTA_ORIGIN',
+                    'WALG_DOWNLOAD_CONCURRENCY', 'WALG_UPLOAD_CONCURRENCY', 'WALG_UPLOAD_DISK_CONCURRENCY']
     wale = defaultdict(lambda: '')
     wale.update({
         name: placeholders.get(prefix + name, '')
@@ -537,30 +553,45 @@ def write_wale_environment(placeholders, provider, prefix, overwrite):
             'GOOGLE_APPLICATION_CREDENTIALS',
         ]
     })
+    wale.update({name: placeholders[prefix + name] for name in envdir_names if prefix + name in placeholders})
+    wale['BUCKET_PATH'] = '/spilo/{WAL_BUCKET_SCOPE_PREFIX}{SCOPE}{WAL_BUCKET_SCOPE_SUFFIX}/wal/'.format(**wale)
 
     if not os.path.exists(wale['WALE_ENV_DIR']):
         os.makedirs(wale['WALE_ENV_DIR'])
 
     if wale.get('WAL_S3_BUCKET'):
-        write_file(
-            's3://{WAL_S3_BUCKET}/spilo/{WAL_BUCKET_SCOPE_PREFIX}{SCOPE}{WAL_BUCKET_SCOPE_SUFFIX}/wal/'
-            .format(**wale), os.path.join(wale['WALE_ENV_DIR'], 'WALE_S3_PREFIX'), overwrite)
-        match = re.search(r'.*(eu-\w+-\d+)-.*', wale['WAL_S3_BUCKET'])
-        if match:
-            region = match.group(1)
-        else:
-            region = placeholders['instance_data']['zone'][:-1]
-        write_file('https+path://s3-{}.amazonaws.com:443'.format(region),
-                   os.path.join(wale['WALE_ENV_DIR'], 'WALE_S3_ENDPOINT'), overwrite)
+        wale_endpoint = wale.get('WALE_S3_ENDPOINT')
+        aws_endpoint = wale.get('AWS_ENDPOINT')
+        aws_region = wale.get('AWS_REGION')
+
+        if not aws_region:
+            match = re.search(r'.*(\w{2}-\w+-\d)-.*', wale_endpoint or aws_endpoint or wale['WAL_S3_BUCKET'])
+            if match:
+                aws_region = match.group(1)
+            else:
+                aws_region = placeholders['instance_data']['zone'][:-1]
+
+        if not aws_endpoint:
+            if wale_endpoint:
+                aws_endpoint = wale_endpoint.replace('+path://', '://')
+            else:
+                aws_endpoint = 'https://s3.{0}.amazonaws.com:443'.format(aws_region)
+
+        if not wale_endpoint and aws_endpoint:
+            wale_endpoint = aws_endpoint.replace('://', '+path://')
+
+        wale['WALE_S3_PREFIX'] = 's3://{WAL_S3_BUCKET}{BUCKET_PATH}'.format(**wale)
+        wale.update(WALE_S3_ENDPOINT=wale_endpoint, AWS_ENDPOINT=aws_endpoint, AWS_REGION=aws_region)
+        write_envdir_names = ['WALE_S3_PREFIX'] + envdir_names
     elif wale.get('WAL_GCS_BUCKET'):
-        write_file(
-            'gs://{WAL_GCS_BUCKET}/spilo/{WAL_BUCKET_SCOPE_PREFIX}{SCOPE}{WAL_BUCKET_SCOPE_SUFFIX}/wal/'
-            .format(**wale), os.path.join(wale['WALE_ENV_DIR'], 'WALE_GS_PREFIX'), overwrite)
-        if wale.get('GOOGLE_APPLICATION_CREDENTIALS'):
-            write_file(wale['GOOGLE_APPLICATION_CREDENTIALS'],
-                       os.path.join(wale['WALE_ENV_DIR'], 'GOOGLE_APPLICATION_CREDENTIALS'), overwrite)
+        wale['WALE_GS_PREFIX'] = 'gs://{WAL_GCS_BUCKET}{BUCKET_PATH}'.format(**wale)
+        write_envdir_names = ['WALE_GS_PREFIX', 'GOOGLE_APPLICATION_CREDENTIALS']
     else:
         return
+
+    for name in write_envdir_names:
+        if wale.get(name):
+            write_file(wale[name], os.path.join(wale['WALE_ENV_DIR'], name), overwrite)
 
     if not os.path.exists(placeholders['WALE_TMPDIR']):
         os.makedirs(placeholders['WALE_TMPDIR'])
@@ -703,6 +734,13 @@ def main():
         raise ValueError('{0} should contain a dict, yet it is a {1}'.format(config_var_name, type(user_config)))
 
     config = deep_update(user_config, config)
+
+    # try to build bin_dir from PGVERSION environment variable if postgresql.bin_dir wasn't set in SPILO_CONFIGURATION
+    if 'bin_dir' not in config['postgresql']:
+        bin_dir = os.path.join('/usr/lib/postgresql', os.environ.get('PGVERSION', ''), 'bin')
+        postgres = os.path.join(bin_dir, 'postgres')
+        if os.path.isfile(postgres) and os.access(postgres, os.X_OK):  # check that there is postgres binary inside
+            config['postgresql']['bin_dir'] = bin_dir
 
     # Ensure replication is available
     if 'pg_hba' in config['bootstrap'] and not any(['replication' in i for i in config['bootstrap']['pg_hba']]):
