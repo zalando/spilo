@@ -178,7 +178,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 && rm -fr build \
                 && ./bootstrap \
                 && make -C build install \
-                && strip /usr/lib/postgresql/$version/lib/timescaledb.so; \
+                && strip /usr/lib/postgresql/$version/lib/timescaledb*.so; \
             fi \
 
             && apt-get purge -y libpq-dev=$version*; \
