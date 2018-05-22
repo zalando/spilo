@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import argparse
+import json
 import logging
 import re
 import os
@@ -23,6 +24,7 @@ PROVIDER_OPENSTACK = "openstack"
 PROVIDER_LOCAL = "local"
 PROVIDER_UNSUPPORTED = "unsupported"
 USE_KUBERNETES = os.environ.get('KUBERNETES_SERVICE_HOST') is not None
+KUBERNETES_DEFAULT_LABELS = '{"application": "spilo"}'
 MEMORY_LIMIT_IN_BYTES_PATH = '/sys/fs/cgroup/memory/memory.limit_in_bytes'
 
 
@@ -369,6 +371,9 @@ def get_placeholders(provider):
     placeholders.setdefault('PAM_OAUTH2', '')
     placeholders.setdefault('CALLBACK_SCRIPT', '')
     placeholders.setdefault('DCS_ENABLE_KUBERNETES_API', '')
+    placeholders.setdefault('KUBERNETES_ROLE_LABEL', 'spilo-role')
+    placeholders.setdefault('KUBERNETES_SCOPE_LABEL', 'version')
+    placeholders.setdefault('KUBERNETES_LABELS', KUBERNETES_DEFAULT_LABELS)
     placeholders.setdefault('KUBERNETES_USE_CONFIGMAPS', '')
     placeholders.setdefault('USE_PAUSE_AT_RECOVERY_TARGET', False)
     placeholders.setdefault('CLONE_METHOD', '')
@@ -447,8 +452,16 @@ def pystache_render(*args, **kwargs):
 
 def get_dcs_config(config, placeholders):
     if USE_KUBERNETES and placeholders.get('DCS_ENABLE_KUBERNETES_API'):
-        config = {'kubernetes': {'role_label': 'spilo-role', 'scope_label': 'version',
-                                 'labels': {'application': 'spilo'}}}
+        try:
+            kubernetes_labels = json.loads(placeholders.get('KUBERNETES_LABELS'))
+        except (TypeError, ValueError) as e:
+            logging.warning("could not parse kubernetes labels as a JSON: {0}, "
+                            "reverting to the default: {1}".format(e, KUBERNETES_DEFAULT_LABELS))
+            kubernetes_labels = json.loads(KUBERNETES_DEFAULT_LABELS)
+
+        config = {'kubernetes': {'role_label': placeholders.get('KUBERNETES_ROLE_LABEL'),
+                                 'scope_label': placeholders.get('KUBERNETES_SCOPE_LABEL'),
+                                 'labels': kubernetes_labels}}
         if not placeholders.get('KUBERNETES_USE_CONFIGMAPS'):
             config['kubernetes'].update({'use_endpoints': True, 'pod_ip': placeholders['instance_data']['ip'],
                                          'ports': [{'port': 5432, 'name': 'postgresql'}]})

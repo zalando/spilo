@@ -34,3 +34,8 @@ Environment Configuration Settings
 - **WAL_GCS_BUCKET**: ditto for the Google Cloud Storage (WAL-E supports both S3 and GCS).
 - **GOOGLE_APPLICATION_CREDENTIALS**: credentials for WAL-E when running in Google Cloud.
 - **CALLBACK_SCRIPT**: the callback script to run on various cluster actions (on start, on stop, on restart, on role change). The script will receive the cluster name, connection string and the current action. See `Patroni <http://patroni.readthedocs.io/en/latest/SETTINGS.html?highlight=callback#postgresql>`__ documentation for details.
+- **DCS_ENABLE_KUBERNETES_API**: a non-empty value forces Patroni to use Kubernetes as a DCS. Default is empty.
+- **KUBERNETES_USE_CONFIGMAPS**: a non-empty value makes Patroni store its metadata in ConfigMaps instead of Endpoints when running on Kubernetes. Default is empty.
+- **KUBERNETES_ROLE_LABEL**: name of the label containing Postgres role when running on Kubernetens. Default is 'spilo-role'.
+- **KUBERNETES_SCOPE_LABEL**: name of the label containing cluster name. Default is 'version'.
+- **KUBERNETES_LABELS**: a JSON describing names and values of other labels used by Patroni on Kubernetes to locate its metadata. Default is '{"application": "spilo"}'.
