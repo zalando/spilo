@@ -1,11 +1,9 @@
-FROM ubuntu:16.04
+FROM ubuntu:18.04
 
 MAINTAINER Alexander Kukushkin <alexander.kukushkin@zalando.de>
 
-#ENV SOURCES="cgal sfcgal gdal r-base"
-ENV SOURCES="cgal sfcgal gdal"
-#ENV PACKAGES="libcgal11v5 libsfcgal1 libgdal1i r-base-core"
-ENV PACKAGES="libcgal11v5 libsfcgal1 libgdal1i"
+ENV SOURCES="gdal"
+ENV PACKAGES="libgdal20"
 
 RUN export DEBIAN_FRONTEND=noninteractive \
     && echo 'APT::Install-Recommends "0";' > /etc/apt/apt.conf.d/01norecommend \
