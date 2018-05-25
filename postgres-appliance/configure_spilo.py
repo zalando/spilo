@@ -503,7 +503,6 @@ def write_log_environment(placeholders):
             'LOG_BUCKET_SCOPE_PREFIX',
             'LOG_BUCKET_SCOPE_SUFFIX',
             'LOG_TMPDIR',
-            'HOSTNAME',
             'PGLOG'
         ]
     })
@@ -511,7 +510,8 @@ def write_log_environment(placeholders):
     region = placeholders['instance_data']['zone'][:-1]
     log_env['LOG_AWS_HOST'] = 's3.{}.amazonaws.com'.format(region)
 
-    log_s3_key = 'spilo/{LOG_BUCKET_SCOPE_PREFIX}{SCOPE}{LOG_BUCKET_SCOPE_SUFFIX}/log/{HOSTNAME}'.format(**log_env)
+    log_s3_key = 'spilo/{LOG_BUCKET_SCOPE_PREFIX}{SCOPE}{LOG_BUCKET_SCOPE_SUFFIX}/log/'.format(**log_env)
+    log_s3_key += placeholders['instance_data']['id']
     log_env['LOG_S3_KEY'] = log_s3_key
 
     if not os.path.exists(log_env['LOG_TMPDIR']):
@@ -526,7 +526,6 @@ def write_log_environment(placeholders):
         'LOG_AWS_HOST',
         'LOG_S3_KEY',
         'LOG_S3_BUCKET',
-        'HOSTNAME',
         'PGLOG',
     ]:
         write_file(log_env[var], os.path.join(log_env['LOG_ENV_DIR'], var), True)
