@@ -58,13 +58,18 @@ def upload_to_s3(local_file_path):
                 mp_upload.upload_part_from_file(fp, part_num=i + 1)
             except Exception as e:
                 logging.critical(
-                    "Failed to upload the {} to the bucket {} under the key {}. Cancelling the multipart upload {}: {}"
+                    """Failed to upload the {} to the bucket {} under the key {}
+                    . Cancelling the multipart upload {}. Error: {}"""
                     .format(local_file_path, mp_upload.bucket_name, mp_upload.key_name, mp_upload.id, e))
                 cancel_multipart_upload(mp_upload)
-                exit(1)
+                return False
 
-    # assumes all parts are already uploaded
+    if not len(mp_upload.get_all_parts()) == chunk_count:
+        cancel_multipart_upload(mp_upload)
+        return False
+
     mp_upload.complete_upload()
+    return True
 
 
 def is_successfully_cancelled(mp_upload):
@@ -93,7 +98,16 @@ def cancel_multipart_upload(mp_upload, max_retries=3):
 
 def main():
 
-    upload_to_s3(compress_pg_log())
+    max_retries = 3
+    compressed_log = compress_pg_log()
+
+    for _ in range(max_retries):
+        if upload_to_s3(compressed_log):
+            exit(0)
+        time.sleep(10)
+
+    logging.warn("Upload of the compressed log file {} failed after {} attempts.", compressed_log, max_retries)
+    exit(1)
 
 
 if __name__ == '__main__':
