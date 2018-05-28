@@ -383,7 +383,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         EXTRAS=",etcd,consul,zookeeper,aws" \
         && apt-get install -y python3-etcd python3-consul python3-kazoo python3-meld3 \
 			python3-boto python3-gevent python3-greenlet python3-protobuf \
-        && pip3 install envdir wal-e[aws,google]==$WALE_VERSION \
+        && pip3 install filechunkio envdir wal-e[aws,google]==$WALE_VERSION \
                 'git+https://github.com/Supervisor/supervisor.git@master#egg=supervisor' \
                 'git+https://github.com/zalando/pg_view.git@master#egg=pg-view' \
 
