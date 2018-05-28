@@ -493,6 +493,7 @@ def get_dcs_config(config, placeholders):
 
 
 def write_log_environment(placeholders):
+
     log_env = defaultdict(lambda: '')
     log_env.update({
         name: placeholders.get(name, '')
@@ -503,12 +504,15 @@ def write_log_environment(placeholders):
             'LOG_BUCKET_SCOPE_PREFIX',
             'LOG_BUCKET_SCOPE_SUFFIX',
             'LOG_TMPDIR',
-            'PGLOG'
+            'PGLOG',
+            'AWS_REGION'
         ]
     })
 
-    region = placeholders['instance_data']['zone'][:-1]
-    log_env['LOG_AWS_HOST'] = 's3.{}.amazonaws.com'.format(region)
+    aws_region = log_env.get('AWS_REGION')
+    if not aws_region:
+        aws_region = placeholders['instance_data']['zone'][:-1]
+    log_env['LOG_AWS_HOST'] = 's3.{}.amazonaws.com'.format(aws_region)
 
     log_s3_key = 'spilo/{LOG_BUCKET_SCOPE_PREFIX}{SCOPE}{LOG_BUCKET_SCOPE_SUFFIX}/log/'.format(**log_env)
     log_s3_key += placeholders['instance_data']['id']
