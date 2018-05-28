@@ -1,0 +1,224 @@
+diff -urN pgq-3.2.6.orig/triggers/common.c pgq-3.2.6/triggers/common.c
+--- pgq-3.2.6.orig/triggers/common.c	2016-12-05 14:50:09.000000000 +0100
++++ pgq-3.2.6/triggers/common.c	2018-05-27 16:41:00.470037030 +0200
+@@ -127,9 +127,17 @@
+ 
+ 	for (i = 0; i < tupdesc->natts; i++) {
+ 		/* Skip dropped columns */
++#if PG_VERSION_NUM >= 110000
++		if (tupdesc->attrs[i].attisdropped)
++#else
+ 		if (tupdesc->attrs[i]->attisdropped)
++#endif
+ 			continue;
++#if PG_VERSION_NUM >= 110000
++		col_name = NameStr(tupdesc->attrs[i].attname);
++#else
+ 		col_name = NameStr(tupdesc->attrs[i]->attname);
++#endif
+ 		if (!is_magic_field(col_name))
+ 			continue;
+ 		if (strcmp(col_name, "_pgq_ev_type") == 0)
+@@ -222,7 +230,12 @@
+ 	/*
+ 	 * create own context
+ 	 */
+-	tbl_cache_ctx = AllocSetContextCreate(TopMemoryContext,
++#if PG_VERSION_NUM >= 110000
++	tbl_cache_ctx = AllocSetContextCreateExtended
++#else
++	tbl_cache_ctx = AllocSetContextCreate
++#endif
++						 (TopMemoryContext,
+ 					      "pgq_triggers table info",
+ 					      ALLOCSET_SMALL_MINSIZE,
+ 					      ALLOCSET_SMALL_INITSIZE,
+@@ -502,7 +515,11 @@
+ 	 */
+ 	tupdesc = tg->tg_relation->rd_att;
+ 	for (i = 0, attcnt = 0; i < tupdesc->natts; i++) {
++#if PG_VERSION_NUM >= 110000
++		if (!tupdesc->attrs[i].attisdropped)
++#else
+ 		if (!tupdesc->attrs[i]->attisdropped)
++#endif
+ 			attcnt++;
+ 	}
+ 
+@@ -624,9 +641,17 @@
+ 	const char *name;
+ 
+ 	tupdesc = tg->tg_relation->rd_att;
++#if PG_VERSION_NUM >= 110000
++	if (tupdesc->attrs[i].attisdropped)
++#else
+ 	if (tupdesc->attrs[i]->attisdropped)
++#endif
+ 		return true;
++#if PG_VERSION_NUM >= 110000
++	name = NameStr(tupdesc->attrs[i].attname);
++#else
+ 	name = NameStr(tupdesc->attrs[i]->attname);
++#endif
+ 
+ 	if (is_magic_field(name)) {
+ 		ev->tgargs->custom_fields = 1;
+@@ -658,9 +683,17 @@
+ 		return ev->attkind[attkind_idx] == 'k';
+ 	} else if (ev->pkey_list) {
+ 		tupdesc = tg->tg_relation->rd_att;
++#if PG_VERSION_NUM >= 110000
++		if (tupdesc->attrs[i].attisdropped)
++#else
+ 		if (tupdesc->attrs[i]->attisdropped)
++#endif
+ 			return false;
++#if PG_VERSION_NUM >= 110000
++		name = NameStr(tupdesc->attrs[i].attname);
++#else
+ 		name = NameStr(tupdesc->attrs[i]->attname);
++#endif
+ 		if (is_magic_field(name)) {
+ 			ev->tgargs->custom_fields = 1;
+ 			return false;
+@@ -852,7 +885,11 @@
+ 		/*
+ 		 * Ignore dropped columns
+ 		 */
++#if PG_VERSION_NUM >= 110000
++		if (tupdesc->attrs[i].attisdropped)
++#else
+ 		if (tupdesc->attrs[i]->attisdropped)
++#endif
+ 			continue;
+ 		attkind_idx++;
+ 
+diff -urN pgq-3.2.6.orig/triggers/jsontriga.c pgq-3.2.6/triggers/jsontriga.c
+--- pgq-3.2.6.orig/triggers/jsontriga.c	2016-12-05 14:50:09.000000000 +0100
++++ pgq-3.2.6/triggers/jsontriga.c	2018-05-27 16:34:32.371944309 +0200
+@@ -164,7 +164,11 @@
+ 	appendStringInfoChar(buf, '{');
+ 	for (i = 0; i < tg->tg_relation->rd_att->natts; i++) {
+ 		/* Skip dropped columns */
++#if PG_VERSION_NUM >= 110000
++		if (tupdesc->attrs[i].attisdropped)
++#else
+ 		if (tupdesc->attrs[i]->attisdropped)
++#endif
+ 			continue;
+ 
+ 		attkind_idx++;
+@@ -183,7 +187,11 @@
+ 		appendStringInfoChar(buf, ':');
+ 
+ 		/* quote column value */
++#if PG_VERSION_NUM >= 110000
++		col_type = tupdesc->attrs[i].atttypid;
++#else
+ 		col_type = tupdesc->attrs[i]->atttypid;
++#endif
+ 		col_datum = SPI_getbinval(row, tupdesc, i + 1, &isnull);
+ 		col_value = NULL;
+ 		if (isnull) {
+diff -urN pgq-3.2.6.orig/triggers/logutriga.c pgq-3.2.6/triggers/logutriga.c
+--- pgq-3.2.6.orig/triggers/logutriga.c	2016-12-05 14:50:09.000000000 +0100
++++ pgq-3.2.6/triggers/logutriga.c	2018-05-27 16:32:49.941907293 +0200
+@@ -43,7 +43,11 @@
+ 
+ 	for (i = 0; i < tg->tg_relation->rd_att->natts; i++) {
+ 		/* Skip dropped columns */
++#if PG_VERSION_NUM >= 110000
++		if (tupdesc->attrs[i].attisdropped)
++#else
+ 		if (tupdesc->attrs[i]->attisdropped)
++#endif
+ 			continue;
+ 
+ 		attkind_idx++;
+diff -urN pgq-3.2.6.orig/triggers/makesql.c pgq-3.2.6/triggers/makesql.c
+--- pgq-3.2.6.orig/triggers/makesql.c	2016-12-05 14:50:09.000000000 +0100
++++ pgq-3.2.6/triggers/makesql.c	2018-05-27 16:43:06.366691235 +0200
+@@ -71,7 +71,11 @@
+ 		char *col_ident;
+ 
+ 		/* Skip dropped columns */
++#if PG_VERSION_NUM >= 110000
++		if (tupdesc->attrs[i].attisdropped)
++#else
+ 		if (tupdesc->attrs[i]->attisdropped)
++#endif
+ 			continue;
+ 
+ 		/* Check if allowed by colstring */
+@@ -103,7 +107,11 @@
+ 		char *col_value;
+ 
+ 		/* Skip dropped columns */
++#if PG_VERSION_NUM >= 110000
++		if (tupdesc->attrs[i].attisdropped)
++#else
+ 		if (tupdesc->attrs[i]->attisdropped)
++#endif
+ 			continue;
+ 
+ 		/* Check if allowed by colstring */
+@@ -154,7 +162,11 @@
+ 		/*
+ 		 * Ignore dropped columns
+ 		 */
++#if PG_VERSION_NUM >= 110000
++		if (tupdesc->attrs[i].attisdropped)
++#else
+ 		if (tupdesc->attrs[i]->attisdropped)
++#endif
+ 			continue;
+ 
+ 		attkind_idx++;
+@@ -240,7 +252,11 @@
+ 			return 0;
+ 
+ 		for (i = 0, attkind_idx = -1; i < tupdesc->natts; i++) {
++#if PG_VERSION_NUM >= 110000
++			if (tupdesc->attrs[i].attisdropped)
++#else
+ 			if (tupdesc->attrs[i]->attisdropped)
++#endif
+ 				continue;
+ 
+ 			attkind_idx++;
+@@ -259,7 +275,11 @@
+ 		/*
+ 		 * Ignore dropped columns
+ 		 */
++#if PG_VERSION_NUM >= 110000
++		if (tupdesc->attrs[i].attisdropped)
++#else
+ 		if (tupdesc->attrs[i]->attisdropped)
++#endif
+ 			continue;
+ 
+ 		attkind_idx++;
+@@ -291,7 +311,11 @@
+ 	int attkind_idx;
+ 
+ 	for (i = 0, attkind_idx = -1; i < tupdesc->natts; i++) {
++#if PG_VERSION_NUM >= 110000
++		if (tupdesc->attrs[i].attisdropped)
++#else
+ 		if (tupdesc->attrs[i]->attisdropped)
++#endif
+ 			continue;
+ 
+ 		attkind_idx++;
+@@ -323,7 +347,11 @@
+ 	 * Count number of active columns
+ 	 */
+ 	for (i = 0, attcnt = 0; i < tupdesc->natts; i++) {
++#if PG_VERSION_NUM >= 110000
++		if (tupdesc->attrs[i].attisdropped)
++#else
+ 		if (tupdesc->attrs[i]->attisdropped)
++#endif
+ 			continue;
+ 		attcnt++;
+ 	}

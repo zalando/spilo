@@ -1,0 +1,99 @@
+diff -urN pg-partman-3.1.3.orig/bin/check_unique_constraint.py pg-partman-3.1.3/bin/check_unique_constraint.py
+--- pg-partman-3.1.3.orig/bin/check_unique_constraint.py	2018-04-16 21:27:46.000000000 +0200
++++ pg-partman-3.1.3/bin/check_unique_constraint.py	2018-05-27 17:19:31.149172243 +0200
+@@ -1,4 +1,4 @@
+-#!/usr/bin/env python
++#!/usr/bin/env python3
+ 
+ import argparse, collections, psycopg2, sys, tempfile
+ 
+diff -urN pg-partman-3.1.3.orig/bin/dump_partition.py pg-partman-3.1.3/bin/dump_partition.py
+--- pg-partman-3.1.3.orig/bin/dump_partition.py	2018-04-16 21:27:46.000000000 +0200
++++ pg-partman-3.1.3/bin/dump_partition.py	2018-05-27 17:19:31.149172243 +0200
+@@ -1,4 +1,4 @@
+-#!/usr/bin/env python
++#!/usr/bin/env python3
+ 
+ import argparse, hashlib, os, os.path, psycopg2, subprocess, sys
+ 
+diff -urN pg-partman-3.1.3.orig/bin/partition_data.py pg-partman-3.1.3/bin/partition_data.py
+--- pg-partman-3.1.3.orig/bin/partition_data.py	2018-04-16 21:27:46.000000000 +0200
++++ pg-partman-3.1.3/bin/partition_data.py	2018-05-27 17:19:31.149172243 +0200
+@@ -1,4 +1,4 @@
+-#!/usr/bin/env python
++#!/usr/bin/env python3
+ 
+ import argparse, psycopg2, time, signal, sys
+ 
+diff -urN pg-partman-3.1.3.orig/bin/reapply_constraints.py pg-partman-3.1.3/bin/reapply_constraints.py
+--- pg-partman-3.1.3.orig/bin/reapply_constraints.py	2018-04-16 21:27:46.000000000 +0200
++++ pg-partman-3.1.3/bin/reapply_constraints.py	2018-05-27 17:19:31.149172243 +0200
+@@ -1,4 +1,4 @@
+-#!/usr/bin/env python
++#!/usr/bin/env python3
+ 
+ import argparse, psycopg2, sys, time
+ from multiprocessing import Process
+diff -urN pg-partman-3.1.3.orig/bin/reapply_foreign_keys.py pg-partman-3.1.3/bin/reapply_foreign_keys.py
+--- pg-partman-3.1.3.orig/bin/reapply_foreign_keys.py	2018-04-16 21:27:46.000000000 +0200
++++ pg-partman-3.1.3/bin/reapply_foreign_keys.py	2018-05-27 17:19:31.149172243 +0200
+@@ -1,4 +1,4 @@
+-#!/usr/bin/env python
++#!/usr/bin/env python3
+ 
+ import argparse, psycopg2, sys
+ 
+diff -urN pg-partman-3.1.3.orig/bin/reapply_indexes.py pg-partman-3.1.3/bin/reapply_indexes.py
+--- pg-partman-3.1.3.orig/bin/reapply_indexes.py	2018-04-16 21:27:46.000000000 +0200
++++ pg-partman-3.1.3/bin/reapply_indexes.py	2018-05-27 17:19:31.149172243 +0200
+@@ -1,4 +1,4 @@
+-#!/usr/bin/env python
++#!/usr/bin/env python3
+ 
+ import argparse, psycopg2, re, sys, time
+ from multiprocessing import Process
+diff -urN pg-partman-3.1.3.orig/bin/undo_partition.py pg-partman-3.1.3/bin/undo_partition.py
+--- pg-partman-3.1.3.orig/bin/undo_partition.py	2018-04-16 21:27:46.000000000 +0200
++++ pg-partman-3.1.3/bin/undo_partition.py	2018-05-27 17:19:31.149172243 +0200
+@@ -1,4 +1,4 @@
+-#!/usr/bin/env python
++#!/usr/bin/env python3
+ 
+ import argparse, psycopg2, signal, sys, time
+ 
+diff -urN pg-partman-3.1.3.orig/bin/vacuum_maintenance.py pg-partman-3.1.3/bin/vacuum_maintenance.py
+--- pg-partman-3.1.3.orig/bin/vacuum_maintenance.py	2018-04-16 21:27:46.000000000 +0200
++++ pg-partman-3.1.3/bin/vacuum_maintenance.py	2018-05-27 17:19:31.149172243 +0200
+@@ -1,4 +1,4 @@
+-#!/usr/bin/env python
++#!/usr/bin/env python3
+ 
+ import argparse, psycopg2, sys
+ 
+diff -urN pg-partman-3.1.3.orig/debian/control.in pg-partman-3.1.3/debian/control.in
+--- pg-partman-3.1.3.orig/debian/control.in	2018-01-22 20:47:02.000000000 +0100
++++ pg-partman-3.1.3/debian/control.in	2018-05-27 17:19:42.505039604 +0200
+@@ -11,7 +11,7 @@
+ 
+ Package: postgresql-PGVERSION-partman
+ Architecture: any
+-Depends: ${misc:Depends}, ${shlibs:Depends}, postgresql-PGVERSION, python
++Depends: ${misc:Depends}, ${shlibs:Depends}, postgresql-PGVERSION, python3
+ Description: PostgreSQL Partition Manager
+  pg_partman is a PostgreSQL extension to create and manage both time-based and
+  serial-based table partition sets. Sub-partitioning is also supported. Child
+diff -urN pg-partman-3.1.3.orig/src/pg_partman_bgw.c pg-partman-3.1.3/src/pg_partman_bgw.c
+--- pg-partman-3.1.3.orig/src/pg_partman_bgw.c	2018-04-16 21:27:46.000000000 +0200
++++ pg-partman-3.1.3/src/pg_partman_bgw.c	2018-05-27 17:19:05.717459837 +0200
+@@ -395,7 +395,11 @@
+     }
+ 
+     elog(DEBUG1, "Before run_maint initialize connection for db %s", dbname);
++#if PG_VERSION_NUM >= 110000
++    BackgroundWorkerInitializeConnection(dbname, pg_partman_bgw_role, 0);
++#else
+     BackgroundWorkerInitializeConnection(dbname, pg_partman_bgw_role);
++#endif
+     elog(DEBUG1, "After run_maint initialize connection for db %s", dbname);
+ 
+     initStringInfo(&buf);

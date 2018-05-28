@@ -1,0 +1,87 @@
+diff -urN pg-cron-1.0.2.orig/Makefile pg-cron-1.0.2/Makefile
+--- pg-cron-1.0.2.orig/Makefile	2018-05-27 17:09:08.000000000 +0200
++++ pg-cron-1.0.2/Makefile	2018-05-27 17:09:23.750481990 +0200
+@@ -9,7 +9,7 @@
+ # compilation configuration
+ MODULE_big = $(EXTENSION)
+ OBJS = $(patsubst %.c,%.o,$(wildcard src/*.c))
+-PG_CPPFLAGS = -std=c99 -Wall -Wextra -Werror -Wno-unused-parameter -Wno-maybe-uninitialized -Wno-implicit-fallthrough -Iinclude -I$(libpq_srcdir)
++PG_CPPFLAGS = -std=c99 -Wall -Wextra -Werror -Wno-unused-parameter -Wno-uninitialized -Wno-implicit-fallthrough -Iinclude -I$(libpq_srcdir)
+ SHLIB_LINK = $(libpq)
+ EXTRA_CLEAN += $(addprefix src/,*.gcno *.gcda) # clean up after profiling runs
+ 
+diff -urN pg-cron-1.0.2.orig/src/job_metadata.c pg-cron-1.0.2/src/job_metadata.c
+--- pg-cron-1.0.2.orig/src/job_metadata.c	2018-05-27 17:09:08.000000000 +0200
++++ pg-cron-1.0.2/src/job_metadata.c	2018-05-27 17:10:27.187101724 +0200
+@@ -92,7 +92,12 @@
+ 	/* watch for invalidation events */
+ 	CacheRegisterRelcacheCallback(InvalidateJobCacheCallback, (Datum) 0);
+ 
+-	CronJobContext = AllocSetContextCreate(CurrentMemoryContext,
++#if PG_VERSION_NUM >= 110000
++	CronJobContext = AllocSetContextCreateExtended
++#else
++	CronJobContext = AllocSetContextCreate
++#endif
++										  (CurrentMemoryContext,
+ 										   "pg_cron job context",
+ 										   ALLOCSET_DEFAULT_MINSIZE,
+ 										   ALLOCSET_DEFAULT_INITSIZE,
+@@ -370,7 +375,11 @@
+ 												ACL_DELETE);
+ 		if (aclResult != ACLCHECK_OK)
+ 		{
++#if PG_VERSION_NUM >= 110000
++			aclcheck_error(aclResult, OBJECT_TABLE,
++#else
+ 			aclcheck_error(aclResult, ACL_KIND_CLASS,
++#endif
+ 						   get_rel_name(CronJobRelationId()));
+ 		}
+ 	}
+diff -urN pg-cron-1.0.2.orig/src/pg_cron.c pg-cron-1.0.2/src/pg_cron.c
+--- pg-cron-1.0.2.orig/src/pg_cron.c	2018-05-27 17:09:08.000000000 +0200
++++ pg-cron-1.0.2/src/pg_cron.c	2018-05-27 17:09:23.750481990 +0200
+@@ -240,7 +240,11 @@
+ 	BackgroundWorkerUnblockSignals();
+ 
+ 	/* Connect to our database */
++#if PG_VERSION_NUM >= 110000
++	BackgroundWorkerInitializeConnection(CronTableDatabaseName, NULL, 0);
++#else
+ 	BackgroundWorkerInitializeConnection(CronTableDatabaseName, NULL);
++#endif
+ 
+ 	/* Determine how many tasks we can run concurrently */
+ 	if (MaxConnections < MaxRunningTasks)
+@@ -264,7 +268,12 @@
+ 		MaxRunningTasks = 1;
+ 	}
+ 
+-	CronLoopContext = AllocSetContextCreate(CurrentMemoryContext,
++#if PG_VERSION_NUM >= 110000
++	CronLoopContext = AllocSetContextCreateExtended
++#else
++	CronLoopContext = AllocSetContextCreate
++#endif
++										   (CurrentMemoryContext,
+ 											"pg_cron loop context",
+ 											ALLOCSET_DEFAULT_MINSIZE,
+ 											ALLOCSET_DEFAULT_INITSIZE,
+diff -urN pg-cron-1.0.2.orig/src/task_states.c pg-cron-1.0.2/src/task_states.c
+--- pg-cron-1.0.2.orig/src/task_states.c	2017-10-06 09:52:32.000000000 +0200
++++ pg-cron-1.0.2/src/task_states.c	2018-05-27 17:09:23.750481990 +0200
+@@ -36,7 +36,12 @@
+ void
+ InitializeTaskStateHash(void)
+ {
+-	CronTaskContext = AllocSetContextCreate(CurrentMemoryContext,
++#if PG_VERSION_NUM >= 110000
++	CronTaskContext = AllocSetContextCreateExtended
++#else
++	CronTaskContext = AllocSetContextCreate
++#endif
++										   (CurrentMemoryContext,
+ 											"pg_cron task context",
+ 											ALLOCSET_DEFAULT_MINSIZE,
+ 											ALLOCSET_DEFAULT_INITSIZE,
