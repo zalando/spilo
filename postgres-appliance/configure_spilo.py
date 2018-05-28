@@ -504,6 +504,7 @@ def write_wale_environment(placeholders, provider, prefix, overwrite):
     })
     wale.update({name: placeholders[prefix + name] for name in envdir_names if prefix + name in placeholders})
     wale['BUCKET_PATH'] = '/spilo/{WAL_BUCKET_SCOPE_PREFIX}{SCOPE}{WAL_BUCKET_SCOPE_SUFFIX}/wal/'.format(**wale)
+    wale['WALE_LOG_DESTINATION'] = 'stderr'
 
     if not os.path.exists(wale['WALE_ENV_DIR']):
         os.makedirs(wale['WALE_ENV_DIR'])
@@ -538,7 +539,7 @@ def write_wale_environment(placeholders, provider, prefix, overwrite):
     else:
         return
 
-    for name in write_envdir_names:
+    for name in write_envdir_names + ['WALE_LOG_DESTINATION']:
         if wale.get(name):
             write_file(wale[name], os.path.join(wale['WALE_ENV_DIR'], name), overwrite)
 
