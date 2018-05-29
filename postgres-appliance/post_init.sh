@@ -1,10 +1,36 @@
 #!/bin/bash
 
-(echo "CREATE ROLE admin CREATEDB NOLOGIN;
-CREATE ROLE $1;
-CREATE ROLE robot_zmon;
+(echo "DO \$\$
+BEGIN
+    PERFORM * FROM pg_catalog.pg_authid WHERE rolname = 'admin';
+    IF FOUND THEN
+        ALTER ROLE admin WITH CREATEDB NOLOGIN NOCREATEROLE NOSUPERUSER NOREPLICATION INHERIT;
+    ELSE
+        CREATE ROLE admin CREATEDB;
+    END IF;
+END;\$\$;
 
-CREATE EXTENSION pg_cron;
+DO \$\$
+BEGIN
+    PERFORM * FROM pg_catalog.pg_authid WHERE rolname = '$1';
+    IF FOUND THEN
+        ALTER ROLE $1 WITH NOCREATEDB NOLOGIN NOCREATEROLE NOSUPERUSER NOREPLICATION INHERIT;
+    ELSE
+        CREATE ROLE $1;
+    END IF;
+END;\$\$;
+
+DO \$\$
+BEGIN
+    PERFORM * FROM pg_catalog.pg_authid WHERE rolname = 'robot_zmon';
+    IF FOUND THEN
+        ALTER ROLE robot_zmon WITH NOCREATEDB NOLOGIN NOCREATEROLE NOSUPERUSER NOREPLICATION INHERIT;
+    ELSE
+        CREATE ROLE robot_zmon;
+    END IF;
+END;\$\$;
+
+CREATE EXTENSION IF NOT EXISTS pg_cron SCHEMA public;
 
 ALTER POLICY cron_job_policy ON cron.job USING (username = current_user OR
     (pg_has_role(current_user, 'admin', 'MEMBER')
@@ -39,9 +65,16 @@ REVOKE EXECUTE ON FUNCTION cron.unschedule(bigint) FROM public;
 GRANT EXECUTE ON FUNCTION cron.unschedule(bigint) TO admin;
 GRANT USAGE ON SCHEMA cron TO admin;
 
-CREATE EXTENSION file_fdw;
-CREATE SERVER pglog FOREIGN DATA WRAPPER file_fdw;
-CREATE TABLE postgres_log (
+CREATE EXTENSION IF NOT EXISTS file_fdw SCHEMA public;
+DO \$\$
+BEGIN
+    PERFORM * FROM pg_catalog.pg_foreign_server WHERE srvname = 'pglog';
+    IF NOT FOUND THEN
+        CREATE SERVER pglog FOREIGN DATA WRAPPER file_fdw;
+    END IF;
+END;\$\$;
+
+CREATE TABLE IF NOT EXISTS public.postgres_log (
     log_time timestamp(3) with time zone,
     user_name text,
     database_name text,
@@ -67,31 +100,31 @@ CREATE TABLE postgres_log (
     application_name text,
     CONSTRAINT postgres_log_check CHECK (false) NO INHERIT
 );
-GRANT SELECT ON postgres_log TO admin;"
+GRANT SELECT ON public.postgres_log TO admin;"
 
 # Sunday could be 0 or 7 depending on the format, we just create both
 for i in $(seq 0 7); do
-    echo "CREATE FOREIGN TABLE postgres_log_$i () INHERITS (postgres_log) SERVER pglog
+    echo "CREATE FOREIGN TABLE IF NOT EXISTS public.postgres_log_$i () INHERITS (public.postgres_log) SERVER pglog
     OPTIONS (filename '../pg_log/postgresql-$i.csv', format 'csv', header 'false');
-GRANT SELECT ON postgres_log_$i TO admin;
+GRANT SELECT ON public.postgres_log_$i TO admin;
 
-CREATE OR REPLACE VIEW failed_authentication_$i WITH (security_barrier) AS
+CREATE OR REPLACE VIEW public.failed_authentication_$i WITH (security_barrier) AS
 SELECT *
-  FROM postgres_log_$i
+  FROM public.postgres_log_$i
  WHERE command_tag = 'authentication'
    AND error_severity = 'FATAL';
-ALTER VIEW failed_authentication_$i OWNER TO postgres;
-GRANT SELECT ON TABLE failed_authentication_$i TO robot_zmon;
+ALTER VIEW public.failed_authentication_$i OWNER TO postgres;
+GRANT SELECT ON TABLE public.failed_authentication_$i TO robot_zmon;
 "
 done
 
-cat /_zmon_schema.dump
+cat _zmon_schema.dump
 
-sed "s/:HUMAN_ROLE/$1/" /create_user_functions.sql
-
-echo "\c template1
-CREATE EXTENSION pg_stat_statements;
-CREATE EXTENSION set_user;
-GRANT EXECUTE ON FUNCTION set_user(text) TO admin;"
-
-sed "s/:HUMAN_ROLE/$1/" /create_user_functions.sql) | psql -d $2
+while IFS= read -r db_name; do
+    echo "\c ${db_name}"
+    sed "s/:HUMAN_ROLE/$1/" create_user_functions.sql
+    echo "CREATE EXTENSION IF NOT EXISTS pg_stat_statements SCHEMA public;
+CREATE EXTENSION IF NOT EXISTS set_user SCHEMA public;
+GRANT EXECUTE ON FUNCTION public.set_user(text) TO admin;"
+done < <(psql -d $2 -tAc 'select pg_catalog.quote_ident(datname) from pg_database where datallowconn')
+) | psql -d $2
