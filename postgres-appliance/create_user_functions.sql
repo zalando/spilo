@@ -1,4 +1,4 @@
-CREATE SCHEMA user_management;
+CREATE SCHEMA IF NOT EXISTS user_management;
 
 GRANT USAGE ON SCHEMA user_management TO admin;
 
@@ -21,7 +21,8 @@ bricks (b) AS (
     SELECT c FROM chars, generate_series(1, length) ORDER BY random()
 )
 SELECT substr(string_agg(b, ''), 1, length) FROM bricks;
-$$;
+$$
+SET search_path to 'pg_catalog';
 
 CREATE OR REPLACE FUNCTION create_application_user(username text)
  RETURNS text
@@ -35,7 +36,7 @@ BEGIN
     RETURN pw;
 END
 $function$
-SECURITY DEFINER;
+SECURITY DEFINER SET search_path to 'pg_catalog';
 
 REVOKE ALL ON FUNCTION create_application_user(text) FROM public;
 GRANT EXECUTE ON FUNCTION create_application_user(text) TO admin;
@@ -50,11 +51,11 @@ CREATE OR REPLACE FUNCTION create_user(username text)
  LANGUAGE plpgsql
 AS $function$
 BEGIN
-    EXECUTE format($$ CREATE USER %I IN ROLE :HUMAN_ROLE, admin $$, username);
+    EXECUTE format($$ CREATE USER %I IN ROLE zalandos, admin $$, username);
     EXECUTE format($$ ALTER ROLE %I SET log_statement TO 'all' $$, username);
 END;
 $function$
-SECURITY DEFINER;
+SECURITY DEFINER SET search_path to 'pg_catalog';
 
 REVOKE ALL ON FUNCTION create_user(text) FROM public;
 GRANT EXECUTE ON FUNCTION create_user(text) TO admin;
@@ -71,7 +72,7 @@ BEGIN
     EXECUTE format($$ CREATE ROLE %I WITH ADMIN admin $$, rolename);
 END;
 $function$
-SECURITY DEFINER;
+SECURITY DEFINER SET search_path to 'pg_catalog';
 
 REVOKE ALL ON FUNCTION create_role(text) FROM public;
 GRANT EXECUTE ON FUNCTION create_role(text) TO admin;
@@ -94,7 +95,7 @@ BEGIN
     END IF;
 END
 $function$
-SECURITY DEFINER;
+SECURITY DEFINER SET search_path to 'pg_catalog';
 
 REVOKE ALL ON FUNCTION create_application_user_or_change_password(text, text) FROM public;
 GRANT EXECUTE ON FUNCTION create_application_user_or_change_password(text, text) TO admin;
@@ -112,7 +113,7 @@ BEGIN
     EXECUTE format($$ REVOKE admin FROM %I $$, username);
 END
 $function$
-SECURITY DEFINER;
+SECURITY DEFINER SET search_path to 'pg_catalog';
 
 REVOKE ALL ON FUNCTION revoke_admin(text) FROM public;
 GRANT EXECUTE ON FUNCTION revoke_admin(text) TO admin;
@@ -129,7 +130,7 @@ BEGIN
     EXECUTE format($$ DROP ROLE %I $$, username);
 END
 $function$
-SECURITY DEFINER;
+SECURITY DEFINER SET search_path to 'pg_catalog';
 
 REVOKE ALL ON FUNCTION drop_user(text) FROM public;
 GRANT EXECUTE ON FUNCTION drop_user(text) TO admin;
@@ -144,7 +145,7 @@ CREATE OR REPLACE FUNCTION drop_role(username text)
 AS $function$
 SELECT user_management.drop_user(username);
 $function$
-SECURITY DEFINER;
+SECURITY DEFINER SET search_path to 'pg_catalog';
 
 REVOKE ALL ON FUNCTION drop_role(text) FROM public;
 GRANT EXECUTE ON FUNCTION drop_role(text) TO admin;
@@ -159,7 +160,7 @@ CREATE OR REPLACE FUNCTION terminate_backend(pid integer)
 AS $function$
 SELECT pg_terminate_backend(pid);
 $function$
-SECURITY DEFINER;
+SECURITY DEFINER SET search_path to 'pg_catalog';
 
 REVOKE ALL ON FUNCTION terminate_backend(integer) FROM public;
 GRANT EXECUTE ON FUNCTION terminate_backend(integer) TO admin;
