@@ -1,5 +1,7 @@
 #!/bin/bash
 
+cd "$(dirname "${BASH_SOURCE[0]}")"
+
 (echo "DO \$\$
 BEGIN
     PERFORM * FROM pg_catalog.pg_authid WHERE rolname = 'admin';
