@@ -110,7 +110,7 @@ def deep_update(a, b):
 TEMPLATE = \
     '''
 bootstrap:
-  post_init: /post_init.sh "{{HUMAN_ROLE}}"
+  post_init: /scripts/post_init.sh "{{HUMAN_ROLE}}"
   dcs:
     ttl: 30
     loop_wait: &loop_wait 10
@@ -148,9 +148,9 @@ bootstrap:
   {{#CLONE_WITH_WALE}}
   method: clone_with_wale
   clone_with_wale:
-    command: python3 /clone_with_s3.py --envdir "{{CLONE_WALE_ENV_DIR}}" --recovery-target-time="{{CLONE_TARGET_TIME}}"
+    command: python3 /scripts/clone_with_s3.py --envdir "{{CLONE_WALE_ENV_DIR}}" --recovery-target-time="{{CLONE_TARGET_TIME}}"
     recovery_conf:
-        restore_command: envdir "{{CLONE_WALE_ENV_DIR}}" /wale_restore_command.sh "%f" "%p"
+        restore_command: envdir "{{CLONE_WALE_ENV_DIR}}" /scripts/wale_restore_command.sh "%f" "%p"
         recovery_target_timeline: latest
         {{#USE_PAUSE_AT_RECOVERY_TARGET}}
         pause_at_recovery_target: false
@@ -168,7 +168,7 @@ bootstrap:
   {{#CLONE_WITH_BASEBACKUP}}
   method: clone_with_basebackup
   clone_with_basebackup:
-    command: python3 /clone_with_basebackup.py --pgpass={{CLONE_PGPASS}} --host={{CLONE_HOST}} --port={{CLONE_PORT}} --user="{{CLONE_USER}}"
+    command: python3 /scripts/clone_with_basebackup.py --pgpass={{CLONE_PGPASS}} --host={{CLONE_HOST}} --port={{CLONE_PORT}} --user="{{CLONE_USER}}"
   {{/CLONE_WITH_BASEBACKUP}}
   initdb:
     - encoding: UTF8
@@ -227,7 +227,7 @@ postgresql:
 
   {{#USE_WALE}}
   recovery_conf:
-    restore_command: envdir "{{WALE_ENV_DIR}}" /wale_restore_command.sh "%f" "%p"
+    restore_command: envdir "{{WALE_ENV_DIR}}" /scripts/wale_restore_command.sh "%f" "%p"
   {{/USE_WALE}}
   authentication:
     superuser:
@@ -236,11 +236,14 @@ postgresql:
     replication:
       username: {{PGUSER_STANDBY}}
       password: '{{PGPASSWORD_STANDBY}}'
- {{#CALLBACK_SCRIPT}}
   callbacks:
+  {{#CALLBACK_SCRIPT}}
     on_start: {{CALLBACK_SCRIPT}}
     on_stop: {{CALLBACK_SCRIPT}}
-    on_role_change: {{CALLBACK_SCRIPT}}
+    on_role_change: '/scripts/on_role_change.sh {{HUMAN_ROLE}} {{CALLBACK_SCRIPT}}'
+ {{/CALLBACK_SCRIPT}}
+ {{^CALLBACK_SCRIPT}}
+    on_role_change: '/scripts/on_role_change.sh {{HUMAN_ROLE}} true'
  {{/CALLBACK_SCRIPT}}
 {{#USE_WALE}}
   create_replica_method:
@@ -255,7 +258,7 @@ postgresql:
     retries: 2
     no_master: 1
   basebackup_fast_xlog:
-    command: /basebackup.sh
+    command: /scripts/basebackup.sh
     retries: 2
 {{/USE_WALE}}
 '''
@@ -400,7 +403,8 @@ def get_placeholders(provider):
     if provider == PROVIDER_AWS:
         if not USE_KUBERNETES:  # AWS specific callback to tag the instances with roles
             if placeholders.get('EIP_ALLOCATION'):
-                placeholders['CALLBACK_SCRIPT'] = 'python3 /callback_aws.py {0}'.format(placeholders['EIP_ALLOCATION'])
+                placeholders['CALLBACK_SCRIPT'] = 'python3 /scripts/callback_aws.py {0}'. \
+                                                     format(placeholders['EIP_ALLOCATION'])
             else:
                 placeholders['CALLBACK_SCRIPT'] = 'patroni_aws'
 
@@ -410,9 +414,9 @@ def get_placeholders(provider):
     if USE_KUBERNETES:
         if placeholders.get('DCS_ENABLE_KUBERNETES_API'):
             if placeholders.get('KUBERNETES_USE_CONFIGMAPS'):
-                placeholders['CALLBACK_SCRIPT'] = 'python3 /callback_endpoint.py'
+                placeholders['CALLBACK_SCRIPT'] = 'python3 /scripts/callback_endpoint.py'
         else:
-            placeholders['CALLBACK_SCRIPT'] = 'python3 /callback_role.py'
+            placeholders['CALLBACK_SCRIPT'] = 'python3 /scripts/callback_role.py'
 
     placeholders.setdefault('postgresql', {})
     placeholders['postgresql'].setdefault('parameters', {})
@@ -580,7 +584,7 @@ def write_crontab(placeholders, overwrite):
                 return logging.warning('Cron is already configured. (Use option --force to overwrite cron)')
 
     lines = ['PATH={PATH}'.format(**placeholders)]
-    lines += ['{BACKUP_SCHEDULE} /postgres_backup.sh "{WALE_ENV_DIR}" "{PGDATA}" "{BACKUP_NUM_TO_RETAIN}"'
+    lines += ['{BACKUP_SCHEDULE} /scripts/postgres_backup.sh "{WALE_ENV_DIR}" "{PGDATA}" "{BACKUP_NUM_TO_RETAIN}"'
               .format(**placeholders)]
 
     lines += yaml.load(placeholders['CRONTAB'])
