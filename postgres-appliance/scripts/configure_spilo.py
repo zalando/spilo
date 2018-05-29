@@ -236,11 +236,14 @@ postgresql:
     replication:
       username: {{PGUSER_STANDBY}}
       password: '{{PGPASSWORD_STANDBY}}'
- {{#CALLBACK_SCRIPT}}
   callbacks:
+  {{#CALLBACK_SCRIPT}}
     on_start: {{CALLBACK_SCRIPT}}
     on_stop: {{CALLBACK_SCRIPT}}
     on_role_change: '/scripts/on_role_change.sh {{HUMAN_ROLE}} {{CALLBACK_SCRIPT}}'
+ {{/CALLBACK_SCRIPT}}
+ {{^CALLBACK_SCRIPT}}
+    on_role_change: '/scripts/on_role_change.sh {{HUMAN_ROLE}} true'
  {{/CALLBACK_SCRIPT}}
 {{#USE_WALE}}
   create_replica_method:
