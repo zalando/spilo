@@ -51,7 +51,7 @@ CREATE OR REPLACE FUNCTION create_user(username text)
  LANGUAGE plpgsql
 AS $function$
 BEGIN
-    EXECUTE format($$ CREATE USER %I IN ROLE zalandos, admin $$, username);
+    EXECUTE format($$ CREATE USER %I IN ROLE :HUMAN_ROLE, admin $$, username);
     EXECUTE format($$ ALTER ROLE %I SET log_statement TO 'all' $$, username);
 END;
 $function$
