@@ -67,13 +67,13 @@ CREATE TABLE postgres_log (
     application_name text,
     CONSTRAINT postgres_log_check CHECK (false) NO INHERIT
 );
-GRANT SELECT ON postgres_log TO ADMIN;"
+GRANT SELECT ON postgres_log TO admin;"
 
 # Sunday could be 0 or 7 depending on the format, we just create both
 for i in $(seq 0 7); do
     echo "CREATE FOREIGN TABLE postgres_log_$i () INHERITS (postgres_log) SERVER pglog
     OPTIONS (filename '../pg_log/postgresql-$i.csv', format 'csv', header 'false');
-GRANT SELECT ON postgres_log_$i TO ADMIN;
+GRANT SELECT ON postgres_log_$i TO admin;
 
 CREATE OR REPLACE VIEW failed_authentication_$i WITH (security_barrier) AS
 SELECT *
