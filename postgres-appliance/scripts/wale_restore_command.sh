@@ -21,5 +21,5 @@ if [[ -z $WALE_S3_PREFIX ]]; then  # non AWS environment?
         exec wal-e wal-fetch -p $POOL_SIZE "${wal_filename}" "${wal_destination}"
     fi
 else
-    exec /wal-e-wal-fetch.sh --aws-instance-profile wal-fetch -p $POOL_SIZE "${wal_filename}" "${wal_destination}"
+    exec /scripts/wal-e-wal-fetch.sh --aws-instance-profile wal-fetch -p $POOL_SIZE "${wal_filename}" "${wal_destination}"
 fi

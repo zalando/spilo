@@ -1,9 +1,24 @@
 RESET ROLE;
 SET ROLE TO postgres;
 
-CREATE LANGUAGE plpython3u;
-
 DROP SCHEMA IF EXISTS zmon_utils CASCADE;
+
+DO $$
+BEGIN
+    PERFORM * FROM pg_catalog.pg_language WHERE lanname = 'plpython3u' AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_extension WHERE extname = 'plpython3u');
+    IF FOUND THEN
+        CREATE EXTENSION plpython3u FROM UNPACKAGED;
+    ELSE
+        CREATE EXTENSION IF NOT EXISTS plpython3u;
+    END IF;
+END;$$;
+
+-- remove plpython2 leftovers
+DROP LANGUAGE IF EXISTS plpythonu;
+DROP FUNCTION IF EXISTS plpython_call_handler();
+DROP FUNCTION IF EXISTS plpython_inline_handler(internal);
+DROP FUNCTION IF EXISTS plpython_validator(oid);
+
 CREATE SCHEMA zmon_utils;
 
 GRANT USAGE ON SCHEMA zmon_utils TO robot_zmon;
@@ -24,15 +39,24 @@ DECLARE
    wal_delay_seconds    BIGINT;
    in_recovery          BOOLEAN;
    xlog_location_string TEXT;
+   receive_location     TEXT;
    server_version_num   INTEGER;
    nosync               INTEGER;
 BEGIN
   server_version_num := current_setting('server_version_num')::integer;
   SELECT pg_is_in_recovery() INTO in_recovery;
-  SELECT
-        CASE WHEN in_recovery THEN pg_last_xlog_replay_location()
-        ELSE pg_current_xlog_location()
-        END INTO xlog_location_string;
+  IF server_version_num >= 100000
+  THEN
+    SELECT CASE WHEN in_recovery THEN pg_last_wal_replay_lsn()
+           ELSE pg_current_wal_lsn()
+           END INTO xlog_location_string;
+    SELECT pg_last_wal_receive_lsn() INTO receive_location;
+  ELSE
+    SELECT CASE WHEN in_recovery THEN pg_last_xlog_replay_location()
+           ELSE pg_current_xlog_location()
+           END INTO xlog_location_string;
+    SELECT pg_last_xlog_receive_location() INTO receive_location;
+  END IF;
   SELECT ('x'||lpad(split_part(xlog_location_string, '/', 1), 16, '0'))::bit(64)::bigint INTO wal_segment;
   SELECT ('x'||lpad(split_part(xlog_location_string, '/', 2), 16, '0'))::bit(64)::bigint INTO wal_offset;
   SELECT 1 FROM pg_ls_dir('.') as t(name) WHERE name = 'dontsync' INTO nosync;
@@ -76,7 +100,7 @@ BEGIN
                   'synchronous_commit'
                  )
    UNION ALL
-  SELECT 'cluster_name', substring(s.setting from E'/pgsql_([^/]+)/[^/]+/data$')
+  SELECT 'cluster_name', COALESCE(CASE WHEN server_version_num >= 90500 THEN current_setting('cluster_name') ELSE NULL END, substring(s.setting from E'/pgsql_([^/]+)/[^/]+/data$'))
     FROM pg_settings as s
    WHERE s.name = 'data_directory'
    UNION ALL
@@ -92,7 +116,7 @@ BEGIN
     UNION ALL
   SELECT 'wal_delay_seconds' as name, wal_delay_seconds::text
     UNION ALL
-  SELECT 'is_streaming' as name, CAST(pg_last_xlog_receive_location() IS NOT NULL AND in_recovery AS TEXT) as setting
+  SELECT 'is_streaming' as name, CAST(receive_location IS NOT NULL AND in_recovery AS TEXT) as setting
     UNION ALL
   SELECT 'archive_nosync' as name, CAST(nosync IS NOT NULL AS TEXT) as setting;
   -- pg_stat_activity column names differ depending on server version
@@ -138,11 +162,8 @@ BEGIN
 END
 $BODY$
 LANGUAGE plpgsql
-SECURITY DEFINER;
-DO $DO$
-BEGIN
-
-IF EXISTS( SELECT 1 FROM pg_language WHERE lanname = 'plpython3u' ) THEN
+SECURITY DEFINER
+SET search_path to 'pg_catalog';
 
 CREATE OR REPLACE FUNCTION zmon_utils.get_database_cluster_system_information()
 RETURNS SETOF zmon_utils.system_information
@@ -366,7 +387,7 @@ def get_vm_info():
                   '/proc/sys/vm/overcommit_ratio' : 'vm.overcommit_ratio'
                 }
     try:
-        for fname, kname in file_keys.tems():
+        for fname, kname in file_keys.items():
             try:
                 fp = open(fname, 'r')
                 val = int(fp.read().strip())
@@ -380,7 +401,7 @@ def get_vm_info():
 if "stmt_settings" in SD:
     plan = SD["stmt_settings"]
 else:
-    plan = plpy.prepare("SELECT name, setting FROM pg_catalog.pg_settings WHERE name in ('data_directory', 'log_directory')")
+    plan = plpy.prepare("SELECT name, setting FROM pg_catalog.pg_settings WHERE name in ('data_directory', 'log_directory', 'server_version_num')")
     SD["stmt_settings"] = plan
 
 rv = plpy.execute(plan)
@@ -391,7 +412,7 @@ for r in rv:
 data_directory = s["data_directory"]
 log_directory = s["log_directory"] = os.path.join(data_directory, s["log_directory"])
 pg_tblspc = os.path.join(data_directory, "pg_tblspc")
-pg_xlog = os.path.join(data_directory, "pg_xlog")
+pg_xlog = os.path.join(data_directory, "pg_xlog" if int(s["server_version_num"]) < 100000 else "pg_wal")
 
 result = {}
 
@@ -402,9 +423,10 @@ if len(ts_stats) > 0:
 
 #get xlog and log directories
 for (path, prefix) in ((pg_xlog, 'xlog'), (log_directory, 'log')):
-    stats = collect_directory_stats(path, prefix)
-    if len(stats) > 0:
-        result.update(stats)
+    if os.path.isdir(path):
+        stats = collect_directory_stats(path, prefix)
+        if len(stats) > 0:
+            result.update(stats)
 
 result.update(get_platform_information())
 result.update(get_load_average())
@@ -420,23 +442,7 @@ return result.items()
 
 $BODY$
 LANGUAGE plpython3u
-SECURITY DEFINER;
-
-ELSE -- there is not plpython3u installation on that machine
-
-CREATE OR REPLACE FUNCTION zmon_utils.get_database_cluster_system_information()
-RETURNS SETOF system_information
-AS
-$BODY$
-BEGIN
-    RETURN QUERY SELECT 'error'::text, 'plpython3u not installed'::text;
-END;
-$BODY$
-LANGUAGE plpgsql
-SECURITY DEFINER;
-
-END IF;
-END;
-$DO$;
+SECURITY DEFINER
+SET search_path to 'pg_catalog';
 grant execute on all functions in schema zmon_utils to robot_zmon;
 
