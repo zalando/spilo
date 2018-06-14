@@ -63,7 +63,7 @@ ARG PGVERSION="10"
 ENV PGVERSION="$PGVERSION" \
     PGOLDVERSIONS="$PGOLDVERSIONS" \
     POSTGIS_VERSION=2.4 \
-    BG_MON_COMMIT=57f50fd9b92a9ed3cdb185118fbce27d4d56984c \
+    BG_MON_COMMIT=78f34bebd51108810ede18c7403f34f90e6be18c \
     DECODERBUFS_COMMIT=e2da72713909d4315aa63f46819412ec4f9f6a42 \
     SET_USER=REL1_6_0 \
     PLPGSQL_CHECK=v1.2.2 \
@@ -85,8 +85,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 # debezium-decoderbufs: libprotobuf-c-dev liblwgeom-dev libproj-dev
 # pgbouncer: libc-ares-dev python-docutils
 # pg_rewind: libxslt1-dev libxml2-dev libpam0g-dev libkrb5-dev libedit-dev libselinux1-dev
-# plproxy: flex bison asciidoc
-# pllua: liblua5.1-dev
 # plv8: libv8-dev markdown
 
         && apt-get install -y $BUILD_PACKAGES libprotobuf-c1 libcurl4 \
@@ -126,8 +124,16 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             && apt-get update \
 
             && if [ "$DEMO" != "true" ]; then \
-                EXTRAS="postgresql-${version}-repack postgresql-${version}-postgis-${POSTGIS_VERSION} postgresql-${version}-postgis-${POSTGIS_VERSION}-scripts postgresql-pltcl-${version} postgresql-${version}-hypopg postgresql-${version}-pgq3" \
-                # postgresql-${version}-plproxy postgresql-${version}-pldebugger postgresql-${version}-pllua postgresql-${version}-plv8 -- rebuild packages
+                EXTRAS="postgresql-pltcl-${version} \
+                        postgresql-${version}-hypopg \
+                        postgresql-${version}-pgq3 \
+                        postgresql-${version}-pldebugger \
+                        postgresql-${version}-pllua \
+                        postgresql-${version}-plproxy \
+                        postgresql-${version}-postgis-${POSTGIS_VERSION} \
+                        postgresql-${version}-postgis-${POSTGIS_VERSION}-scripts \
+                        postgresql-${version}-repack" \
+                # postgresql-${version}-plv8 -- rebuild package
                 && if [ "$WITH_PERL" = "true" ]; then \
                     EXTRAS="$EXTRAS postgresql-plperl-${version}"; \
                 fi \
@@ -140,9 +146,9 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 fi; \
             fi \
 
-#            if [ $version != "9.3" ] && [ $version != "9.4" ]; then \
-#                EXTRAS="$EXTRAS postgresql-${version}-cron"; \ -- rebuild packages
-#            fi \
+            && if [ $version != "9.3" ] && [ $version != "9.4" ]; then \
+                EXTRAS="$EXTRAS postgresql-${version}-cron"; \
+            fi \
 
             # Install PostgreSQL binaries, contrib, plproxy and multiple pl's
             && apt-get install --allow-downgrades -y postgresql-contrib-${version} \
@@ -201,12 +207,12 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && dpkg -i ../pgbouncer_*.deb \
         && cd .. \
 
-        && PACKAGES="plproxy partman pldebugger pllua plv8"; \
+        && PACKAGES="partman plv8"; \
     fi \
 
     # build and install missing packages
     && apt-get install -y postgresql-server-dev-all \
-    && for pkg in cron pgextwlist $PACKAGES; do \
+    && for pkg in pgextwlist $PACKAGES; do \
         apt-get source postgresql-10-${pkg} \
         && cd $(ls -d *${pkg}-*) \
         && if [ "$pkg" = "partman" ]; then \
@@ -362,7 +368,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             /usr/lib/postgresql/*/bin/pltcl_*
 
 # Install patroni and WAL-e
-ENV PATRONIVERSION=1.4.4
+ENV PATRONIVERSION=1.4.5
 ENV WALE_VERSION=1.1.0
 RUN export DEBIAN_FRONTEND=noninteractive \
     && set -ex \
@@ -404,7 +410,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 
         && echo 4.0.0.dev0 > supervisor/version.txt; \
     fi \
-    && pip3 install "patroni[kubernetes$EXTRAS]==$PATRONIVERSION" \
+    && pip3 install "git+https://github.com/zalando/patroni.git@8a3b78ca7bb2bb6af1fe25921cfb5f08fe38325c#egg=patroni[kubernetes$EXTRAS]" \
 
     && for d in /usr/lib/python3 /usr/local/lib/python3.6; do \
         cd $d/dist-packages \
