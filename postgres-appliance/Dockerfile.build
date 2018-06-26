@@ -410,7 +410,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 
         && echo 4.0.0.dev0 > supervisor/version.txt; \
     fi \
-    && pip3 install "git+https://github.com/zalando/patroni.git@8a3b78ca7bb2bb6af1fe25921cfb5f08fe38325c#egg=patroni[kubernetes$EXTRAS]" \
+    && pip3 install "git+https://github.com/zalando/patroni.git@4128cba6286a2cd394edbe59c321bf4f555abc66#egg=patroni[kubernetes$EXTRAS]" \
 
     && for d in /usr/lib/python3 /usr/local/lib/python3.6; do \
         cd $d/dist-packages \
