@@ -64,7 +64,7 @@ ARG PGVERSION="11"
 ENV PGVERSION="$PGVERSION" \
     PGOLDVERSIONS="$PGOLDVERSIONS" \
     POSTGIS_VERSION=2.4 \
-    BG_MON_COMMIT=4aadac3fd817b71431a315b0541efc7f8a02125d \
+    BG_MON_COMMIT=c70c1d071e556d31dc3fe50790a6b360864bca20 \
     DECODERBUFS_COMMIT=e2da72713909d4315aa63f46819412ec4f9f6a42 \
     SET_USER=REL1_6_0 \
     PLPGSQL_CHECK=v1.2.2 \
@@ -77,18 +77,15 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && apt-get update \
     && cd /builddeps \
 
-    && BUILD_PACKAGES="devscripts build-essential fakeroot debhelper git gcc libc6-dev make libevent-dev naturaldocs python" \
+    && BUILD_PACKAGES="devscripts build-essential fakeroot debhelper git gcc libc6-dev make libevent-dev libbrotli-dev naturaldocs python" \
 # pgq3: naturaldocs python
     && if [ "$DEMO" = "true" ]; then \
         PGOLDVERSIONS="" \
         && apt-get install -y $BUILD_PACKAGES; \
     else \
-        BUILD_PACKAGES="$BUILD_PACKAGES equivs pgxnclient cmake libssl-dev zlib1g-dev libprotobuf-c-dev liblwgeom-dev libproj-dev libxslt1-dev libxml2-dev libpam0g-dev libkrb5-dev libedit-dev libselinux1-dev libcurl4-openssl-dev libc-ares-dev python-docutils flex bison asciidoc liblua5.1-dev libv8-dev markdown" \
+        BUILD_PACKAGES="$BUILD_PACKAGES equivs pgxnclient cmake libssl-dev zlib1g-dev libprotobuf-c-dev liblwgeom-dev libproj-dev libpam0g-dev libcurl4-openssl-dev libc-ares-dev python-docutils pkg-config flex bison asciidoc libv8-dev markdown" \
 # debezium-decoderbufs: libprotobuf-c-dev liblwgeom-dev libproj-dev
-# pgbouncer: libc-ares-dev python-docutils
-# pg_rewind: libxslt1-dev libxml2-dev libpam0g-dev libkrb5-dev libedit-dev libselinux1-dev
-# plproxy: flex bison asciidoc
-# pllua: liblua5.1-dev
+# pgbouncer: libc-ares-dev python-docutils pkg-config
 # plv8: libv8-dev markdown
 
         && apt-get install -y $BUILD_PACKAGES libprotobuf-c1 libcurl4 \
@@ -121,7 +118,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 
     && git clone -b $SET_USER https://github.com/pgaudit/set_user.git \
 
-    && apt-get install -y libevent-2.1 libevent-pthreads-2.1 python3.6 \
+    && apt-get install -y libbrotli1 libevent-2.1 libevent-pthreads-2.1 python3.6 \
 
     && for version in ${PGOLDVERSIONS} ${PGVERSION}; do \
             sed -i "s/ main.*$/ main $version/g" /etc/apt/sources.list.d/pgdg.list \
@@ -129,7 +126,16 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 
             && if [ "$DEMO" != "true" ]; then \
                 if [ $version != "11" ]; then \
-                    EXTRAS="postgresql-${version}-repack postgresql-${version}-postgis-${POSTGIS_VERSION} postgresql-${version}-postgis-${POSTGIS_VERSION}-scripts postgresql-pltcl-${version} postgresql-${version}-amcheck postgresql-${version}-pglogical postgresql-${version}-wal2json postgresql-${version}-pgl-ddl-deploy"; \
+                    EXTRAS="postgresql-pltcl-${version} \
+                            postgresql-${version}-amcheck \
+                            postgresql-${version}-pgl-ddl-deploy \
+                            postgresql-${version}-pglogical \
+                            postgresql-${version}-pldebugger \
+                            postgresql-${version}-pllua \
+                            postgresql-${version}-postgis-${POSTGIS_VERSION} \
+                            postgresql-${version}-postgis-${POSTGIS_VERSION}-scripts \
+                            postgresql-${version}-repack \
+                            postgresql-${version}-wal2json"; \
                 else \
                     EXTRAS=""; \
                 fi \
@@ -185,7 +191,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && dpkg -i ../pgbouncer_*.deb \
         && cd .. \
 
-        && PACKAGES="plproxy partman pldebugger pllua plv8 hypopg"; \
+        && PACKAGES="plproxy partman plv8 hypopg"; \
     fi \
 
     && echo "#!/bin/sh\n\n/bin/echo -e \"9.3\\n9.4\\n9.5\\n9.6\\n10\\n11\"" > /usr/share/postgresql-common/supported-versions \
@@ -327,7 +333,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             /usr/lib/postgresql/*/bin/pltcl_*
 
 # Install patroni and WAL-e
-ENV PATRONIVERSION=1.4.4
+ENV PATRONIVERSION=1.4.5
 ENV WALE_VERSION=1.1.0
 RUN export DEBIAN_FRONTEND=noninteractive \
     && set -ex \
@@ -364,9 +370,12 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         # https://github.com/wal-e/wal-e/pull/384
         && curl -sL https://github.com/wal-e/wal-e/pull/384.diff | patch -p1 \
 
+        # https://github.com/wal-e/wal-e/pull/392
+        && curl -sL https://github.com/wal-e/wal-e/pull/392.diff | patch -p1 \
+
         && echo 4.0.0.dev0 > supervisor/version.txt; \
     fi \
-    && pip3 install "patroni[kubernetes$EXTRAS]==$PATRONIVERSION" \
+    && pip3 install "git+https://github.com/zalando/patroni.git@4128cba6286a2cd394edbe59c321bf4f555abc66#egg=patroni[kubernetes$EXTRAS]" \
 
     && for d in /usr/lib/python3 /usr/local/lib/python3.6; do \
         cd $d/dist-packages \
