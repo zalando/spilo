@@ -33,6 +33,13 @@ Environment Configuration Settings
 - **WALG_DELTA_MAX_STEPS**, **WALG_DELTA_ORIGIN**, **WALG_DOWNLOAD_CONCURRENCY**, **WALG_UPLOAD_CONCURRENCY**, **WALG_UPLOAD_DISK_CONCURRENCY**: (optional) configuration options for wal-g. If at least of the options is specified, wal-g will be used instead of wal-e.
 - **WAL_GCS_BUCKET**: ditto for the Google Cloud Storage (WAL-E supports both S3 and GCS).
 - **GOOGLE_APPLICATION_CREDENTIALS**: credentials for WAL-E when running in Google Cloud.
+- **WAL_SWIFT_BUCKET**: ditto for the OpenStack Object Storage (Swift)
+- **SWIFT_AUTHURL**: see wal-e documentation https://github.com/wal-e/wal-e#swift
+- **SWIFT_TENANT**:
+- **SWIFT_USER**:
+- **SWIFT_PASSWORD**:
+- **SWIFT_AUTH_VERSION**:
+- **SWIFT_ENDPOINT_TYPE**:
 - **CALLBACK_SCRIPT**: the callback script to run on various cluster actions (on start, on stop, on restart, on role change). The script will receive the cluster name, connection string and the current action. See `Patroni <http://patroni.readthedocs.io/en/latest/SETTINGS.html?highlight=callback#postgresql>`__ documentation for details.
 - **DCS_ENABLE_KUBERNETES_API**: a non-empty value forces Patroni to use Kubernetes as a DCS. Default is empty.
 - **KUBERNETES_USE_CONFIGMAPS**: a non-empty value makes Patroni store its metadata in ConfigMaps instead of Endpoints when running on Kubernetes. Default is empty.

@@ -95,6 +95,12 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             && equivs-build perl; \
         fi \
 
+        && for p in python3-keyring python3-docutils ieee-data; do \
+            version=$(apt-cache show $p | sed -n 's/^Version: //p' | sort -rV | head -n 1) \
+            && echo "Section: misc\nPriority: optional\nStandards-Version: 3.9.8\nPackage: $p\nVersion: $version\nDescription: $p" > $p \
+            && equivs-build $p; \
+        done \
+
         && dpkg -i *.deb || apt-get -y -f install \
 
         # install pam_oauth2.so
@@ -391,8 +397,9 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && apt-get install -y python3-etcd python3-consul python3-kazoo python3-meld3 \
 			python3-boto python3-gevent python3-greenlet python3-protobuf \
 			python3-websocket python3-requests-oauthlib \
-
-        && pip3 install envdir wal-e[aws,google]==$WALE_VERSION \
+			python3-swiftclient \
+        && find /usr/share/python-babel-localedata/locale-data -type f ! -name 'en_US*.dat' -delete \
+        && pip3 install envdir wal-e[aws,google,swift]==$WALE_VERSION \
                 'git+https://github.com/Supervisor/supervisor.git@master#egg=supervisor' \
                 'git+https://github.com/zalando/pg_view.git@master#egg=pg-view' \
 
