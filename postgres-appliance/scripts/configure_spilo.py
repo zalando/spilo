@@ -497,21 +497,8 @@ def get_dcs_config(config, placeholders):
 
 
 def write_log_environment(placeholders):
-
     log_env = defaultdict(lambda: '')
-    log_env.update({
-        name: placeholders.get(name, '')
-        for name in [
-            'SCOPE',
-            'LOG_ENV_DIR',
-            'LOG_S3_BUCKET',
-            'LOG_BUCKET_SCOPE_PREFIX',
-            'LOG_BUCKET_SCOPE_SUFFIX',
-            'LOG_TMPDIR',
-            'PGLOG',
-            'AWS_REGION'
-        ]
-    })
+    log_env.update(placeholders)
 
     aws_region = log_env.get('AWS_REGION')
     if not aws_region:
@@ -529,16 +516,8 @@ def write_log_environment(placeholders):
     if not os.path.exists(log_env['LOG_ENV_DIR']):
         os.makedirs(log_env['LOG_ENV_DIR'])
 
-    for var in [
-        'LOG_TMPDIR',
-        'LOG_AWS_HOST',
-        'LOG_S3_KEY',
-        'LOG_S3_BUCKET',
-        'PGLOG',
-    ]:
+    for var in ('LOG_TMPDIR', 'LOG_AWS_HOST', 'LOG_S3_KEY', 'LOG_S3_BUCKET', 'PGLOG'):
         write_file(log_env[var], os.path.join(log_env['LOG_ENV_DIR'], var), True)
-
-    return
 
 
 def write_wale_environment(placeholders, provider, prefix, overwrite):
@@ -639,11 +618,10 @@ def write_crontab(placeholders, overwrite):
 
     lines = ['PATH={PATH}'.format(**placeholders)]
     lines += ['{BACKUP_SCHEDULE} /scripts/postgres_backup.sh "{WALE_ENV_DIR}" " {PGDATA}" "{BACKUP_NUM_TO_RETAIN}"'
-            .format(**placeholders)]
+              .format(**placeholders)]
 
     if bool(placeholders.get('LOG_S3_BUCKET')):
-        lines += ['{LOG_SHIP_SCHEDULE} /backup_log.sh "{LOG_ENV_DIR}"'
-            .format(**placeholders)]
+        lines += ['{LOG_SHIP_SCHEDULE} /backup_log.sh "{LOG_ENV_DIR}"'.format(**placeholders)]
 
     lines += yaml.load(placeholders['CRONTAB'])
     lines += ['']  # EOF requires empty line for cron
