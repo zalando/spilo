@@ -125,19 +125,20 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             && apt-get update \
 
             && if [ "$DEMO" != "true" ]; then \
-                if [ $version != "11" ]; then \
-                    EXTRAS="postgresql-pltcl-${version} \
+                EXTRAS="postgresql-pltcl-${version} \
+                        postgresql-${version}-cron \
+                        postgresql-${version}-hypopg \
+                        postgresql-${version}-pldebugger \
+                        postgresql-${version}-pllua \
+                        postgresql-${version}-wal2json" \
+                && if [ $version != "11" ]; then \
+                    EXTRAS="$EXTRAS \
                             postgresql-${version}-amcheck \
                             postgresql-${version}-pgl-ddl-deploy \
                             postgresql-${version}-pglogical \
-                            postgresql-${version}-pldebugger \
-                            postgresql-${version}-pllua \
                             postgresql-${version}-postgis-${POSTGIS_VERSION} \
                             postgresql-${version}-postgis-${POSTGIS_VERSION}-scripts \
-                            postgresql-${version}-repack \
-                            postgresql-${version}-wal2json"; \
-                else \
-                    EXTRAS=""; \
+                            postgresql-${version}-repack"; \
                 fi \
                 && if [ "$WITH_PERL" = "true" ]; then \
                     EXTRAS="$EXTRAS postgresql-plperl-${version}"; \
@@ -191,14 +192,14 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && dpkg -i ../pgbouncer_*.deb \
         && cd .. \
 
-        && PACKAGES="plproxy partman plv8 hypopg"; \
+        && PACKAGES="plproxy partman plv8"; \
     fi \
 
     && echo "#!/bin/sh\n\n/bin/echo -e \"9.3\\n9.4\\n9.5\\n9.6\\n10\\n11\"" > /usr/share/postgresql-common/supported-versions \
 
     # build and install missing packages
     && apt-get install -y postgresql-server-dev-all postgresql-server-dev-${PGVERSION} \
-    && for pkg in cron pgextwlist pgq3 $PACKAGES; do \
+    && for pkg in pgextwlist pgq3 $PACKAGES; do \
         apt-get source postgresql-10-${pkg} \
         && cd $(ls -d *${pkg%?}*-*) \
         && pwd \
@@ -207,7 +208,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             if [ $version = "11" ]; then \
                 if [ -f ../$pkg.patch ]; then \
                     patch -p1 < ../$pkg.patch; \
-                elif [ $pkg != "hypopg" ]; then \
+                else \
                     continue; \
                 fi; \
             fi \
