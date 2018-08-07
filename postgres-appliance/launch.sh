@@ -33,7 +33,7 @@ if [ "$DEMO" = "true" ]; then
 else
     if python3 /scripts/configure_spilo.py all; then
         (
-            su postgres -c "PATH=$PATH /scripts/patroni_wait.sh -t 3600 -- /postgres_backup.sh $WALE_ENV_DIR $PGDATA"
+            su postgres -c "PATH=$PATH /scripts/patroni_wait.sh -t 3600 -- /scripts/postgres_backup.sh $WALE_ENV_DIR $PGDATA $BACKUP_NUM_TO_RETAIN"
         ) &
     fi
     exec supervisord --configuration=/etc/supervisor/supervisord.conf --nodaemon

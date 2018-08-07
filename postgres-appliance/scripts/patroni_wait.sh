@@ -59,14 +59,13 @@ do
     shift
 done
 
-[ ! -z "$TIMEOUT" ] && CUTOFF=$(($(date +%s)+$TIMEOUT))
+if [ $# -gt 0 ]; then
+    [ ! -z "$TIMEOUT" ] && CUTOFF=$(($(date +%s)+TIMEOUT))
 
-while :
-do
-    [ $(curl -o /dev/null --silent --write-out '%{http_code}\n' "localhost:8008/$ROLE") -eq 200 ] && break
-    [ ! -z "$TIMEOUT" ] && [ $CUTOFF -le $(date +%s) ] && exit 2
-    sleep $INTERVAL
-done
+    while [ "$(curl -so /dev/null -w '%{http_code}' localhost:8008/$ROLE)" != "200" ]; do
+        [ ! -z "$TIMEOUT" ] && [ $CUTOFF -le $(date +%s) ] && exit 2
+        sleep $INTERVAL
+    done
 
-## Execute the command that was specified
-[ $# -gt 0 ] && exec "$@"
+    exec "$@"  # Execute the command that was specified
+fi

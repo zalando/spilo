@@ -10,23 +10,34 @@ function log
 log "I was called as: $0 $@"
 
 
-WALE_ENV_DIR=$1
-shift
+readonly WALE_ENV_DIR=$1
+readonly PGDATA=$2
+DAYS_TO_RETAIN=$3
 
-PGDATA=$1
-shift
-
-NUM_TO_RETAIN=$1
-shift
-
-IN_RECOVERY=$(psql -tXqAc "select pg_is_in_recovery()")
+readonly IN_RECOVERY=$(psql -tXqAc "select pg_is_in_recovery()")
 [[ $IN_RECOVERY != "f" ]] && log "Cluster is in recovery, not running backup" && exit 0
 
-# leave at least 2 base backups before creating a new one
-[[ "$NUM_TO_RETAIN" -lt 2 ]] && NUM_TO_RETAIN=2
+# leave at least 2 days base backups before creating a new one
+[[ "$DAYS_TO_RETAIN" -lt 2 ]] && DAYS_TO_RETAIN=2
 
-# --aws-instance-profile flag is just ignored when running in GCE.
-envdir "${WALE_ENV_DIR}" wal-e --aws-instance-profile delete --confirm retain "${NUM_TO_RETAIN}"
+readonly WAL_E="envdir $WALE_ENV_DIR wal-e --aws-instance-profile"
+
+BEFORE=""
+
+readonly NOW=$(date +%s -u)
+while read name last_modified rest; do
+    last_modified=$(date +%s -ud "$last_modified")
+    if [ $(((NOW-last_modified)/86400)) -gt $DAYS_TO_RETAIN ]; then
+        if [ -z "$BEFORE" ] || [ "$last_modified" -gt "$BEFORE_TIME" ]; then
+            BEFORE_TIME=$last_modified
+            BEFORE=$name
+        fi
+    fi
+done < <($WAL_E backup-list 2> /dev/null | sed '0,/^name\s*last_modified\s*/d')
+
+if [ ! -z "$BEFORE" ]; then
+    $WAL_E delete --confirm before "$BEFORE"
+fi
 
 # Ensure we don't have more workes than CPU's
 POOL_SIZE=$(grep -c ^processor /proc/cpuinfo 2>/dev/null || 1)
@@ -35,4 +46,4 @@ POOL_SIZE=$(grep -c ^processor /proc/cpuinfo 2>/dev/null || 1)
 # push a new base backup
 log "producing a new backup"
 # We reduce the priority of the backup for CPU consumption
-exec nice -n 5 envdir "${WALE_ENV_DIR}" wal-e --aws-instance-profile backup-push "${PGDATA}" --pool-size ${POOL_SIZE}
+exec nice -n 5 $WAL_E backup-push "${PGDATA}" --pool-size ${POOL_SIZE}
