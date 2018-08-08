@@ -33,6 +33,7 @@ BEGIN
 END;\$\$;
 
 CREATE EXTENSION IF NOT EXISTS pg_cron SCHEMA public;
+ALTER EXTENSION pg_cron UPDATE;
 
 ALTER POLICY cron_job_policy ON cron.job USING (username = current_user OR
     (pg_has_role(current_user, 'admin', 'MEMBER')
@@ -127,6 +128,7 @@ while IFS= read -r db_name; do
     sed "s/:HUMAN_ROLE/$1/" create_user_functions.sql
     echo "CREATE EXTENSION IF NOT EXISTS pg_stat_statements SCHEMA public;
 CREATE EXTENSION IF NOT EXISTS set_user SCHEMA public;
+ALTER EXTENSION set_user UPDATE;
 GRANT EXECUTE ON FUNCTION public.set_user(text) TO admin;"
 done < <(psql -d $2 -tAc 'select pg_catalog.quote_ident(datname) from pg_database where datallowconn')
 ) | psql -d $2

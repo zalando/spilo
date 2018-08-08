@@ -65,10 +65,10 @@ ENV PGVERSION="$PGVERSION" \
     POSTGIS_VERSION=2.4 \
     BG_MON_COMMIT=78f34bebd51108810ede18c7403f34f90e6be18c \
     DECODERBUFS_COMMIT=e2da72713909d4315aa63f46819412ec4f9f6a42 \
-    SET_USER=REL1_6_0 \
-    PLPGSQL_CHECK=v1.2.2 \
+    SET_USER=REL1_6_1 \
+    PLPGSQL_CHECK=v1.2.3 \
     PLPROFILER=REL3_2 \
-    TIMESCALEDB=0.9.2 \
+    TIMESCALEDB=0.10.1 \
     PAM_OAUTH2=v1.0
 
 RUN export DEBIAN_FRONTEND=noninteractive \
@@ -389,6 +389,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         EXTRAS=",etcd,consul,zookeeper,aws" \
         && apt-get install -y python3-etcd python3-consul python3-kazoo python3-meld3 \
 			python3-boto python3-gevent python3-greenlet python3-protobuf \
+			python3-websocket python3-requests-oauthlib \
+
         && pip3 install envdir wal-e[aws,google]==$WALE_VERSION \
                 'git+https://github.com/Supervisor/supervisor.git@master#egg=supervisor' \
                 'git+https://github.com/zalando/pg_view.git@master#egg=pg-view' \
@@ -397,7 +399,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 
         # pg_view installs useless pytest
         && sed -i '/^pytest/d' pg_view-*/requires.txt \
-        && pip3 uninstall -y attrs pluggy pytest py \
+        && pip3 uninstall -y atomicwrites attrs more_itertools pluggy pytest py \
 
         # https://github.com/wal-e/wal-e/issues/318
         && sed -i 's/^\(    for i in range(0,\) num_retries):.*/\1 100):/g' /usr/lib/python3/dist-packages/boto/utils.py \
@@ -410,15 +412,13 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 
         && echo 4.0.0.dev0 > supervisor/version.txt; \
     fi \
-    && pip3 install "git+https://github.com/zalando/patroni.git@4128cba6286a2cd394edbe59c321bf4f555abc66#egg=patroni[kubernetes$EXTRAS]" \
+    && pip3 install "patroni[kubernetes$EXTRAS]==$PATRONIVERSION" \
 
-    && for d in /usr/lib/python3 /usr/local/lib/python3.6; do \
+    && for d in /usr/local/lib/python3.6 /usr/lib/python3; do \
         cd $d/dist-packages \
         && find . -type d -name tests | xargs rm -fr \
         && find . -type f -name 'test_*.py*' -delete; \
     done \
-    && find . -type f -name '*.so' -exec strip {} \; \
-    && find . -type f -name '*.c' -delete \
     && find . -type f -name 'unittest_*.py*' -delete \
     && find . -type f -name '*_test.py' -delete \
     && find . -type f -name '*_test.cpython*.pyc' -delete \
