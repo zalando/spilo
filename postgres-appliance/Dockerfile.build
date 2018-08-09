@@ -203,6 +203,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && curl -sL https://github.com/pgbouncer/pgbouncer/pull/127.diff | patch -p1 \
         # Increase password size
         && sed -i 's/\(MAX_PASSWORD\t\).*/\11024/' include/bouncer.h \
+        && sed 's/\(SEND_wrap(\)512\(, pktbuf_write_PasswordMessage, res, sk, psw)\)/\11024\2/' include/pktbuf.h \
         && debuild -b -uc -us \
         && dpkg -i ../pgbouncer_*.deb \
         && cd .. \
