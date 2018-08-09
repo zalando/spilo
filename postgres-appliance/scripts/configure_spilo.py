@@ -617,7 +617,7 @@ def write_crontab(placeholders, overwrite):
                 return logging.warning('Cron is already configured. (Use option --force to overwrite cron)')
 
     lines = ['PATH={PATH}'.format(**placeholders)]
-    lines += ['{BACKUP_SCHEDULE} /scripts/postgres_backup.sh "{WALE_ENV_DIR}" " {PGDATA}" "{BACKUP_NUM_TO_RETAIN}"'
+    lines += ['{BACKUP_SCHEDULE} /scripts/postgres_backup.sh "{WALE_ENV_DIR}" "{PGDATA}" "{BACKUP_NUM_TO_RETAIN}"'
               .format(**placeholders)]
 
     if bool(placeholders.get('LOG_S3_BUCKET')):

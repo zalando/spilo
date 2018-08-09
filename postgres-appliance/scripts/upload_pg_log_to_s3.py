@@ -26,8 +26,11 @@ def compress_pg_log():
         logger.warning("Postgres log from yesterday '%s' is empty.", log_file)
         sys.exit(0)
 
-    with open(archived_log_file, 'wb') as f_out:
-        subprocess.Popen(['gzip', '-9c', log_file], stdout=f_out).wait()
+    try:
+        with open(archived_log_file, 'wb') as f_out:
+            subprocess.Popen(['gzip', '-9c', log_file], stdout=f_out).wait()
+    except Exception:
+        logger.exception('Failed to compress log file %s', log_file)
 
     return archived_log_file
 
