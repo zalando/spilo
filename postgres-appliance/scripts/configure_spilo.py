@@ -417,7 +417,7 @@ def get_placeholders(provider):
             else:
                 placeholders['CALLBACK_SCRIPT'] = 'patroni_aws'
 
-    placeholders['USE_WALE'] = bool(placeholders.get('WAL_S3_BUCKET') or placeholders.get('WAL_GCS_BUCKET'))
+    placeholders['USE_WALE'] = bool(placeholders.get('WAL_S3_BUCKET') or placeholders.get('WAL_GCS_BUCKET') or placeholders.get('WAL_SWIFT_BUCKET'))
 
     # Kubernetes requires a callback to change the labels in order to point to the new master
     if USE_KUBERNETES:
@@ -537,6 +537,13 @@ def write_wale_environment(placeholders, provider, prefix, overwrite):
             'WAL_BUCKET_SCOPE_SUFFIX',
             'WAL_GCS_BUCKET',
             'GOOGLE_APPLICATION_CREDENTIALS',
+            'WAL_SWIFT_BUCKET',
+            'SWIFT_AUTHURL',
+            'SWIFT_TENANT',
+            'SWIFT_USER',
+            'SWIFT_PASSWORD',
+            'SWIFT_AUTH_VERSION',
+            'SWIFT_ENDPOINT_TYPE'
         ]
     })
     wale.update({name: placeholders[prefix + name] for name in envdir_names if prefix + name in placeholders})
@@ -573,6 +580,9 @@ def write_wale_environment(placeholders, provider, prefix, overwrite):
     elif wale.get('WAL_GCS_BUCKET'):
         wale['WALE_GS_PREFIX'] = 'gs://{WAL_GCS_BUCKET}{BUCKET_PATH}'.format(**wale)
         write_envdir_names = ['WALE_GS_PREFIX', 'GOOGLE_APPLICATION_CREDENTIALS']
+    elif wale.get('WAL_SWIFT_BUCKET'):
+        wale['WALE_SWIFT_PREFIX'] = 'swift://{WAL_SWIFT_BUCKET}{BUCKET_PATH}'.format(**wale)
+        write_envdir_names = ['WALE_SWIFT_PREFIX', 'SWIFT_AUTHURL', 'SWIFT_TENANT', 'SWIFT_USER', 'SWIFT_PASSWORD', 'SWIFT_AUTH_VERSION', 'SWIFT_ENDPOINT_TYPE']
     else:
         return
 
