@@ -392,7 +392,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 			python3-boto python3-gevent python3-greenlet python3-protobuf \
 			python3-websocket python3-requests-oauthlib \
 
-        && pip3 install envdir wal-e[aws,google]==$WALE_VERSION \
+        && pip3 install envdir filechunkio wal-e[aws,google]==$WALE_VERSION \
                 'git+https://github.com/Supervisor/supervisor.git@master#egg=supervisor' \
                 'git+https://github.com/zalando/pg_view.git@master#egg=pg-view' \
 

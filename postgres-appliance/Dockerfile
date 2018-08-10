@@ -9,7 +9,8 @@ ENV LC_ALL=en_US.utf-8 \
     PGHOME=/home/postgres
 
 ENV WALE_ENV_DIR=$PGHOME/etc/wal-e.d/env \
-    PGROOT=$PGHOME/pgdata/pgroot
+    PGROOT=$PGHOME/pgdata/pgroot \
+    LOG_ENV_DIR=$PGHOME/etc/log.d/env
 
 ENV PGDATA=$PGROOT/data \
     PGLOG=$PGROOT/pg_log
