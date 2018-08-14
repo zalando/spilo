@@ -13,4 +13,4 @@ LOG_ENV_DIR=$1
 shift
 
 log "compressing and uploading to the cloud the postgres log"
-exec nice -n 5 envdir "${LOG_ENV_DIR}" /upload_pg_log_to_s3.py
+exec nice -n 5 envdir "${LOG_ENV_DIR}" /scripts/upload_pg_log_to_s3.py

@@ -391,7 +391,7 @@ def get_placeholders(provider):
     placeholders.setdefault('LOG_BUCKET_SCOPE_SUFFIX', '')
 
     # see comment for wal-e bucket prefix
-    placeholders.setdefault('LOG_BUCKET_PREFIX', '{0}-'.format(placeholders['NAMESPACE'])
+    placeholders.setdefault('LOG_BUCKET_SCOPE_PREFIX', '{0}-'.format(placeholders['NAMESPACE'])
                             if placeholders['NAMESPACE'] not in ('default', '') else '')
 
     if placeholders['CLONE_METHOD'] == 'CLONE_WITH_WALE':
