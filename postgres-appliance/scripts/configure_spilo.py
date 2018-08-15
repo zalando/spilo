@@ -631,7 +631,7 @@ def write_crontab(placeholders, overwrite):
               .format(**placeholders)]
 
     if bool(placeholders.get('LOG_S3_BUCKET')):
-        lines += ['{LOG_SHIP_SCHEDULE} /backup_log.sh "{LOG_ENV_DIR}"'.format(**placeholders)]
+        lines += ['{LOG_SHIP_SCHEDULE} /scripts/backup_log.sh "{LOG_ENV_DIR}"'.format(**placeholders)]
 
     lines += yaml.load(placeholders['CRONTAB'])
     lines += ['']  # EOF requires empty line for cron
