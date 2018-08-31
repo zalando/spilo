@@ -30,7 +30,7 @@ MEMORY_LIMIT_IN_BYTES_PATH = '/sys/fs/cgroup/memory/memory.limit_in_bytes'
 
 def parse_args():
     sections = ['all', 'patroni', 'patronictl', 'certificate', 'wal-e', 'crontab',
-                'pam-oauth2', 'pgbouncer', 'bootstrap']
+                'pam-oauth2', 'pgbouncer', 'bootstrap', 'log']
     argp = argparse.ArgumentParser(description='Configures Spilo',
                                    epilog="Choose from the following sections:\n\t{}".format('\n\t'.join(sections)),
                                    formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -385,6 +385,15 @@ def get_placeholders(provider):
     placeholders.setdefault('CLONE_TARGET_TIME', '')
     placeholders.setdefault('CLONE_TARGET_INCLUSIVE', True)
 
+    placeholders.setdefault('LOG_SHIP_SCHEDULE', '1 0 * * *')
+    placeholders.setdefault('LOG_S3_BUCKET', '')
+    placeholders.setdefault('LOG_TMPDIR', os.path.abspath(os.path.join(placeholders['PGROOT'], '../tmp')))
+    placeholders.setdefault('LOG_BUCKET_SCOPE_SUFFIX', '')
+
+    # see comment for wal-e bucket prefix
+    placeholders.setdefault('LOG_BUCKET_SCOPE_PREFIX', '{0}-'.format(placeholders['NAMESPACE'])
+                            if placeholders['NAMESPACE'] not in ('default', '') else '')
+
     if placeholders['CLONE_METHOD'] == 'CLONE_WITH_WALE':
         # set_clone_with_wale_placeholders would modify placeholders and take care of error cases
         set_clone_with_wale_placeholders(placeholders, provider)
@@ -408,7 +417,7 @@ def get_placeholders(provider):
             else:
                 placeholders['CALLBACK_SCRIPT'] = 'patroni_aws'
 
-    placeholders['USE_WALE'] = bool(placeholders.get('WAL_S3_BUCKET') or placeholders.get('WAL_GCS_BUCKET'))
+    placeholders['USE_WALE'] = bool(placeholders.get('WAL_S3_BUCKET') or placeholders.get('WAL_GCS_BUCKET') or placeholders.get('WAL_SWIFT_BUCKET'))
 
     # Kubernetes requires a callback to change the labels in order to point to the new master
     if USE_KUBERNETES:
@@ -487,6 +496,30 @@ def get_dcs_config(config, placeholders):
     return config
 
 
+def write_log_environment(placeholders):
+    log_env = defaultdict(lambda: '')
+    log_env.update(placeholders)
+
+    aws_region = log_env.get('AWS_REGION')
+    if not aws_region:
+        aws_region = placeholders['instance_data']['zone'][:-1]
+    log_env['LOG_AWS_HOST'] = 's3.{}.amazonaws.com'.format(aws_region)
+
+    log_s3_key = 'spilo/{LOG_BUCKET_SCOPE_PREFIX}{SCOPE}{LOG_BUCKET_SCOPE_SUFFIX}/log/'.format(**log_env)
+    log_s3_key += placeholders['instance_data']['id']
+    log_env['LOG_S3_KEY'] = log_s3_key
+
+    if not os.path.exists(log_env['LOG_TMPDIR']):
+        os.makedirs(log_env['LOG_TMPDIR'])
+        os.chmod(log_env['LOG_TMPDIR'], 0o1777)
+
+    if not os.path.exists(log_env['LOG_ENV_DIR']):
+        os.makedirs(log_env['LOG_ENV_DIR'])
+
+    for var in ('LOG_TMPDIR', 'LOG_AWS_HOST', 'LOG_S3_KEY', 'LOG_S3_BUCKET', 'PGLOG'):
+        write_file(log_env[var], os.path.join(log_env['LOG_ENV_DIR'], var), True)
+
+
 def write_wale_environment(placeholders, provider, prefix, overwrite):
     # Propagate missing variables as empty strings as that's generally easier
     # to work around than an exception in this code.
@@ -504,6 +537,13 @@ def write_wale_environment(placeholders, provider, prefix, overwrite):
             'WAL_BUCKET_SCOPE_SUFFIX',
             'WAL_GCS_BUCKET',
             'GOOGLE_APPLICATION_CREDENTIALS',
+            'WAL_SWIFT_BUCKET',
+            'SWIFT_AUTHURL',
+            'SWIFT_TENANT',
+            'SWIFT_USER',
+            'SWIFT_PASSWORD',
+            'SWIFT_AUTH_VERSION',
+            'SWIFT_ENDPOINT_TYPE'
         ]
     })
     wale.update({name: placeholders[prefix + name] for name in envdir_names if prefix + name in placeholders})
@@ -540,6 +580,9 @@ def write_wale_environment(placeholders, provider, prefix, overwrite):
     elif wale.get('WAL_GCS_BUCKET'):
         wale['WALE_GS_PREFIX'] = 'gs://{WAL_GCS_BUCKET}{BUCKET_PATH}'.format(**wale)
         write_envdir_names = ['WALE_GS_PREFIX', 'GOOGLE_APPLICATION_CREDENTIALS']
+    elif wale.get('WAL_SWIFT_BUCKET'):
+        wale['WALE_SWIFT_PREFIX'] = 'swift://{WAL_SWIFT_BUCKET}{BUCKET_PATH}'.format(**wale)
+        write_envdir_names = ['WALE_SWIFT_PREFIX', 'SWIFT_AUTHURL', 'SWIFT_TENANT', 'SWIFT_USER', 'SWIFT_PASSWORD', 'SWIFT_AUTH_VERSION', 'SWIFT_ENDPOINT_TYPE']
     else:
         return
 
@@ -586,6 +629,9 @@ def write_crontab(placeholders, overwrite):
     lines = ['PATH={PATH}'.format(**placeholders)]
     lines += ['{BACKUP_SCHEDULE} /scripts/postgres_backup.sh "{WALE_ENV_DIR}" "{PGDATA}" "{BACKUP_NUM_TO_RETAIN}"'
               .format(**placeholders)]
+
+    if bool(placeholders.get('LOG_S3_BUCKET')):
+        lines += ['{LOG_SHIP_SCHEDULE} /scripts/backup_log.sh "{LOG_ENV_DIR}"'.format(**placeholders)]
 
     lines += yaml.load(placeholders['CRONTAB'])
     lines += ['']  # EOF requires empty line for cron
@@ -713,13 +759,17 @@ def main():
                     continue
                 os.unlink(patronictl_configfile)
             os.symlink(patroni_configfile, patronictl_configfile)
+        elif section == 'log':
+            if bool(placeholders.get('LOG_S3_BUCKET')):
+                write_log_environment(placeholders)
         elif section == 'wal-e':
             if placeholders['USE_WALE']:
                 write_wale_environment(placeholders, provider, '', args['force'])
         elif section == 'certificate':
             write_certificates(placeholders, args['force'])
         elif section == 'crontab':
-            if placeholders['USE_WALE']:
+            # create crontab only if there are tasks for it
+            if placeholders['USE_WALE'] or bool(placeholders.get('LOG_S3_BUCKET')):
                 write_crontab(placeholders, args['force'])
         elif section == 'pam-oauth2':
             write_pam_oauth2_configuration(placeholders, args['force'])
