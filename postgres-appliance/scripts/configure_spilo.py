@@ -385,7 +385,7 @@ def get_placeholders(provider):
     placeholders.setdefault('CLONE_TARGET_TIME', '')
     placeholders.setdefault('CLONE_TARGET_INCLUSIVE', True)
 
-    placeholders.setdefault('LOG_SHIP_SCHEDULE', '1 0 * * *')
+    placeholders.setdefault('LOG_SHIP_SCHEDULE', '00 02 * * *')
     placeholders.setdefault('LOG_S3_BUCKET', '')
     placeholders.setdefault('LOG_TMPDIR', os.path.abspath(os.path.join(placeholders['PGROOT'], '../tmp')))
     placeholders.setdefault('LOG_BUCKET_SCOPE_SUFFIX', '')
