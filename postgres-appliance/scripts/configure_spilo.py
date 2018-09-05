@@ -148,7 +148,7 @@ bootstrap:
   {{#CLONE_WITH_WALE}}
   method: clone_with_wale
   clone_with_wale:
-    command: python3 /scripts/clone_with_s3.py --envdir "{{CLONE_WALE_ENV_DIR}}" --recovery-target-time="{{CLONE_TARGET_TIME}}"
+    command: envdir "{{CLONE_WALE_ENV_DIR}}" python3 /scripts/clone_with_s3.py --recovery-target-time="{{CLONE_TARGET_TIME}}"
     recovery_conf:
         restore_command: envdir "{{CLONE_WALE_ENV_DIR}}" /scripts/wale_restore_command.sh "%f" "%p"
         recovery_target_timeline: latest
@@ -617,11 +617,14 @@ def write_crontab(placeholders, overwrite):
                 return logging.warning('Cron is already configured. (Use option --force to overwrite cron)')
 
     lines = ['PATH={PATH}'.format(**placeholders)]
-    lines += ['{BACKUP_SCHEDULE} /scripts/postgres_backup.sh "{WALE_ENV_DIR}" "{PGDATA}" "{BACKUP_NUM_TO_RETAIN}"'
-              .format(**placeholders)]
+
+    if bool(placeholders.get('USE_WALE')):
+        lines += ['{BACKUP_SCHEDULE} envdir "{WALE_ENV_DIR}" /scripts/postgres_backup.sh' +
+                  ' "{PGDATA}" {BACKUP_NUM_TO_RETAIN}' .format(**placeholders)]
 
     if bool(placeholders.get('LOG_S3_BUCKET')):
-        lines += ['{LOG_SHIP_SCHEDULE} /scripts/backup_log.sh "{LOG_ENV_DIR}"'.format(**placeholders)]
+        lines += ['{LOG_SHIP_SCHEDULE} nice -n 5 envdir "{LOG_ENV_DIR}"' +
+                  ' /scripts/upload_pg_log_to_s3.py'.format(**placeholders)]
 
     lines += yaml.load(placeholders['CRONTAB'])
     lines += ['']  # EOF requires empty line for cron

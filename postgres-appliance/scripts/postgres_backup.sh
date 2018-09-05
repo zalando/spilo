@@ -5,14 +5,13 @@ function log
     echo "$(date "+%Y-%m-%d %H:%M:%S.%3N") - $0 - $@"
 }
 
-[[ -z $2 ]] && echo "Usage: $0 WALE_ENV_DIR PGDATA" && exit 1
+[[ -z $2 ]] && echo "Usage: $0 PGDATA" && exit 1
 
 log "I was called as: $0 $@"
 
 
-readonly WALE_ENV_DIR=$1
-readonly PGDATA=$2
-DAYS_TO_RETAIN=$3
+readonly PGDATA=$1
+DAYS_TO_RETAIN=$2
 
 readonly IN_RECOVERY=$(psql -tXqAc "select pg_is_in_recovery()")
 [[ $IN_RECOVERY != "f" ]] && log "Cluster is in recovery, not running backup" && exit 0
@@ -20,7 +19,7 @@ readonly IN_RECOVERY=$(psql -tXqAc "select pg_is_in_recovery()")
 # leave at least 2 days base backups before creating a new one
 [[ "$DAYS_TO_RETAIN" -lt 2 ]] && DAYS_TO_RETAIN=2
 
-readonly WAL_E="envdir $WALE_ENV_DIR wal-e --aws-instance-profile"
+readonly WAL_E="wal-e --aws-instance-profile"
 
 BEFORE=""
 
