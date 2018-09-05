@@ -521,32 +521,21 @@ def write_log_environment(placeholders):
 
 
 def write_wale_environment(placeholders, provider, prefix, overwrite):
-    # Propagate missing variables as empty strings as that's generally easier
-    # to work around than an exception in this code.
-    envdir_names = ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'WALE_S3_ENDPOINT', 'AWS_ENDPOINT',
-                    'AWS_REGION', 'WALG_DELTA_MAX_STEPS', 'WALG_DELTA_ORIGIN',
-                    'WALG_DOWNLOAD_CONCURRENCY', 'WALG_UPLOAD_CONCURRENCY', 'WALG_UPLOAD_DISK_CONCURRENCY']
+    s3_names = ['WALE_S3_PREFIX', 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'WALE_S3_ENDPOINT',
+                'AWS_ENDPOINT', 'AWS_REGION', 'WALG_DELTA_MAX_STEPS', 'WALG_DELTA_ORIGIN',
+                'WALG_DOWNLOAD_CONCURRENCY', 'WALG_UPLOAD_CONCURRENCY', 'WALG_UPLOAD_DISK_CONCURRENCY']
+    gs_names = ['WALE_GS_PREFIX', 'GOOGLE_APPLICATION_CREDENTIALS']
+    swift_names = ['WALE_SWIFT_PREFIX', 'SWIFT_AUTHURL', 'SWIFT_TENANT', 'SWIFT_USER',
+                   'SWIFT_PASSWORD', 'SWIFT_AUTH_VERSION', 'SWIFT_ENDPOINT_TYPE']
+
     wale = defaultdict(lambda: '')
-    wale.update({
-        name: placeholders.get(prefix + name, '')
-        for name in [
-            'SCOPE',
-            'WALE_ENV_DIR',
-            'WAL_S3_BUCKET',
-            'WAL_BUCKET_SCOPE_PREFIX',
-            'WAL_BUCKET_SCOPE_SUFFIX',
-            'WAL_GCS_BUCKET',
-            'GOOGLE_APPLICATION_CREDENTIALS',
-            'WAL_SWIFT_BUCKET',
-            'SWIFT_AUTHURL',
-            'SWIFT_TENANT',
-            'SWIFT_USER',
-            'SWIFT_PASSWORD',
-            'SWIFT_AUTH_VERSION',
-            'SWIFT_ENDPOINT_TYPE'
-        ]
-    })
-    wale.update({name: placeholders[prefix + name] for name in envdir_names if prefix + name in placeholders})
+    for name in ['WALE_ENV_DIR', 'SCOPE', 'WAL_BUCKET_SCOPE_PREFIX', 'WAL_BUCKET_SCOPE_SUFFIX', 'WAL_S3_BUCKET',
+                 'WAL_GCS_BUCKET', 'WAL_GS_BUCKET', 'WAL_SWIFT_BUCKET'] + s3_names + swift_names + gs_names:
+        wale[name] = placeholders.get(prefix + name, '')
+
+    if wale['WAL_GS_BUCKET']:  # WAL_GS_BUCKET is more consistent with WALE_GS_PREFIX
+        wale['WAL_GCS_BUCKET'] = wale['WAL_GS_BUCKET']
+
     wale['BUCKET_PATH'] = '/spilo/{WAL_BUCKET_SCOPE_PREFIX}{SCOPE}{WAL_BUCKET_SCOPE_SUFFIX}/wal/'.format(**wale)
     wale['WALE_LOG_DESTINATION'] = 'stderr'
 
@@ -576,13 +565,13 @@ def write_wale_environment(placeholders, provider, prefix, overwrite):
 
         wale['WALE_S3_PREFIX'] = 's3://{WAL_S3_BUCKET}{BUCKET_PATH}'.format(**wale)
         wale.update(WALE_S3_ENDPOINT=wale_endpoint, AWS_ENDPOINT=aws_endpoint, AWS_REGION=aws_region)
-        write_envdir_names = ['WALE_S3_PREFIX'] + envdir_names
+        write_envdir_names = s3_names
     elif wale.get('WAL_GCS_BUCKET'):
         wale['WALE_GS_PREFIX'] = 'gs://{WAL_GCS_BUCKET}{BUCKET_PATH}'.format(**wale)
-        write_envdir_names = ['WALE_GS_PREFIX', 'GOOGLE_APPLICATION_CREDENTIALS']
+        write_envdir_names = gs_names
     elif wale.get('WAL_SWIFT_BUCKET'):
         wale['WALE_SWIFT_PREFIX'] = 'swift://{WAL_SWIFT_BUCKET}{BUCKET_PATH}'.format(**wale)
-        write_envdir_names = ['WALE_SWIFT_PREFIX', 'SWIFT_AUTHURL', 'SWIFT_TENANT', 'SWIFT_USER', 'SWIFT_PASSWORD', 'SWIFT_AUTH_VERSION', 'SWIFT_ENDPOINT_TYPE']
+        write_envdir_names = swift_names
     else:
         return
 
