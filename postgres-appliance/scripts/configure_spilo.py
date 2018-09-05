@@ -417,7 +417,8 @@ def get_placeholders(provider):
             else:
                 placeholders['CALLBACK_SCRIPT'] = 'patroni_aws'
 
-    placeholders['USE_WALE'] = bool(placeholders.get('WAL_S3_BUCKET') or placeholders.get('WAL_GCS_BUCKET') or placeholders.get('WAL_SWIFT_BUCKET'))
+    placeholders['USE_WALE'] = bool(placeholders.get('WAL_S3_BUCKET') or
+                                    placeholders.get('WAL_GCS_BUCKET') or placeholders.get('WAL_SWIFT_BUCKET'))
 
     # Kubernetes requires a callback to change the labels in order to point to the new master
     if USE_KUBERNETES:
