@@ -421,7 +421,7 @@ def get_placeholders(provider):
     use_walg = str(placeholders['USE_WALG']).lower() == 'true' and bool(placeholders.get('WAL_S3_BUCKET'))
     placeholders['USE_WALE'] = bool(use_walg or placeholders.get('WAL_GCS_BUCKET')
                                     or placeholders.get('WAL_SWIFT_BUCKET'))
-    placeholders['USE_WALG'] = str(use_walg).lower()
+    placeholders['USE_WALG'] = 'true' if use_walg else None
     if placeholders.get('WALG_BACKUP_FROM_REPLICA'):
         placeholders['WALG_BACKUP_FROM_REPLICA'] = str(placeholders['WALG_BACKUP_FROM_REPLICA']).lower()
 
@@ -435,7 +435,7 @@ def get_placeholders(provider):
 
     placeholders.setdefault('postgresql', {})
     placeholders['postgresql'].setdefault('parameters', {})
-    placeholders['WALE_BINARY'] = 'wal-g' if placeholders['USE_WALG'] else 'wal-e --aws-instance-profile'
+    placeholders['WALE_BINARY'] = 'wal-g' if use_walg else 'wal-e --aws-instance-profile'
     placeholders['postgresql']['parameters']['archive_command'] = \
         'envdir "{WALE_ENV_DIR}" {WALE_BINARY} wal-push "%p"'.format(**placeholders) \
         if placeholders['USE_WALE'] else '/bin/true'
