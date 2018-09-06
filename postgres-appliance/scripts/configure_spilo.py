@@ -340,7 +340,7 @@ def get_placeholders(provider):
 
     placeholders.setdefault('PGHOME', os.path.expanduser('~'))
     placeholders.setdefault('APIPORT', '8008')
-    placeholders.setdefault('BACKUP_SCHEDULE', '00 01 * * *')
+    placeholders.setdefault('BACKUP_SCHEDULE', '0 1 * * *')
     placeholders.setdefault('BACKUP_NUM_TO_RETAIN', 2)
     placeholders.setdefault('CRONTAB', '[]')
     placeholders.setdefault('PGROOT', os.path.join(placeholders['PGHOME'], 'pgroot'))
@@ -419,8 +419,11 @@ def get_placeholders(provider):
                 placeholders['CALLBACK_SCRIPT'] = 'patroni_aws'
 
     use_walg = str(placeholders['USE_WALG']).lower() == 'true' and bool(placeholders.get('WAL_S3_BUCKET'))
-    placeholders['USE_WALE'] = bool(use_walg or placeholders.get('WAL_GCS_BUCKET')
-                                    or placeholders.get('WAL_SWIFT_BUCKET'))
+
+    placeholders['USE_WALE'] = bool(placeholders.get('WAL_S3_BUCKET') or
+                                    placeholders.get('WAL_GCS_BUCKET') or
+                                    placeholders.get('WAL_SWIFT_BUCKET'))
+
     placeholders['USE_WALG'] = 'true' if use_walg else None
     if placeholders.get('WALG_BACKUP_FROM_REPLICA'):
         placeholders['WALG_BACKUP_FROM_REPLICA'] = str(placeholders['WALG_BACKUP_FROM_REPLICA']).lower()
@@ -627,12 +630,12 @@ def write_crontab(placeholders, overwrite):
     lines = ['PATH={PATH}'.format(**placeholders)]
 
     if bool(placeholders.get('USE_WALE')):
-        lines += ['{BACKUP_SCHEDULE} envdir "{WALE_ENV_DIR}" /scripts/postgres_backup.sh' +
-                  ' "{PGDATA}" {BACKUP_NUM_TO_RETAIN}' .format(**placeholders)]
+        lines += [('{BACKUP_SCHEDULE} envdir "{WALE_ENV_DIR}" /scripts/postgres_backup.sh' +
+                   ' "{PGDATA}" {BACKUP_NUM_TO_RETAIN}').format(**placeholders)]
 
     if bool(placeholders.get('LOG_S3_BUCKET')):
-        lines += ['{LOG_SHIP_SCHEDULE} nice -n 5 envdir "{LOG_ENV_DIR}"' +
-                  ' /scripts/upload_pg_log_to_s3.py'.format(**placeholders)]
+        lines += [('{LOG_SHIP_SCHEDULE} nice -n 5 envdir "{LOG_ENV_DIR}"' +
+                   ' /scripts/upload_pg_log_to_s3.py').format(**placeholders)]
 
     lines += yaml.load(placeholders['CRONTAB'])
     lines += ['']  # EOF requires empty line for cron
