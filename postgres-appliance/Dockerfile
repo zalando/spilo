@@ -20,6 +20,7 @@ WORKDIR $PGHOME
 ADD motd /etc/
 ADD supervisor /etc/supervisor
 ADD pgq_ticker.ini $PGHOME/
+ADD envdir /usr/local/bin/
 
 RUN mkdir -p /var/log/supervisor \
         && ln -s supervisor/supervisord.conf /etc/supervisord.conf \
