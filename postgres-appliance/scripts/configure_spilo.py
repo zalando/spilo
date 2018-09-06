@@ -148,7 +148,7 @@ bootstrap:
   {{#CLONE_WITH_WALE}}
   method: clone_with_wale
   clone_with_wale:
-    command: envdir "{{CLONE_WALE_ENV_DIR}}" python3 /scripts/clone_with_s3.py --recovery-target-time="{{CLONE_TARGET_TIME}}"
+    command: envdir "{{CLONE_WALE_ENV_DIR}}" python3 /scripts/clone_with_wale.py --recovery-target-time="{{CLONE_TARGET_TIME}}"
     recovery_conf:
         restore_command: envdir "{{CLONE_WALE_ENV_DIR}}" /scripts/restore_command.sh "%f" "%p"
         recovery_target_timeline: latest

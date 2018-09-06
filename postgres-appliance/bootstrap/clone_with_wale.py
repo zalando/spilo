@@ -1,11 +1,13 @@
 #!/usr/bin/env python
 
 import argparse
-from collections import namedtuple
-from dateutil.parser import parse
 import csv
 import logging
+import os
 import subprocess
+
+from collections import namedtuple
+from dateutil.parser import parse
 
 logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -34,15 +36,13 @@ def read_configuration():
 
 
 def build_wale_command(command, datadir=None, backup=None):
-    cmd = ['wal-e', '--aws-instance-profile']
-    if command == 'backup-list':
-        cmd.extend([command, '--detail'])
-    elif command == 'backup-fetch':
+    cmd = (['wal-g'] if os.getenv('USE_WALG') == 'true' else ['wal-e', '--aws-instance-profile']) + [command]
+    if command == 'backup-fetch':
         if datadir is None or backup is None:
             raise Exception("backup-fetch requires datadir and backup arguments")
-        cmd.extend([command, datadir, backup])
+        cmd.extend([datadir, backup])
     else:
-        raise Exception("invalid wal-e command {0}".format(command))
+        raise Exception("invalid {0} command {1}".format(cmd[0], command))
     return cmd
 
 
