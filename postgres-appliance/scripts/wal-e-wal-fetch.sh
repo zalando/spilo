@@ -85,7 +85,7 @@ if [[ -z $AWS_REGION ]]; then
 fi
 
 if [[ -z $S3_HOST ]]; then
-    S3_HOST=s3-$AWS_REGION.amazonaws.com
+    S3_HOST=s3.$AWS_REGION.amazonaws.com
 fi
 
 readonly SERVICE=s3
