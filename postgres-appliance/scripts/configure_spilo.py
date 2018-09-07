@@ -250,11 +250,9 @@ postgresql:
     - wal_e
     - basebackup_fast_xlog
   wal_e:
-    command: patroni_wale_restore
-    envdir: {{WALE_ENV_DIR}}
+    command: envdir {{WALE_ENV_DIR}} bash /scripts/wale_restore.sh
     threshold_megabytes: {{WALE_BACKUP_THRESHOLD_MEGABYTES}}
     threshold_backup_size_percentage: {{WALE_BACKUP_THRESHOLD_PERCENTAGE}}
-    use_iam: 1
     retries: 2
     no_master: 1
   basebackup_fast_xlog:
@@ -358,7 +356,7 @@ def get_placeholders(provider):
     placeholders.setdefault('SCOPE', 'dummy')
     placeholders.setdefault('SSL_CERTIFICATE_FILE', os.path.join(placeholders['PGHOME'], 'server.crt'))
     placeholders.setdefault('SSL_PRIVATE_KEY_FILE', os.path.join(placeholders['PGHOME'], 'server.key'))
-    placeholders.setdefault('WALE_BACKUP_THRESHOLD_MEGABYTES', 1024)
+    placeholders.setdefault('WALE_BACKUP_THRESHOLD_MEGABYTES', 102400)
     placeholders.setdefault('WALE_BACKUP_THRESHOLD_PERCENTAGE', 30)
     # if Kubernetes is defined as a DCS, derive the namespace from the POD_NAMESPACE, if not set explicitely.
     # We only do this for Kubernetes DCS, as we don't want to suddently change, i.e. DCS base path when running
