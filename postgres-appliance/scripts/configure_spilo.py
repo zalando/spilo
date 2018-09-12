@@ -6,6 +6,7 @@ import json
 import logging
 import re
 import os
+import psutil
 import socket
 import subprocess
 import sys
@@ -370,6 +371,9 @@ def get_placeholders(provider):
     placeholders.setdefault('WALE_ENV_DIR', os.path.join(placeholders['PGHOME'], 'etc', 'wal-e.d', 'env'))
     placeholders.setdefault('USE_WALE', False)
     placeholders.setdefault('USE_WALG', False)
+    cpu_count = str(min(psutil.cpu_count(), 10))
+    placeholders.setdefault('WALG_DOWNLOAD_CONCURRENCY', cpu_count)
+    placeholders.setdefault('WALG_UPLOAD_CONCURRENCY', cpu_count)
     placeholders.setdefault('PAM_OAUTH2', '')
     placeholders.setdefault('CALLBACK_SCRIPT', '')
     placeholders.setdefault('DCS_ENABLE_KUBERNETES_API', '')
