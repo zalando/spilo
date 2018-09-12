@@ -29,7 +29,7 @@ while getopts ":-:" optchar; do
 done
 
 [[ -z $DATA_DIR ]] && exit 1
-[[ ! -z $NO_MASTER && -z $CONNSTR ]] && exit 1
+[[ -z $NO_MASTER && -z $CONNSTR ]] && exit 1
 
 if [[ "$USE_WALG" == "true" ]]; then
     readonly WAL_E="wal-g"
