@@ -64,12 +64,12 @@ ARG PGVERSION="11"
 ENV PGVERSION="$PGVERSION" \
     PGOLDVERSIONS="$PGOLDVERSIONS" \
     POSTGIS_VERSION=2.4 \
-    BG_MON_COMMIT=120b86c4fc4503aa640fc7f2f9a5259b10192ba3 \
+    BG_MON_COMMIT=338666784cb91cbe465444ce209828ee3fe7a2b7 \
     DECODERBUFS_COMMIT=e2da72713909d4315aa63f46819412ec4f9f6a42 \
     SET_USER=REL1_6_1 \
     PLPGSQL_CHECK=v1.2.3 \
     PLPROFILER=REL3_2 \
-    TIMESCALEDB=0.11.0 \
+    TIMESCALEDB=0.12.0 \
     PAM_OAUTH2=v1.0
 
 RUN export DEBIAN_FRONTEND=noninteractive \
@@ -340,12 +340,13 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             /usr/lib/postgresql/*/bin/pg_standby \
             /usr/lib/postgresql/*/bin/pltcl_*
 
-# Install patroni and WAL-e
+# Install patroni, wal-e and wal-g
 ENV PATRONIVERSION=1.4.6
 ENV WALE_VERSION=1.1.0
+ENV WALG_VERSION=v0.1.12
 RUN export DEBIAN_FRONTEND=noninteractive \
     && set -ex \
-    && BUILD_PACKAGES="python3-pip python3-wheel python3-dev git patchutils" \
+    && BUILD_PACKAGES="python3-pip python3-wheel python3-dev git patchutils binutils" \
     && apt-get update \
 
     # install most of the patroni dependencies from ubuntu packages
@@ -360,13 +361,16 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 
     && if [ "$DEMO" != "true" ]; then \
         EXTRAS=",etcd,consul,zookeeper,aws" \
+        && curl -sL https://github.com/wal-g/wal-g/releases/download/$WALG_VERSION/wal-g.linux-amd64.lzo.tar.gz \
+                | tar -C /usr/local/bin -xz \
+        && strip /usr/local/bin/wal-g \
         && apt-get install -y python3-etcd python3-consul python3-kazoo python3-meld3 \
 			python3-boto python3-gevent python3-greenlet python3-protobuf \
 			python3-websocket python3-requests-oauthlib python3-swiftclient \
 
         && find /usr/share/python-babel-localedata/locale-data -type f ! -name 'en_US*.dat' -delete \
 
-        && pip3 install envdir filechunkio wal-e[aws,google,swift]==$WALE_VERSION \
+        && pip3 install filechunkio wal-e[aws,google,swift]==$WALE_VERSION \
                 'git+https://github.com/Supervisor/supervisor.git@master#egg=supervisor' \
                 'git+https://github.com/zalando/pg_view.git@master#egg=pg-view' \
 

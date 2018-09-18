@@ -19,7 +19,7 @@ KUBE_API_URL = 'https://kubernetes.default.svc.cluster.local/api/v1/namespaces'
 logger = logging.getLogger(__name__)
 
 NUM_ATTEMPTS = 10
-LABEL = os.environ.get("KUBERNETES_ROLE_LABEL",'spilo-role')
+LABEL = os.environ.get("KUBERNETES_ROLE_LABEL", 'spilo-role')
 
 
 def read_first_line(filename):
