@@ -112,9 +112,9 @@ TEMPLATE = \
 bootstrap:
   post_init: /scripts/post_init.sh "{{HUMAN_ROLE}}"
   dcs:
-    ttl: 30
-    loop_wait: &loop_wait 10
-    retry_timeout: 10
+    ttl: {{DCS_TTL}}
+    loop_wait: &loop_wait {{DCS_LOOP_WAIT}}
+    retry_timeout: {{DCS_RETRY_TIMEOUT}}
     maximum_lag_on_failover: 33554432
     postgresql:
       use_pg_rewind: true
@@ -338,6 +338,10 @@ def set_clone_with_wale_placeholders(placeholders, provider):
 def get_placeholders(provider):
     placeholders = dict(os.environ)
 
+    placeholders.setdefault('DCS_LOOP_WAIT', 10)
+    placeholders.setdefault('DCS_RETRY_TIMEOUT', 20)
+    placeholders.setdefault('DCS_TTL', placeholders['DCS_LOOP_WAIT'] +
+                            (2 * placeholders['DCS_RETRY_TIMEOUT']) )
     placeholders.setdefault('PGHOME', os.path.expanduser('~'))
     placeholders.setdefault('APIPORT', '8008')
     placeholders.setdefault('BACKUP_SCHEDULE', '00 01 * * *')
@@ -467,6 +471,15 @@ def get_dcs_config(config, placeholders):
     if USE_KUBERNETES and placeholders.get('DCS_ENABLE_KUBERNETES_API'):
         try:
             kubernetes_labels = json.loads(placeholders.get('KUBERNETES_LABELS'))
+            ttl = placeholders.get('DCS_TTL')
+            retry_timeout = placeholders.get('DCS_RETRY_TIMEOUT')
+            loop_wait = placeholders.get('DCS_LOOP_WAIT')
+            if ttl != (retry_timeout * 2) + loop_wait:
+                return logging.error("Invalid values provided: "
+                                     "DCS_TTL[{0}], "
+                                     "DCS_RETRY_TIMEOUT[{1}], "
+                                     "DCS_LOOP_WAIT[{2}], "
+                                     .format(ttl, retry_timeout, loop_wait))
         except (TypeError, ValueError) as e:
             logging.warning("could not parse kubernetes labels as a JSON: {0}, "
                             "reverting to the default: {1}".format(e, KUBERNETES_DEFAULT_LABELS))
