@@ -69,7 +69,7 @@ ENV PGVERSION="$PGVERSION" \
     SET_USER=REL1_6_1 \
     PLPGSQL_CHECK=v1.2.3 \
     PLPROFILER=REL3_2 \
-    TIMESCALEDB=0.12.0 \
+    TIMESCALEDB=0.12.1 \
     PAM_OAUTH2=v1.0
 
 RUN export DEBIAN_FRONTEND=noninteractive \
@@ -341,7 +341,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             /usr/lib/postgresql/*/bin/pltcl_*
 
 # Install patroni, wal-e and wal-g
-ENV PATRONIVERSION=1.4.6
+ENV PATRONIVERSION=1.5.0
 ENV WALE_VERSION=1.1.0
 ENV WALG_VERSION=v0.1.12
 RUN export DEBIAN_FRONTEND=noninteractive \
