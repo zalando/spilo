@@ -472,7 +472,6 @@ def write_file(config, filename, overwrite):
             logging.info('Writing to file %s', filename)
             f.write(config)
 
-
 def pystache_render(*args, **kwargs):
     render = pystache.Renderer(missing_tags='strict')
     return render.render(*args, **kwargs)
@@ -487,25 +486,28 @@ def get_dcs_config(config, placeholders):
             retry_timeout = int(placeholders.get('DCS_RETRY_TIMEOUT'))
             loop_wait = int(placeholders.get('DCS_LOOP_WAIT'))
             if ttl != (retry_timeout * 2) + loop_wait:
-                config.update({'bootstrap':
-                               {'dcs': {'ttl': 50,
-                                        'loop_wait': 10,
-                                        'retry_timeout': 20}}})
                 logging.warn("Invalid values provided: "
                                      "DCS_TTL[{0}], "
                                      "DCS_RETRY_TIMEOUT[{1}], "
                                      "DCS_LOOP_WAIT[{2}], "
                                      .format(ttl, retry_timeout, loop_wait))
+                config.update({'bootstrap':
+                               {'dcs': {'ttl': 50,
+                                        'loop_wait': 10,
+                                        'retry_timeout': 20}}})
             else:
                 config.update({'bootstrap':
                                {'dcs': {'ttl': ttl,
                                         'loop_wait': loop_wait,
                                         'retry_timeout': retry_timeout}}})
-                logging.info("Using the following values: "
-                                     "DCS_TTL[{0}], "
-                                     "DCS_RETRY_TIMEOUT[{1}], "
-                                     "DCS_LOOP_WAIT[{2}], "
-                                     .format(ttl, retry_timeout, loop_wait))
+            logging.info("Using the following values: "
+                                 "DCS_TTL[{0}], "
+                                 "DCS_RETRY_TIMEOUT[{1}], "
+                                 "DCS_LOOP_WAIT[{2}], "
+                                 .format(
+                                     config['bootstrap']['dcs']['ttl'],
+                                     config['bootstrap']['dcs']['retry_timeout'],
+                                     config['bootstrap']['dcs']['loop_wait']))
         except (TypeError, ValueError) as e:
             logging.warning("could not parse kubernetes labels as a JSON: {0}, "
                             "reverting to the default: {1}".format(e, KUBERNETES_DEFAULT_LABELS))
