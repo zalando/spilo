@@ -337,10 +337,9 @@ def set_clone_with_wale_placeholders(placeholders, provider):
 def get_placeholders(provider):
     placeholders = dict(os.environ)
 
-    placeholders.setdefault('DCS_LOOP_WAIT', 10)
-    placeholders.setdefault('DCS_RETRY_TIMEOUT', 20)
-    placeholders.setdefault('DCS_TTL', placeholders['DCS_LOOP_WAIT'] +
-                            (2 * placeholders['DCS_RETRY_TIMEOUT']) )
+    placeholders.setdefault('DCS_LOOP_WAIT', '10')
+    placeholders.setdefault('DCS_RETRY_TIMEOUT', '20')
+    placeholders.setdefault('DCS_TTL', '50')
     placeholders.setdefault('PGHOME', os.path.expanduser('~'))
     placeholders.setdefault('APIPORT', '8008')
     placeholders.setdefault('BACKUP_SCHEDULE', '0 1 * * *')
@@ -480,14 +479,29 @@ def pystache_render(*args, **kwargs):
 
 
 def get_dcs_config(config, placeholders):
+    config = dict()
     if USE_KUBERNETES and placeholders.get('DCS_ENABLE_KUBERNETES_API'):
         try:
             kubernetes_labels = json.loads(placeholders.get('KUBERNETES_LABELS'))
-            ttl = placeholders.get('DCS_TTL')
-            retry_timeout = placeholders.get('DCS_RETRY_TIMEOUT')
-            loop_wait = placeholders.get('DCS_LOOP_WAIT')
+            ttl = int(placeholders.get('DCS_TTL'))
+            retry_timeout = int(placeholders.get('DCS_RETRY_TIMEOUT'))
+            loop_wait = int(placeholders.get('DCS_LOOP_WAIT'))
             if ttl != (retry_timeout * 2) + loop_wait:
-                return logging.error("Invalid values provided: "
+                config.update({'bootstrap':
+                               {'dcs': {'ttl': 50,
+                                        'loop_wait': 10,
+                                        'retry_timeout': 20}}})
+                logging.warn("Invalid values provided: "
+                                     "DCS_TTL[{0}], "
+                                     "DCS_RETRY_TIMEOUT[{1}], "
+                                     "DCS_LOOP_WAIT[{2}], "
+                                     .format(ttl, retry_timeout, loop_wait))
+            else:
+                config.update({'bootstrap':
+                               {'dcs': {'ttl': ttl,
+                                        'loop_wait': loop_wait,
+                                        'retry_timeout': retry_timeout}}})
+                logging.info("Using the following values: "
                                      "DCS_TTL[{0}], "
                                      "DCS_RETRY_TIMEOUT[{1}], "
                                      "DCS_LOOP_WAIT[{2}], "
@@ -497,23 +511,24 @@ def get_dcs_config(config, placeholders):
                             "reverting to the default: {1}".format(e, KUBERNETES_DEFAULT_LABELS))
             kubernetes_labels = json.loads(KUBERNETES_DEFAULT_LABELS)
 
-        config = {'kubernetes': {'role_label': placeholders.get('KUBERNETES_ROLE_LABEL'),
+        config.update({'kubernetes': {'role_label': placeholders.get('KUBERNETES_ROLE_LABEL'),
                                  'scope_label': placeholders.get('KUBERNETES_SCOPE_LABEL'),
-                                 'labels': kubernetes_labels}}
+                                 'labels': kubernetes_labels}})
         if not placeholders.get('KUBERNETES_USE_CONFIGMAPS'):
             config['kubernetes'].update({'use_endpoints': True, 'pod_ip': placeholders['instance_data']['ip'],
                                          'ports': [{'port': 5432, 'name': 'postgresql'}]})
     elif 'ZOOKEEPER_HOSTS' in placeholders:
-        config = {'zookeeper': {'hosts': yaml.load(placeholders['ZOOKEEPER_HOSTS'])}}
+        config.update({'zookeeper': {'hosts': yaml.load(placeholders['ZOOKEEPER_HOSTS'])}})
     elif 'EXHIBITOR_HOSTS' in placeholders and 'EXHIBITOR_PORT' in placeholders:
-        config = {'exhibitor': {'hosts': yaml.load(placeholders['EXHIBITOR_HOSTS']),
-                                'port': placeholders['EXHIBITOR_PORT']}}
+        config.update({'exhibitor': {'hosts': yaml.load(placeholders['EXHIBITOR_HOSTS']),
+                                'port': placeholders['EXHIBITOR_PORT']}})
     elif 'ETCD_HOST' in placeholders:
-        config = {'etcd': {'host': placeholders['ETCD_HOST']}}
+        config.update({'etcd': {'host': placeholders['ETCD_HOST']}})
     elif 'ETCD_DISCOVERY_DOMAIN' in placeholders:
-        config = {'etcd': {'discovery_srv': placeholders['ETCD_DISCOVERY_DOMAIN']}}
+        config.update({'etcd': {'discovery_srv': placeholders['ETCD_DISCOVERY_DOMAIN']}})
     else:
-        config = {}  # Configuration can also be specified using either SPILO_CONFIGURATION or PATRONI_CONFIGURATION
+        #config = {}  # Configuration can also be specified using either SPILO_CONFIGURATION or PATRONI_CONFIGURATION
+        pass
 
     if placeholders['NAMESPACE'] not in ('default', ''):
         config['namespace'] = placeholders['NAMESPACE']
