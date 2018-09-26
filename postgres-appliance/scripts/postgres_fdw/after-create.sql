@@ -1,0 +1,1 @@
+GRANT USAGE ON FOREIGN DATA WRAPPER postgres_fdw TO admin;
