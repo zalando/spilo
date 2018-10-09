@@ -209,6 +209,7 @@ postgresql:
     shared_preload_libraries: 'bg_mon,pg_stat_statements,pg_cron,set_user,pgextwlist'
     bg_mon.listen_address: '0.0.0.0'
     extwlist.extensions: 'btree_gin,btree_gist,citext,hstore,intarray,ltree,pgcrypto,pgq,pg_trgm,postgres_fdw,uuid-ossp,hypopg,pg_partman'
+    extwlist.custom_path: /scripts
   pg_hba:
     - local   all             all                                   trust
     {{#PAM_OAUTH2}}
