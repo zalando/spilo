@@ -63,7 +63,7 @@ ARG PGVERSION="11"
 # Install PostgreSQL, extensions and contribs
 ENV PGVERSION="$PGVERSION" \
     PGOLDVERSIONS="$PGOLDVERSIONS" \
-    POSTGIS_VERSION=2.4 \
+    POSTGIS_VERSION=2.5 \
     BG_MON_COMMIT=23821c53b0875c6e6b201540e7c4e4b0a2cddb7b \
     DECODERBUFS_COMMIT=e2da72713909d4315aa63f46819412ec4f9f6a42 \
     SET_USER=REL1_6_1 \
@@ -124,7 +124,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 
     && git clone -b $SET_USER https://github.com/pgaudit/set_user.git \
 
-    && apt-get install -y libbrotli1 libevent-2.1 libevent-pthreads-2.1 python3.6 \
+    && apt-get install -y libbrotli1 libevent-2.1 libevent-pthreads-2.1 python3.6 python3-psycopg2 \
 
     && for version in ${PGOLDVERSIONS} ${PGVERSION}; do \
             sed -i "s/ main.*$/ main $version/g" /etc/apt/sources.list.d/pgdg.list \
@@ -136,15 +136,14 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                         postgresql-${version}-hypopg \
                         postgresql-${version}-pldebugger \
                         postgresql-${version}-pllua \
-                        postgresql-${version}-wal2json" \
+                        postgresql-${version}-wal2json \
+                        postgresql-${version}-postgis-${POSTGIS_VERSION} \
+                        postgresql-${version}-postgis-${POSTGIS_VERSION}-scripts" \
                 && if [ $version != "11" ]; then \
                     EXTRAS="$EXTRAS \
                             postgresql-${version}-amcheck \
                             postgresql-${version}-pgl-ddl-deploy \
-                            postgresql-${version}-pglogical \
-                            postgresql-${version}-postgis-${POSTGIS_VERSION} \
-                            postgresql-${version}-postgis-${POSTGIS_VERSION}-scripts \
-                            postgresql-${version}-repack"; \
+                            postgresql-${version}-pglogical"; \
                 fi \
                 && if [ "$WITH_PERL" = "true" ]; then \
                     EXTRAS="$EXTRAS postgresql-plperl-${version}"; \
@@ -192,9 +191,10 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && cd $(ls -d pgbouncer-*) \
         # Set last_connect_time for pool only when it really failed to connect
         && curl -sL https://github.com/pgbouncer/pgbouncer/pull/127.diff | patch -p1 \
+        && curl -sL https://github.com/pgbouncer/pgbouncer/pull/326.diff | patch -p1 \
         # Increase password size
         && sed -i 's/\(MAX_PASSWORD\t\).*/\11024/' include/bouncer.h \
-        && sed 's/\(SEND_wrap(\)512\(, pktbuf_write_PasswordMessage, res, sk, psw)\)/\11024\2/' include/pktbuf.h \
+        && sed -i 's/\(SEND_wrap(\)512\(, pktbuf_write_PasswordMessage, res, sk, psw)\)/\11024\2/' include/pktbuf.h \
         && debuild -b -uc -us \
         && dpkg -i ../pgbouncer_*.deb \
         && cd .. \
@@ -206,7 +206,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 
     # build and install missing packages
     && apt-get install -y postgresql-server-dev-all postgresql-server-dev-${PGVERSION} \
-    && for pkg in pgextwlist pgq3 $PACKAGES; do \
+    && for pkg in pgextwlist pgq3 repack $PACKAGES; do \
         apt-get source postgresql-10-${pkg} \
         && cd $(ls -d *${pkg%?}*-*) \
         && pwd \
@@ -249,19 +249,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             done; \
         done \
 
-        && for v in /usr/share/postgresql/*; do \
-            cd $v/extension \
-            && for e in postgis postgis_sfcgal; do \
-                orig=$(ls -1 $e--*--*.sql | head -n1) \
-                && for f in $e--*--*.sql; do \
-                    if [ "$f" != "$orig" ] && diff $f $orig > /dev/null; then \
-                        rm $f \
-                        && ln -s $orig $f; \
-                    fi; \
-                done; \
-            done; \
-        done \
-
         && PGVERSION=10 \
         && cd /usr/share/postgresql/$PGVERSION/contrib/postgis-$POSTGIS_VERSION \
         && for f in *.sql *.pl; do \
@@ -283,7 +270,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             done; \
         done \
 
-        && for e in pgq plproxy postgis_tiger_geocoder postgis_topology address_standardizer address_standardizer_data_us; do \
+        && for e in pgq plproxy address_standardizer address_standardizer_data_us; do \
             orig=$(ls -1 $e--*--*.sql 2> /dev/null | head -n1) \
             && if [ "x$orig" != "x" ]; then \
                 for f in $e--*--*.sql; do \
@@ -350,9 +337,9 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && apt-get update \
 
     # install most of the patroni dependencies from ubuntu packages
-    && apt-get install -s patroni \
-            | sed -n -e "/^Inst patroni /d" \
-                    -e 's/^Inst \([^ ]\+\) .*$/\1/p' \
+    && apt-cache depends patroni \
+            | sed -n -e 's/.* Depends: \(python3-.\+\)$/\1/p' \
+            | grep -Ev '^python3-(sphinx|etcd|consul|kazoo|kubernetes)' \
             | xargs apt-get install -y ${BUILD_PACKAGES} \
 					python3-pystache python3-cachetools \
 					python3-rsa python3-pyasn1-modules \
