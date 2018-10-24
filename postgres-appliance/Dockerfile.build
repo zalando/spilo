@@ -397,6 +397,10 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 			python3-boto python3-gevent python3-greenlet python3-protobuf \
 			python3-websocket python3-requests-oauthlib python3-swiftclient \
 
+        && cd /usr/lib/python3/dist-packages/etcd \
+        # https://github.com/jplana/python-etcd/pull/196 for python-etcd 0.4.3
+        && curl -sL https://github.com/jplana/python-etcd/pull/196.diff | patch -p3 \
+
         && find /usr/share/python-babel-localedata/locale-data -type f ! -name 'en_US*.dat' -delete \
 
         && pip3 install filechunkio wal-e[aws,google,swift]==$WALE_VERSION \
