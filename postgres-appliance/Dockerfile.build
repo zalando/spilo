@@ -295,7 +295,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             done; \
         done \
 
-        && cd /usr/share/postgresql/9.5/extension \
+        && if [ -d /usr/share/postgresql/9.5/extension ]; then \
+            cd /usr/share/postgresql/9.5/extension \
         && for f in *.sql *.control; do \
             for v in 9.3 9.4; do \
                 if [ -f /usr/share/postgresql/$v/extension/$f ] \
@@ -305,7 +306,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                     && ln -s /usr/share/postgresql/9.5/extension/$f /usr/share/postgresql/$v/extension/$f; \
                 fi; \
             done; \
-        done \
+            done; \
+        fi \
 
         && cd /usr/share/postgresql/$PGVERSION/contrib \
         && for f in *.sql *.html; do \
@@ -326,8 +328,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 fi; \
             done; \
         done \
-
-        && cd /usr/share/postgresql/9.5/contrib/postgis-$POSTGIS_VERSION \
+        && if [ -d /usr/share/postgresql/9.5/contrib/postgis-$POSTGIS_VERSION ]; then \
+            cd /usr/share/postgresql/9.5/contrib/postgis-$POSTGIS_VERSION \
         && for f in *.sql *.pl; do \
             for v in 9.3 9.4; do \
                 if [ -f /usr/share/postgresql/$v/contrib/postgis-$POSTGIS_VERSION/$f ] \
@@ -338,7 +340,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                             /usr/share/postgresql/$v/contrib/postgis-$POSTGIS_VERSION/$f; \
                 fi; \
             done; \
-        done \
+            done; \
+        fi \
 
         && cd /usr/lib/postgresql/$PGVERSION/bin \
         && for u in clusterdb pg_archivecleanup pg_basebackup pg_isready pg_test_fsync pg_test_timing pgbench psql reindexdb vacuumdb vacuumlo *.py; do \
