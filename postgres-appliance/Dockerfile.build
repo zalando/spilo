@@ -226,6 +226,10 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             perl -ne 'print unless /PG_TRY/ .. /PG_CATCH/' pgextwlist.c > pgextwlist.c.f \
             && egrep -v '(PG_END_TRY|EmitWarningsOnPlaceholders)' pgextwlist.c.f > pgextwlist.c; \
         fi \
+        && rm -f debian/pgversions \
+        && for version in ${PGOLDVERSIONS} ${PGVERSION}; do \
+            echo ${version} >> debian/pgversions; \
+        done \
         && pg_buildext updatecontrol \
         && debuild -b -uc -us \
         && cd .. \
