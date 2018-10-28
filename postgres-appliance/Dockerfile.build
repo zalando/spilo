@@ -387,12 +387,12 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && apt-get update \
 
     # install most of the patroni dependencies from ubuntu packages
-    && apt-get install -s patroni \
-            | sed -n -e "/^Inst patroni /d" \
-                    -e 's/^Inst \([^ ]\+\) .*$/\1/p' \
+    && apt-cache depends patroni \
+            | sed -n -e 's/.* Depends: \(python3-.\+\)$/\1/p' \
+            | grep -Ev '^python3-(sphinx|etcd|consul|kazoo|kubernetes)' \
             | xargs apt-get install -y ${BUILD_PACKAGES} \
-					python3-pystache python3-cachetools \
-					python3-rsa python3-pyasn1-modules \
+                                        python3-pystache python3-cachetools \
+                                        python3-rsa python3-pyasn1-modules \
 
     && pip3 install setuptools \
 
@@ -402,8 +402,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 | tar -C /usr/local/bin -xz \
         && strip /usr/local/bin/wal-g \
         && apt-get install -y python3-etcd python3-consul python3-kazoo python3-meld3 \
-			python3-boto python3-gevent python3-greenlet python3-protobuf \
-			python3-websocket python3-requests-oauthlib python3-swiftclient \
+                        python3-boto python3-gevent python3-greenlet python3-protobuf \
+                        python3-websocket python3-requests-oauthlib python3-swiftclient \
 
         && cd /usr/lib/python3/dist-packages/etcd \
         # https://github.com/jplana/python-etcd/pull/196 for python-etcd 0.4.3
