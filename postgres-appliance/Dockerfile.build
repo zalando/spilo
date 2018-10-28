@@ -73,6 +73,7 @@ ENV PGVERSION="$PGVERSION" \
 
 RUN export DEBIAN_FRONTEND=noninteractive \
     && set -ex \
+    && sed -i 's/^#\s*\(deb.*universe\)$/\1/g' /etc/apt/sources.list \
     && apt-get update \
     && cd /builddeps \
 
@@ -226,6 +227,10 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             perl -ne 'print unless /PG_TRY/ .. /PG_CATCH/' pgextwlist.c > pgextwlist.c.f \
             && egrep -v '(PG_END_TRY|EmitWarningsOnPlaceholders)' pgextwlist.c.f > pgextwlist.c; \
         fi \
+        && rm -f debian/pgversions \
+        && for version in ${PGOLDVERSIONS} ${PGVERSION}; do \
+            echo ${version} >> debian/pgversions; \
+        done \
         && pg_buildext updatecontrol \
         && debuild -b -uc -us \
         && cd .. \
@@ -291,17 +296,19 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             done; \
         done \
 
-        && cd /usr/share/postgresql/9.5/extension \
-        && for f in *.sql *.control; do \
-            for v in 9.3 9.4; do \
-                if [ -f /usr/share/postgresql/$v/extension/$f ] \
-                        && [ ! -L /usr/share/postgresql/$v/extension/$f ] \
-                        && diff $v/extension/$f $f > /dev/null; then \
-                    rm /usr/share/postgresql/$v/extension/$f \
-                    && ln -s /usr/share/postgresql/9.5/extension/$f /usr/share/postgresql/$v/extension/$f; \
-                fi; \
+        && if [ -d /usr/share/postgresql/9.5/extension ]; then \
+            cd /usr/share/postgresql/9.5/extension \
+            && for f in *.sql *.control; do \
+                for v in 9.3 9.4; do \
+                    if [ -f /usr/share/postgresql/$v/extension/$f ] \
+                            && [ ! -L /usr/share/postgresql/$v/extension/$f ] \
+                            && diff $v/extension/$f $f > /dev/null; then \
+                        rm /usr/share/postgresql/$v/extension/$f \
+                        && ln -s /usr/share/postgresql/9.5/extension/$f /usr/share/postgresql/$v/extension/$f; \
+                   fi; \
+                done; \
             done; \
-        done \
+        fi \
 
         && cd /usr/share/postgresql/$PGVERSION/contrib \
         && for f in *.sql *.html; do \
@@ -322,19 +329,20 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 fi; \
             done; \
         done \
-
-        && cd /usr/share/postgresql/9.5/contrib/postgis-$POSTGIS_VERSION \
-        && for f in *.sql *.pl; do \
-            for v in 9.3 9.4; do \
-                if [ -f /usr/share/postgresql/$v/contrib/postgis-$POSTGIS_VERSION/$f ] \
-                        && [ ! -L /usr/share/postgresql/$v/contrib/postgis-$POSTGIS_VERSION/$f ] \
-                        && diff /usr/share/postgresql/$v/contrib/postgis-$POSTGIS_VERSION/$f $f > /dev/null; then \
-                    rm /usr/share/postgresql/$v/contrib/postgis-$POSTGIS_VERSION/$f \
-                    && ln -s /usr/share/postgresql/9.5/contrib/postgis-$POSTGIS_VERSION/$f \
-                            /usr/share/postgresql/$v/contrib/postgis-$POSTGIS_VERSION/$f; \
-                fi; \
+        && if [ -d /usr/share/postgresql/9.5/contrib/postgis-$POSTGIS_VERSION ]; then \
+            cd /usr/share/postgresql/9.5/contrib/postgis-$POSTGIS_VERSION \
+            && for f in *.sql *.pl; do \
+                for v in 9.3 9.4; do \
+                    if [ -f /usr/share/postgresql/$v/contrib/postgis-$POSTGIS_VERSION/$f ] \
+                            && [ ! -L /usr/share/postgresql/$v/contrib/postgis-$POSTGIS_VERSION/$f ] \
+                            && diff /usr/share/postgresql/$v/contrib/postgis-$POSTGIS_VERSION/$f $f > /dev/null; then \
+                        rm /usr/share/postgresql/$v/contrib/postgis-$POSTGIS_VERSION/$f \
+                        && ln -s /usr/share/postgresql/9.5/contrib/postgis-$POSTGIS_VERSION/$f \
+                                /usr/share/postgresql/$v/contrib/postgis-$POSTGIS_VERSION/$f; \
+                    fi; \
+                done; \
             done; \
-        done \
+        fi \
 
         && cd /usr/lib/postgresql/$PGVERSION/bin \
         && for u in clusterdb pg_archivecleanup pg_basebackup pg_isready pg_test_fsync pg_test_timing pgbench psql reindexdb vacuumdb vacuumlo *.py; do \
