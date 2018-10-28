@@ -298,15 +298,15 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 
         && if [ -d /usr/share/postgresql/9.5/extension ]; then \
             cd /usr/share/postgresql/9.5/extension \
-        && for f in *.sql *.control; do \
-            for v in 9.3 9.4; do \
-                if [ -f /usr/share/postgresql/$v/extension/$f ] \
-                        && [ ! -L /usr/share/postgresql/$v/extension/$f ] \
-                        && diff $v/extension/$f $f > /dev/null; then \
-                    rm /usr/share/postgresql/$v/extension/$f \
-                    && ln -s /usr/share/postgresql/9.5/extension/$f /usr/share/postgresql/$v/extension/$f; \
-                fi; \
-            done; \
+            && for f in *.sql *.control; do \
+                for v in 9.3 9.4; do \
+                    if [ -f /usr/share/postgresql/$v/extension/$f ] \
+                            && [ ! -L /usr/share/postgresql/$v/extension/$f ] \
+                            && diff $v/extension/$f $f > /dev/null; then \
+                        rm /usr/share/postgresql/$v/extension/$f \
+                        && ln -s /usr/share/postgresql/9.5/extension/$f /usr/share/postgresql/$v/extension/$f; \
+                   fi; \
+                done; \
             done; \
         fi \
 
@@ -331,16 +331,16 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         done \
         && if [ -d /usr/share/postgresql/9.5/contrib/postgis-$POSTGIS_VERSION ]; then \
             cd /usr/share/postgresql/9.5/contrib/postgis-$POSTGIS_VERSION \
-        && for f in *.sql *.pl; do \
-            for v in 9.3 9.4; do \
-                if [ -f /usr/share/postgresql/$v/contrib/postgis-$POSTGIS_VERSION/$f ] \
-                        && [ ! -L /usr/share/postgresql/$v/contrib/postgis-$POSTGIS_VERSION/$f ] \
-                        && diff /usr/share/postgresql/$v/contrib/postgis-$POSTGIS_VERSION/$f $f > /dev/null; then \
-                    rm /usr/share/postgresql/$v/contrib/postgis-$POSTGIS_VERSION/$f \
-                    && ln -s /usr/share/postgresql/9.5/contrib/postgis-$POSTGIS_VERSION/$f \
-                            /usr/share/postgresql/$v/contrib/postgis-$POSTGIS_VERSION/$f; \
-                fi; \
-            done; \
+            && for f in *.sql *.pl; do \
+                for v in 9.3 9.4; do \
+                    if [ -f /usr/share/postgresql/$v/contrib/postgis-$POSTGIS_VERSION/$f ] \
+                            && [ ! -L /usr/share/postgresql/$v/contrib/postgis-$POSTGIS_VERSION/$f ] \
+                            && diff /usr/share/postgresql/$v/contrib/postgis-$POSTGIS_VERSION/$f $f > /dev/null; then \
+                        rm /usr/share/postgresql/$v/contrib/postgis-$POSTGIS_VERSION/$f \
+                        && ln -s /usr/share/postgresql/9.5/contrib/postgis-$POSTGIS_VERSION/$f \
+                                /usr/share/postgresql/$v/contrib/postgis-$POSTGIS_VERSION/$f; \
+                    fi; \
+                done; \
             done; \
         fi \
 
