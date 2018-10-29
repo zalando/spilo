@@ -83,7 +83,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         PGOLDVERSIONS="" \
         && apt-get install -y $BUILD_PACKAGES; \
     else \
-        BUILD_PACKAGES="$BUILD_PACKAGES equivs pgxnclient cmake libssl-dev zlib1g-dev libprotobuf-c-dev liblwgeom-dev libproj-dev libpam0g-dev libcurl4-openssl-dev libc-ares-dev python-docutils pkg-config" \
+        BUILD_PACKAGES="$BUILD_PACKAGES equivs pgxnclient cmake libssl-dev zlib1g-dev libprotobuf-c-dev liblwgeom-dev libproj-dev libpam0g-dev libcurl4-openssl-dev libicu-dev libc-ares-dev python-docutils pkg-config" \
 # debezium-decoderbufs: libprotobuf-c-dev liblwgeom-dev libproj-dev
 # pgbouncer: libc-ares-dev python-docutils pkg-config
 
@@ -109,6 +109,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 
         # prepare 3rd sources
         && curl -sL https://github.com/debezium/postgres-decoderbufs/archive/$DECODERBUFS_COMMIT.tar.gz | tar xz \
+        && curl -sL https://github.com/debezium/postgres-decoderbufs/compare/master...CyberDem0n:feature/pg11-compat.diff | patch -d postgres-decoderbufs-$DECODERBUFS_COMMIT -p1 \
 
         && git clone -b $PLPGSQL_CHECK https://github.com/okbob/plpgsql_check.git \
 
@@ -159,11 +160,13 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                         libpq-dev=$version* postgresql-server-dev-${version} \
 
             # Install 3rd party stuff
-            && if [ "$DEMO" != "true" ] && [ "$version" != "11" ]; then \
-                for extension in quantile trimmed_aggregates; do \
-                    pgxn install $extension \
-                    && strip /usr/lib/postgresql/$version/lib/$extension.so; \
-                done \
+            && if [ "$DEMO" != "true" ]; then \
+                if [ "$version" != "11" ]; then \
+                    for extension in quantile trimmed_aggregates; do \
+                        pgxn install $extension \
+                        && strip /usr/lib/postgresql/$version/lib/$extension.so; \
+                    done; \
+                fi \
 
                 && if [ "$version" = "9.6" ] || [ "$version" = "10" ]; then \
                     cd timescaledb \
