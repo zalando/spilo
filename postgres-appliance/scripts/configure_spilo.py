@@ -209,6 +209,7 @@ postgresql:
     shared_preload_libraries: 'bg_mon,pg_stat_statements,pg_cron,set_user,pgextwlist'
     bg_mon.listen_address: '0.0.0.0'
     extwlist.extensions: 'btree_gin,btree_gist,citext,hstore,intarray,ltree,pgcrypto,pgq,pg_trgm,postgres_fdw,uuid-ossp,hypopg,pg_partman'
+    extwlist.custom_path: /scripts
   pg_hba:
     - local   all             all                                   trust
     {{#PAM_OAUTH2}}
@@ -567,7 +568,8 @@ def write_wale_environment(placeholders, provider, prefix, overwrite):
                 'AWS_ENDPOINT', 'AWS_REGION', 'WALG_DELTA_MAX_STEPS', 'WALG_DELTA_ORIGIN',
                 'WALG_DOWNLOAD_CONCURRENCY', 'WALG_UPLOAD_CONCURRENCY', 'WALG_UPLOAD_DISK_CONCURRENCY',
                 'WALG_DISK_RATE_LIMIT', 'WALG_NETWORK_RATE_LIMIT', 'WALG_COMPRESSION_METHOD',
-                'USE_WALG', 'WALG_BACKUP_COMPRESSION_METHOD', 'WALG_BACKUP_FROM_REPLICA']
+                'USE_WALG', 'WALG_BACKUP_COMPRESSION_METHOD', 'WALG_BACKUP_FROM_REPLICA', 
+                'AWS_S3_FORCE_PATH_STYLE', 'WALG_SENTINEL_USER_DATA', 'WALG_PREVENT_WAL_OVERWRITE']
     gs_names = ['WALE_GS_PREFIX', 'GOOGLE_APPLICATION_CREDENTIALS']
     swift_names = ['WALE_SWIFT_PREFIX', 'SWIFT_AUTHURL', 'SWIFT_TENANT', 'SWIFT_USER',
                    'SWIFT_PASSWORD', 'SWIFT_AUTH_VERSION', 'SWIFT_ENDPOINT_TYPE']
