@@ -109,7 +109,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 
         # prepare 3rd sources
         && curl -sL https://github.com/debezium/postgres-decoderbufs/archive/$DECODERBUFS_COMMIT.tar.gz | tar xz \
-        && curl -sL https://github.com/debezium/postgres-decoderbufs/compare/master...CyberDem0n:feature/pg11-compat.diff | patch -d postgres-decoderbufs-$DECODERBUFS_COMMIT -p1 \
 
         && git clone -b $PLPGSQL_CHECK https://github.com/okbob/plpgsql_check.git \
 
