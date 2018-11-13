@@ -41,7 +41,7 @@ def build_wale_command(command, datadir=None, backup=None):
         if datadir is None or backup is None:
             raise Exception("backup-fetch requires datadir and backup arguments")
         cmd.extend([datadir, backup])
-    else:
+    elif command != 'backup-list':
         raise Exception("invalid {0} command {1}".format(cmd[0], command))
     return cmd
 

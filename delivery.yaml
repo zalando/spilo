@@ -5,9 +5,6 @@ build_steps:
         apt-get install -y python3 python3-pip
         pip3 install 'docker<3.0.0' docker-squash
 
-    - desc: Install Docker
-      cmd: 'curl -sSL https://get.docker.com/ | sh'
-
     - desc: Build and push docker images
       cmd: |
         cd  postgres-appliance

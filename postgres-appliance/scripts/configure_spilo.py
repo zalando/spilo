@@ -573,11 +573,16 @@ def write_wale_environment(placeholders, provider, prefix, overwrite):
         if not aws_endpoint:
             if wale_endpoint:
                 aws_endpoint = wale_endpoint.replace('+path://', '://')
+                try:
+                    idx = aws_endpoint.index('amazonaws.com:')
+                    aws_endpoint = aws_endpoint[:idx + 13]
+                except ValueError:
+                    pass
             else:
-                aws_endpoint = 'https://s3.{0}.amazonaws.com:443'.format(aws_region)
+                aws_endpoint = 'https://s3.{0}.amazonaws.com'.format(aws_region)
 
         if not wale_endpoint and aws_endpoint:
-            wale_endpoint = aws_endpoint.replace('://', '+path://')
+            wale_endpoint = aws_endpoint.replace('://', '+path://') + ':443'
 
         wale['WALE_S3_PREFIX'] = 's3://{WAL_S3_BUCKET}{BUCKET_PATH}'.format(**wale)
         wale.update(WALE_S3_ENDPOINT=wale_endpoint, AWS_ENDPOINT=aws_endpoint, AWS_REGION=aws_region)
