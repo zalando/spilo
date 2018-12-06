@@ -372,6 +372,8 @@ def get_placeholders(provider):
     placeholders.setdefault('WALE_ENV_DIR', os.path.join(placeholders['PGHOME'], 'etc', 'wal-e.d', 'env'))
     placeholders.setdefault('USE_WALE', False)
     placeholders.setdefault('USE_WALG', False)
+    placeholders.setdefault('USE_WALG_BACKUP', placeholders['USE_WALG'])
+    placeholders.setdefault('USE_WALG_RESTORE', placeholders['USE_WALG'])
     cpu_count = str(min(psutil.cpu_count(), 10))
     placeholders.setdefault('WALG_DOWNLOAD_CONCURRENCY', cpu_count)
     placeholders.setdefault('WALG_UPLOAD_CONCURRENCY', cpu_count)
@@ -421,13 +423,16 @@ def get_placeholders(provider):
             else:
                 placeholders['CALLBACK_SCRIPT'] = 'patroni_aws'
 
-    use_walg = str(placeholders['USE_WALG']).lower() == 'true' and bool(placeholders.get('WAL_S3_BUCKET'))
+    use_s3 = bool(placeholders.get('WAL_S3_BUCKET'))
+    use_walg_backup = str(placeholders['USE_WALG_BACKUP']).lower() == 'true' and use_s3
+    use_walg_restore = str(placeholders['USE_WALG_RESTORE']).lower() == 'true' and use_s3
 
     placeholders['USE_WALE'] = bool(placeholders.get('WAL_S3_BUCKET') or
                                     placeholders.get('WAL_GCS_BUCKET') or
                                     placeholders.get('WAL_SWIFT_BUCKET'))
 
-    placeholders['USE_WALG'] = 'true' if use_walg else None
+    placeholders['USE_WALG_BACKUP'] = 'true' if use_walg_backup else None
+    placeholders['USE_WALG_RESTORE'] = 'true' if use_walg_restore else None
     if placeholders.get('WALG_BACKUP_FROM_REPLICA'):
         placeholders['WALG_BACKUP_FROM_REPLICA'] = str(placeholders['WALG_BACKUP_FROM_REPLICA']).lower()
 
@@ -441,7 +446,7 @@ def get_placeholders(provider):
 
     placeholders.setdefault('postgresql', {})
     placeholders['postgresql'].setdefault('parameters', {})
-    placeholders['WALE_BINARY'] = 'wal-g' if use_walg else 'wal-e --aws-instance-profile'
+    placeholders['WALE_BINARY'] = 'wal-g' if use_walg_backup else 'wal-e --aws-instance-profile'
     placeholders['postgresql']['parameters']['archive_command'] = \
         'envdir "{WALE_ENV_DIR}" {WALE_BINARY} wal-push "%p"'.format(**placeholders) \
         if placeholders['USE_WALE'] else '/bin/true'
@@ -538,15 +543,16 @@ def write_wale_environment(placeholders, provider, prefix, overwrite):
                 'AWS_ENDPOINT', 'AWS_REGION', 'WALG_DELTA_MAX_STEPS', 'WALG_DELTA_ORIGIN',
                 'WALG_DOWNLOAD_CONCURRENCY', 'WALG_UPLOAD_CONCURRENCY', 'WALG_UPLOAD_DISK_CONCURRENCY',
                 'WALG_DISK_RATE_LIMIT', 'WALG_NETWORK_RATE_LIMIT', 'WALG_COMPRESSION_METHOD',
-                'USE_WALG', 'WALG_BACKUP_COMPRESSION_METHOD', 'WALG_BACKUP_FROM_REPLICA', 
+                'USE_WALG_BACKUP', 'USE_WALG_RESTORE', 'WALG_BACKUP_COMPRESSION_METHOD', 'WALG_BACKUP_FROM_REPLICA',
                 'AWS_S3_FORCE_PATH_STYLE', 'WALG_SENTINEL_USER_DATA', 'WALG_PREVENT_WAL_OVERWRITE']
     gs_names = ['WALE_GS_PREFIX', 'GOOGLE_APPLICATION_CREDENTIALS']
     swift_names = ['WALE_SWIFT_PREFIX', 'SWIFT_AUTHURL', 'SWIFT_TENANT', 'SWIFT_USER',
                    'SWIFT_PASSWORD', 'SWIFT_AUTH_VERSION', 'SWIFT_ENDPOINT_TYPE']
 
     wale = defaultdict(lambda: '')
-    for name in ['WALE_ENV_DIR', 'SCOPE', 'WAL_BUCKET_SCOPE_PREFIX', 'WAL_BUCKET_SCOPE_SUFFIX', 'WAL_S3_BUCKET',
-                 'WAL_GCS_BUCKET', 'WAL_GS_BUCKET', 'WAL_SWIFT_BUCKET', 'USE_WALG'] + s3_names + swift_names + gs_names:
+    for name in ['WALE_ENV_DIR', 'SCOPE', 'WAL_BUCKET_SCOPE_PREFIX', 'WAL_BUCKET_SCOPE_SUFFIX',
+                 'WAL_S3_BUCKET', 'WAL_GCS_BUCKET', 'WAL_GS_BUCKET', 'WAL_SWIFT_BUCKET',
+                 'USE_WALG_BACKUP', 'USE_WALG_RESTORE'] + s3_names + swift_names + gs_names:
         wale[name] = placeholders.get(prefix + name, '')
 
     if wale['WAL_GS_BUCKET']:  # WAL_GS_BUCKET is more consistent with WALE_GS_PREFIX

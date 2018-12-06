@@ -31,7 +31,7 @@ done
 [[ -z $DATA_DIR ]] && exit 1
 [[ -z $NO_MASTER && -z $CONNSTR ]] && exit 1
 
-if [[ "$USE_WALG" == "true" ]]; then
+if [[ "$USE_WALG_RESTORE" == "true" ]]; then
     readonly WAL_E="wal-g"
     readonly backup_start_field_num=3
 else
