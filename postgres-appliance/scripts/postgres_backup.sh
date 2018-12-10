@@ -25,7 +25,7 @@ fi
 # leave at least 2 days base backups before creating a new one
 [[ "$DAYS_TO_RETAIN" -lt 2 ]] && DAYS_TO_RETAIN=2
 
-if [[ "$USE_WALG" == "true" ]]; then
+if [[ "$USE_WALG_BACKUP" == "true" ]]; then
     readonly WAL_E="wal-g"
     [[ -z $WALG_BACKUP_COMPRESSION_METHOD ]] || export WALG_COMPRESSION_METHOD=$WALG_BACKUP_COMPRESSION_METHOD
     export PGHOST=/var/run/postgresql
@@ -52,7 +52,7 @@ while read name last_modified rest; do
 done < <($WAL_E backup-list 2> /dev/null | sed '0,/^name\s*last_modified\s*/d')
 
 if [ ! -z "$BEFORE" ]; then
-    if [[ "$USE_WALG" == "true" ]]; then
+    if [[ "$USE_WALG_BACKUP" == "true" ]]; then
         $WAL_E delete before FIND_FULL "$BEFORE" --confirm
     else
         $WAL_E delete --confirm before "$BEFORE"
