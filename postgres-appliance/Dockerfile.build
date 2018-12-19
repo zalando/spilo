@@ -56,19 +56,19 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 ADD dependencies/debs /builddeps
 
 ARG WITH_PERL=false
-ARG PGOLDVERSIONS="9.5 9.6 10"
+ARG PGOLDVERSIONS="9.3 9.4 9.5 9.6 10"
 ARG PGVERSION="11"
 
 # Install PostgreSQL, extensions and contribs
 ENV PGVERSION="$PGVERSION" \
     PGOLDVERSIONS="$PGOLDVERSIONS" \
     POSTGIS_VERSION=2.5 \
-    BG_MON_COMMIT=1436d6bca8db4d1cf7b776cca2a935b705e5a327 \
+    BG_MON_COMMIT=0cbcfe46804b85ba32021ca688da30341e974d9f \
     DECODERBUFS_COMMIT=c5068d5b42cebcd300520553f639cf1cfdef0b34 \
     SET_USER=REL1_6_1 \
-    PLPGSQL_CHECK=v1.2.3 \
+    PLPGSQL_CHECK=v1.4.0 \
     PLPROFILER=REL3_2 \
-    TIMESCALEDB=1.0.0 \
+    TIMESCALEDB=1.1.0 \
     PAM_OAUTH2=v1.0
 
 RUN export DEBIAN_FRONTEND=noninteractive \
@@ -77,15 +77,16 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && apt-get update \
     && cd /builddeps \
 
-    && BUILD_PACKAGES="devscripts build-essential fakeroot debhelper git gcc libc6-dev make libevent-dev libbrotli-dev naturaldocs python" \
+    && BUILD_PACKAGES="devscripts build-essential fakeroot debhelper git gcc libc6-dev make libevent-dev naturaldocs python" \
 # pgq3: naturaldocs python
     && if [ "$DEMO" = "true" ]; then \
         PGOLDVERSIONS="" \
         && apt-get install -y $BUILD_PACKAGES; \
     else \
-        BUILD_PACKAGES="$BUILD_PACKAGES equivs pgxnclient cmake libssl-dev zlib1g-dev libprotobuf-c-dev liblwgeom-dev libproj-dev libpam0g-dev libcurl4-openssl-dev libicu-dev libc-ares-dev python-docutils pkg-config" \
+        BUILD_PACKAGES="$BUILD_PACKAGES equivs pgxnclient cmake libssl-dev zlib1g-dev libprotobuf-c-dev liblwgeom-dev libproj-dev libxslt1-dev libxml2-dev libpam0g-dev libkrb5-dev libedit-dev libselinux1-dev libcurl4-openssl-dev libicu-dev libc-ares-dev python-docutils pkg-config" \
 # debezium-decoderbufs: libprotobuf-c-dev liblwgeom-dev libproj-dev
 # pgbouncer: libc-ares-dev python-docutils pkg-config
+# pg_rewind: libxslt1-dev libxml2-dev libpam0g-dev libkrb5-dev libedit-dev libselinux1-dev
 
         && apt-get install -y $BUILD_PACKAGES libprotobuf-c1 libcurl4 \
 
@@ -123,7 +124,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 
     && git clone -b $SET_USER https://github.com/pgaudit/set_user.git \
 
-    && apt-get install -y libbrotli1 libevent-2.1 libevent-pthreads-2.1 python3.6 python3-psycopg2 \
+    && apt-get install -y libevent-2.1 libevent-pthreads-2.1 python3.6 python3-psycopg2 \
 
     && for version in ${PGOLDVERSIONS} ${PGVERSION}; do \
             sed -i "s/ main.*$/ main $version/g" /etc/apt/sources.list.d/pgdg.list \
@@ -131,25 +132,32 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 
             && if [ "$DEMO" != "true" ]; then \
                 EXTRAS="postgresql-pltcl-${version} \
-                        postgresql-${version}-cron \
                         postgresql-${version}-hypopg \
-                        postgresql-${version}-partman \
-                        postgresql-${version}-pgl-ddl-deploy \
-                        postgresql-${version}-pglogical \
                         postgresql-${version}-pgq3 \
                         postgresql-${version}-pldebugger \
                         postgresql-${version}-pllua \
                         postgresql-${version}-plproxy \
-                        postgresql-${version}-postgis-${POSTGIS_VERSION} \
-                        postgresql-${version}-postgis-${POSTGIS_VERSION}-scripts \
-                        postgresql-${version}-repack \
-                        postgresql-${version}-wal2json" \
-                && if [ $version != "11" ]; then \
+                        postgresql-${version}-repack" \
+                && if [ $version != "11" ] && [ $version != "9.3" ] ; then \
                     EXTRAS="$EXTRAS postgresql-${version}-amcheck"; \
                 fi \
                 && if [ "$WITH_PERL" = "true" ]; then \
                     EXTRAS="$EXTRAS postgresql-plperl-${version}"; \
+                fi \
+                && if [ $version != "9.3" ]; then \
+                    EXTRAS="$EXTRAS \
+                            postgresql-${version}-partman \
+                            postgresql-${version}-pglogical \
+                            postgresql-${version}-postgis-${POSTGIS_VERSION} \
+                            postgresql-${version}-postgis-${POSTGIS_VERSION}-scripts \
+                            postgresql-${version}-wal2json" \
+                    && if [ $version != "9.4" ]; then \
+                        EXTRAS="$EXTRAS postgresql-${version}-pgl-ddl-deploy"; \
+                    fi; \
                 fi; \
+            fi \
+            && if [ $version != "9.3" ] && [ $version != "9.4" ]; then \
+                EXTRAS="$EXTRAS postgresql-${version}-cron"; \
             fi \
 
             # Install PostgreSQL binaries, contrib, plproxy and multiple pl's
@@ -166,7 +174,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                     done; \
                 fi \
 
-                && if [ "$version" = "9.6" ] || [ "$version" = "10" ]; then \
+                && if [ "$version" = "9.6" ] || [ "$version" = "10" ] || [ "$version" = "11" ] ; then \
                     cd timescaledb \
                     && rm -fr build \
                     && ./bootstrap \
@@ -175,7 +183,19 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                     && cd ..; \
                 fi \
 
-                && EXTRA_EXTENSIONS="plpgsql_check plprofiler plantuner postgres-decoderbufs-$DECODERBUFS_COMMIT"; \
+                # Install pg_rewind on 9.3 and 9.4
+                && if [ "$version" = "9.3" ] || [ "$version" = "9.4" ]; then \
+                    REWIND_VER=REL$(echo $version | sed 's/\./_/')_STABLE \
+                    && apt-get source postgresql-${version} \
+                    && curl -sL https://github.com/vmware/pg_rewind/archive/${REWIND_VER}.tar.gz | tar xz \
+                    && make -C pg_rewind-${REWIND_VER} USE_PGXS=1 top_srcdir=../$(ls -d postgresql-${version}-*) install-strip \
+                    && rm -fr pg_rewind-${REWIND_VER} postgresql-${version}*; \
+                fi \
+
+                && EXTRA_EXTENSIONS="plprofiler plantuner" \
+                && if [ "$version" != "9.3" ]; then \
+                    EXTRA_EXTENSIONS="$EXTRA_EXTENSIONS plpgsql_check postgres-decoderbufs-$DECODERBUFS_COMMIT"; \
+                fi; \
             else \
                 EXTRA_EXTENSIONS=""; \
             fi \
@@ -256,6 +276,21 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             done; \
         done \
 
+        && if [ -d /usr/share/postgresql/9.5/contrib/postgis-$POSTGIS_VERSION ]; then \
+            cd /usr/share/postgresql/9.5/contrib/postgis-$POSTGIS_VERSION \
+            && for f in *.sql *.pl; do \
+                for v in 9.4 9.6 10; do \
+                    if [ -f /usr/share/postgresql/$v/contrib/postgis-$POSTGIS_VERSION/$f ] \
+                            && [ ! -L /usr/share/postgresql/$v/contrib/postgis-$POSTGIS_VERSION/$f ] \
+                            && diff /usr/share/postgresql/$v/contrib/postgis-$POSTGIS_VERSION/$f $f > /dev/null; then \
+                        rm /usr/share/postgresql/$v/contrib/postgis-$POSTGIS_VERSION/$f \
+                        && ln -s /usr/share/postgresql/9.5/contrib/postgis-$POSTGIS_VERSION/$f \
+                                /usr/share/postgresql/$v/contrib/postgis-$POSTGIS_VERSION/$f; \
+                    fi; \
+                done; \
+            done; \
+        fi \
+
         && cd /usr/share/postgresql/$PGVERSION/extension \
         && for orig in $(ls -1 *.sql | grep -v -- '--'); do \
             for f in ${orig%.sql}--*.sql; do \
@@ -289,6 +324,20 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 fi; \
             done; \
         done \
+
+        && if [ -d /usr/share/postgresql/9.5/extension ]; then \
+            cd /usr/share/postgresql/9.5/extension \
+            && for f in *.sql *.control; do \
+                for v in 9.3 9.4 9.6 10; do \
+                    if [ -f /usr/share/postgresql/$v/extension/$f ] \
+                            && [ ! -L /usr/share/postgresql/$v/extension/$f ] \
+                            && diff /usr/share/postgresql/$v/extension/$f $f > /dev/null; then \
+                        rm /usr/share/postgresql/$v/extension/$f \
+                        && ln -s /usr/share/postgresql/9.5/extension/$f /usr/share/postgresql/$v/extension/$f; \
+                   fi; \
+                done; \
+            done; \
+        fi \
 
         && cd /usr/share/postgresql/$PGVERSION/contrib \
         && for f in *.sql *.html; do \
@@ -324,9 +373,9 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             /usr/lib/postgresql/*/bin/pltcl_*
 
 # Install patroni, wal-e and wal-g
-ENV PATRONIVERSION=1.5.2
+ENV PATRONIVERSION=1.5.3
 ENV WALE_VERSION=1.1.0
-ENV WALG_VERSION=v0.2.0
+ENV WALG_VERSION=v0.2.1
 RUN export DEBIAN_FRONTEND=noninteractive \
     && set -ex \
     && BUILD_PACKAGES="python3-pip python3-wheel python3-dev git patchutils binutils" \

@@ -5,7 +5,7 @@ readonly wal_destination=$2
 
 [[ -z $wal_filename || -z $wal_destination ]] && exit 1
 
-[[ "$USE_WALG" == "true" ]] && exec wal-g wal-fetch "${wal_filename}" "${wal_destination}"
+[[ "$USE_WALG_RESTORE" == "true" ]] && exec wal-g wal-fetch "${wal_filename}" "${wal_destination}"
 
 readonly wal_dir=$(dirname $wal_destination)
 readonly wal_fast_source=$(dirname $(dirname $(realpath $wal_dir)))/wal_fast/$wal_filename
