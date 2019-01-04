@@ -58,10 +58,11 @@ def run_basebackup(options):
 def main():
     options = read_configuration()
     try:
-        return run_basebackup(options) and call_maybe_pg_upgrade()
+        run_basebackup(options)
     except Exception:
         logger.exception("Clone failed")
         return 1
+    return call_maybe_pg_upgrade()
 
 
 if __name__ == '__main__':

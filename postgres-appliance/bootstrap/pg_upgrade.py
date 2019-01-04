@@ -12,7 +12,7 @@ class PostgresqlUpgrade(Postgresql):
     def get_binary_version(self):
         version = subprocess.check_output([self._pgcommand('postgres'), '--version']).decode()
         version = re.match('^[^\s]+ [^\s]+ (\d+)\.(\d+)', version)
-        return '.'.join(version.groups()) if int(version.group(1) < 10) else version.group(1)
+        return '.'.join(version.groups()) if int(version.group(1)) < 10 else version.group(1)
 
     def get_cluster_version(self):
         with open(self._version_file) as f:

@@ -31,6 +31,7 @@ def main():
         raise Exception('Failed to start cluster with old postgres')
 
     for _ in polling_loop(upgrade.config['pg_ctl_timeout'], 10):
+        upgrade.reset_cluster_info_state()
         if upgrade.is_leader():
             break
         logger.info('waiting for end of recovery after bootstrap')
@@ -56,7 +57,10 @@ def call_maybe_pg_upgrade():
     import subprocess
 
     my_name = os.path.abspath(inspect.getfile(inspect.currentframe()))
-    return subprocess.call([sys.executable, my_name, os.path.join(os.getenv('PGHOME'), 'postgres.yml')])
+    ret = subprocess.call([sys.executable, my_name, os.path.join(os.getenv('PGHOME'), 'postgres.yml')])
+    if ret != 0:
+        logger.error('%s script failed', my_name)
+    return ret
 
 
 if __name__ == '__main__':
