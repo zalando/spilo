@@ -21,6 +21,7 @@ def main():
     assert float(cluster_version) < float(bin_version)
 
     upgrade.set_bin_dir(cluster_version)
+    upgrade.config['listen'] = 'localhost'
     upgrade.config['pg_ctl_timeout'] = 3600*24*7
     upgrade.config['callbacks'] = {}
 
