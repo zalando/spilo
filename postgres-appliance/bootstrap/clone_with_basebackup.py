@@ -3,6 +3,9 @@
 import argparse
 import logging
 import subprocess
+import sys
+
+from maybe_pg_upgrade import call_maybe_pg_upgrade
 
 logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -55,11 +58,11 @@ def run_basebackup(options):
 def main():
     options = read_configuration()
     try:
-        return run_basebackup(options)
+        return run_basebackup(options) and call_maybe_pg_upgrade()
     except Exception:
         logger.exception("Clone failed")
         return 1
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())

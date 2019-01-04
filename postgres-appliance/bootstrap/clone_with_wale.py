@@ -5,6 +5,9 @@ import csv
 import logging
 import os
 import subprocess
+import sys
+
+from maybe_pg_upgrade import call_maybe_pg_upgrade
 
 from collections import namedtuple
 from dateutil.parser import parse
@@ -82,11 +85,11 @@ def run_clone_from_s3(options):
 def main():
     options = read_configuration()
     try:
-        return run_clone_from_s3(options)
+        return run_clone_from_s3(options) and call_maybe_pg_upgrade()
     except Exception:
         logger.exception("Clone failed")
         return 1
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())

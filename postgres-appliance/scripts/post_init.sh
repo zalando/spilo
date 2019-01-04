@@ -1,5 +1,13 @@
 #!/bin/bash
 
+readonly JOBS=$(grep -c ^processor /proc/cpuinfo 2>/dev/null || 1)
+
+if [ "$2" = "postgres" ]; then  # script was executed from on_role_change.sh after failover
+    vacuumdb --all --analyze-only --jobs=$JOBS &
+else
+    vacuumdb --all --analyze-in-stages --jobs=$JOBS
+fi
+
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
 (echo "DO \$\$
