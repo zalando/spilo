@@ -29,7 +29,7 @@ class PostgresqlUpgrade(Postgresql):
         return True
 
     def pg_upgrade(self):
-        self._upgrade_dir = self._data_dir + 'upgrade'
+        self._upgrade_dir = self._data_dir + '_upgrade'
         if os.path.exists(self._upgrade_dir) and os.path.isdir(self._upgrade_dir):
             shutil.rmtree(self._upgrade_dir)
 
@@ -46,7 +46,7 @@ class PostgresqlUpgrade(Postgresql):
 
     def do_upgrade(self, version, initdb_config):
         self._data_dir = os.path.abspath(self._data_dir)
-        self._old_data_dir = self._data_dir + 'old'
+        self._old_data_dir = self._data_dir + '_old'
         os.rename(self._data_dir, self._old_data_dir)
 
         self.set_bin_dir(version)
@@ -54,5 +54,10 @@ class PostgresqlUpgrade(Postgresql):
         if self._initdb(initdb_config) and self.copy_configs() and self.pg_upgrade():
             shutil.rmtree(self._upgrade_dir)
             shutil.rmtree(self._old_data_dir)
-            return 0
-        return 1
+            return True
+
+    def analyze(self):
+        vacuumdb_args = ['-a', '-Z', '-j', str(psutil.cpu_count())]
+        if 'username' in self._superuser:
+            vacuumdb_args += ['-U', self._superuser['username']]
+        subprocess.call([self._pgcommand('vacuumdb')] + vacuumdb_args)

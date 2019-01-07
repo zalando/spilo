@@ -15,40 +15,55 @@ def main():
 
     bin_version = upgrade.get_binary_version()
     cluster_version = upgrade.get_cluster_version()
+
     if cluster_version == bin_version:
         return 0
 
+    logger.info('Cluster version: %s, bin version: %s', cluster_version, bin_version)
     assert float(cluster_version) < float(bin_version)
 
     upgrade.set_bin_dir(cluster_version)
+    old_listen = upgrade.config['listen']
     upgrade.config['listen'] = 'localhost'
     upgrade.config['pg_ctl_timeout'] = 3600*24*7
     upgrade.config['callbacks'] = {}
 
     bootstrap_config = config['bootstrap']
     bootstrap_config[bootstrap_config['method']]['command'] = 'true'
+    logger.info('Trying to start the cluster with old postgres')
     if not upgrade.bootstrap(bootstrap_config):
-        raise Exception('Failed to start cluster with old postgres')
+        raise Exception('Failed to start the cluster with old postgres')
 
     for _ in polling_loop(upgrade.config['pg_ctl_timeout'], 10):
         upgrade.reset_cluster_info_state()
         if upgrade.is_leader():
             break
-        logger.info('waiting for end of recovery after bootstrap')
-
-    locale = upgrade.query('SHOW lc_collate').fetchone()[0]
-    encoding = upgrade.query('SHOW server_encoding').fetchone()[0]
-    initdb_config = {'initdb': [{'locale': locale}, {'encoding': encoding}]}
-    if upgrade.query('SHOW data_checksums').fetchone()[0]:
-        initdb_config['initdb'].append('data-checksums')
+        logger.info('waiting for end of recovery of the old cluster')
 
     if not upgrade.run_bootstrap_post_init(bootstrap_config):
         raise Exception('Failed to run bootstrap.post_init')
 
-    if not upgrade.stop(block_callbacks=True, checkpoint=False):
-        raise Exception('Failed to stop cluster with old postgres')
+    locale = upgrade.query('SHOW lc_collate').fetchone()[0]
+    encoding = upgrade.query('SHOW server_encoding').fetchone()[0]
+    initdb_config = [{'locale': locale}, {'encoding': encoding}]
+    if upgrade.query('SHOW data_checksums').fetchone()[0]:
+        initdb_config.append('data-checksums')
 
-    return upgrade.do_upgrade(bin_version, initdb_config)
+    logger.info('Doing a clean shutdown of the cluster before pg_upgrade')
+    if not upgrade.stop(block_callbacks=True, checkpoint=False):
+        raise Exception('Failed to stop the cluster with old postgres')
+
+    logger.info('initdb config: %s', initdb_config)
+
+    logger.info('Executing pg_upgrade')
+    if not upgrade.do_upgrade(bin_version, {'initdb': initdb_config}):
+        raise Exception('Failed to upgrade cluster from {0} to {1}'.format(cluster_version, bin_version))
+
+    upgrade.config['listen'] = old_listen
+    logger.info('Starting the cluster with new postgres after upgrade')
+    if not upgrade.start():
+        raise Exception('Failed to start the cluster with new postgres')
+    upgrade.analyze()
 
 
 def call_maybe_pg_upgrade():
@@ -69,4 +84,4 @@ if __name__ == '__main__':
         from patroni import pg_ctl_start
         pg_ctl_start(sys.argv[2:])
     else:
-        sys.exit(main())
+        main()
