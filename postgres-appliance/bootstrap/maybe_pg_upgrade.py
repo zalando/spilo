@@ -23,8 +23,6 @@ def main():
     assert float(cluster_version) < float(bin_version)
 
     upgrade.set_bin_dir(cluster_version)
-    old_listen = upgrade.config['listen']
-    upgrade.config['listen'] = 'localhost'
     upgrade.config['pg_ctl_timeout'] = 3600*24*7
     upgrade.config['callbacks'] = {}
 
@@ -59,7 +57,6 @@ def main():
     if not upgrade.do_upgrade(bin_version, {'initdb': initdb_config}):
         raise Exception('Failed to upgrade cluster from {0} to {1}'.format(cluster_version, bin_version))
 
-    upgrade.config['listen'] = old_listen
     logger.info('Starting the cluster with new postgres after upgrade')
     if not upgrade.start():
         raise Exception('Failed to start the cluster with new postgres')
