@@ -34,6 +34,7 @@ class PostgresqlUpgrade(Postgresql):
             shutil.rmtree(self._upgrade_dir)
 
         os.makedirs(self._upgrade_dir)
+        self._old_cwd = os.getcwd()
         os.chdir(self._upgrade_dir)
 
         pg_upgrade_args = ['-k', '-j', str(psutil.cpu_count()),
@@ -52,6 +53,7 @@ class PostgresqlUpgrade(Postgresql):
         self.set_bin_dir(version)
 
         if self._initdb(initdb_config) and self.copy_configs() and self.pg_upgrade():
+            os.chdir(self._old_cwd)
             shutil.rmtree(self._upgrade_dir)
             shutil.rmtree(self._old_data_dir)
             return True
