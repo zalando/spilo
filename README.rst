@@ -1,6 +1,6 @@
-==================================
+=========================================
 Spilo: HA PostgreSQL Clusters with Docker
-==================================
+=========================================
 
 Spilo is a Docker image that provides PostgreSQL and `Patroni <https://github.com/zalando/patroni>`__ bundled together. Patroni is a template for PostgreSQL HA. Multiple Spilos can create a resilient High Available PostgreSQL cluster. For this, you'll need to start all participating Spilos with identical `etcd <https://github.com/coreos/etcd>`__ addresses and cluster names. 
 
@@ -24,14 +24,14 @@ PostgreSQL is configured by default to listen to port 5432. Spilo master initial
 
 You'll need to setup Spilo to create a database and roles for your application(s). For example:
 
-    psql -h myfirstspilo.example.com -p 5432 -U admin -d postgres
+    | psql -h myfirstspilo.example.com -p 5432 -U admin -d postgres
 
 **Application Connections**
 
 Once you have created a database and roles for your application, you can connect to Spilo just like you want to connect to any other PostgreSQL cluster:
 
-    psql -h myfirstspilo.example.com -p 5432 -U wow_app -d wow
-    psql -d "postgresql://myfirstspilo.example.com:5432/wow?user=wow_app"
+    | psql -h myfirstspilo.example.com -p 5432 -U wow_app -d wow
+    | psql -d "postgresql://myfirstspilo.example.com:5432/wow?user=wow_app"
 
 Configuration
 -------------
