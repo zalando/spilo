@@ -55,7 +55,7 @@ function start_receivewal() {
 
     # run pg_receivewal until postgres will not start streaming
     (
-        while ! ps ax | grep -qE '[w]al receiver process\s+streaming'; do
+        while ! ps ax | grep -qE '[w]al {0,1}receiver( process){0,1}\s+streaming'; do
             # exit if pg_receivewal is not running
             kill -0 $receivewal_pid && sleep 1 || exit
         done
