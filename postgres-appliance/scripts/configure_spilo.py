@@ -318,10 +318,10 @@ def set_clone_with_wale_placeholders(placeholders, provider):
     """ checks that enough parameters are provided to configure cloning with WAL-E """
     if 'CLONE_WAL_S3_BUCKET' in placeholders:
         clone_bucket_placeholder = 'CLONE_WAL_S3_BUCKET'
-    elif 'CLONE_WAL_GSC_BUCKET' in placeholders:
-        clone_bucket_placeholder = 'CLONE_WAL_GSC_BUCKET'
+    elif 'CLONE_WAL_GCS_BUCKET' in placeholders:
+        clone_bucket_placeholder = 'CLONE_WAL_GCS_BUCKET'
     else:
-        logging.warning('Cloning with WAL-E is only possible when CLONE_WAL_S3_BUCKET or CLONE_WAL_GSC_BUCKET is set.')
+        logging.warning('Cloning with WAL-E is only possible when CLONE_WAL_S3_BUCKET or CLONE_WAL_GCS_BUCKET is set.')
         return
     # XXX: Cloning from one provider into another (i.e. Google from Amazon) is not possible.
     # No WAL-E related limitations, but credentials would have to be passsed explicitely.
