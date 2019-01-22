@@ -9,7 +9,8 @@ ENV LC_ALL=en_US.utf-8 \
     PGHOME=/home/postgres
 
 ENV WALE_ENV_DIR=$PGHOME/etc/wal-e.d/env \
-    PGROOT=$PGHOME/pgdata/pgroot
+    PGROOT=$PGHOME/pgdata/pgroot \
+    LOG_ENV_DIR=$PGHOME/etc/log.d/env
 
 ENV PGDATA=$PGROOT/data \
     PGLOG=$PGROOT/pg_log
@@ -19,6 +20,7 @@ WORKDIR $PGHOME
 ADD motd /etc/
 ADD supervisor /etc/supervisor
 ADD pgq_ticker.ini $PGHOME/
+ADD envdir /usr/local/bin/
 
 RUN mkdir -p /var/log/supervisor \
         && ln -s supervisor/supervisord.conf /etc/supervisord.conf \

@@ -3,16 +3,13 @@ build_steps:
       cmd: |
         apt-get update
         apt-get install -y python3 python3-pip
-        pip3 install scm-source 'docker<3.0.0' docker-squash
-
-    - desc: Install Docker
-      cmd: 'curl -sSL https://get.docker.com/ | sh'
+        pip3 install 'docker<3.0.0' docker-squash
 
     - desc: Build and push docker images
       cmd: |
         cd  postgres-appliance
 
-        IMAGE="registry-write.opensource.zalan.do/acid/spilo-cdp-10"
+        IMAGE="registry-write.opensource.zalan.do/acid/spilo-cdp-11"
         COMPRESS=false
 
         # compress and push docker images only for commits to the master branch
