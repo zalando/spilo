@@ -1,7 +1,7 @@
 apiVersion: apps/v1beta1
 kind: StatefulSet
 metadata:
-  name: &cluster_name zalandodemo01 
+  name: &cluster_name zalandodemo01
   labels:
     application: spilo
     spilo-cluster: *cluster_name
@@ -37,7 +37,7 @@ spec:
                             }
                           ]
                          },
-                         "topologyKey": "kubernetes.io/hostname" 
+                         "topologyKey": "kubernetes.io/hostname"
                     }
                   ]
                  }
@@ -50,7 +50,7 @@ spec:
       serviceAccountName: operator
       containers:
       - name: *cluster_name
-        image: registry.opensource.zalan.do/acid/spilo-9.6:1.2-p26  # put the spilo image here
+        image: registry.opensource.zalan.do/acid/spilo-11:1.5-p5  # put the spilo image here
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8008
@@ -61,20 +61,26 @@ spec:
         - mountPath: /home/postgres/pgdata
           name: pgdata
         env:
-        - name: ETCD_HOST
-          value: 'test-etcd.default.svc.cluster.local:2379' # where is your etcd?
-        - name: WAL_S3_BUCKET
-          value: example-spilo-dbaas
-        - name: LOG_S3_BUCKET # may be the same as WAL_S3_BUCKET
-          value: example-spilo-dbaas 
-        - name: BACKUP_SCHEDULE
-          value: "00 01 * * *"
-        - name: PATRONI_CONFIGURATION
+        - name: DCS_ENABLE_KUBERNETES_API
+          value: 'true'
+#        - name: ETCD_HOST
+#          value: 'test-etcd.default.svc.cluster.local:2379' # where is your etcd?
+#        - name: WAL_S3_BUCKET
+#          value: example-spilo-dbaas
+#        - name: LOG_S3_BUCKET # may be the same as WAL_S3_BUCKET
+#          value: example-spilo-dbaas
+#        - name: BACKUP_SCHEDULE
+#          value: "00 01 * * *"
+        - name: KUBERNETES_SCOPE_LABEL
+          value: spilo-cluster
+        - name: KUBERNETES_ROLE_LABEL
+          value: role
+        - name: SPILO_CONFIGURATION
           value: | ## https://github.com/zalando/patroni#yaml-configuration
             bootstrap:
-              pg_hba:
-                - hostnossl all all all reject
-                - hostssl   all all all md5
+              initdb:
+                - auth-host: md5
+                - auth-local: trust
         - name: POD_IP
           valueFrom:
             fieldRef:
@@ -90,6 +96,8 @@ spec:
             secretKeyRef:
               name: *cluster_name
               key: superuser-password
+        - name: PGUSER_ADMIN
+          value: superadmin
         - name: PGPASSWORD_ADMIN
           valueFrom:
             secretKeyRef:
@@ -104,6 +112,7 @@ spec:
           value: *cluster_name
         - name: PGROOT
           value: /home/postgres/pgdata/pgroot
+      terminationGracePeriodSeconds: 0
   volumeClaimTemplates:
   - metadata:
       labels:
@@ -125,7 +134,8 @@ kind: Endpoints
 metadata:
   name: &cluster_name zalandodemo01
   labels:
-    application: *cluster_name
+    application: spilo
+    spilo-cluster: *cluster_name
 subsets: []
 
 ---
@@ -139,8 +149,21 @@ metadata:
 spec:
   type: ClusterIP
   ports:
-  - port: 5432
+  - name: postgresql
+    port: 5432
     targetPort: 5432
+
+---
+# headless service to avoid deletion of patronidemo-config endpoint
+apiVersion: v1
+kind: Service
+metadata:
+  name: zalandodemo01-config
+  labels:
+    application: spilo
+    spilo-cluster: zalandodemo01
+spec:
+  clusterIP: None
 
 ---
 apiVersion: v1
@@ -155,3 +178,76 @@ data:
   superuser-password: emFsYW5kbw==
   replication-password: cmVwLXBhc3M=
   admin-password: YWRtaW4=
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: operator
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: operator
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch
+  # delete is required only for 'patronictl remove'
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - endpoints
+  verbs:
+  - get
+  - patch
+  - update
+  # the following three privileges are necessary only when using endpoints
+  - create
+  - list
+  - watch
+  # delete is required only for for 'patronictl remove'
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+# The following privilege is only necessary for creation of headless service
+# for patronidemo-config endpoint, in order to prevent cleaning it up by the
+# k8s master. You can avoid giving this privilege by explicitly creating the
+# service like it is done in this manifest (lines 160..169)
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - create
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: operator
+subjects:
+- kind: ServiceAccount
+  name: operator
