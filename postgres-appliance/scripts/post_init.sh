@@ -127,7 +127,6 @@ cat _zmon_schema.dump
 
 while IFS= read -r db_name; do
     echo "\c ${db_name}"
-    echo "SET synchronous_commit = 'local';"
     # In case if timescaledb binary is missing the first query fails with the error
     # ERROR:  could not access file "$libdir/timescaledb-$OLD_VERSION": No such file or directory
     TIMESCALEDB_VERSION=$(echo -e "SELECT NULL;\nSELECT extversion FROM pg_extension WHERE extname = 'timescaledb'" | psql -tAX -d ${db_name} 2> /dev/null | tail -n 1)
