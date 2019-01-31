@@ -193,6 +193,7 @@ postgresql:
   listen: 0.0.0.0:{{PGPORT}}
   connect_address: {{instance_data.ip}}:{{PGPORT}}
   data_dir: {{PGDATA}}
+  pgpass: {{PGPASS_FILE}}
   parameters:
     archive_command: {{{postgresql.parameters.archive_command}}}
     shared_buffers: {{postgresql.parameters.shared_buffers}}
@@ -343,6 +344,7 @@ def get_placeholders(provider):
     placeholders.setdefault('BACKUP_SCHEDULE', '0 1 * * *')
     placeholders.setdefault('BACKUP_NUM_TO_RETAIN', 2)
     placeholders.setdefault('CRONTAB', '[]')
+    placeholders.setdefault('PGPASS_FILE', os.path.join(placeholders['PGHOME'], '.pgpass'))
     placeholders.setdefault('PGROOT', os.path.join(placeholders['PGHOME'], 'pgroot'))
     placeholders.setdefault('WALE_TMPDIR', os.path.abspath(os.path.join(placeholders['PGROOT'], '../tmp')))
     placeholders.setdefault('PGDATA', os.path.join(placeholders['PGROOT'], 'pgdata'))
