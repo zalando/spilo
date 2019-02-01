@@ -9,6 +9,7 @@ Environment Configuration Settings
 - **CRONTAB**: anything that you want to run periodically as a cron job (empty by default)
 - **PGROOT**: a directory where we put the pgdata (by default /home/postgres/pgroot). One may adjust it to point to the mount point of the persistent volume, such as EBS.
 - **WALE_TMPDIR**: directory to store WAL-E temporary files. PGROOT/../tmp by default, make sure it has a few GBs of free space.
+- **PGPASS_FILE**: path to the `.pgpass` password file. Patroni creates this file before executing pg_basebackup, the post_init script and under some other circumstances. ($PGHOME/.pgpass by default)
 - **PGDATA**: location of PostgreSQL data directory, by default PGROOT/pgdata.
 - **PGUSER_STANDBY**: username for the replication user, 'standby' by default.
 - **PGPASSWORD_STANDBY**: a password for the replication user, 'standby' by default.
