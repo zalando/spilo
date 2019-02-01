@@ -8,38 +8,29 @@ ENV DEMO=$DEMO
 RUN export DEBIAN_FRONTEND=noninteractive \
     && echo 'APT::Install-Recommends "0";' > /etc/apt/apt.conf.d/01norecommend \
     && echo 'APT::Install-Suggests "0";' >> /etc/apt/apt.conf.d/01norecommend \
-
     && apt-get update \
     && apt-get upgrade -y \
-
     && apt-get install -y curl ca-certificates less locales jq vim-tiny gnupg1 \
-
     && if [ "$DEMO" != "true" ]; then \
         apt-get install -y cron \
                 # Required for wal-e
                 pv lzop \
-
         # install etcdctl
         && ETCDVERSION=2.3.8 \
         && curl -L https://github.com/coreos/etcd/releases/download/v${ETCDVERSION}/etcd-v${ETCDVERSION}-linux-amd64.tar.gz \
                 | tar xz -C /bin --strip=1 --wildcards --no-anchored etcdctl etcd; \
     fi \
-
     ## Make sure we have a en_US.UTF-8 locale available
     && localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8 \
-
     # Add PGDG repositories
     && DISTRIB_CODENAME=$(sed -n 's/DISTRIB_CODENAME=//p' /etc/lsb-release) \
     && echo "deb http://apt.postgresql.org/pub/repos/apt/ ${DISTRIB_CODENAME}-pgdg main" > /etc/apt/sources.list.d/pgdg.list \
     && echo "deb-src http://apt.postgresql.org/pub/repos/apt/ ${DISTRIB_CODENAME}-pgdg main" >> /etc/apt/sources.list.d/pgdg.list \
     && curl -s -o - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
-
     && apt-get update \
     && apt-get install -y postgresql-common \
-
     # forbid creation of a main cluster when package is installed
     && sed -ri 's/#(create_main_cluster) .*$/\1 = false/' /etc/postgresql-common/createcluster.conf \
-
     # Clean up
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* \
@@ -76,7 +67,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && sed -i 's/^#\s*\(deb.*universe\)$/\1/g' /etc/apt/sources.list \
     && apt-get update \
     && cd /builddeps \
-
     && BUILD_PACKAGES="devscripts build-essential fakeroot debhelper git gcc libc6-dev make libevent-dev naturaldocs python" \
 # pgq3: naturaldocs python
     && if [ "$DEMO" = "true" ]; then \
@@ -87,49 +77,34 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 # debezium-decoderbufs: libprotobuf-c-dev liblwgeom-dev libproj-dev
 # pgbouncer: libc-ares-dev python-docutils pkg-config
 # pg_rewind: libxslt1-dev libxml2-dev libpam0g-dev libkrb5-dev libedit-dev libselinux1-dev
-
         && apt-get install -y $BUILD_PACKAGES libprotobuf-c1 libcurl4 \
-
         && if [ "$WITH_PERL" != "true" ]; then \
             version=$(apt-cache show perl | sed -n 's/^Version: //p' | sort -rV | head -n 1) \
             && echo "Section: misc\nPriority: optional\nStandards-Version: 3.9.8\nPackage: perl\nSection:perl\nMulti-Arch: allowed\nReplaces: perl-base\nVersion: $version\nDescription: perl" > perl \
             && equivs-build perl; \
         fi \
-
         && for p in python3-keyring python3-docutils ieee-data; do \
             version=$(apt-cache show $p | sed -n 's/^Version: //p' | sort -rV | head -n 1) \
             && echo "Section: misc\nPriority: optional\nStandards-Version: 3.9.8\nPackage: $p\nVersion: $version\nDescription: $p" > $p \
             && equivs-build $p; \
         done \
-
         && dpkg -i *.deb || apt-get -y -f install \
-
         # install pam_oauth2.so
         && git clone -b $PAM_OAUTH2 --recurse-submodules https://github.com/CyberDem0n/pam-oauth2.git \
         && make -C pam-oauth2 install \
-
         # prepare 3rd sources
         && curl -sL https://github.com/debezium/postgres-decoderbufs/archive/$DECODERBUFS_COMMIT.tar.gz | tar xz \
-
         && curl -sL https://github.com/pgcentral/plprofiler/archive/$PLPROFILER_COMMIT.tar.gz | tar xz \
-
         && git clone -b $PLPGSQL_CHECK https://github.com/okbob/plpgsql_check.git \
-
         && git clone -b $TIMESCALEDB https://github.com/timescale/timescaledb.git \
-
         && git clone git://www.sigaev.ru/plantuner.git; \
     fi \
-
     && curl -sL https://github.com/CyberDem0n/bg_mon/archive/$BG_MON_COMMIT.tar.gz | tar xz \
-
     && git clone -b $SET_USER https://github.com/pgaudit/set_user.git \
-
     && apt-get install -y libevent-2.1 libevent-pthreads-2.1 python3.6 python3-psycopg2 \
-
     && for version in ${PGOLDVERSIONS} ${PGVERSION}; do \
             sed -i "s/ main.*$/ main $version/g" /etc/apt/sources.list.d/pgdg.list \
             && apt-get update \
-
             && if [ "$DEMO" != "true" ]; then \
                 EXTRAS="postgresql-pltcl-${version} \
                         postgresql-${version}-hypopg \
@@ -159,12 +134,10 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             && if [ $version != "9.3" ] && [ $version != "9.4" ]; then \
                 EXTRAS="$EXTRAS postgresql-${version}-cron"; \
             fi \
-
             # Install PostgreSQL binaries, contrib, plproxy and multiple pl's
             && apt-get install --allow-downgrades -y postgresql-contrib-${version} \
                         postgresql-plpython3-${version} libpq5=$version* $EXTRAS \
                         libpq-dev=$version* postgresql-server-dev-${version} \
-
             # Install 3rd party stuff
             && if [ "$DEMO" != "true" ]; then \
                 if [ "$version" != "11" ]; then \
@@ -173,7 +146,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                         && strip /usr/lib/postgresql/$version/lib/$extension.so; \
                     done; \
                 fi \
-
                 && if [ "$version" = "9.6" ] || [ "$version" = "10" ] || [ "$version" = "11" ] ; then \
                     cd timescaledb \
                     && rm -fr build \
@@ -182,7 +154,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                     && strip /usr/lib/postgresql/$version/lib/timescaledb*.so \
                     && cd ..; \
                 fi \
-
                 # Install pg_rewind on 9.3 and 9.4
                 && if [ "$version" = "9.3" ] || [ "$version" = "9.4" ]; then \
                     REWIND_VER=REL$(echo $version | sed 's/\./_/')_STABLE \
@@ -191,7 +162,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                     && make -C pg_rewind-${REWIND_VER} USE_PGXS=1 top_srcdir=../$(ls -d postgresql-${version}-*) install-strip \
                     && rm -fr pg_rewind-${REWIND_VER} postgresql-${version}*; \
                 fi \
-
                 && EXTRA_EXTENSIONS="plprofiler-$PLPROFILER_COMMIT plantuner" \
                 && if [ "$version" != "9.3" ]; then \
                     EXTRA_EXTENSIONS="$EXTRA_EXTENSIONS plpgsql_check postgres-decoderbufs-$DECODERBUFS_COMMIT"; \
@@ -199,16 +169,12 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             else \
                 EXTRA_EXTENSIONS=""; \
             fi \
-
             && for n in bg_mon-${BG_MON_COMMIT} set_user $EXTRA_EXTENSIONS; do \
                 make -C $n USE_PGXS=1 clean install-strip; \
             done \
-
             && apt-get purge -y libpq-dev=$version*; \
     done \
-
     && apt-get install -y skytools3-ticker pspg \
-
     && if [ "$DEMO" != "true" ]; then \
         # patch, build and install pgbouncer
         apt-get source pgbouncer \
@@ -223,7 +189,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && cd .. \
         && dpkg -i pgbouncer_*.deb; \
     fi \
-
     # build and install missing packages
     && apt-get install -y postgresql-server-dev-all postgresql-server-dev-${PGVERSION} \
     && for pkg in pgextwlist; do \
@@ -247,14 +212,11 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             done; \
         done; \
     done \
-
     # Clean up
     && apt-get purge -y ${BUILD_PACKAGES} postgresql-server-dev-* libmagic1 bsdmainutils \
     && apt-get autoremove -y \
-
     && apt-get clean \
     && dpkg -l | grep '^rc' | awk '{print $2}' | xargs apt-get purge -y \
-
     && if [ "$DEMO" != "true" ]; then \
         cd /usr/lib/postgresql/$PGVERSION/bin \
         && for u in clusterdb pg_archivecleanup pg_basebackup pg_isready pg_test_fsync pg_test_timing pgbench psql reindexdb vacuumdb vacuumlo *.py; do \
@@ -265,7 +227,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 fi; \
             done; \
         done \
-
         && cd /usr/share/postgresql/$PGVERSION/contrib/postgis-$POSTGIS_VERSION \
         && for f in *.sql *.pl; do \
             for v in /usr/share/postgresql/*; do \
@@ -275,7 +236,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 fi; \
             done; \
         done \
-
         && if [ -d /usr/share/postgresql/9.5/contrib/postgis-$POSTGIS_VERSION ]; then \
             cd /usr/share/postgresql/9.5/contrib/postgis-$POSTGIS_VERSION \
             && for f in *.sql *.pl; do \
@@ -290,7 +250,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 done; \
             done; \
         fi \
-
         && cd /usr/share/postgresql/$PGVERSION/extension \
         && for orig in $(ls -1 *.sql | grep -v -- '--'); do \
             for f in ${orig%.sql}--*.sql; do \
@@ -300,7 +259,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 fi; \
             done; \
         done \
-
         && for e in pgq plproxy address_standardizer address_standardizer_data_us; do \
             orig=$(ls -1 $e--*--*.sql 2> /dev/null | head -n1) \
             && if [ "x$orig" != "x" ]; then \
@@ -312,7 +270,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 done; \
             fi; \
         done \
-
         && for f in *.sql *.control; do \
             for v in /usr/share/postgresql/*; do \
                 if [ "$v" != "/usr/share/postgresql/$PGVERSION" ] \
@@ -324,7 +281,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 fi; \
             done; \
         done \
-
         && if [ -d /usr/share/postgresql/9.5/extension ]; then \
             cd /usr/share/postgresql/9.5/extension \
             && for f in *.sql *.control; do \
@@ -338,7 +294,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 done; \
             done; \
         fi \
-
         && cd /usr/share/postgresql/$PGVERSION/contrib \
         && for f in *.sql *.html; do \
             for v in /usr/share/postgresql/*; do \
@@ -349,9 +304,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             done; \
         done; \
     fi \
-
     && find /var/log -type f -exec truncate --size 0 {} \; \
-
     && rm -rf /var/lib/apt/lists/* \
             /var/cache/debconf/* \
             /builddeps \
@@ -380,7 +333,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && set -ex \
     && BUILD_PACKAGES="python3-pip python3-wheel python3-dev git patchutils binutils" \
     && apt-get update \
-
     # install most of the patroni dependencies from ubuntu packages
     && apt-cache depends patroni \
             | sed -n -e 's/.* Depends: \(python3-.\+\)$/\1/p' \
@@ -388,9 +340,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             | xargs apt-get install -y ${BUILD_PACKAGES} \
                                         python3-pystache python3-cachetools \
                                         python3-rsa python3-pyasn1-modules \
-
     && pip3 install setuptools \
-
     && if [ "$DEMO" != "true" ]; then \
         EXTRAS=",etcd,consul,zookeeper,aws" \
         && curl -sL https://github.com/wal-g/wal-g/releases/download/$WALG_VERSION/wal-g.linux-amd64.lzo.tar.gz \
@@ -399,36 +349,26 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && apt-get install -y python3-etcd python3-consul python3-kazoo python3-meld3 \
                         python3-boto python3-gevent python3-greenlet python3-protobuf \
                         python3-websocket python3-requests-oauthlib python3-swiftclient \
-
         && cd /usr/lib/python3/dist-packages/etcd \
         # https://github.com/jplana/python-etcd/pull/196 for python-etcd 0.4.3
         && curl -sL https://github.com/jplana/python-etcd/pull/196.diff | patch -p3 \
-
         && find /usr/share/python-babel-localedata/locale-data -type f ! -name 'en_US*.dat' -delete \
-
         && pip3 install filechunkio wal-e[aws,google,swift]==$WALE_VERSION \
                 'git+https://github.com/Supervisor/supervisor.git@master#egg=supervisor' \
                 'git+https://github.com/zalando/pg_view.git@master#egg=pg-view' \
-
         && cd /usr/local/lib/python3.6/dist-packages \
-
         # pg_view installs useless pytest
         && sed -i '/^pytest/d' pg_view-*/requires.txt \
         && pip3 uninstall -y atomicwrites attrs more_itertools pluggy pytest py \
-
         # https://github.com/wal-e/wal-e/issues/318
         && sed -i 's/^\(    for i in range(0,\) num_retries):.*/\1 100):/g' /usr/lib/python3/dist-packages/boto/utils.py \
-
         # https://github.com/wal-e/wal-e/pull/384
         && curl -sL https://github.com/wal-e/wal-e/pull/384.diff | patch -p1 \
-
         # https://github.com/wal-e/wal-e/pull/392
         && curl -sL https://github.com/wal-e/wal-e/pull/392.diff | patch -p1 \
-
         && echo 4.0.0.dev0 > supervisor/version.txt; \
     fi \
     && pip3 install "patroni[kubernetes$EXTRAS]==$PATRONIVERSION" \
-
     && for d in /usr/local/lib/python3.6 /usr/lib/python3; do \
         cd $d/dist-packages \
         && find . -type d -name tests | xargs rm -fr \
@@ -437,7 +377,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && find . -type f -name 'unittest_*.py*' -delete \
     && find . -type f -name '*_test.py' -delete \
     && find . -type f -name '*_test.cpython*.pyc' -delete \
-
     # Clean up
     && apt-get purge -y ${BUILD_PACKAGES} \
     && apt-get autoremove -y \
@@ -450,7 +389,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             /usr/share/locale/?? \
             /usr/share/locale/??_?? \
             /usr/share/info \
-
     && find /var/log -type f -exec truncate --size 0 {} \;
 
 ARG COMPRESS=false
