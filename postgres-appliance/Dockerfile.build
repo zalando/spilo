@@ -63,12 +63,12 @@ ARG PGVERSION="11"
 ENV PGVERSION="$PGVERSION" \
     PGOLDVERSIONS="$PGOLDVERSIONS" \
     POSTGIS_VERSION=2.5 \
-    BG_MON_COMMIT=0cbcfe46804b85ba32021ca688da30341e974d9f \
+    BG_MON_COMMIT=7b77e21a6220cb16fe040ee7088c6aed165236b6 \
     DECODERBUFS_COMMIT=c5068d5b42cebcd300520553f639cf1cfdef0b34 \
     SET_USER=REL1_6_1 \
     PLPGSQL_CHECK=v1.4.2 \
     PLPROFILER_COMMIT=778f81fd6d0086b8839caeec60a2cdaa95d08a17 \
-    TIMESCALEDB=1.1.1 \
+    TIMESCALEDB=1.2.1 \
     PAM_OAUTH2=v1.0
 
 RUN export DEBIAN_FRONTEND=noninteractive \
@@ -156,8 +156,11 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                     fi; \
                 fi; \
             fi \
-            && if [ $version != "9.3" ] && [ $version != "9.4" ]; then \
-                EXTRAS="$EXTRAS postgresql-${version}-cron"; \
+            && if [ $version != "9.3" ]; then \
+                EXTRAS="$EXTRAS postgresql-${version}-pg-stat-kcache" \
+                && if [ $version != "9.4" ]; then \
+                    EXTRAS="$EXTRAS postgresql-${version}-cron"; \
+                fi; \
             fi \
 
             # Install PostgreSQL binaries, contrib, plproxy and multiple pl's
@@ -225,7 +228,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     fi \
 
     # build and install missing packages
-    && apt-get install -y postgresql-server-dev-all postgresql-server-dev-${PGVERSION} \
+    && apt-get install -y postgresql-server-dev-all postgresql-server-dev-9.3 \
     && for pkg in pgextwlist; do \
         apt-get source postgresql-10-${pkg} \
         && cd $(ls -d *${pkg%?}*-*) \
