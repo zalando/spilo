@@ -446,7 +446,7 @@ def get_placeholders(provider):
 
     placeholders.setdefault('postgresql', {})
     placeholders['postgresql'].setdefault('parameters', {})
-    placeholders['WALE_BINARY'] = 'wal-g' if use_walg_backup else 'wal-e --aws-instance-profile'
+    placeholders['WALE_BINARY'] = 'wal-g' if use_walg_backup else 'wal-e'
     placeholders['postgresql']['parameters']['archive_command'] = \
         'envdir "{WALE_ENV_DIR}" {WALE_BINARY} wal-push "%p"'.format(**placeholders) \
         if placeholders['USE_WALE'] else '/bin/true'
@@ -593,6 +593,9 @@ def write_wale_environment(placeholders, provider, prefix, overwrite):
         wale['WALE_S3_PREFIX'] = 's3://{WAL_S3_BUCKET}{BUCKET_PATH}'.format(**wale)
         wale.update(WALE_S3_ENDPOINT=wale_endpoint, AWS_ENDPOINT=aws_endpoint, AWS_REGION=aws_region)
         write_envdir_names = s3_names
+        if not ('AWS_SECRET_ACCESS_KEY' in wale and 'AWS_ACCESS_KEY_ID' in wale):
+            wale['AWS_INSTANCE_PROFILE'] = 'true'
+            write_envdir_names.append('AWS_INSTANCE_PROFILE')
     elif wale.get('WAL_GCS_BUCKET'):
         wale['WALE_GS_PREFIX'] = 'gs://{WAL_GCS_BUCKET}{BUCKET_PATH}'.format(**wale)
         write_envdir_names = gs_names
