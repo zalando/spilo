@@ -41,7 +41,7 @@ class PostgresqlUpgrade(Postgresql):
             conn_kwargs['database'] = d[0]
             with self._get_connection_cursor(**conn_kwargs) as cur:
                 cur.execute("SET synchronous_commit = 'local'")
-                cur.execute("DROP SCHEMA IF EXISTS metric_helpers CASCADE")
+                cur.execute("DROP FUNCTION metric_helpers.pg_stat_statements(boolean) CASCADE")
 
     def pg_upgrade(self):
         self._upgrade_dir = self._data_dir + '_upgrade'
