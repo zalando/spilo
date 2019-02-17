@@ -282,7 +282,10 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                  if [ -L /usr/share/postgresql/9.5/contrib/postgis-$POSTGIS_VERSION/$f ]; then \
                    continue; \
                  fi; \
-                for v in 9.4 9.6 10; do \
+                 for v in $PGOLDVERSIONS; do \
+                     if [ $v == 9.5 ]; then \
+                       continue; \
+                     fi; \
                     if [ -f /usr/share/postgresql/$v/contrib/postgis-$POSTGIS_VERSION/$f ] \
                             && [ ! -L /usr/share/postgresql/$v/contrib/postgis-$POSTGIS_VERSION/$f ] \
                             && diff /usr/share/postgresql/$v/contrib/postgis-$POSTGIS_VERSION/$f $f > /dev/null; then \
@@ -334,7 +337,10 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                   if [ -L /usr/share/postgresql/9.5/extension/$f ]; then \
                      continue; \
                   fi; \
-                for v in 9.3 9.4 9.6 10; do \
+                  for v in $PGOLDVERSIONS; do \
+                      if [ $v == 9.5 ]; then \
+                        continue; \
+                      fi; \
                     if [ -f /usr/share/postgresql/$v/extension/$f ] \
                             && [ ! -L /usr/share/postgresql/$v/extension/$f ] \
                             && diff /usr/share/postgresql/$v/extension/$f $f > /dev/null; then \
