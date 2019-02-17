@@ -4,6 +4,7 @@ import argparse
 import csv
 import logging
 import os
+import re
 import subprocess
 import sys
 
@@ -49,9 +50,20 @@ def build_wale_command(command, datadir=None, backup=None):
     return cmd
 
 
+def fix_output(output):
+    """WAL-G is using spaces instead of tabs and writes some garbage before the actual header"""
+
+    started = None
+    for line in output.decode('utf-8').splitlines():
+        if not started:
+            started = re.match('^name\s+last_modified\s+', line)
+        if started:
+            yield '\t'.join(line.split())
+
+
 def choose_backup(output, recovery_target_time):
     """ pick up the latest backup file starting before time recovery_target_time"""
-    reader = csv.DictReader(output.decode('utf-8').splitlines(), dialect='excel-tab')
+    reader = csv.DictReader(fix_output(output), dialect='excel-tab')
     backup_list = list(reader)
     if len(backup_list) <= 0:
         raise Exception("wal-e could not found any backups")
