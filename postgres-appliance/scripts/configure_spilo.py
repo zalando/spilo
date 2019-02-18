@@ -540,8 +540,8 @@ def write_log_environment(placeholders):
 
 
 def write_wale_environment(placeholders, provider, prefix, overwrite):
-    s3_names = ['WALE_S3_PREFIX', 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'WALE_S3_ENDPOINT',
-                'AWS_ENDPOINT', 'AWS_REGION', 'WALG_DELTA_MAX_STEPS', 'WALG_DELTA_ORIGIN', 'WALG_S3_SSE_KMS_ID',
+    s3_names = ['WALE_S3_PREFIX', 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'WALE_S3_ENDPOINT', 'AWS_ENDPOINT',
+                'AWS_REGION', 'AWS_INSTANCE_PROFILE', 'WALG_DELTA_MAX_STEPS', 'WALG_DELTA_ORIGIN', 'WALG_S3_SSE_KMS_ID',
                 'WALG_DOWNLOAD_CONCURRENCY', 'WALG_UPLOAD_CONCURRENCY', 'WALG_UPLOAD_DISK_CONCURRENCY',
                 'WALG_DISK_RATE_LIMIT', 'WALG_NETWORK_RATE_LIMIT', 'WALG_COMPRESSION_METHOD', 'WALG_S3_SSE',
                 'USE_WALG_BACKUP', 'USE_WALG_RESTORE', 'WALG_BACKUP_COMPRESSION_METHOD', 'WALG_BACKUP_FROM_REPLICA',
@@ -551,9 +551,8 @@ def write_wale_environment(placeholders, provider, prefix, overwrite):
                    'SWIFT_PASSWORD', 'SWIFT_AUTH_VERSION', 'SWIFT_ENDPOINT_TYPE']
 
     wale = defaultdict(lambda: '')
-    for name in ['WALE_ENV_DIR', 'SCOPE', 'WAL_BUCKET_SCOPE_PREFIX', 'WAL_BUCKET_SCOPE_SUFFIX',
-                 'WAL_S3_BUCKET', 'WAL_GCS_BUCKET', 'WAL_GS_BUCKET', 'WAL_SWIFT_BUCKET',
-                 'USE_WALG_BACKUP', 'USE_WALG_RESTORE'] + s3_names + swift_names + gs_names:
+    for name in ['WALE_ENV_DIR', 'SCOPE', 'WAL_BUCKET_SCOPE_PREFIX', 'WAL_BUCKET_SCOPE_SUFFIX', 'WAL_S3_BUCKET',
+                 'WAL_GCS_BUCKET', 'WAL_GS_BUCKET', 'WAL_SWIFT_BUCKET'] + s3_names + swift_names + gs_names:
         wale[name] = placeholders.get(prefix + name, '')
 
     if wale['WAL_GS_BUCKET']:  # WAL_GS_BUCKET is more consistent with WALE_GS_PREFIX
@@ -594,9 +593,11 @@ def write_wale_environment(placeholders, provider, prefix, overwrite):
         wale['WALE_S3_PREFIX'] = 's3://{WAL_S3_BUCKET}{BUCKET_PATH}'.format(**wale)
         wale.update(WALE_S3_ENDPOINT=wale_endpoint, AWS_ENDPOINT=aws_endpoint, AWS_REGION=aws_region)
         write_envdir_names = s3_names
-        if not ('AWS_SECRET_ACCESS_KEY' in wale and 'AWS_ACCESS_KEY_ID' in wale):
+        if not (wale.get('AWS_SECRET_ACCESS_KEY') and wale.get('AWS_ACCESS_KEY_ID')):
             wale['AWS_INSTANCE_PROFILE'] = 'true'
             write_envdir_names.append('AWS_INSTANCE_PROFILE')
+        if wale.get('USE_WALG_BACKUP') and not wale.get('WALG_S3_SSE'):
+            wale['WALG_S3_SSE'] = 'AES256'
     elif wale.get('WAL_GCS_BUCKET'):
         wale['WALE_GS_PREFIX'] = 'gs://{WAL_GCS_BUCKET}{BUCKET_PATH}'.format(**wale)
         write_envdir_names = gs_names
