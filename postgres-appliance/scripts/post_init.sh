@@ -139,5 +139,6 @@ CREATE EXTENSION IF NOT EXISTS pg_stat_kcache SCHEMA public;
 CREATE EXTENSION IF NOT EXISTS set_user SCHEMA public;
 ALTER EXTENSION set_user UPDATE;
 GRANT EXECUTE ON FUNCTION public.set_user(text) TO admin;"
-done < <(psql -d $2 -tAc 'select pg_catalog.quote_ident(datname) from pg_database where datallowconn')
+    cat metric_helpers.sql
+done < <(psql -d $2 -tAc 'select pg_catalog.quote_ident(datname) from pg_catalog.pg_database where datallowconn')
 ) | psql -Xd $2

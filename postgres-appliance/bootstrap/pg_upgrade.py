@@ -1,3 +1,4 @@
+import logging
 import os
 import shutil
 import subprocess
@@ -5,6 +6,8 @@ import re
 import psutil
 
 from patroni.postgresql import Postgresql
+
+logger = logging.getLogger(__name__)
 
 
 class PostgresqlUpgrade(Postgresql):
@@ -27,6 +30,18 @@ class PostgresqlUpgrade(Postgresql):
             if f.startswith('postgresql.') or f.startswith('pg_hba.conf') or f == 'patroni.dynamic.json':
                 shutil.copy(os.path.join(self._old_data_dir, f), os.path.join(self._data_dir, f))
         return True
+
+    def drop_possibly_incompatible_objects(self):
+        conn_kwargs = self._local_connect_kwargs
+        for p in ['connect_timeout', 'options']:
+            conn_kwargs.pop(p, None)
+
+        for d in self.query('SELECT datname FROM pg_catalog.pg_database WHERE datallowconn'):
+            logger.info('Executing "DROP SCHEMA IF EXISTS metric_helpers" in the database="%s"', d[0])
+            conn_kwargs['database'] = d[0]
+            with self._get_connection_cursor(**conn_kwargs) as cur:
+                cur.execute("SET synchronous_commit = 'local'")
+                cur.execute("DROP FUNCTION metric_helpers.pg_stat_statements(boolean) CASCADE")
 
     def pg_upgrade(self):
         self._upgrade_dir = self._data_dir + '_upgrade'
