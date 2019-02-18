@@ -135,6 +135,7 @@ while IFS= read -r db_name; do
     fi
     sed "s/:HUMAN_ROLE/$1/" create_user_functions.sql
     echo "CREATE EXTENSION IF NOT EXISTS pg_stat_statements SCHEMA public;
+CREATE EXTENSION IF NOT EXISTS pg_stat_kcache SCHEMA public;
 CREATE EXTENSION IF NOT EXISTS set_user SCHEMA public;
 ALTER EXTENSION set_user UPDATE;
 GRANT EXECUTE ON FUNCTION public.set_user(text) TO admin;"
