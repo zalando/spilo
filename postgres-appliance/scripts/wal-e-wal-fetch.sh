@@ -5,8 +5,6 @@ date
 
 prefetch=8
 
-AWS_INSTANCE_PROFILE=0
-
 function load_aws_instance_profile() {
     local CREDENTIALS_URL=http://169.254.169.254/latest/meta-data/iam/security-credentials/
     local INSTANCE_PROFILE=$(curl -s $CREDENTIALS_URL)
@@ -34,7 +32,7 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         --aws-instance-profile )
-            AWS_INSTANCE_PROFILE=1
+            AWS_INSTANCE_PROFILE=true
             ;;
         wal-fetch )
             ;;
@@ -51,7 +49,7 @@ done
 
 [[ ${#PARAMS[@]} == 2 ]] || usage
 
-[[ $AWS_INSTANCE_PROFILE == 1 ]] && load_aws_instance_profile
+[[ "$AWS_INSTANCE_PROFILE" == "true" ]] && load_aws_instance_profile
 
 if [[ -z $AWS_SECRET_ACCESS_KEY || -z $AWS_ACCESS_KEY_ID || -z $WALE_S3_PREFIX ]]; then
     echo bad environment
@@ -74,7 +72,7 @@ if [[ -z $AWS_REGION ]]; then
     if [[ ! -z $WALE_S3_ENDPOINT && $WALE_S3_ENDPOINT =~ ^([a-z\+]{2,10}://)?(s3-([^\.]+)[^:\/?]+) ]]; then
         S3_HOST=${BASH_REMATCH[2]}
         AWS_REGION=${BASH_REMATCH[3]}
-    elif [[ $AWS_INSTANCE_PROFILE == 1 ]]; then
+    elif [[ "$AWS_INSTANCE_PROFILE" == "true" ]]; then
         load_region_from_aws_instance_profile
     fi
 fi
