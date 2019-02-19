@@ -336,6 +336,15 @@ def set_clone_with_wale_placeholders(placeholders, provider):
                         clone_bucket_placeholder)
 
 
+def set_walg_placeholders(placeholders, prefix=''):
+    walg_supported = bool(placeholders.get(prefix + 'WAL_S3_BUCKET'))
+    default = placeholders.get('USE_WALG', False)
+    placeholders.setdefault(prefix + 'USE_WALG', default)
+    for name in ('USE_WALG_BACKUP', 'USE_WALG_RESTORE'):
+        value = str(placeholders.get(prefix + name, placeholders[prefix + 'USE_WALG'])).lower()
+        placeholders[prefix + name] = 'true' if value == 'true' and walg_supported else None
+
+
 def get_placeholders(provider):
     placeholders = dict(os.environ)
 
@@ -372,9 +381,6 @@ def get_placeholders(provider):
     placeholders.setdefault('WAL_BUCKET_SCOPE_SUFFIX', '')
     placeholders.setdefault('WALE_ENV_DIR', os.path.join(placeholders['PGHOME'], 'etc', 'wal-e.d', 'env'))
     placeholders.setdefault('USE_WALE', False)
-    placeholders.setdefault('USE_WALG', False)
-    placeholders.setdefault('USE_WALG_BACKUP', placeholders['USE_WALG'])
-    placeholders.setdefault('USE_WALG_RESTORE', placeholders['USE_WALG'])
     cpu_count = str(min(psutil.cpu_count(), 10))
     placeholders.setdefault('WALG_DOWNLOAD_CONCURRENCY', cpu_count)
     placeholders.setdefault('WALG_UPLOAD_CONCURRENCY', cpu_count)
@@ -424,16 +430,12 @@ def get_placeholders(provider):
             else:
                 placeholders['CALLBACK_SCRIPT'] = 'patroni_aws'
 
-    use_s3 = bool(placeholders.get('WAL_S3_BUCKET'))
-    use_walg_backup = str(placeholders['USE_WALG_BACKUP']).lower() == 'true' and use_s3
-    use_walg_restore = str(placeholders['USE_WALG_RESTORE']).lower() == 'true' and use_s3
+    set_walg_placeholders(placeholders)
 
     placeholders['USE_WALE'] = bool(placeholders.get('WAL_S3_BUCKET') or
                                     placeholders.get('WAL_GCS_BUCKET') or
                                     placeholders.get('WAL_SWIFT_BUCKET'))
 
-    placeholders['USE_WALG_BACKUP'] = 'true' if use_walg_backup else None
-    placeholders['USE_WALG_RESTORE'] = 'true' if use_walg_restore else None
     if placeholders.get('WALG_BACKUP_FROM_REPLICA'):
         placeholders['WALG_BACKUP_FROM_REPLICA'] = str(placeholders['WALG_BACKUP_FROM_REPLICA']).lower()
 
@@ -447,7 +449,7 @@ def get_placeholders(provider):
 
     placeholders.setdefault('postgresql', {})
     placeholders['postgresql'].setdefault('parameters', {})
-    placeholders['WALE_BINARY'] = 'wal-g' if use_walg_backup else 'wal-e'
+    placeholders['WALE_BINARY'] = 'wal-g' if placeholders.get('USE_WALG_BACKUP') == 'true' else 'wal-e'
     placeholders['postgresql']['parameters']['archive_command'] = \
         'envdir "{WALE_ENV_DIR}" {WALE_BINARY} wal-push "%p"'.format(**placeholders) \
         if placeholders['USE_WALE'] else '/bin/true'
@@ -539,7 +541,7 @@ def write_log_environment(placeholders):
         write_file(log_env[var], os.path.join(log_env['LOG_ENV_DIR'], var), True)
 
 
-def write_wale_environment(placeholders, provider, prefix, overwrite):
+def write_wale_environment(placeholders, prefix, overwrite):
     s3_names = ['WALE_S3_PREFIX', 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'WALE_S3_ENDPOINT', 'AWS_ENDPOINT',
                 'AWS_REGION', 'AWS_INSTANCE_PROFILE', 'WALG_DELTA_MAX_STEPS', 'WALG_DELTA_ORIGIN', 'WALG_S3_SSE_KMS_ID',
                 'WALG_DOWNLOAD_CONCURRENCY', 'WALG_UPLOAD_CONCURRENCY', 'WALG_UPLOAD_DISK_CONCURRENCY',
@@ -618,9 +620,10 @@ def write_wale_environment(placeholders, provider, prefix, overwrite):
     write_file(placeholders['WALE_TMPDIR'], os.path.join(wale['WALE_ENV_DIR'], 'TMPDIR'), True)
 
 
-def write_bootstrap_configuration(placeholders, provider, overwrite):
+def write_bootstrap_configuration(placeholders, overwrite):
     if placeholders['CLONE_WITH_WALE']:
-        write_wale_environment(placeholders, provider, 'CLONE_', overwrite)
+        set_walg_placeholders(placeholders, 'CLONE_')
+        write_wale_environment(placeholders, 'CLONE_', overwrite)
     if placeholders['CLONE_WITH_BASEBACKUP']:
         write_clone_pgpass(placeholders, overwrite)
 
@@ -800,7 +803,7 @@ def main():
         elif section == 'pgbouncer':
             write_pgbouncer_configuration(placeholders, args['force'])
         elif section == 'bootstrap':
-            write_bootstrap_configuration(placeholders, provider, args['force'])
+            write_bootstrap_configuration(placeholders, args['force'])
         else:
             raise Exception('Unknown section: {}'.format(section))
 
