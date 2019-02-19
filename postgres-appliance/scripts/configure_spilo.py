@@ -791,7 +791,7 @@ def main():
                 write_log_environment(placeholders)
         elif section == 'wal-e':
             if placeholders['USE_WALE']:
-                write_wale_environment(placeholders, provider, '', args['force'])
+                write_wale_environment(placeholders, '', args['force'])
         elif section == 'certificate':
             write_certificates(placeholders, args['force'])
         elif section == 'crontab':
