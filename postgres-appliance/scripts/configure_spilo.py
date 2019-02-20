@@ -422,13 +422,11 @@ def get_placeholders(provider):
             logging.warning("Clone method is set to basebackup, but no 'CLONE_SCOPE' "
                             "or 'CLONE_HOST' or 'CLONE_USER' or 'CLONE_PASSWORD' specified")
 
-    if provider == PROVIDER_AWS:
-        if not USE_KUBERNETES:  # AWS specific callback to tag the instances with roles
-            if placeholders.get('EIP_ALLOCATION'):
-                placeholders['CALLBACK_SCRIPT'] = 'python3 /scripts/callback_aws.py {0}'. \
-                                                     format(placeholders['EIP_ALLOCATION'])
-            else:
-                placeholders['CALLBACK_SCRIPT'] = 'patroni_aws'
+    if provider == PROVIDER_AWS and not USE_KUBERNETES:
+        # AWS specific callback to tag the instances with roles
+        placeholders['CALLBACK_SCRIPT'] = 'python3 /scripts/callback_aws.py'
+        if placeholders.get('EIP_ALLOCATION'):
+            placeholders['CALLBACK_SCRIPT'] += ' ' + placeholders['EIP_ALLOCATION']
 
     set_walg_placeholders(placeholders)
 
