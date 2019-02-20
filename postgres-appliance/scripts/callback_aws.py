@@ -51,10 +51,13 @@ def get_instance(ec2, instance_id):
 
 def main():
     logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', level=logging.INFO)
-    if len(sys.argv) != 5 or sys.argv[2] not in ('on_start', 'on_stop', 'on_role_change'):
-        sys.exit("Usage: {0} eip_allocation_id action role name".format(sys.argv[0]))
 
-    action, role, cluster = sys.argv[2:5]
+    # EIP_ALLOCATION is optional argument
+    argc = len(sys.argv)
+    if argc not in (4, 5) or sys.argv[argc - 3] not in ('on_start', 'on_stop', 'on_role_change'):
+        sys.exit("Usage: {0} [eip_allocation_id] action role name".format(sys.argv[0]))
+
+    action, role, cluster = sys.argv[argc - 3:argc]
 
     metadata = get_instance_metadata()
 
@@ -62,10 +65,10 @@ def main():
 
     ec2 = boto.ec2.connect_to_region(metadata['region'])
 
-    instance = get_instance(ec2, instance_id)
-
-    if role == 'master' and action in ('on_start', 'on_role_change'):
+    if role == 'master' and argc == 5 and action in ('on_start', 'on_role_change'):
         associate_address(ec2, sys.argv[1], instance_id)
+
+    instance = get_instance(ec2, instance_id)
 
     tags = {'Role': role}
     tag_resource(ec2, instance_id, tags)
