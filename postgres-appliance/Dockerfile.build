@@ -432,6 +432,9 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     fi \
     && pip3 install "patroni[kubernetes$EXTRAS]==$PATRONIVERSION" \
 
+    && curl -sL https://raw.githubusercontent.com/zalando/patroni/e670122c805176a3689a7ddc8849a557038bde58/patroni/ha.py \
+            > /usr/local/lib/python3.6/dist-packages/patroni/ha.py \
+
     && for d in /usr/local/lib/python3.6 /usr/lib/python3; do \
         cd $d/dist-packages \
         && find . -type d -name tests | xargs rm -fr \
