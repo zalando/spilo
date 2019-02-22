@@ -18,6 +18,7 @@ Environment Configuration Settings
 - **PGUSER_SUPERUSER**: username for the superuser, 'postgres' by default.
 - **PGPASSWORD_SUPERUSER**: a password for the superuser, 'zalando' by default
 - **PGPORT**: port PostgreSQL listens to for client connections, 5432 by default
+- **PGVERSION**: Specifies the version of postgreSQL to reference in the bin_dir variable (/usr/lib/postgresql/PGVERSION/bin) if postgresql.bin_dir wasn't set in SPILO_CONFIGURATION
 - **SCOPE**: cluster name, multiple Spilos belonging to the same cluster must have identical scope.
 - **SSL_CERTIFICATE_FILE**: path to the SSL certificate file inside the container (by default PGHOME/server.crt), Spilo will generate one if not present.
 - **SSL_PRIVATE_KEY_FILE**: path to the SSL private key within the container (by default PGHOME/server.key), Spilo will generate one if not present
