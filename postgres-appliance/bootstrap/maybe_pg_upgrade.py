@@ -47,6 +47,9 @@ def main():
     if upgrade.query('SHOW data_checksums').fetchone()[0]:
         initdb_config.append('data-checksums')
 
+    logger.info('Dropping objects from the cluster which could be incompatible')
+    upgrade.drop_possibly_incompatible_objects()
+
     logger.info('Doing a clean shutdown of the cluster before pg_upgrade')
     if not upgrade.stop(block_callbacks=True, checkpoint=False):
         raise Exception('Failed to stop the cluster with old postgres')

@@ -35,7 +35,7 @@ if [[ "$USE_WALG_RESTORE" == "true" ]]; then
     readonly WAL_E="wal-g"
     readonly backup_start_field_num=3
 else
-    readonly WAL_E="wal-e --aws-instance-profile"
+    readonly WAL_E="wal-e"
     readonly backup_start_field_num=4
 fi
 

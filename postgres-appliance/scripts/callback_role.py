@@ -18,7 +18,6 @@ KUBE_API_URL = 'https://kubernetes.default.svc.cluster.local/api/v1/namespaces'
 
 logger = logging.getLogger(__name__)
 
-NUM_ATTEMPTS = 10
 LABEL = os.environ.get("KUBERNETES_ROLE_LABEL", 'spilo-role')
 
 
@@ -36,7 +35,7 @@ def read_token():
 
 def api_patch(namespace, kind, name, entity_name, body):
     api_url = '/'.join([KUBE_API_URL, namespace, kind, name])
-    for i in range(NUM_ATTEMPTS):
+    while True:
         try:
             token = read_token()
             if token:
@@ -52,8 +51,6 @@ def api_patch(namespace, kind, name, entity_name, body):
         except requests.exceptions.RequestException as e:
             logger.warning('Exception when executing PATCH on %s: %s', api_url, e)
         time.sleep(1)
-    else:
-        logger.error('Unable to change %s after %s attempts', entity_name, NUM_ATTEMPTS)
 
 
 def change_pod_role_label(namespace, new_role):

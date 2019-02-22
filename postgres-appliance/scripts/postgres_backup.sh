@@ -30,7 +30,7 @@ if [[ "$USE_WALG_BACKUP" == "true" ]]; then
     [[ -z $WALG_BACKUP_COMPRESSION_METHOD ]] || export WALG_COMPRESSION_METHOD=$WALG_BACKUP_COMPRESSION_METHOD
     export PGHOST=/var/run/postgresql
 else
-    readonly WAL_E="wal-e --aws-instance-profile"
+    readonly WAL_E="wal-e"
 
     # Ensure we don't have more workes than CPU's
     POOL_SIZE=$(grep -c ^processor /proc/cpuinfo 2>/dev/null || 1)

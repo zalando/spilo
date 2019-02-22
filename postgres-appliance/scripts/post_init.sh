@@ -127,7 +127,6 @@ cat _zmon_schema.dump
 
 while IFS= read -r db_name; do
     echo "\c ${db_name}"
-    echo "SET synchronous_commit = 'local';"
     # In case if timescaledb binary is missing the first query fails with the error
     # ERROR:  could not access file "$libdir/timescaledb-$OLD_VERSION": No such file or directory
     TIMESCALEDB_VERSION=$(echo -e "SELECT NULL;\nSELECT extversion FROM pg_extension WHERE extname = 'timescaledb'" | psql -tAX -d ${db_name} 2> /dev/null | tail -n 1)
@@ -136,8 +135,10 @@ while IFS= read -r db_name; do
     fi
     sed "s/:HUMAN_ROLE/$1/" create_user_functions.sql
     echo "CREATE EXTENSION IF NOT EXISTS pg_stat_statements SCHEMA public;
+CREATE EXTENSION IF NOT EXISTS pg_stat_kcache SCHEMA public;
 CREATE EXTENSION IF NOT EXISTS set_user SCHEMA public;
 ALTER EXTENSION set_user UPDATE;
 GRANT EXECUTE ON FUNCTION public.set_user(text) TO admin;"
-done < <(psql -d $2 -tAc 'select pg_catalog.quote_ident(datname) from pg_database where datallowconn')
+    cat metric_helpers.sql
+done < <(psql -d $2 -tAc 'select pg_catalog.quote_ident(datname) from pg_catalog.pg_database where datallowconn')
 ) | psql -Xd $2
