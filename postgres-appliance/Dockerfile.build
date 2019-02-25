@@ -279,10 +279,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && if [ -d /usr/share/postgresql/9.5/contrib/postgis-$POSTGIS_VERSION ]; then \
             cd /usr/share/postgresql/9.5/contrib/postgis-$POSTGIS_VERSION \
             && for f in *.sql *.pl; do \
-                 if [ -L $f ]; then \
-                   continue; \
-                 fi \
-                 && for v in $PGOLDVERSIONS; do \
+                if [ -L $f ]; then continue; fi \
+                && for v in $PGOLDVERSIONS; do \
                     if [ $v != 9.5 ] && [ -f /usr/share/postgresql/$v/contrib/postgis-$POSTGIS_VERSION/$f ] \
                             && [ ! -L /usr/share/postgresql/$v/contrib/postgis-$POSTGIS_VERSION/$f ] \
                             && diff /usr/share/postgresql/$v/contrib/postgis-$POSTGIS_VERSION/$f $f > /dev/null; then \
@@ -331,10 +329,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && if [ -d /usr/share/postgresql/9.5/extension ]; then \
             cd /usr/share/postgresql/9.5/extension \
             && for f in *.sql *.control; do \
-                  if [ -L $f ]; then \
-                     continue; \
-                  fi \
-                  && for v in $PGOLDVERSIONS; do \
+                if [ -L $f ]; then continue; fi \
+                && for v in $PGOLDVERSIONS; do \
                     if [ $v != 9.5 ] && [ -f /usr/share/postgresql/$v/extension/$f ] \
                             && [ ! -L /usr/share/postgresql/$v/extension/$f ] \
                             && diff /usr/share/postgresql/$v/extension/$f $f > /dev/null; then \
