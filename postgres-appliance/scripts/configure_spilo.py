@@ -596,8 +596,10 @@ def write_wale_environment(placeholders, prefix, overwrite):
         if not (wale.get('AWS_SECRET_ACCESS_KEY') and wale.get('AWS_ACCESS_KEY_ID')):
             wale['AWS_INSTANCE_PROFILE'] = 'true'
             write_envdir_names.append('AWS_INSTANCE_PROFILE')
-        if wale.get('USE_WALG_BACKUP') and not wale.get('WALG_S3_SSE') and wale.get('WALG_DISABLE_S3_SSE') is None:
+        if wale.get('USE_WALG_BACKUP') and not wale.get('WALG_S3_SSE'):
             wale['WALG_S3_SSE'] = 'AES256'
+        if wale.get('WALG_DISABLE_S3_SSE') == 'true' and 'WALG_S3_SSE' in wale:
+            del(wale['WALG_S3_SSE'])
     elif wale.get('WAL_GCS_BUCKET'):
         wale['WALE_GS_PREFIX'] = 'gs://{WAL_GCS_BUCKET}{BUCKET_PATH}'.format(**wale)
         write_envdir_names = gs_names
