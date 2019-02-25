@@ -552,7 +552,7 @@ def write_wale_environment(placeholders, prefix, overwrite):
 
     wale = defaultdict(lambda: '')
     for name in ['WALE_ENV_DIR', 'SCOPE', 'WAL_BUCKET_SCOPE_PREFIX', 'WAL_BUCKET_SCOPE_SUFFIX', 'WAL_S3_BUCKET',
-                 'WAL_GCS_BUCKET', 'WAL_GS_BUCKET', 'WAL_SWIFT_BUCKET'] + s3_names + swift_names + gs_names:
+                 'WAL_GCS_BUCKET', 'WAL_GS_BUCKET', 'WAL_SWIFT_BUCKET', 'WALG_DISABLE_S3_SSE'] + s3_names + swift_names + gs_names:
         wale[name] = placeholders.get(prefix + name, '')
 
     if wale['WAL_GS_BUCKET']:  # WAL_GS_BUCKET is more consistent with WALE_GS_PREFIX
@@ -598,6 +598,8 @@ def write_wale_environment(placeholders, prefix, overwrite):
             write_envdir_names.append('AWS_INSTANCE_PROFILE')
         if wale.get('USE_WALG_BACKUP') and not wale.get('WALG_S3_SSE'):
             wale['WALG_S3_SSE'] = 'AES256'
+        if wale.get('WALG_DISABLE_S3_SSE') == 'true' and 'WALG_S3_SSE' in wale:
+            del(wale['WALG_S3_SSE'])
     elif wale.get('WAL_GCS_BUCKET'):
         wale['WALE_GS_PREFIX'] = 'gs://{WAL_GCS_BUCKET}{BUCKET_PATH}'.format(**wale)
         write_envdir_names = gs_names
