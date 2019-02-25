@@ -618,9 +618,9 @@ def write_wale_environment(placeholders, prefix, overwrite):
             wale['WALG_S3_SSE'] = 'AES256'
         write_envdir_names = s3_names
     elif wale.get('WAL_GCS_BUCKET') or wale.get('WAL_GS_BUCKET') or\
-            wale.get('WALE_GSC_PREFIX') or wale.get('WALE_GS_PREFIX'):
-        if wale.get('WALE_GSC_PREFIX'):
-            wale['WALE_GS_PREFIX'] = wale['WALE_GSC_PREFIX']
+            wale.get('WALE_GCS_PREFIX') or wale.get('WALE_GS_PREFIX'):
+        if wale.get('WALE_GCS_PREFIX'):
+            wale['WALE_GS_PREFIX'] = wale['WALE_GCS_PREFIX']
         elif wale.get('WAL_GCS_BUCKET'):
             wale['WAL_GS_BUCKET'] = wale['WAL_GCS_BUCKET']
         write_envdir_names = gs_names
