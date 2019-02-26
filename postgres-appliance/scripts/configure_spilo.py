@@ -344,6 +344,7 @@ def set_extended_wale_placeholders(placeholders, prefix):
     """ checks that enough parameters are provided to configure cloning or standby with WAL-E """
     for name in ('S3', 'GS', 'GCS', 'SWIFT'):
         if placeholders.get('{0}WALE_{1}_PREFIX'.format(prefix, name)) or\
+                name in ('S3', 'GS') and placeholders.get('{0}WALG_{1}_PREFIX'.format(prefix, name)) or\
                 placeholders.get('{0}WAL_{1}_BUCKET'.format(prefix, name)) and placeholders.get(prefix + 'SCOPE'):
             break
     else:
@@ -357,7 +358,8 @@ def set_extended_wale_placeholders(placeholders, prefix):
 
 
 def set_walg_placeholders(placeholders, prefix=''):
-    walg_supported = bool(placeholders.get(prefix + 'WAL_S3_BUCKET'))
+    # TODO: add 'WAL_GS_BUCKET', 'WALE_GS_PREFIX', 'WALG_GS_PREFIX'
+    walg_supported = any(placeholders.get(prefix + n) for n in ('WAL_S3_BUCKET', 'WALE_S3_PREFIX', 'WALG_S3_PREFIX'))
     default = placeholders.get('USE_WALG', False)
     placeholders.setdefault(prefix + 'USE_WALG', default)
     for name in ('USE_WALG_BACKUP', 'USE_WALG_RESTORE'):
@@ -457,10 +459,10 @@ def get_placeholders(provider):
 
     set_walg_placeholders(placeholders)
 
-    placeholders['USE_WALE'] = bool(placeholders.get('WAL_S3_BUCKET') or placeholders.get('WALE_S3_PREFIX') or
-                                    placeholders.get('WAL_SWIFT_BUCKET') or placeholders.get('WALE_SWIFT_PREFIX') or
-                                    placeholders.get('WAL_GCS_BUCKET') or placeholders.get('WAL_GS_BUCKET') or
-                                    placeholders.get('WAL_GCS_PREFIX') or placeholders.get('WALE_GS_PREFIX'))
+    placeholders['USE_WALE'] = any(placeholders.get(n)
+                                   for n in ('WAL_S3_BUCKET', 'WALE_S3_PREFIX', 'WALG_S3_PREFIX',
+                                             'WAL_SWIFT_BUCKET', 'WALE_SWIFT_PREFIX', 'WAL_GCS_BUCKET',
+                                             'WAL_GS_BUCKET', 'WALE_GS_PREFIX', 'WALG_GS_PREFIX'))
 
     if placeholders.get('WALG_BACKUP_FROM_REPLICA'):
         placeholders['WALG_BACKUP_FROM_REPLICA'] = str(placeholders['WALG_BACKUP_FROM_REPLICA']).lower()
@@ -568,22 +570,26 @@ def write_log_environment(placeholders):
 
 
 def write_wale_environment(placeholders, prefix, overwrite):
-    s3_names = ['WALE_S3_PREFIX', 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'WALE_S3_ENDPOINT', 'AWS_ENDPOINT',
-                'AWS_REGION', 'AWS_INSTANCE_PROFILE', 'WALG_DELTA_MAX_STEPS', 'WALG_DELTA_ORIGIN', 'WALG_S3_SSE_KMS_ID',
-                'WALG_DOWNLOAD_CONCURRENCY', 'WALG_UPLOAD_CONCURRENCY', 'WALG_UPLOAD_DISK_CONCURRENCY',
-                'WALG_DISK_RATE_LIMIT', 'WALG_NETWORK_RATE_LIMIT', 'WALG_COMPRESSION_METHOD', 'WALG_S3_SSE',
-                'USE_WALG_BACKUP', 'USE_WALG_RESTORE', 'WALG_BACKUP_COMPRESSION_METHOD', 'WALG_BACKUP_FROM_REPLICA',
-                'AWS_S3_FORCE_PATH_STYLE', 'WALG_SENTINEL_USER_DATA', 'WALG_PREVENT_WAL_OVERWRITE']
-    gs_names = ['WALE_GS_PREFIX', 'GOOGLE_APPLICATION_CREDENTIALS']
+    s3_names = ['WALE_S3_PREFIX', 'WALG_S3_PREFIX', 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY',
+                'WALE_S3_ENDPOINT', 'AWS_ENDPOINT', 'AWS_REGION', 'AWS_INSTANCE_PROFILE',
+                'WALG_S3_SSE_KMS_ID', 'WALG_S3_SSE', 'WALG_DISABLE_S3_SSE', 'AWS_S3_FORCE_PATH_STYLE']
+    gs_names = ['WALE_GS_PREFIX', 'WALG_GS_PREFIX', 'GOOGLE_APPLICATION_CREDENTIALS']
     swift_names = ['WALE_SWIFT_PREFIX', 'SWIFT_AUTHURL', 'SWIFT_TENANT', 'SWIFT_USER',
                    'SWIFT_PASSWORD', 'SWIFT_AUTH_VERSION', 'SWIFT_ENDPOINT_TYPE']
 
+    walg_names = ['WALG_DELTA_MAX_STEPS', 'WALG_DELTA_ORIGIN', 'WALG_DOWNLOAD_CONCURRENCY',
+                  'WALG_UPLOAD_CONCURRENCY', 'WALG_UPLOAD_DISK_CONCURRENCY', 'WALG_DISK_RATE_LIMIT',
+                  'WALG_NETWORK_RATE_LIMIT', 'WALG_COMPRESSION_METHOD', 'USE_WALG_BACKUP',
+                  'USE_WALG_RESTORE', 'WALG_BACKUP_COMPRESSION_METHOD', 'WALG_BACKUP_FROM_REPLICA',
+                  'WALG_SENTINEL_USER_DATA', 'WALG_PREVENT_WAL_OVERWRITE']
+
     wale = defaultdict(lambda: '')
-    for name in ['WALE_ENV_DIR', 'SCOPE', 'WAL_BUCKET_SCOPE_PREFIX', 'WAL_BUCKET_SCOPE_SUFFIX', 'WAL_S3_BUCKET',
-                 'WAL_GCS_BUCKET', 'WAL_GS_BUCKET', 'WAL_SWIFT_BUCKET'] + s3_names + swift_names + gs_names:
+    for name in ['WALE_ENV_DIR', 'SCOPE', 'WAL_BUCKET_SCOPE_PREFIX', 'WAL_BUCKET_SCOPE_SUFFIX',
+                 'WAL_S3_BUCKET', 'WAL_GCS_BUCKET', 'WAL_GS_BUCKET', 'WAL_SWIFT_BUCKET'] +\
+            s3_names + swift_names + gs_names + walg_names:
         wale[name] = placeholders.get(prefix + name, '')
 
-    if wale.get('WAL_S3_BUCKET') or wale.get('WALE_S3_PREFIX'):
+    if wale.get('WAL_S3_BUCKET') or wale.get('WALE_S3_PREFIX') or wale.get('WALG_S3_PREFIX'):
         wale_endpoint = wale.get('WALE_S3_ENDPOINT')
         aws_endpoint = wale.get('AWS_ENDPOINT')
         aws_region = wale.get('AWS_REGION')
@@ -614,11 +620,11 @@ def write_wale_environment(placeholders, prefix, overwrite):
         wale.update(WALE_S3_ENDPOINT=wale_endpoint, AWS_ENDPOINT=aws_endpoint, AWS_REGION=aws_region)
         if not (wale.get('AWS_SECRET_ACCESS_KEY') and wale.get('AWS_ACCESS_KEY_ID')):
             wale['AWS_INSTANCE_PROFILE'] = 'true'
-        if wale.get('USE_WALG_BACKUP') and not wale.get('WALG_S3_SSE'):
+        if wale.get('USE_WALG_BACKUP') and wale.get('WALG_DISABLE_S3_SSE') != 'true' and not wale.get('WALG_S3_SSE'):
             wale['WALG_S3_SSE'] = 'AES256'
         write_envdir_names = s3_names
     elif wale.get('WAL_GCS_BUCKET') or wale.get('WAL_GS_BUCKET') or\
-            wale.get('WALE_GCS_PREFIX') or wale.get('WALE_GS_PREFIX'):
+            wale.get('WALE_GCS_PREFIX') or wale.get('WALE_GS_PREFIX') or wale.get('WALG_GS_PREFIX'):
         if wale.get('WALE_GCS_PREFIX'):
             wale['WALE_GS_PREFIX'] = wale['WALE_GCS_PREFIX']
         elif wale.get('WAL_GCS_BUCKET'):
@@ -630,10 +636,13 @@ def write_wale_environment(placeholders, prefix, overwrite):
         return
 
     prefix_env_name = write_envdir_names[0]
+    store_type = prefix_env_name[5:].split('_')[0]
     if not wale.get(prefix_env_name):  # WALE_*_PREFIX is not defined in the environment
-        store_type = prefix_env_name[5:].split('_')[0]
         bucket_path = '/spilo/{WAL_BUCKET_SCOPE_PREFIX}{SCOPE}{WAL_BUCKET_SCOPE_SUFFIX}/wal/'.format(**wale)
         wale[prefix_env_name] = '{0}://{{WAL_{1}_BUCKET}}{2}'.format(store_type.lower(), store_type, bucket_path)
+    # Set WALG_*_PREFIX for future compatibility
+    if store_type in ('S3', 'GS') and not wale.get(write_envdir_names[1]):
+        wale[write_envdir_names[1]] = wale[prefix_env_name]
 
     if not os.path.exists(wale['WALE_ENV_DIR']):
         os.makedirs(wale['WALE_ENV_DIR'])
