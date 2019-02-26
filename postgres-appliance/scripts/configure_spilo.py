@@ -348,8 +348,7 @@ def set_extended_wale_placeholders(placeholders, prefix):
                 placeholders.get('{0}WAL_{1}_BUCKET'.format(prefix, name)) and placeholders.get(prefix + 'SCOPE'):
             break
     else:
-        return logging.warning(('%s with WAL-E is only possible when %sWALE_*_PREFIX or %sWAL_*_BUCKET' +
-                                ' and %sSCOPE are set.'), prefix[:-1].capitalize(), prefix, prefix, prefix)
+        return False
 
     scope = placeholders.get(prefix + 'SCOPE')
     dirname = 'env-' + prefix[:-1].lower() + ('-' + scope if scope else '')
@@ -431,7 +430,9 @@ def get_placeholders(provider):
 
     if placeholders['CLONE_METHOD'] == 'CLONE_WITH_WALE':
         # modify placeholders and take care of error cases
-        set_extended_wale_placeholders(placeholders, 'CLONE_')
+        if set_extended_wale_placeholders(placeholders, 'CLONE_') is False:
+            logging.warning('Cloning with WAL-E is only possible when CLONE_WALE_*_PREFIX '
+                            'or CLONE_WALG_*_PREFIX or CLONE_WAL_*_BUCKET and CLONE_SCOPE are set.')
     elif placeholders['CLONE_METHOD'] == 'CLONE_WITH_BASEBACKUP':
         clone_scope = placeholders.get('CLONE_SCOPE')
         if clone_scope and placeholders.get('CLONE_HOST') \
@@ -443,7 +444,7 @@ def get_placeholders(provider):
         else:
             logging.warning("Clone method is set to basebackup, but no 'CLONE_SCOPE' "
                             "or 'CLONE_HOST' or 'CLONE_USER' or 'CLONE_PASSWORD' specified")
-    elif placeholders.get('STANDBY_PREFIX') or placeholders.get('STANDBY_BUCKET') and placeholders.get('STANDBY_SCOPE'):
+    else:
         set_extended_wale_placeholders(placeholders, 'STANDBY_')
 
     placeholders.setdefault('STANDBY_WITH_WALE', '')
@@ -622,14 +623,14 @@ def write_wale_environment(placeholders, prefix, overwrite):
             wale['AWS_INSTANCE_PROFILE'] = 'true'
         if wale.get('USE_WALG_BACKUP') and wale.get('WALG_DISABLE_S3_SSE') != 'true' and not wale.get('WALG_S3_SSE'):
             wale['WALG_S3_SSE'] = 'AES256'
-        write_envdir_names = s3_names
+        write_envdir_names = s3_names + walg_names
     elif wale.get('WAL_GCS_BUCKET') or wale.get('WAL_GS_BUCKET') or\
             wale.get('WALE_GCS_PREFIX') or wale.get('WALE_GS_PREFIX') or wale.get('WALG_GS_PREFIX'):
         if wale.get('WALE_GCS_PREFIX'):
             wale['WALE_GS_PREFIX'] = wale['WALE_GCS_PREFIX']
         elif wale.get('WAL_GCS_BUCKET'):
             wale['WAL_GS_BUCKET'] = wale['WAL_GCS_BUCKET']
-        write_envdir_names = gs_names
+        write_envdir_names = gs_names  # TODO: + walg_names
     elif wale.get('WAL_SWIFT_BUCKET') or wale.get('WALE_SWIFT_PREFIX'):
         write_envdir_names = swift_names
     else:
@@ -639,7 +640,8 @@ def write_wale_environment(placeholders, prefix, overwrite):
     store_type = prefix_env_name[5:].split('_')[0]
     if not wale.get(prefix_env_name):  # WALE_*_PREFIX is not defined in the environment
         bucket_path = '/spilo/{WAL_BUCKET_SCOPE_PREFIX}{SCOPE}{WAL_BUCKET_SCOPE_SUFFIX}/wal/'.format(**wale)
-        wale[prefix_env_name] = '{0}://{{WAL_{1}_BUCKET}}{2}'.format(store_type.lower(), store_type, bucket_path)
+        prefix_template = '{0}://{{WAL_{1}_BUCKET}}{2}'.format(store_type.lower(), store_type, bucket_path)
+        wale[prefix_env_name] = prefix_template.format(**wale)
     # Set WALG_*_PREFIX for future compatibility
     if store_type in ('S3', 'GS') and not wale.get(write_envdir_names[1]):
         wale[write_envdir_names[1]] = wale[prefix_env_name]
