@@ -822,16 +822,17 @@ def main():
                     continue
                 os.unlink(patronictl_configfile)
             os.symlink(patroni_configfile, patronictl_configfile)
-        elif section == 'log' and bool(placeholders.get('LOG_S3_BUCKET')):
-            write_log_environment(placeholders)
-        elif section == 'wal-e' and placeholders['USE_WALE']:
-            write_wale_environment(placeholders, '', args['force'])
+        elif section == 'log':
+            if bool(placeholders.get('LOG_S3_BUCKET')):
+                write_log_environment(placeholders)
+        elif section == 'wal-e':
+            if placeholders['USE_WALE']:
+                write_wale_environment(placeholders, '', args['force'])
         elif section == 'certificate':
             write_certificates(placeholders, args['force'])
-        elif section == 'crontab' and (placeholders['CRONTAB'] or placeholders['USE_WALE']
-                                       or bool(placeholders.get('LOG_S3_BUCKET'))):
-            # create crontab only if there are tasks for it
-            write_crontab(placeholders, args['force'])
+        elif section == 'crontab':
+            if placeholders['CRONTAB'] or placeholders['USE_WALE'] or bool(placeholders.get('LOG_S3_BUCKET')):
+                write_crontab(placeholders, args['force'])
         elif section == 'pam-oauth2':
             write_pam_oauth2_configuration(placeholders, args['force'])
         elif section == 'pgbouncer':
@@ -841,8 +842,9 @@ def main():
                 update_and_write_wale_configuration(placeholders, 'CLONE_', args['force'])
             if placeholders['CLONE_WITH_BASEBACKUP']:
                 write_clone_pgpass(placeholders, args['force'])
-        elif section == 'standby-cluster' and placeholders['STANDBY_WITH_WALE']:
-            update_and_write_wale_configuration(placeholders, 'STANDBY_', args['force'])
+        elif section == 'standby-cluster':
+            if placeholders['STANDBY_WITH_WALE']:
+                update_and_write_wale_configuration(placeholders, 'STANDBY_', args['force'])
         else:
             raise Exception('Unknown section: {}'.format(section))
 
