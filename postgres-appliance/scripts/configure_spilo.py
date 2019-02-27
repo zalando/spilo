@@ -31,7 +31,7 @@ MEMORY_LIMIT_IN_BYTES_PATH = '/sys/fs/cgroup/memory/memory.limit_in_bytes'
 
 def parse_args():
     sections = ['all', 'patroni', 'patronictl', 'certificate', 'wal-e', 'crontab',
-                'pam-oauth2', 'pgbouncer', 'bootstrap', 'log']
+                'pam-oauth2', 'pgbouncer', 'bootstrap', 'standby-cluster', 'log']
     argp = argparse.ArgumentParser(description='Configures Spilo',
                                    epilog="Choose from the following sections:\n\t{}".format('\n\t'.join(sections)),
                                    formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -113,6 +113,23 @@ TEMPLATE = \
 bootstrap:
   post_init: /scripts/post_init.sh "{{HUMAN_ROLE}}"
   dcs:
+    {{#STANDBY_CLUSTER}}
+    standby_cluster:
+      create_replica_methods:
+      {{#STANDBY_WITH_WALE}}
+      - bootstrap_standby_with_wale
+      {{/STANDBY_WITH_WALE}}
+      - basebackup_fast_xlog
+      {{#STANDBY_WITH_WALE}}
+      restore_command: envdir "{{STANDBY_WALE_ENV_DIR}}" /scripts/restore_command.sh "%f" "%p"
+      {{/STANDBY_WITH_WALE}}
+      {{#STANDBY_HOST}}
+      host: {{STANDBY_HOST}}
+      {{/STANDBY_HOST}}
+      {{#STANDBY_PORT}}
+      port: {{STANDBY_PORT}}
+      {{/STANDBY_PORT}}
+    {{/STANDBY_CLUSTER}}
     ttl: 30
     loop_wait: &loop_wait 10
     retry_timeout: 10
@@ -262,6 +279,14 @@ postgresql:
     command: /scripts/basebackup.sh
     retries: 2
 {{/USE_WALE}}
+{{#STANDBY_WITH_WALE}}
+  bootstrap_standby_with_wale:
+    command: envdir "{{STANDBY_WALE_ENV_DIR}}" bash /scripts/wale_restore.sh
+    threshold_megabytes: {{WALE_BACKUP_THRESHOLD_MEGABYTES}}
+    threshold_backup_size_percentage: {{WALE_BACKUP_THRESHOLD_PERCENTAGE}}
+    retries: 2
+    no_master: 1
+{{/STANDBY_WITH_WALE}}
 '''
 
 
@@ -315,29 +340,25 @@ def get_instance_metadata(provider):
     return metadata
 
 
-def set_clone_with_wale_placeholders(placeholders, provider):
-    """ checks that enough parameters are provided to configure cloning with WAL-E """
-    if 'CLONE_WAL_S3_BUCKET' in placeholders:
-        clone_bucket_placeholder = 'CLONE_WAL_S3_BUCKET'
-    elif 'CLONE_WAL_GCS_BUCKET' in placeholders:
-        clone_bucket_placeholder = 'CLONE_WAL_GCS_BUCKET'
+def set_extended_wale_placeholders(placeholders, prefix):
+    """ checks that enough parameters are provided to configure cloning or standby with WAL-E """
+    for name in ('S3', 'GS', 'GCS', 'SWIFT'):
+        if placeholders.get('{0}WALE_{1}_PREFIX'.format(prefix, name)) or\
+                name in ('S3', 'GS') and placeholders.get('{0}WALG_{1}_PREFIX'.format(prefix, name)) or\
+                placeholders.get('{0}WAL_{1}_BUCKET'.format(prefix, name)) and placeholders.get(prefix + 'SCOPE'):
+            break
     else:
-        logging.warning('Cloning with WAL-E is only possible when CLONE_WAL_S3_BUCKET or CLONE_WAL_GCS_BUCKET is set.')
-        return
-    # XXX: Cloning from one provider into another (i.e. Google from Amazon) is not possible.
-    # No WAL-E related limitations, but credentials would have to be passsed explicitely.
-    clone_cluster = placeholders.get('CLONE_SCOPE')
-    if placeholders.get(clone_bucket_placeholder) and clone_cluster:
-        placeholders['CLONE_WITH_WALE'] = True
-        placeholders.setdefault('CLONE_WALE_ENV_DIR', os.path.join(placeholders['PGHOME'], 'etc', 'wal-e.d',
-                                                                   'env-clone-{0}'.format(clone_cluster)))
-    else:
-        logging.warning("Clone method is set to WAL-E, but no '%s' or 'CLONE_SCOPE' specified",
-                        clone_bucket_placeholder)
+        return False
+
+    scope = placeholders.get(prefix + 'SCOPE')
+    dirname = 'env-' + prefix[:-1].lower() + ('-' + scope if scope else '')
+    placeholders[prefix + 'WALE_ENV_DIR'] = os.path.join(placeholders['PGHOME'], 'etc', 'wal-e.d', dirname)
+    placeholders[prefix + 'WITH_WALE'] = True
 
 
 def set_walg_placeholders(placeholders, prefix=''):
-    walg_supported = bool(placeholders.get(prefix + 'WAL_S3_BUCKET'))
+    # TODO: add 'WAL_GS_BUCKET', 'WALE_GS_PREFIX', 'WALG_GS_PREFIX'
+    walg_supported = any(placeholders.get(prefix + n) for n in ('WAL_S3_BUCKET', 'WALE_S3_PREFIX', 'WALG_S3_PREFIX'))
     default = placeholders.get('USE_WALG', False)
     placeholders.setdefault(prefix + 'USE_WALG', default)
     for name in ('USE_WALG_BACKUP', 'USE_WALG_RESTORE'):
@@ -408,8 +429,10 @@ def get_placeholders(provider):
                             if placeholders['NAMESPACE'] not in ('default', '') else '')
 
     if placeholders['CLONE_METHOD'] == 'CLONE_WITH_WALE':
-        # set_clone_with_wale_placeholders would modify placeholders and take care of error cases
-        set_clone_with_wale_placeholders(placeholders, provider)
+        # modify placeholders and take care of error cases
+        if set_extended_wale_placeholders(placeholders, 'CLONE_') is False:
+            logging.warning('Cloning with WAL-E is only possible when CLONE_WALE_*_PREFIX '
+                            'or CLONE_WALG_*_PREFIX or CLONE_WAL_*_BUCKET and CLONE_SCOPE are set.')
     elif placeholders['CLONE_METHOD'] == 'CLONE_WITH_BASEBACKUP':
         clone_scope = placeholders.get('CLONE_SCOPE')
         if clone_scope and placeholders.get('CLONE_HOST') \
@@ -421,6 +444,13 @@ def get_placeholders(provider):
         else:
             logging.warning("Clone method is set to basebackup, but no 'CLONE_SCOPE' "
                             "or 'CLONE_HOST' or 'CLONE_USER' or 'CLONE_PASSWORD' specified")
+    else:
+        set_extended_wale_placeholders(placeholders, 'STANDBY_')
+
+    placeholders.setdefault('STANDBY_WITH_WALE', '')
+    placeholders.setdefault('STANDBY_HOST', '')
+    placeholders.setdefault('STANDBY_PORT', '')
+    placeholders.setdefault('STANDBY_CLUSTER', placeholders['STANDBY_WITH_WALE'] or placeholders['STANDBY_HOST'])
 
     if provider == PROVIDER_AWS and not USE_KUBERNETES:
         # AWS specific callback to tag the instances with roles
@@ -430,9 +460,10 @@ def get_placeholders(provider):
 
     set_walg_placeholders(placeholders)
 
-    placeholders['USE_WALE'] = bool(placeholders.get('WAL_S3_BUCKET') or
-                                    placeholders.get('WAL_GCS_BUCKET') or
-                                    placeholders.get('WAL_SWIFT_BUCKET'))
+    placeholders['USE_WALE'] = any(placeholders.get(n)
+                                   for n in ('WAL_S3_BUCKET', 'WALE_S3_PREFIX', 'WALG_S3_PREFIX',
+                                             'WAL_SWIFT_BUCKET', 'WALE_SWIFT_PREFIX', 'WAL_GCS_BUCKET',
+                                             'WAL_GS_BUCKET', 'WALE_GS_PREFIX', 'WALG_GS_PREFIX'))
 
     if placeholders.get('WALG_BACKUP_FROM_REPLICA'):
         placeholders['WALG_BACKUP_FROM_REPLICA'] = str(placeholders['WALG_BACKUP_FROM_REPLICA']).lower()
@@ -540,37 +571,34 @@ def write_log_environment(placeholders):
 
 
 def write_wale_environment(placeholders, prefix, overwrite):
-    s3_names = ['WALE_S3_PREFIX', 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'WALE_S3_ENDPOINT', 'AWS_ENDPOINT',
-                'AWS_REGION', 'AWS_INSTANCE_PROFILE', 'WALG_DELTA_MAX_STEPS', 'WALG_DELTA_ORIGIN', 'WALG_S3_SSE_KMS_ID',
-                'WALG_DOWNLOAD_CONCURRENCY', 'WALG_UPLOAD_CONCURRENCY', 'WALG_UPLOAD_DISK_CONCURRENCY',
-                'WALG_DISK_RATE_LIMIT', 'WALG_NETWORK_RATE_LIMIT', 'WALG_COMPRESSION_METHOD', 'WALG_S3_SSE',
-                'USE_WALG_BACKUP', 'USE_WALG_RESTORE', 'WALG_BACKUP_COMPRESSION_METHOD', 'WALG_BACKUP_FROM_REPLICA',
-                'AWS_S3_FORCE_PATH_STYLE', 'WALG_SENTINEL_USER_DATA', 'WALG_PREVENT_WAL_OVERWRITE']
-    gs_names = ['WALE_GS_PREFIX', 'GOOGLE_APPLICATION_CREDENTIALS']
+    s3_names = ['WALE_S3_PREFIX', 'WALG_S3_PREFIX', 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY',
+                'WALE_S3_ENDPOINT', 'AWS_ENDPOINT', 'AWS_REGION', 'AWS_INSTANCE_PROFILE',
+                'WALG_S3_SSE_KMS_ID', 'WALG_S3_SSE', 'WALG_DISABLE_S3_SSE', 'AWS_S3_FORCE_PATH_STYLE']
+    gs_names = ['WALE_GS_PREFIX', 'WALG_GS_PREFIX', 'GOOGLE_APPLICATION_CREDENTIALS']
     swift_names = ['WALE_SWIFT_PREFIX', 'SWIFT_AUTHURL', 'SWIFT_TENANT', 'SWIFT_USER',
                    'SWIFT_PASSWORD', 'SWIFT_AUTH_VERSION', 'SWIFT_ENDPOINT_TYPE']
 
+    walg_names = ['WALG_DELTA_MAX_STEPS', 'WALG_DELTA_ORIGIN', 'WALG_DOWNLOAD_CONCURRENCY',
+                  'WALG_UPLOAD_CONCURRENCY', 'WALG_UPLOAD_DISK_CONCURRENCY', 'WALG_DISK_RATE_LIMIT',
+                  'WALG_NETWORK_RATE_LIMIT', 'WALG_COMPRESSION_METHOD', 'USE_WALG_BACKUP',
+                  'USE_WALG_RESTORE', 'WALG_BACKUP_COMPRESSION_METHOD', 'WALG_BACKUP_FROM_REPLICA',
+                  'WALG_SENTINEL_USER_DATA', 'WALG_PREVENT_WAL_OVERWRITE']
+
     wale = defaultdict(lambda: '')
-    for name in ['WALE_ENV_DIR', 'SCOPE', 'WAL_BUCKET_SCOPE_PREFIX', 'WAL_BUCKET_SCOPE_SUFFIX', 'WAL_S3_BUCKET',
-                 'WAL_GCS_BUCKET', 'WAL_GS_BUCKET', 'WAL_SWIFT_BUCKET', 'WALG_DISABLE_S3_SSE'] + s3_names + swift_names + gs_names:
+    for name in ['WALE_ENV_DIR', 'SCOPE', 'WAL_BUCKET_SCOPE_PREFIX', 'WAL_BUCKET_SCOPE_SUFFIX',
+                 'WAL_S3_BUCKET', 'WAL_GCS_BUCKET', 'WAL_GS_BUCKET', 'WAL_SWIFT_BUCKET'] +\
+            s3_names + swift_names + gs_names + walg_names:
         wale[name] = placeholders.get(prefix + name, '')
 
-    if wale['WAL_GS_BUCKET']:  # WAL_GS_BUCKET is more consistent with WALE_GS_PREFIX
-        wale['WAL_GCS_BUCKET'] = wale['WAL_GS_BUCKET']
-
-    wale['BUCKET_PATH'] = '/spilo/{WAL_BUCKET_SCOPE_PREFIX}{SCOPE}{WAL_BUCKET_SCOPE_SUFFIX}/wal/'.format(**wale)
-    wale['WALE_LOG_DESTINATION'] = 'stderr'
-
-    if not os.path.exists(wale['WALE_ENV_DIR']):
-        os.makedirs(wale['WALE_ENV_DIR'])
-
-    if wale.get('WAL_S3_BUCKET'):
+    if wale.get('WAL_S3_BUCKET') or wale.get('WALE_S3_PREFIX') or wale.get('WALG_S3_PREFIX'):
         wale_endpoint = wale.get('WALE_S3_ENDPOINT')
         aws_endpoint = wale.get('AWS_ENDPOINT')
         aws_region = wale.get('AWS_REGION')
 
         if not aws_region:
-            match = re.search(r'.*(\w{2}-\w+-\d)-.*', wale_endpoint or aws_endpoint or wale['WAL_S3_BUCKET'])
+            # try to determine region from the endpoint or bucket name
+            name = wale_endpoint or aws_endpoint or wale.get('WAL_S3_BUCKET') or wale.get('WALE_S3_PREFIX')
+            match = re.search(r'.*(\w{2}-\w+-\d)-.*', name)
             if match:
                 aws_region = match.group(1)
             else:
@@ -590,25 +618,38 @@ def write_wale_environment(placeholders, prefix, overwrite):
         if not wale_endpoint and aws_endpoint:
             wale_endpoint = aws_endpoint.replace('://', '+path://') + ':443'
 
-        wale['WALE_S3_PREFIX'] = 's3://{WAL_S3_BUCKET}{BUCKET_PATH}'.format(**wale)
         wale.update(WALE_S3_ENDPOINT=wale_endpoint, AWS_ENDPOINT=aws_endpoint, AWS_REGION=aws_region)
-        write_envdir_names = s3_names
         if not (wale.get('AWS_SECRET_ACCESS_KEY') and wale.get('AWS_ACCESS_KEY_ID')):
             wale['AWS_INSTANCE_PROFILE'] = 'true'
-            write_envdir_names.append('AWS_INSTANCE_PROFILE')
-        if wale.get('USE_WALG_BACKUP') and not wale.get('WALG_S3_SSE'):
+        if wale.get('USE_WALG_BACKUP') and wale.get('WALG_DISABLE_S3_SSE') != 'true' and not wale.get('WALG_S3_SSE'):
             wale['WALG_S3_SSE'] = 'AES256'
-        if wale.get('WALG_DISABLE_S3_SSE') == 'true' and 'WALG_S3_SSE' in wale:
-            del(wale['WALG_S3_SSE'])
-    elif wale.get('WAL_GCS_BUCKET'):
-        wale['WALE_GS_PREFIX'] = 'gs://{WAL_GCS_BUCKET}{BUCKET_PATH}'.format(**wale)
-        write_envdir_names = gs_names
-    elif wale.get('WAL_SWIFT_BUCKET'):
-        wale['WALE_SWIFT_PREFIX'] = 'swift://{WAL_SWIFT_BUCKET}{BUCKET_PATH}'.format(**wale)
+        write_envdir_names = s3_names + walg_names
+    elif wale.get('WAL_GCS_BUCKET') or wale.get('WAL_GS_BUCKET') or\
+            wale.get('WALE_GCS_PREFIX') or wale.get('WALE_GS_PREFIX') or wale.get('WALG_GS_PREFIX'):
+        if wale.get('WALE_GCS_PREFIX'):
+            wale['WALE_GS_PREFIX'] = wale['WALE_GCS_PREFIX']
+        elif wale.get('WAL_GCS_BUCKET'):
+            wale['WAL_GS_BUCKET'] = wale['WAL_GCS_BUCKET']
+        write_envdir_names = gs_names  # TODO: + walg_names
+    elif wale.get('WAL_SWIFT_BUCKET') or wale.get('WALE_SWIFT_PREFIX'):
         write_envdir_names = swift_names
     else:
         return
 
+    prefix_env_name = write_envdir_names[0]
+    store_type = prefix_env_name[5:].split('_')[0]
+    if not wale.get(prefix_env_name):  # WALE_*_PREFIX is not defined in the environment
+        bucket_path = '/spilo/{WAL_BUCKET_SCOPE_PREFIX}{SCOPE}{WAL_BUCKET_SCOPE_SUFFIX}/wal/'.format(**wale)
+        prefix_template = '{0}://{{WAL_{1}_BUCKET}}{2}'.format(store_type.lower(), store_type, bucket_path)
+        wale[prefix_env_name] = prefix_template.format(**wale)
+    # Set WALG_*_PREFIX for future compatibility
+    if store_type in ('S3', 'GS') and not wale.get(write_envdir_names[1]):
+        wale[write_envdir_names[1]] = wale[prefix_env_name]
+
+    if not os.path.exists(wale['WALE_ENV_DIR']):
+        os.makedirs(wale['WALE_ENV_DIR'])
+
+    wale['WALE_LOG_DESTINATION'] = 'stderr'
     for name in write_envdir_names + ['WALE_LOG_DESTINATION']:
         if wale.get(name):
             write_file(wale[name], os.path.join(wale['WALE_ENV_DIR'], name), overwrite)
@@ -620,12 +661,9 @@ def write_wale_environment(placeholders, prefix, overwrite):
     write_file(placeholders['WALE_TMPDIR'], os.path.join(wale['WALE_ENV_DIR'], 'TMPDIR'), True)
 
 
-def write_bootstrap_configuration(placeholders, overwrite):
-    if placeholders['CLONE_WITH_WALE']:
-        set_walg_placeholders(placeholders, 'CLONE_')
-        write_wale_environment(placeholders, 'CLONE_', overwrite)
-    if placeholders['CLONE_WITH_BASEBACKUP']:
-        write_clone_pgpass(placeholders, overwrite)
+def update_and_write_wale_configuration(placeholders, prefix, overwrite):
+    set_walg_placeholders(placeholders, prefix)
+    write_wale_environment(placeholders, prefix, overwrite)
 
 
 def write_clone_pgpass(placeholders, overwrite):
@@ -795,15 +833,20 @@ def main():
         elif section == 'certificate':
             write_certificates(placeholders, args['force'])
         elif section == 'crontab':
-            # create crontab only if there are tasks for it
-            if placeholders['USE_WALE'] or bool(placeholders.get('LOG_S3_BUCKET')):
+            if placeholders['CRONTAB'] or placeholders['USE_WALE'] or bool(placeholders.get('LOG_S3_BUCKET')):
                 write_crontab(placeholders, args['force'])
         elif section == 'pam-oauth2':
             write_pam_oauth2_configuration(placeholders, args['force'])
         elif section == 'pgbouncer':
             write_pgbouncer_configuration(placeholders, args['force'])
         elif section == 'bootstrap':
-            write_bootstrap_configuration(placeholders, args['force'])
+            if placeholders['CLONE_WITH_WALE']:
+                update_and_write_wale_configuration(placeholders, 'CLONE_', args['force'])
+            if placeholders['CLONE_WITH_BASEBACKUP']:
+                write_clone_pgpass(placeholders, args['force'])
+        elif section == 'standby-cluster':
+            if placeholders['STANDBY_WITH_WALE']:
+                update_and_write_wale_configuration(placeholders, 'STANDBY_', args['force'])
         else:
             raise Exception('Unknown section: {}'.format(section))
 
