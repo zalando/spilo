@@ -24,9 +24,9 @@ pipeline:
 - id: tag-spilo
   type: script
   requires_human_approval: true
-    when:
-      event: push
-      branch: master
+  when:
+    event: push
+    branch: master
   env:
     <<: *ENV
   commands:
