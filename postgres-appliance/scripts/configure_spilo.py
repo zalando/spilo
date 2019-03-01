@@ -770,9 +770,6 @@ def main():
     logging.basicConfig(format='%(asctime)s - bootstrapping - %(levelname)s - %(message)s', level=('DEBUG'
                         if debug else (args.get('loglevel') or 'INFO').upper()))
 
-    if os.environ.get('PATRONIVERSION') < '1.0':
-        raise Exception('Patroni version >= 1.0 is required')
-
     provider = os.environ.get('DEVELOP', '').lower() in ['1', 'true', 'on'] and PROVIDER_LOCAL or get_provider()
     placeholders = get_placeholders(provider)
     logging.info('Looks like your running %s', provider)

@@ -1,28 +1,51 @@
-build_steps:
-    - desc: Prepare Environment
-      cmd: |
-        apt-get update
-        apt-get install -y python3 python3-pip
-        pip3 install 'docker<3.0.0' docker-squash
+version: "2017-09-20"
+pipeline:
+- id: build-spilo-cdp
+  env: &ENV
+    IMAGE: registry-write.opensource.zalan.do/acid/spilo
+    PGVERSION: 11
+  type: script
+  commands:
+  - desc: Build and push docker image
+    cmd: |
+      cd postgres-appliance
 
-    - desc: Build and push docker images
-      cmd: |
-        cd  postgres-appliance
+      COMPRESS=false
+      # compress and push docker images only for commits to the master branch
+      if [ "x${CDP_SOURCE_BRANCH}" == "x" ] && [ "x${CDP_TARGET_BRANCH}" == "xmaster" ]; then
+          COMPRESS=true
+          PATRONIVERSION=$(sed -n 's/^ENV PATRONIVERSION=\([1-9][0-9]*\.[1-9][0-9]*\).*$/\1/p' Dockerfile)
+          IMAGE="$IMAGE-cdp-$PGVERSION:$PATRONIVERSION-p$CDP_TARGET_BRANCH_COUNTER"
+      fi
 
-        IMAGE="registry-write.opensource.zalan.do/acid/spilo-cdp-11"
-        COMPRESS=false
+      ./build.sh --build-arg PGVERSION=$PGVERSION --build-arg COMPRESS=$COMPRESS -t $IMAGE .
 
-        # compress and push docker images only for commits to the master branch
-        if [ "x${CDP_SOURCE_BRANCH}" == "x" ] && [ "x${CDP_TARGET_BRANCH}" == "xmaster" ]; then
-            COMPRESS=true
-            PATRONIVERSION=$(sed -n 's/^ENV PATRONIVERSION=\([1-9][0-9]*\.[1-9][0-9]*\).*$/\1/p' Dockerfile.build)
-            IMAGE="${IMAGE}:${PATRONIVERSION}-p${CDP_TARGET_BRANCH_COUNTER}"
-        fi
+      docker images
+- id: tag-spilo
+  type: script
+  requires_human_approval: true
+  when:
+    event: push
+    branch: master
+  env:
+    <<: *ENV
+  commands:
+  - desc: Tag and push production spilo
+    cmd: |
+      sudo apt-get update
+      sudo apt-get install -y jq
 
-        ./build.sh --build-arg COMPRESS=${COMPRESS} -t "${IMAGE}" .
+      PATRONIVERSION=$(sed -n 's/^ENV PATRONIVERSION=\([1-9][0-9]*\.[1-9][0-9]*\).*$/\1/p' postgres-appliance/Dockerfile)
+      CDP_IMAGE="$IMAGE-cdp-$PGVERSION:$PATRONIVERSION-p$CDP_TARGET_BRANCH_COUNTER"
+      docker pull $CDP_IMAGE
 
-        docker images
+      PIERONE_TAGS=$(curl -sL https://$(echo $IMAGE | sed 's|/|/v1/repositories/|')-$PGVERSION/tags)
+      COUNTER=$((git tag && echo "$PIERONE_TAGS" | jq -r 'keys | .[]') | sed -n "s/^$PATRONIVERSION-p//p" | sort -un | tail -n1)
+      TAG="$PATRONIVERSION-p$((COUNTER+1))"
+      PROD_IMAGE="$IMAGE-$PGVERSION:$TAG"
 
-        if [ "${COMPRESS}" == "true" ]; then
-            docker push "${IMAGE}"
-        fi
+      docker tag $CDP_IMAGE $PROD_IMAGE
+      docker images
+      docker push $PROD_IMAGE
+
+      git gh-tag -m $PROD_IMAGE $TAG
