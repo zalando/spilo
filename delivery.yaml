@@ -21,6 +21,8 @@ pipeline:
       ./build.sh --build-arg PGVERSION=$PGVERSION --build-arg COMPRESS=$COMPRESS -t $IMAGE .
 
       docker images
+
+      if [ "$COMPRESS" == "true" ]; then docker push $IMAGE; fi
 - id: tag-spilo
   type: script
   requires_human_approval: true
