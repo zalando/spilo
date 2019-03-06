@@ -357,8 +357,8 @@ def set_extended_wale_placeholders(placeholders, prefix):
 
 
 def set_walg_placeholders(placeholders, prefix=''):
-    # TODO: add 'WAL_GS_BUCKET', 'WALE_GS_PREFIX', 'WALG_GS_PREFIX'
-    walg_supported = any(placeholders.get(prefix + n) for n in ('WAL_S3_BUCKET', 'WALE_S3_PREFIX', 'WALG_S3_PREFIX'))
+    walg_supported = any(placeholders.get(prefix + n) for n in ('WAL_S3_BUCKET', 'WALE_S3_PREFIX', 'WALG_S3_PREFIX',
+                                                                'WAL_GS_BUCKET', 'WALE_GS_PREFIX', 'WALG_GS_PREFIX'))
     default = placeholders.get('USE_WALG', False)
     placeholders.setdefault(prefix + 'USE_WALG', default)
     for name in ('USE_WALG_BACKUP', 'USE_WALG_RESTORE'):
@@ -630,7 +630,7 @@ def write_wale_environment(placeholders, prefix, overwrite):
             wale['WALE_GS_PREFIX'] = wale['WALE_GCS_PREFIX']
         elif wale.get('WAL_GCS_BUCKET'):
             wale['WAL_GS_BUCKET'] = wale['WAL_GCS_BUCKET']
-        write_envdir_names = gs_names  # TODO: + walg_names
+        write_envdir_names = gs_names + walg_names
     elif wale.get('WAL_SWIFT_BUCKET') or wale.get('WALE_SWIFT_PREFIX'):
         write_envdir_names = swift_names
     else:
