@@ -38,25 +38,10 @@ else
     POOL_SIZE="--pool-size ${POOL_SIZE}"
 fi
 
-BEFORE=""
-
-readonly NOW=$(date +%s -u)
-while read name last_modified rest; do
-    last_modified=$(date +%s -ud "$last_modified")
-    if [ $(((NOW-last_modified)/86400)) -gt $DAYS_TO_RETAIN ]; then
-        if [ -z "$BEFORE" ] || [ "$last_modified" -gt "$BEFORE_TIME" ]; then
-            BEFORE_TIME=$last_modified
-            BEFORE=$name
-        fi
-    fi
-done < <($WAL_E backup-list 2> /dev/null | sed '0,/^name\s*last_modified\s*/d')
-
-if [ ! -z "$BEFORE" ]; then
-    if [[ "$USE_WALG_BACKUP" == "true" ]]; then
-        $WAL_E delete before FIND_FULL "$BEFORE" --confirm
-    else
-        $WAL_E delete --confirm before "$BEFORE"
-    fi
+if [[ "$USE_WALG" == "true" ]]; then
+    $WAL_E delete retain FULL "$DAYS_TO_RETAIN" --confirm
+else
+    $WAL_E delete --confirm retain "$DAYS_TO_RETAIN"
 fi
 
 # push a new base backup
