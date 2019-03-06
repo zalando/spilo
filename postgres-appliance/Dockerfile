@@ -447,9 +447,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             /usr/share/info \
     && find /var/log -type f -exec truncate --size 0 {} \;
 
-# wal-g build from https://github.com/wal-g/wal-g/commit/70fea97245762c1709c7d94a75ea70a773726268
-ADD dependencies/wal-g /usr/local/bin/
-
 ARG COMPRESS=false
 
 RUN set -ex \
