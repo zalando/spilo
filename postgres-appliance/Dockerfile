@@ -367,7 +367,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 # Install patroni, wal-e and wal-g
 ENV PATRONIVERSION=1.5.5
 ENV WALE_VERSION=1.1.0
-ENV WALG_VERSION=v0.2.4
+ENV WALG_VERSION=v0.2.7
 RUN export DEBIAN_FRONTEND=noninteractive \
     && set -ex \
     && BUILD_PACKAGES="python3-pip python3-wheel python3-dev git patchutils binutils" \
@@ -446,9 +446,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             /usr/share/locale/??_?? \
             /usr/share/info \
     && find /var/log -type f -exec truncate --size 0 {} \;
-
-# wal-g build from https://github.com/wal-g/wal-g/commit/70fea97245762c1709c7d94a75ea70a773726268
-ADD dependencies/wal-g /usr/local/bin/
 
 ARG COMPRESS=false
 
