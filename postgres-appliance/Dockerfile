@@ -205,7 +205,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && cd $(ls -d pgbouncer-*) \
         # Set last_connect_time for pool only when it really failed to connect
         && curl -sL https://github.com/pgbouncer/pgbouncer/pull/127.diff | patch -p1 \
-        && curl -sL https://github.com/pgbouncer/pgbouncer/pull/326.diff | patch -p1 \
+        && curl -sL https://github.com/pgbouncer/pgbouncer/pull/326.diff \
+            | sed -n '/^diff --git a\/src\/client.c b\/src\/client.c/,$ p' | patch -p1 \
         # Increase password size
         && sed -i 's/\(MAX_PASSWORD\t\).*/\11024/' include/bouncer.h \
         && sed -i 's/\(SEND_wrap(\)512\(, pktbuf_write_PasswordMessage, res, sk, psw)\)/\11024\2/' include/pktbuf.h \
@@ -419,10 +420,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 \
         && echo 4.0.0.dev0 > supervisor/version.txt; \
     fi \
-    && pip3 install "patroni[kubernetes$EXTRAS]==$PATRONIVERSION" \
-\
-    && curl -sL https://raw.githubusercontent.com/zalando/patroni/e670122c805176a3689a7ddc8849a557038bde58/patroni/ha.py \
-            > /usr/local/lib/python3.6/dist-packages/patroni/ha.py \
+    && pip3 install "git+https://github.com/zalando/patroni.git@feature/standby-cluster-callbacks#egg=patroni[kubernetes$EXTRAS]" \
 \
     && for d in /usr/local/lib/python3.6 /usr/lib/python3; do \
         cd $d/dist-packages \
