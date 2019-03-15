@@ -80,8 +80,4 @@ def call_maybe_pg_upgrade():
 
 if __name__ == '__main__':
     logging.basicConfig(format='%(asctime)s maybe_pg_upgrade %(levelname)s: %(message)s', level='INFO')
-    if len(sys.argv) > 5 and sys.argv[1] == 'pg_ctl_start':
-        from patroni import pg_ctl_start
-        pg_ctl_start(sys.argv[2:])
-    else:
-        main()
+    main()

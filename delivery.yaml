@@ -50,4 +50,4 @@ pipeline:
       docker images
       docker push $PROD_IMAGE
 
-      git gh-tag -m $PROD_IMAGE $TAG
+      git gh-tag -m $(echo $PROD_IMAGE | sed 's/-write//') $TAG

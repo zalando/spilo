@@ -93,6 +93,8 @@ while true; do
         [[ "$version" =~ "." ]] && wal_name=xlog || wal_name=wal
         readonly wal_dir=$DATA_DIR/pg_$wal_name
         [[ ! -d $wal_dir ]] && rm -f $wal_dir && mkdir $wal_dir
+        # remove broken symlinks from PGDATA
+        find $DATA_DIR -xtype l -delete
         exit 0
     fi
     [[ $((ATTEMPT++)) -ge $RETRIES ]] && break

@@ -25,6 +25,9 @@ fi
 # leave at least 2 days base backups before creating a new one
 [[ "$DAYS_TO_RETAIN" -lt 2 ]] && DAYS_TO_RETAIN=2
 
+# the "BEFORE" backup is always retained
+((DAYS_TO_RETAIN=DAYS_TO_RETAIN-1))
+
 if [[ "$USE_WALG_BACKUP" == "true" ]]; then
     readonly WAL_E="wal-g"
     [[ -z $WALG_BACKUP_COMPRESSION_METHOD ]] || export WALG_COMPRESSION_METHOD=$WALG_BACKUP_COMPRESSION_METHOD
@@ -39,19 +42,24 @@ else
 fi
 
 BEFORE=""
+LEFT=0
 
 readonly NOW=$(date +%s -u)
 while read name last_modified rest; do
     last_modified=$(date +%s -ud "$last_modified")
-    if [ $(((NOW-last_modified)/86400)) -gt $DAYS_TO_RETAIN ]; then
+    if [ $(((NOW-last_modified)/86400)) -ge $DAYS_TO_RETAIN ]; then
         if [ -z "$BEFORE" ] || [ "$last_modified" -gt "$BEFORE_TIME" ]; then
             BEFORE_TIME=$last_modified
             BEFORE=$name
         fi
+    else
+        # count how many backups will remain after we remove everything up to certain date
+        ((LEFT=LEFT+1))
     fi
 done < <($WAL_E backup-list 2> /dev/null | sed '0,/^name\s*last_modified\s*/d')
 
-if [ ! -z "$BEFORE" ]; then
+# we want keep at least N backups even if the number of days exceeded
+if [ ! -z "$BEFORE" ] && [ $LEFT -ge $DAYS_TO_RETAIN ]; then
     if [[ "$USE_WALG_BACKUP" == "true" ]]; then
         $WAL_E delete before FIND_FULL "$BEFORE" --confirm
     else
