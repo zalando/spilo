@@ -1,4 +1,6 @@
-# Replace *cluster_name* with 
+# Replace *cluster_name* with your desired patroni cluster name
+# Please Note: This template is only an example. Please use this as referance
+
 
 apiVersion: apps/v1beta1
 kind: StatefulSet
@@ -16,40 +18,20 @@ spec:
         application: spilo
         spilo-cluster: *cluster_name*
       annotations:
-        # kube2iam should be running in a cluster and
-        # app-spilo role needs to be created in the AWS account
-        # the cluster is running in. It will be used to ship WALs,
-        # and requires access to S3 bucket. See https://github.com/jtblin/kube2iam
+        # kube2iam should be running in a cluster and app-spilo role
+        # needs to be created in the AWS account  the cluster is 
+        # running in. It will be used to ship WALs, and requires
+        # access to S3 bucket. See https://github.com/jtblin/kube2iam
         # for the sts::AssumeRole snippets to build trust relationship
         # between the kubernetes woker role and the one below.
-        # if you don't use AWS, feel free to remove this annotation.
+        # Note: if you don't use AWS, feel free to remove this annotation.
         iam.amazonaws.com/role: app-spilo
-        # forces the scheduler not to put pods on the same node.
-        scheduler.alpha.kubernetes.io/affinity: >
-            {
-                "podAntiAffinity": {
-                  "requiredDuringSchedulingIgnoredDuringExecution": [
-                    {
-                        "labelSelector": {
-                          "matchExpressions": [
-                            {
-                              "key": "spilo-cluster",
-                              "operator": "In",
-                              "values": ["zalandodemo01"]
-                            }
-                          ]
-                         },
-                         "topologyKey": "kubernetes.io/hostname"
-                    }
-                  ]
-                 }
-            }
     spec:
       # service account that allows changing endpoints and assigning pod labels
       # in the given namespace: https://kubernetes.io/docs/user-guide/service-accounts/
       # not required unless you've changed the default service account in the namespace
       # used to deploy Spilo
-      serviceAccountName: spilo
+      serviceAccountName: *cluster_name*
       containers:
       - name: *cluster_name*
         image: registry.opensource.zalan.do/acid/spilo-11:1.5-p5  # put the spilo image here
@@ -115,17 +97,28 @@ spec:
         - name: PGROOT
           value: /home/postgres/pgdata/pgroot
       terminationGracePeriodSeconds: 0
+      # forces the scheduler not to put pods on the same node.
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              topologyKey: "kubernetes.io/hostname"
+              labelSelector:
+                matchLabels:
+                  application: spilo
+                  spilo-cluster: *cluster_name*
+                  
   volumeClaimTemplates:
   - metadata:
+      name: pgdata
       labels:
         application: spilo
         spilo-cluster: *cluster_name*
-      annotations:
-        volume.beta.kubernetes.io/storage-class: standard
-      name: pgdata
     spec:
       accessModes:
       - ReadWriteOnce
+      storageClassName: standard        
       resources:
         requests:
           storage: 10Gi
@@ -215,13 +208,13 @@ data:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: *cluster_name*-patroni
+  name: *cluster_name*
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: *cluster_name*-patroni
+  name: *cluster_name*
 rules:
 - apiGroups:
   - ""
@@ -275,11 +268,11 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: *cluster_name*-patroni
+  name: *cluster_name*
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: *cluster_name*-patroni
+  name: *cluster_name*
 subjects:
 - kind: ServiceAccount
-  name: *cluster_name*-patroni
+  name: *cluster_name*
