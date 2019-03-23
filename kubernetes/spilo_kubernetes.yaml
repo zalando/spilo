@@ -1,22 +1,18 @@
-# Replace *cluster_name* with your desired patroni cluster name
-# Please Note: This template is only an example. Please use this as referance
-
-
 apiVersion: apps/v1beta1
 kind: StatefulSet
 metadata:
-  name: *cluster_name*
+  name: postgres-spilo
   labels:
     application: spilo
-    spilo-cluster: *cluster_name*
+    spilo-cluster: postgres-spilo
 spec:
   replicas: 3
-  serviceName: *cluster_name*
+  serviceName: postgres-spilo
   template:
     metadata:
       labels:
         application: spilo
-        spilo-cluster: *cluster_name*
+        spilo-cluster: postgres-spilo
       annotations:
         # kube2iam should be running in a cluster and app-spilo role
         # needs to be created in the AWS account  the cluster is 
@@ -31,9 +27,9 @@ spec:
       # in the given namespace: https://kubernetes.io/docs/user-guide/service-accounts/
       # not required unless you've changed the default service account in the namespace
       # used to deploy Spilo
-      serviceAccountName: *cluster_name*
+      serviceAccountName: spilo
       containers:
-      - name: *cluster_name*
+      - name: spilo
         image: registry.opensource.zalan.do/acid/spilo-11:1.5-p5  # put the spilo image here
         imagePullPolicy: IfNotPresent
         ports:
@@ -78,22 +74,22 @@ spec:
         - name: PGPASSWORD_SUPERUSER
           valueFrom:
             secretKeyRef:
-              name: *cluster_name*
+              name: postgres-spilo
               key: superuser-password
         - name: PGUSER_ADMIN
           value: superadmin
         - name: PGPASSWORD_ADMIN
           valueFrom:
             secretKeyRef:
-              name: *cluster_name*
+              name: postgres-spilo
               key: admin-password
         - name: PGPASSWORD_STANDBY
           valueFrom:
             secretKeyRef:
-              name: *cluster_name*
+              name: postgres-spilo
               key: replication-password
         - name: SCOPE
-          value: *cluster_name*
+          value: postgres-spilo
         - name: PGROOT
           value: /home/postgres/pgdata/pgroot
       terminationGracePeriodSeconds: 0
@@ -107,14 +103,14 @@ spec:
               labelSelector:
                 matchLabels:
                   application: spilo
-                  spilo-cluster: *cluster_name*
+                  spilo-cluster: postgres-spilo
                   
   volumeClaimTemplates:
   - metadata:
       name: pgdata
       labels:
         application: spilo
-        spilo-cluster: *cluster_name*
+        spilo-cluster: postgres-spilo
     spec:
       accessModes:
       - ReadWriteOnce
@@ -127,10 +123,10 @@ spec:
 apiVersion: v1
 kind: Endpoints
 metadata:
-  name: *cluster_name*
+  name: postgres-spilo
   labels:
     application: spilo
-    spilo-cluster: *cluster_name*
+    spilo-cluster: postgres-spilo
 subsets: []
 
 # Services
@@ -138,55 +134,45 @@ subsets: []
 apiVersion: v1
 kind: Service
 metadata:
-  name: *cluster_name*-master
+  name: postgres-spilo
   labels:
     application: spilo
-    spilo-cluster: *cluster_name*
+    spilo-cluster: postgres-spilo
 spec:
   type: ClusterIP
-  selector:
-    application: spilo
-    spilo-cluster: *cluster_name*
-    role: master
   ports:
   - name: postgresql
     port: 5432
     targetPort: 5432
-  - name: patroni
-    port: 8008
-    targetPort: 8008
 
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: *cluster_name*-slave
+  name: postgres-spilo-replica
   labels:
     application: spilo
-    spilo-cluster: *cluster_name*
+    spilo-cluster: postgres-spilo
 spec:
   type: ClusterIP
   selector:
     application: spilo
-    spilo-cluster: *cluster_name*
+    spilo-cluster: postgres-spilo
     role: replica
   ports:
   - name: postgresql
     port: 5432
     targetPort: 5432
-  - name: patroni
-    port: 8008
-    targetPort: 8008
 
 ---
 # headless service to avoid deletion of patronidemo-config endpoint
 apiVersion: v1
 kind: Service
 metadata:
-  name: *cluster_name*-config
+  name: postgres-spilo-config
   labels:
     application: spilo
-    spilo-cluster: *cluster_name*
+    spilo-cluster: postgres-spilo
 spec:
   clusterIP: None
 
@@ -194,85 +180,12 @@ spec:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: *cluster_name*
+  name: postgres-spilo
   labels:
     application: spilo
-    spilo-cluster: *cluster_name*
+    spilo-cluster: postgres-spilo
 type: Opaque
 data:
   superuser-password: emFsYW5kbw==
   replication-password: cmVwLXBhc3M=
   admin-password: YWRtaW4=
-
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: *cluster_name*
-
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: *cluster_name*
-rules:
-- apiGroups:
-  - ""
-  resources:
-  - configmaps
-  verbs:
-  - create
-  - get
-  - list
-  - patch
-  - update
-  - watch
-  # delete is required only for 'patronictl remove'
-  - delete
-- apiGroups:
-  - ""
-  resources:
-  - endpoints
-  verbs:
-  - get
-  - patch
-  - update
-  # the following three privileges are necessary only when using endpoints
-  - create
-  - list
-  - watch
-  # delete is required only for for 'patronictl remove'
-  - delete
-- apiGroups:
-  - ""
-  resources:
-  - pods
-  verbs:
-  - get
-  - list
-  - patch
-  - update
-  - watch
-# The following privilege is only necessary for creation of headless service
-# for patronidemo-config endpoint, in order to prevent cleaning it up by the
-# k8s master. You can avoid giving this privilege by explicitly creating the
-# service like it is done in this manifest (lines 160..169)
-- apiGroups:
-  - ""
-  resources:
-  - services
-  verbs:
-  - create
-
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: *cluster_name*
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: *cluster_name*
-subjects:
-- kind: ServiceAccount
-  name: *cluster_name*
