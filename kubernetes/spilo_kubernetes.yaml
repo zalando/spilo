@@ -1,18 +1,20 @@
+# Replace *cluster_name* with 
+
 apiVersion: apps/v1beta1
 kind: StatefulSet
 metadata:
-  name: &cluster_name zalandodemo01
+  name: *cluster_name*
   labels:
     application: spilo
-    spilo-cluster: *cluster_name
+    spilo-cluster: *cluster_name*
 spec:
   replicas: 3
-  serviceName: *cluster_name
+  serviceName: *cluster_name*
   template:
     metadata:
       labels:
         application: spilo
-        spilo-cluster: *cluster_name
+        spilo-cluster: *cluster_name*
       annotations:
         # kube2iam should be running in a cluster and
         # app-spilo role needs to be created in the AWS account
@@ -47,9 +49,9 @@ spec:
       # in the given namespace: https://kubernetes.io/docs/user-guide/service-accounts/
       # not required unless you've changed the default service account in the namespace
       # used to deploy Spilo
-      serviceAccountName: operator
+      serviceAccountName: spilo
       containers:
-      - name: *cluster_name
+      - name: *cluster_name*
         image: registry.opensource.zalan.do/acid/spilo-11:1.5-p5  # put the spilo image here
         imagePullPolicy: IfNotPresent
         ports:
@@ -94,22 +96,22 @@ spec:
         - name: PGPASSWORD_SUPERUSER
           valueFrom:
             secretKeyRef:
-              name: *cluster_name
+              name: *cluster_name*
               key: superuser-password
         - name: PGUSER_ADMIN
           value: superadmin
         - name: PGPASSWORD_ADMIN
           valueFrom:
             secretKeyRef:
-              name: *cluster_name
+              name: *cluster_name*
               key: admin-password
         - name: PGPASSWORD_STANDBY
           valueFrom:
             secretKeyRef:
-              name: *cluster_name
+              name: *cluster_name*
               key: replication-password
         - name: SCOPE
-          value: *cluster_name
+          value: *cluster_name*
         - name: PGROOT
           value: /home/postgres/pgdata/pgroot
       terminationGracePeriodSeconds: 0
@@ -117,7 +119,7 @@ spec:
   - metadata:
       labels:
         application: spilo
-        spilo-cluster: *cluster_name
+        spilo-cluster: *cluster_name*
       annotations:
         volume.beta.kubernetes.io/storage-class: standard
       name: pgdata
@@ -132,36 +134,66 @@ spec:
 apiVersion: v1
 kind: Endpoints
 metadata:
-  name: &cluster_name zalandodemo01
+  name: *cluster_name*
   labels:
     application: spilo
-    spilo-cluster: *cluster_name
+    spilo-cluster: *cluster_name*
 subsets: []
+
+# Services
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: *cluster_name*-master
+  labels:
+    application: spilo
+    spilo-cluster: *cluster_name*
+spec:
+  type: ClusterIP
+  selector:
+    application: spilo
+    spilo-cluster: *cluster_name*
+    role: master
+  ports:
+  - name: postgresql
+    port: 5432
+    targetPort: 5432
+  - name: patroni
+    port: 8008
+    targetPort: 8008
 
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: &cluster_name zalandodemo01
+  name: *cluster_name*-slave
   labels:
     application: spilo
-    spilo-cluster: *cluster_name
+    spilo-cluster: *cluster_name*
 spec:
   type: ClusterIP
+  selector:
+    application: spilo
+    spilo-cluster: *cluster_name*
+    role: replica
   ports:
   - name: postgresql
     port: 5432
     targetPort: 5432
+  - name: patroni
+    port: 8008
+    targetPort: 8008
 
 ---
 # headless service to avoid deletion of patronidemo-config endpoint
 apiVersion: v1
 kind: Service
 metadata:
-  name: zalandodemo01-config
+  name: *cluster_name*-config
   labels:
     application: spilo
-    spilo-cluster: zalandodemo01
+    spilo-cluster: *cluster_name*
 spec:
   clusterIP: None
 
@@ -169,10 +201,10 @@ spec:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: &cluster_name zalandodemo01
+  name: *cluster_name*
   labels:
     application: spilo
-    spilo-cluster: *cluster_name
+    spilo-cluster: *cluster_name*
 type: Opaque
 data:
   superuser-password: emFsYW5kbw==
@@ -183,13 +215,13 @@ data:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: operator
+  name: *cluster_name*-patroni
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: operator
+  name: *cluster_name*-patroni
 rules:
 - apiGroups:
   - ""
@@ -243,11 +275,11 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: operator
+  name: *cluster_name*-patroni
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: operator
+  name: *cluster_name*-patroni
 subjects:
 - kind: ServiceAccount
-  name: operator
+  name: *cluster_name*-patroni
