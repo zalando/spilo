@@ -420,7 +420,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 \
         && echo 4.0.0.dev0 > supervisor/version.txt; \
     fi \
-    && pip3 install "git+https://github.com/zalando/patroni.git@feature/standby-cluster-callbacks#egg=patroni[kubernetes$EXTRAS]" \
+    && pip3 install "git+https://github.com/zalando/patroni.git@master#egg=patroni[kubernetes$EXTRAS]" \
 \
     && for d in /usr/local/lib/python3.6 /usr/lib/python3; do \
         cd $d/dist-packages \
