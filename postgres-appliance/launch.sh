@@ -2,10 +2,13 @@
 
 if [ -f /a.tar.xz ]; then
     echo "decompressing spilo image..."
-    cd /
-    tar -xpJf a.tar.xz
-    rm a.tar.xz
-    ln -snf dash /bin/sh
+    if tar xpJf /a.tar.xz -C / > /dev/null 2>&1; then
+        rm /a.tar.xz
+        ln -snf dash /bin/sh
+    else
+        echo "failed to decompress spilo image"
+        exit 1
+    fi
 fi
 
 if [ "$DEMO" != "true" ]; then
