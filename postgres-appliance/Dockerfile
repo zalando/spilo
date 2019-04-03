@@ -62,7 +62,7 @@ ENV POSTGIS_VERSION=2.5 \
     SET_USER=REL1_6_1 \
     PLPGSQL_CHECK=v1.4.2 \
     PLPROFILER_COMMIT=778f81fd6d0086b8839caeec60a2cdaa95d08a17 \
-    TIMESCALEDB=1.2.1 \
+    TIMESCALEDB=1.2.2 \
     PAM_OAUTH2=v1.0
 
 RUN export DEBIAN_FRONTEND=noninteractive \
@@ -366,7 +366,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && find /var/log -type f -exec truncate --size 0 {} \;
 
 # Install patroni, wal-e and wal-g
-ENV PATRONIVERSION=1.5.5
+ENV PATRONIVERSION=1.5.6
 ENV WALE_VERSION=1.1.0
 ENV WALG_VERSION=v0.2.7
 RUN export DEBIAN_FRONTEND=noninteractive \
@@ -393,10 +393,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                         python3-boto python3-gevent python3-greenlet python3-protobuf \
                         python3-websocket python3-requests-oauthlib python3-swiftclient \
 \
-        # https://github.com/jplana/python-etcd/pull/196 for python-etcd 0.4.3
-        && curl -sL https://github.com/jplana/python-etcd/pull/196.diff \
-                | patch -d /usr/lib/python3/dist-packages/etcd -p3 \
-\
         && find /usr/share/python-babel-localedata/locale-data -type f ! -name 'en_US*.dat' -delete \
 \
         && pip3 install filechunkio wal-e[aws,google,swift]==$WALE_VERSION \
@@ -420,7 +416,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 \
         && echo 4.0.0.dev0 > supervisor/version.txt; \
     fi \
-    && pip3 install "git+https://github.com/zalando/patroni.git@feature/standby-cluster-callbacks#egg=patroni[kubernetes$EXTRAS]" \
+    && pip3 install "patroni[kubernetes$EXTRAS]==$PATRONIVERSION" \
 \
     && for d in /usr/local/lib/python3.6 /usr/lib/python3; do \
         cd $d/dist-packages \
