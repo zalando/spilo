@@ -11,6 +11,7 @@ import socket
 import subprocess
 import sys
 
+from copy import deepcopy
 from six.moves.urllib_parse import urlparse
 from collections import defaultdict
 
@@ -223,10 +224,10 @@ postgresql:
     ssl: 'on'
     ssl_cert_file: {{SSL_CERTIFICATE_FILE}}
     ssl_key_file: {{SSL_PRIVATE_KEY_FILE}}
-    shared_preload_libraries: 'bg_mon,pg_stat_statements,pg_stat_kcache,pg_cron,set_user,pgextwlist,timescaledb'
+    shared_preload_libraries: 'bg_mon,pg_stat_statements,set_user,pgextwlist'
     bg_mon.listen_address: '0.0.0.0'
     pg_stat_statements.track_utility: 'off'
-    extwlist.extensions: 'btree_gin,btree_gist,citext,hstore,intarray,ltree,pgcrypto,pgq,pg_trgm,postgres_fdw,uuid-ossp,hypopg,pg_partman,timescaledb'
+    extwlist.extensions: 'btree_gin,btree_gist,citext,hstore,intarray,ltree,pgcrypto,pgq,pg_trgm,postgres_fdw,uuid-ossp,hypopg'
     extwlist.custom_path: /scripts
   pg_hba:
     - local   all             all                                   trust
@@ -763,6 +764,13 @@ redirect_stderr=true
     write_file(supervisord_config, '/etc/supervisor/conf.d/pgbouncer.conf', overwrite)
 
 
+def get_binary_version(bin_dir):
+    postgres = os.path.join(bin_dir or '', 'postgres')
+    version = subprocess.check_output([postgres, '--version']).decode()
+    version = re.match('^[^\s]+ [^\s]+ (\d+)\.(\d+)', version)
+    return '.'.join(version.groups()) if int(version.group(1)) < 10 else version.group(1)
+
+
 def main():
     debug = os.environ.get('DEBUG', '') in ['1', 'true', 'on', 'ON']
     args = parse_args()
@@ -788,7 +796,8 @@ def main():
         config_var_name = 'SPILO_CONFIGURATION' if 'SPILO_CONFIGURATION' in os.environ else 'PATRONI_CONFIGURATION'
         raise ValueError('{0} should contain a dict, yet it is a {1}'.format(config_var_name, type(user_config)))
 
-    config = deep_update(user_config, config)
+    user_config_copy = deepcopy(user_config)
+    config = deep_update(user_config_copy, config)
 
     # try to build bin_dir from PGVERSION environment variable if postgresql.bin_dir wasn't set in SPILO_CONFIGURATION
     if 'bin_dir' not in config['postgresql']:
@@ -796,6 +805,16 @@ def main():
         postgres = os.path.join(bin_dir, 'postgres')
         if os.path.isfile(postgres) and os.access(postgres, os.X_OK):  # check that there is postgres binary inside
             config['postgresql']['bin_dir'] = bin_dir
+
+    version = get_binary_version(config['postgresql'].get('bin_dir'))
+    timescaledb = ',timescaledb' if version in ('9.6', '10', '11') else ''
+    if 'shared_preload_libraries' not in user_config.get('postgresql', {}).get('parameters', {}):
+        pg_cron = ',pg_cron' if version not in ('9.3', '9.4') else ''
+        pg_stat_kcache = ',pg_stat_kcache' if version != '9.3' else ''
+        config['postgresql']['parameters']['shared_preload_libraries'] += timescaledb + pg_cron + pg_stat_kcache
+    if 'extwlist.extensions' not in user_config.get('postgresql', {}).get('parameters', {}):
+        pg_partman = ',pg_partman' if version != '9.3' else ''
+        config['postgresql']['parameters']['extwlist.extensions'] += timescaledb + pg_partman
 
     # Ensure replication is available
     if 'pg_hba' in config['bootstrap'] and not any(['replication' in i for i in config['bootstrap']['pg_hba']]):
