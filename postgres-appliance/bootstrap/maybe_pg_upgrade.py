@@ -11,7 +11,11 @@ def main():
     from pg_upgrade import PostgresqlUpgrade
 
     config = Config()
-    upgrade = PostgresqlUpgrade(config['postgresql'])
+    postgresql_config = config['postgresql']
+    archive_mode =  postgresql_config['parameters'].pop('archive_mode', None)
+    # make sure we don't archive wals from the old version
+    postgresql_config['parameters']['archive_mode'] = 'off'
+    upgrade = PostgresqlUpgrade(postgresql_config)
 
     bin_version = upgrade.get_binary_version()
     cluster_version = upgrade.get_cluster_version()
@@ -61,6 +65,11 @@ def main():
         raise Exception('Failed to upgrade cluster from {0} to {1}'.format(cluster_version, bin_version))
 
     logger.info('Starting the cluster with new postgres after upgrade')
+    if archive_mode is None:
+        postgresql_config['parameters'].pop('archive_mode')
+    else:
+        postgresql_config['parameters']['archive_mode'] = archive_mode
+    upgrade.reload_config(postgresql_config)
     if not upgrade.start():
         raise Exception('Failed to start the cluster with new postgres')
     upgrade.analyze()
