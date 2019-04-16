@@ -12,6 +12,47 @@ logger = logging.getLogger(__name__)
 
 class PostgresqlUpgrade(Postgresql):
 
+    def adjust_shared_preload_libraries(self, version):
+        shared_preload_libraries = self.config['parameters'].get('shared_preload_libraries')
+        self._old_config_values['shared_preload_libraries'] = shared_preload_libraries
+
+        extensions = {
+            'timescaledb':    (9.6, 11),
+            'pg_cron':        (9.5, 11),
+            'pg_stat_kcache': (9.4, 11),
+            'pg_partman':     (9.4, 11),
+            'set_user':       (9.4, 11)
+        }
+
+        filtered = []
+        for value in shared_preload_libraries.split(','):
+            value = value.strip()
+            if value not in extensions or version >= extensions[value][0] and version <= extensions[value][1]:
+                filtered.append(value)
+        self.config['parameters']['shared_preload_libraries'] = ','.join(filtered)
+
+    def start_old_cluster(self, config, version):
+        self.set_bin_dir(version)
+
+        version = float(version)
+
+        config[config['method']]['command'] = 'true'
+        if version < 9.5:  # 9.4 and older don't have recovery_target_action
+            action = config[config['method']].get('recovery_target_action')
+            config[config['method']]['pause_at_recovery_target'] = str(action == 'pause').lower()
+
+        # make sure we don't archive wals from the old version
+        self._old_config_values = {'archive_mode': self.config['parameters'].get('archive_mode')}
+        self.config['parameters']['archive_mode'] = 'off'
+
+        # and don't load shared_preload_libraries which don't exist in the old version
+        self.adjust_shared_preload_libraries(version)
+
+        # make sure we don't execute callbacks before cluster is upgraded
+        self.config['callbacks'] = {}
+
+        return self.bootstrap(config)
+
     def get_binary_version(self):
         version = subprocess.check_output([self._pgcommand('postgres'), '--version']).decode()
         version = re.match('^[^\s]+ [^\s]+ (\d+)\.(\d+)', version)
@@ -29,6 +70,16 @@ class PostgresqlUpgrade(Postgresql):
         for f in os.listdir(self._old_data_dir):
             if f.startswith('postgresql.') or f.startswith('pg_hba.conf') or f == 'patroni.dynamic.json':
                 shutil.copy(os.path.join(self._old_data_dir, f), os.path.join(self._data_dir, f))
+        return True
+
+    def restore_parameters(self):
+        # restore original values of archive_mode and shared_preload_libraries
+        for name, value in self._old_config_values.items():
+            if value is None:
+                self._server_parameters.pop(name)
+            else:
+                self._server_parameters[name] = value
+        self._write_postgresql_conf()
         return True
 
     def drop_possibly_incompatible_objects(self):
@@ -54,7 +105,8 @@ class PostgresqlUpgrade(Postgresql):
 
         pg_upgrade_args = ['-k', '-j', str(psutil.cpu_count()),
                            '-b', self._old_bin_dir, '-B', self._bin_dir,
-                           '-d', self._old_data_dir, '-D', self._data_dir]
+                           '-d', self._old_data_dir, '-D', self._data_dir,
+                           '-O', "-c timescaledb.restoring='on'"]
         if 'username' in self._superuser:
             pg_upgrade_args += ['-U', self._superuser['username']]
 
@@ -67,7 +119,7 @@ class PostgresqlUpgrade(Postgresql):
 
         self.set_bin_dir(version)
 
-        if self._initdb(initdb_config) and self.copy_configs() and self.pg_upgrade():
+        if self._initdb(initdb_config) and self.copy_configs() and self.restore_parameters() and self.pg_upgrade():
             os.chdir(self._old_cwd)
             shutil.rmtree(self._upgrade_dir)
             shutil.rmtree(self._old_data_dir)

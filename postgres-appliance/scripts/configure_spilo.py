@@ -30,6 +30,16 @@ KUBERNETES_DEFAULT_LABELS = '{"application": "spilo"}'
 MEMORY_LIMIT_IN_BYTES_PATH = '/sys/fs/cgroup/memory/memory.limit_in_bytes'
 
 
+# (min_version, max_version, shared_preload_libraries, extwlist.extensions)
+extensions = {
+    'timescaledb':    (9.6, 11, True,  True),
+    'pg_cron':        (9.5, 11, True,  False),
+    'pg_stat_kcache': (9.4, 11, True,  False),
+    'pg_partman':     (9.4, 11, False, True),
+    'set_user':       (9.4, 11, True,  False)
+}
+
+
 def parse_args():
     sections = ['all', 'patroni', 'patronictl', 'certificate', 'wal-e', 'crontab',
                 'pam-oauth2', 'pgbouncer', 'bootstrap', 'standby-cluster', 'log']
@@ -172,7 +182,7 @@ bootstrap:
         restore_command: envdir "{{CLONE_WALE_ENV_DIR}}" /scripts/restore_command.sh "%f" "%p"
         recovery_target_timeline: latest
         {{#USE_PAUSE_AT_RECOVERY_TARGET}}
-        pause_at_recovery_target: false
+        recovery_target_action: pause
         {{/USE_PAUSE_AT_RECOVERY_TARGET}}
         {{^USE_PAUSE_AT_RECOVERY_TARGET}}
         recovery_target_action: promote
@@ -224,7 +234,7 @@ postgresql:
     ssl: 'on'
     ssl_cert_file: {{SSL_CERTIFICATE_FILE}}
     ssl_key_file: {{SSL_PRIVATE_KEY_FILE}}
-    shared_preload_libraries: 'bg_mon,pg_stat_statements,set_user,pgextwlist'
+    shared_preload_libraries: 'bg_mon,pg_stat_statements,pgextwlist'
     bg_mon.listen_address: '0.0.0.0'
     pg_stat_statements.track_utility: 'off'
     extwlist.extensions: 'btree_gin,btree_gist,citext,hstore,intarray,ltree,pgcrypto,pgq,pg_trgm,postgres_fdw,uuid-ossp,hypopg'
@@ -806,15 +816,13 @@ def main():
         if os.path.isfile(postgres) and os.access(postgres, os.X_OK):  # check that there is postgres binary inside
             config['postgresql']['bin_dir'] = bin_dir
 
-    version = get_binary_version(config['postgresql'].get('bin_dir'))
-    timescaledb = ',timescaledb' if version in ('9.6', '10', '11') else ''
+    version = float(get_binary_version(config['postgresql'].get('bin_dir')))
     if 'shared_preload_libraries' not in user_config.get('postgresql', {}).get('parameters', {}):
-        pg_cron = ',pg_cron' if version not in ('9.3', '9.4') else ''
-        pg_stat_kcache = ',pg_stat_kcache' if version != '9.3' else ''
-        config['postgresql']['parameters']['shared_preload_libraries'] += timescaledb + pg_cron + pg_stat_kcache
+        libraries = [',' + n for n, v in extensions.items() if version >= v[0] and version <= v[1] and v[2]]
+        config['postgresql']['parameters']['shared_preload_libraries'] += ''.join(libraries)
     if 'extwlist.extensions' not in user_config.get('postgresql', {}).get('parameters', {}):
-        pg_partman = ',pg_partman' if version != '9.3' else ''
-        config['postgresql']['parameters']['extwlist.extensions'] += timescaledb + pg_partman
+        extwlist = [',' + n for n, v in extensions.items() if version >= v[0] and version <= v[1] and v[3]]
+        config['postgresql']['parameters']['extwlist.extensions'] += ''.join(extwlist)
 
     # Ensure replication is available
     if 'pg_hba' in config['bootstrap'] and not any(['replication' in i for i in config['bootstrap']['pg_hba']]):
