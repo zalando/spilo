@@ -1,55 +1,89 @@
 Environment Configuration Settings
 ==================================
 
-- **ETCD_HOST**: the DNS A record pointing to Etcd hosts.
-- **ETCD_DISCOVERY_DOMAIN**: the DNS SRV record pointing to Etcd hosts.
-- **PGHOME**: filesystem path where to put PostgreSQL home directory (/home/postgres by default)
+General
+-------
+
 - **APIPORT**: TCP port to Patroni API connections (8008 by default)
-- **BACKUP_SCHEDULE**: cron schedule for doing backups via WAL-E (if WAL-E is enabled, '00 01 * * *' by default)
-- **CRONTAB**: anything that you want to run periodically as a cron job (empty by default)
+- **CALLBACK_SCRIPT**: the callback script to run on various cluster actions (on start, on stop, on restart, on role change). The script will receive the cluster name, connection string and the current action. See `Patroni <http://patroni.readthedocs.io/en/latest/SETTINGS.html?highlight=callback#postgresql>`__ documentation for details.
+
+Cluster specific
+----------------
+
+- **SCOPE**: cluster name, multiple Spilos belonging to the same cluster must have identical scope.
+- **PGVERSION**: Specifies the version of postgreSQL to reference in the bin_dir variable (/usr/lib/postgresql/PGVERSION/bin) if postgresql.bin_dir wasn't set in SPILO_CONFIGURATION
+- **PGHOME**: filesystem path where to put PostgreSQL home directory (/home/postgres by default)
 - **PGROOT**: a directory where we put the pgdata (by default /home/postgres/pgroot). One may adjust it to point to the mount point of the persistent volume, such as EBS.
-- **WALE_TMPDIR**: directory to store WAL-E temporary files. PGROOT/../tmp by default, make sure it has a few GBs of free space.
 - **PGDATA**: location of PostgreSQL data directory, by default PGROOT/pgdata.
+- **PGPORT**: port PostgreSQL listens to for client connections, 5432 by default
 - **PGUSER_STANDBY**: username for the replication user, 'standby' by default.
 - **PGPASSWORD_STANDBY**: a password for the replication user, 'standby' by default.
+- **USE_ADMIN**: whether to use the admin user or not.
 - **PGUSER_ADMIN**: username for the default admin user, 'admin' by default.
 - **PGPASSWORD_ADMIN**: a password for the default admin user, 'cola' by default.
-- **USE_ADMIN**: whether to use the admin user or not.
 - **PGUSER_SUPERUSER**: username for the superuser, 'postgres' by default.
 - **PGPASSWORD_SUPERUSER**: a password for the superuser, 'zalando' by default
-- **PGPORT**: port PostgreSQL listens to for client connections, 5432 by default
-- **PGVERSION**: Specifies the version of postgreSQL to reference in the bin_dir variable (/usr/lib/postgresql/PGVERSION/bin) if postgresql.bin_dir wasn't set in SPILO_CONFIGURATION
-- **SCOPE**: cluster name, multiple Spilos belonging to the same cluster must have identical scope.
 - **SSL_CERTIFICATE_FILE**: path to the SSL certificate file inside the container (by default PGHOME/server.crt), Spilo will generate one if not present.
 - **SSL_PRIVATE_KEY_FILE**: path to the SSL private key within the container (by default PGHOME/server.key), Spilo will generate one if not present
+
+DCS
+---
+
+- **ETCD_HOST**: the DNS A record pointing to Etcd hosts.
+- **ETCD_DISCOVERY_DOMAIN**: the DNS SRV record pointing to Etcd hosts.
+- **DCS_ENABLE_KUBERNETES_API**: a non-empty value forces Patroni to use Kubernetes as a DCS. Default is empty.
+
+Crontab and backup
+------------------
+
+- **CRONTAB**: anything that you want to run periodically as a cron job (empty by default)
+- **BACKUP_SCHEDULE**: cron schedule for doing backups via WAL-E (if WAL-E is enabled, '00 01 * * *' by default)
+
+WAL-E/WAL-G
+-----------
+
+- **WALE_ENV_DIR**: directory where to store WAL-E environment variables
+- **WALE_TMPDIR**: directory to store WAL-E temporary files. PGROOT/../tmp by default, make sure it has a few GBs of free space.
 - **WALE_BACKUP_THRESHOLD_MEGABYTES**: maximum size of the WAL segments accumulated after the base backup to consider WAL-E restore instead of pg_basebackup.
 - **WALE_BACKUP_THRESHOLD_PERCENTAGE**: maximum ratio (in percents) of the accumulated WAL files to the base backup to consider WAL-E restore instead of pg_basebackup.
-- **WALE_ENV_DIR**: directory where to store WAL-E environment variables
+
+- **WALG_DELTA_MAX_STEPS**, **WALG_DELTA_ORIGIN**, **WALG_DOWNLOAD_CONCURRENCY**, **WALG_UPLOAD_CONCURRENCY**, **WALG_UPLOAD_DISK_CONCURRENCY**: (optional) configuration options for wal-g. If at least of the options is specified, wal-g will be used instead of wal-e.
+
+Vendor specifics for WAL-E
+--------------------------
+
 - **WAL_S3_BUCKET**: (optional) path to the S3 bucket used for WAL-E base backups (i.e. s3://foobar). Spilo will add /spilo/scope/wal to that path.
+- **WALE_S3_PREFIX**: (optional) the full path to the backup location on S3 in the format s3://bucket-name/very/long/path. If not specified Spilo will generate it from WAL_S3_BUCKET.
+- **WALE_S3_ENDPOINT**: (optional) in format 'https+path://s3.AWS_REGION.amazonaws.com:443', if not specified will be calculated from AWS_ENDPOINT or AWS_REGION
 - **AWS_ACCESS_KEY_ID**: (optional) aws access key
 - **AWS_SECRET_ACCESS_KEY**: (optional) aws secret key
 - **AWS_REGION**: (optional) region of S3 bucket
 - **AWS_ENDPOINT**: (optional) in format 'https://s3.AWS_REGION.amazonaws.com:443', if not specified will be calculated from AWS_REGION
-- **WALE_S3_ENDPOINT**: (optional) in format 'https+path://s3.AWS_REGION.amazonaws.com:443', if not specified will be calculated from AWS_ENDPOINT or AWS_REGION
-- **WALE_S3_PREFIX**: (optional) the full path to the backup location on S3 in the format s3://bucket-name/very/long/path. If not specified Spilo will generate it from WAL_S3_BUCKET.
-- **WALG_DELTA_MAX_STEPS**, **WALG_DELTA_ORIGIN**, **WALG_DOWNLOAD_CONCURRENCY**, **WALG_UPLOAD_CONCURRENCY**, **WALG_UPLOAD_DISK_CONCURRENCY**: (optional) configuration options for wal-g. If at least of the options is specified, wal-g will be used instead of wal-e.
+
 - **WAL_GS_BUCKET**: ditto for the Google Cloud Storage (WAL-E supports both S3 and GCS).
 - **WALE_GS_PREFIX**: (optional) the full path to the backup location on the Google Cloud Storage in the format gs://bucket-name/very/long/path. If not specified Spilo will generate it from WAL_GS_BUCKET.
 - **GOOGLE_APPLICATION_CREDENTIALS**: credentials for WAL-E when running in Google Cloud.
+
 - **WAL_SWIFT_BUCKET**: ditto for the OpenStack Object Storage (Swift)
+- **WALE_SWIFT_PREFIX**: (optional) the full path to the backup location on the Swift Storage in the format swift://bucket-name/very/long/path. If not specified Spilo will generate it from WAL_SWIFT_BUCKET.
 - **SWIFT_AUTHURL**: see wal-e documentation https://github.com/wal-e/wal-e#swift
 - **SWIFT_TENANT**:
 - **SWIFT_USER**:
 - **SWIFT_PASSWORD**:
 - **SWIFT_AUTH_VERSION**:
 - **SWIFT_ENDPOINT_TYPE**:
-- **WALE_SWIFT_PREFIX**: (optional) the full path to the backup location on the Swift Storage in the format swift://bucket-name/very/long/path. If not specified Spilo will generate it from WAL_SWIFT_BUCKET.
-- **CALLBACK_SCRIPT**: the callback script to run on various cluster actions (on start, on stop, on restart, on role change). The script will receive the cluster name, connection string and the current action. See `Patroni <http://patroni.readthedocs.io/en/latest/SETTINGS.html?highlight=callback#postgresql>`__ documentation for details.
+
+Log export
+----------
+
 - **LOG_S3_BUCKET**: path to the S3 bucket used for PostgreSQL daily log files (i.e. s3://foobar). Spilo will add /spilo/scope/pg_daily_logs to that path. Logs are shipped if this variable is set.
 - **LOG_SHIP_SCHEDULE**: cron schedule for shipping compressed logs from ``pg_log`` (if this feature is enabled, '00 02 * * *' by default)
 - **LOG_ENV_DIR**: directory to store environment variables necessary for log shipping
 - **LOG_TMPDIR**: directory to store temporary compressed daily log files. PGROOT/../tmp by default.
-- **DCS_ENABLE_KUBERNETES_API**: a non-empty value forces Patroni to use Kubernetes as a DCS. Default is empty.
+
+Kubernetes
+----------
+
 - **KUBERNETES_USE_CONFIGMAPS**: a non-empty value makes Patroni store its metadata in ConfigMaps instead of Endpoints when running on Kubernetes. Default is empty.
 - **KUBERNETES_ROLE_LABEL**: name of the label containing Postgres role when running on Kubernetens. Default is 'spilo-role'.
 - **KUBERNETES_SCOPE_LABEL**: name of the label containing cluster name. Default is 'version'.
