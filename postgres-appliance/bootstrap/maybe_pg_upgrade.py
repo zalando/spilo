@@ -41,7 +41,7 @@ def main():
     locale = upgrade.query('SHOW lc_collate').fetchone()[0]
     encoding = upgrade.query('SHOW server_encoding').fetchone()[0]
     initdb_config = [{'locale': locale}, {'encoding': encoding}]
-    if upgrade.query('SHOW data_checksums').fetchone()[0]:
+    if upgrade.query("SELECT current_setting('data_checksums')::bool").fetchone()[0]:
         initdb_config.append('data-checksums')
 
     logger.info('Dropping objects from the cluster which could be incompatible')
