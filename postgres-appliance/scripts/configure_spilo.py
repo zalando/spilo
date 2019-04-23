@@ -302,6 +302,17 @@ postgresql:
 
 
 def get_provider():
+    provider = os.environ.get('SPILO_PROVIDER')
+    if provider:
+        if provider in {PROVIDER_AWS, PROVIDER_GOOGLE, PROVIDER_OPENSTACK, PROVIDER_LOCAL}:
+            return provider
+        else:
+            logging.error('Unknown SPILO_PROVIDER: %s', provider)
+            return PROVIDER_UNSUPPORTED
+
+    if os.environ.get('DEVELOP', '').lower() in ['1', 'true', 'on']:
+        return PROVIDER_LOCAL
+
     try:
         logging.info("Figuring out my environment (Google? AWS? Openstack? Local?)")
         r = requests.get('http://169.254.169.254', timeout=2)
@@ -316,7 +327,7 @@ def get_provider():
             # is accessible from both AWS and Openstack, Possiblity of misidentification if previous try fails
             r = requests.get('http://169.254.169.254/latest/meta-data/ami-id')
             return PROVIDER_AWS if r.ok else PROVIDER_UNSUPPORTED
-    except (requests.exceptions.ConnectTimeout, requests.exceptions.ConnectionError):
+    except (requests.exceptions.ConnectTimeout, requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout):
         logging.info("Could not connect to 169.254.169.254, assuming local Docker setup")
         return PROVIDER_LOCAL
 
@@ -788,7 +799,7 @@ def main():
     logging.basicConfig(format='%(asctime)s - bootstrapping - %(levelname)s - %(message)s', level=('DEBUG'
                         if debug else (args.get('loglevel') or 'INFO').upper()))
 
-    provider = os.environ.get('DEVELOP', '').lower() in ['1', 'true', 'on'] and PROVIDER_LOCAL or get_provider()
+    provider = get_provider()
     placeholders = get_placeholders(provider)
     logging.info('Looks like your running %s', provider)
 
