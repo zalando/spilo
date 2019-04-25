@@ -58,10 +58,10 @@ ARG WITH_PERL=false
 # Install PostgreSQL, extensions and contribs
 ENV POSTGIS_VERSION=2.5 \
     BG_MON_COMMIT=7b77e21a6220cb16fe040ee7088c6aed165236b6 \
-    DECODERBUFS_COMMIT=c5068d5b42cebcd300520553f639cf1cfdef0b34 \
-    SET_USER=REL1_6_1 \
-    PLPGSQL_CHECK=v1.4.2 \
-    PLPROFILER_COMMIT=778f81fd6d0086b8839caeec60a2cdaa95d08a17 \
+    DECODERBUFS=v0.9.4.Final \
+    SET_USER=REL1_6_2 \
+    PLPGSQL_CHECK=v1.7.0 \
+    PLPROFILER=REL3_5 \
     TIMESCALEDB=1.2.2 \
     PAM_OAUTH2=v1.0
 
@@ -101,8 +101,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && make -C pam-oauth2 install \
 \
         # prepare 3rd sources
-        && curl -sL https://github.com/debezium/postgres-decoderbufs/archive/$DECODERBUFS_COMMIT.tar.gz | tar xz \
-        && curl -sL https://github.com/pgcentral/plprofiler/archive/$PLPROFILER_COMMIT.tar.gz | tar xz \
+        && git clone -b $DECODERBUFS https://github.com/debezium/postgres-decoderbufs.git \
+        && git clone -b $PLPROFILER https://github.com/pgcentral/plprofiler.git \
         && git clone -b $PLPGSQL_CHECK https://github.com/okbob/plpgsql_check.git \
         && git clone -b $TIMESCALEDB https://github.com/timescale/timescaledb.git \
         && git clone git://www.sigaev.ru/plantuner.git; \
@@ -182,9 +182,9 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                     && rm -fr pg_rewind-${REWIND_VER} postgresql-${version}*; \
                 fi \
 \
-                && EXTRA_EXTENSIONS="plprofiler-$PLPROFILER_COMMIT plantuner" \
+                && EXTRA_EXTENSIONS="plprofiler plantuner" \
                 && if [ "$version" != "9.3" ]; then \
-                    EXTRA_EXTENSIONS="$EXTRA_EXTENSIONS plpgsql_check postgres-decoderbufs-$DECODERBUFS_COMMIT"; \
+                    EXTRA_EXTENSIONS="$EXTRA_EXTENSIONS plpgsql_check postgres-decoderbufs"; \
                 fi; \
             else \
                 EXTRA_EXTENSIONS=""; \
@@ -368,7 +368,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 # Install patroni, wal-e and wal-g
 ENV PATRONIVERSION=1.5.6
 ENV WALE_VERSION=1.1.0
-ENV WALG_VERSION=v0.2.8
+ENV WALG_VERSION=v0.2.9
 RUN export DEBIAN_FRONTEND=noninteractive \
     && set -ex \
     && BUILD_PACKAGES="python3-pip python3-wheel python3-dev git patchutils binutils" \
