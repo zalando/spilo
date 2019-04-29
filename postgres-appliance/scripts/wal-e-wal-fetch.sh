@@ -68,10 +68,13 @@ else
     exit 1
 fi
 
+if [[ ! -z $WALE_S3_ENDPOINT && $WALE_S3_ENDPOINT =~ ^([a-z\+]{2,10}://)?([^:\/?]+) ]]; then
+    S3_HOST=${BASH_REMATCH[2]}
+fi
+
 if [[ -z $AWS_REGION ]]; then
-    if [[ ! -z $WALE_S3_ENDPOINT && $WALE_S3_ENDPOINT =~ ^([a-z\+]{2,10}://)?(s3-([^\.]+)[^:\/?]+) ]]; then
-        S3_HOST=${BASH_REMATCH[2]}
-        AWS_REGION=${BASH_REMATCH[3]}
+    if [[ ! -z $WALE_S3_ENDPOINT && $WALE_S3_ENDPOINT =~ ^([a-z\+]{2,10}://)?s3-([^\.]+) ]]; then
+        AWS_REGION=${BASH_REMATCH[2]}
     elif [[ "$AWS_INSTANCE_PROFILE" == "true" ]]; then
         load_region_from_aws_instance_profile
     fi
