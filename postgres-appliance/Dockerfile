@@ -58,11 +58,12 @@ ARG WITH_PERL=false
 # Install PostgreSQL, extensions and contribs
 ENV POSTGIS_VERSION=2.5 \
     BG_MON_COMMIT=7b77e21a6220cb16fe040ee7088c6aed165236b6 \
-    DECODERBUFS=v0.9.4.Final \
+    PG_AUTH_MON_COMMIT=a37987ad1465503ae805167fd1873270d5e9a010 \
+    DECODERBUFS=v0.9.5.Final \
     SET_USER=REL1_6_2 \
-    PLPGSQL_CHECK=v1.7.0 \
+    PLPGSQL_CHECK=v1.7.1 \
     PLPROFILER=REL3_5 \
-    TIMESCALEDB=1.2.2 \
+    TIMESCALEDB=1.3.0 \
     PAM_OAUTH2=v1.0
 
 RUN export DEBIAN_FRONTEND=noninteractive \
@@ -109,6 +110,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     fi \
 \
     && curl -sL https://github.com/CyberDem0n/bg_mon/archive/$BG_MON_COMMIT.tar.gz | tar xz \
+    && curl -sL https://github.com/RafiaSabih/pg_auth_mon/archive/$PG_AUTH_MON_COMMIT.tar.gz | tar xz \
     && git clone -b $SET_USER https://github.com/pgaudit/set_user.git \
 \
     && apt-get install -y libevent-2.1 libevent-pthreads-2.1 python3.6 python3-psycopg2 \
@@ -190,7 +192,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 EXTRA_EXTENSIONS=""; \
             fi \
 \
-            && for n in bg_mon-${BG_MON_COMMIT} set_user $EXTRA_EXTENSIONS; do \
+            && for n in bg_mon-${BG_MON_COMMIT} pg_auth_mon-${PG_AUTH_MON_COMMIT} set_user $EXTRA_EXTENSIONS; do \
                 make -C $n USE_PGXS=1 clean install-strip; \
             done \
 \

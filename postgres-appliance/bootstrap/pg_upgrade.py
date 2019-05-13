@@ -88,11 +88,13 @@ class PostgresqlUpgrade(Postgresql):
             conn_kwargs.pop(p, None)
 
         for d in self.query('SELECT datname FROM pg_catalog.pg_database WHERE datallowconn'):
-            logger.info('Executing "DROP SCHEMA IF EXISTS metric_helpers" in the database="%s"', d[0])
             conn_kwargs['database'] = d[0]
             with self._get_connection_cursor(**conn_kwargs) as cur:
                 cur.execute("SET synchronous_commit = 'local'")
+                logger.info('Executing "DROP SCHEMA IF EXISTS metric_helpers" in the database="%s"', d[0])
                 cur.execute("DROP FUNCTION metric_helpers.pg_stat_statements(boolean) CASCADE")
+                logger.info('Executing "DROP EXTENSION IF EXISTS amcheck_next" in the database="%s"', d[0])
+                cur.execute("DROP EXTENSION IF EXISTS amcheck_next")
 
     def pg_upgrade(self):
         self._upgrade_dir = self._data_dir + '_upgrade'

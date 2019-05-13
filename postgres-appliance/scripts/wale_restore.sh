@@ -96,6 +96,7 @@ while true; do
         exit 0
     fi
     [[ $((ATTEMPT++)) -ge $RETRIES ]] && break
+    rm -fr $DATA_DIR
     sleep 1
 done
 
