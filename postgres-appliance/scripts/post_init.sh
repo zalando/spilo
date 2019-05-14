@@ -34,6 +34,10 @@ BEGIN
     END IF;
 END;\$\$;
 
+CREATE EXTENSION IF NOT EXISTS pg_auth_mon SCHEMA public;
+ALTER EXTENSION pg_auth_mon UPDATE;
+GRANT SELECT ON TABLE public.pg_auth_mon TO robot_zmon;
+
 CREATE EXTENSION IF NOT EXISTS pg_cron SCHEMA public;
 ALTER EXTENSION pg_cron UPDATE;
 
