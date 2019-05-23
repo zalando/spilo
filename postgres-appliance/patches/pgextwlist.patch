@@ -1,0 +1,84 @@
+diff -urN pgextwlist-1.8.orig/pgextwlist.c pgextwlist-1.8/pgextwlist.c
+--- pgextwlist-1.8.orig/pgextwlist.c	2018-10-12 11:29:59.000000000 +0000
++++ pgextwlist-1.8/pgextwlist.c	2019-05-23 07:33:21.964156443 +0000
+@@ -46,7 +46,9 @@
+ #include "utils/lsyscache.h"
+ #include "utils/syscache.h"
+ #include "utils/timestamp.h"
++#if PG_MAJOR_VERSION < 1200
+ #include "utils/tqual.h"
++#endif
+ #if PG_MAJOR_VERSION >= 1000
+ #include "utils/varlena.h"
+ #endif
+@@ -132,16 +134,6 @@
+ void
+ _PG_init(void)
+ {
+-  PG_TRY();
+-  {
+-    extwlist_extensions = GetConfigOptionByName("extwlist.extensions", NULL
+-#if PG_MAJOR_VERSION >= 906
+-												, false
+-#endif
+-												);
+-  }
+-  PG_CATCH();
+-  {
+ 	  DefineCustomStringVariable("extwlist.extensions",
+ 								 "List of extensions that are whitelisted",
+ 								 "Separated by comma",
+@@ -152,20 +144,6 @@
+ 								 NULL,
+ 								 NULL,
+ 								 NULL);
+-    EmitWarningsOnPlaceholders("extwlist.extensions");
+-  }
+-  PG_END_TRY();
+-
+-  PG_TRY();
+-  {
+-    extwlist_custom_path = GetConfigOptionByName("extwlist.custom_path", NULL
+-#if PG_MAJOR_VERSION >= 906
+-												, false
+-#endif
+-												);
+-  }
+-  PG_CATCH();
+-  {
+ 	  DefineCustomStringVariable("extwlist.custom_path",
+ 								 "Directory where to load custom scripts from",
+ 								 "",
+@@ -176,9 +154,6 @@
+ 								 NULL,
+ 								 NULL,
+ 								 NULL);
+-    EmitWarningsOnPlaceholders("extwlist.custom_path");
+-  }
+-  PG_END_TRY();
+ 
+   prev_ProcessUtility = ProcessUtility_hook;
+   ProcessUtility_hook = extwlist_ProcessUtility;
+diff -urN pgextwlist-1.8.orig/utils.c pgextwlist-1.8/utils.c
+--- pgextwlist-1.8.orig/utils.c	2018-10-12 11:29:59.000000000 +0000
++++ pgextwlist-1.8/utils.c	2019-05-23 07:30:23.660182202 +0000
+@@ -30,6 +30,9 @@
+ #include "access/htup.h"
+ #endif
+ 
++#include "access/genam.h"
++#include "access/heapam.h"
++#include "access/skey.h"
+ #include "access/xact.h"
+ #include "catalog/indexing.h"
+ #include "catalog/namespace.h"
+@@ -49,7 +52,9 @@
+ #include "utils/rel.h"
+ #include "utils/snapmgr.h"
+ #include "utils/syscache.h"
++#if PG_MAJOR_VERSION < 1200
+ #include "utils/tqual.h"
++#endif
+ 
+ /*
+  * Parse contents of primary or auxiliary control file, and fill in

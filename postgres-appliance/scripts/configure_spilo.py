@@ -33,10 +33,10 @@ MEMORY_LIMIT_IN_BYTES_PATH = '/sys/fs/cgroup/memory/memory.limit_in_bytes'
 # (min_version, max_version, shared_preload_libraries, extwlist.extensions)
 extensions = {
     'timescaledb':    (9.6, 11, True,  True),
-    'pg_cron':        (9.5, 11, True,  False),
-    'pg_stat_kcache': (9.4, 11, True,  False),
-    'pg_partman':     (9.4, 11, False, True),
-    'set_user':       (9.4, 11, True,  False)
+    'pg_cron':        (9.5, 12, True,  False),
+    'pg_stat_kcache': (9.4, 12, True,  False),
+    'pg_partman':     (9.4, 12, False, True),
+    'set_user':       (9.4, 12, True,  False)
 }
 
 
@@ -788,8 +788,8 @@ redirect_stderr=true
 def get_binary_version(bin_dir):
     postgres = os.path.join(bin_dir or '', 'postgres')
     version = subprocess.check_output([postgres, '--version']).decode()
-    version = re.match('^[^\s]+ [^\s]+ (\d+)\.(\d+)', version)
-    return '.'.join(version.groups()) if int(version.group(1)) < 10 else version.group(1)
+    version = re.match('^[^\s]+ [^\s]+ (\d+)(\.(\d+))?', version)
+    return '.'.join([version.group(1), version.group(3)]) if int(version.group(1)) < 10 else version.group(1)
 
 
 def main():

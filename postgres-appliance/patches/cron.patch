@@ -1,0 +1,14 @@
+--- a/include/pg_cron.h	2019-05-22 16:01:29.570914973 +0200
++++ b/include/pg_cron.h	2019-05-22 16:01:37.659055174 +0200
+@@ -16,8 +16,10 @@
+ extern char *CronTableDatabaseName;
+ #if (PG_VERSION_NUM < 110000)
+ #define PgAllocSetContextCreate AllocSetContextCreate
+-#else
++#elif (PG_VERSION_NUM < 120000)
+ #define PgAllocSetContextCreate AllocSetContextCreateExtended
++#else
++#define PgAllocSetContextCreate AllocSetContextCreateInternal
+ #endif
+ 
+ #endif

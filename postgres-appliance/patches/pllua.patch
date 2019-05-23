@@ -1,0 +1,22 @@
+diff -urN postgresql-pllua-2.0.4.orig/debian/control postgresql-pllua-2.0.4/debian/control
+--- postgresql-pllua-2.0.4.orig/debian/control	2019-05-20 09:19:33.000000000 +0000
++++ postgresql-pllua-2.0.4/debian/control	2019-05-23 07:26:45.366199701 +0000
+@@ -7,7 +7,6 @@
+  debhelper (>= 9),
+  liblua5.3-dev,
+  lua5.3,
+- postgresql-all,
+  postgresql-server-dev-all (>= 153~),
+ Standards-Version: 4.1.5
+ Homepage: https://github.com/pllua/pllua
+diff -urN postgresql-pllua-2.0.4.orig/debian/control.in postgresql-pllua-2.0.4/debian/control.in
+--- postgresql-pllua-2.0.4.orig/debian/control.in	2018-08-08 11:17:56.000000000 +0000
++++ postgresql-pllua-2.0.4/debian/control.in	2019-05-23 07:26:50.182023140 +0000
+@@ -7,7 +7,6 @@
+  debhelper (>= 9),
+  liblua5.3-dev,
+  lua5.3,
+- postgresql-all,
+  postgresql-server-dev-all (>= 153~),
+ Standards-Version: 4.1.5
+ Homepage: https://github.com/pllua/pllua

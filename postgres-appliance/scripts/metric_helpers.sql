@@ -59,8 +59,7 @@ FROM (
         current_setting('block_size')::numeric AS bs,
         CASE WHEN version()~'mingw32' OR version()~'64-bit|x86_64|ppc64|ia64|amd64' THEN 8 ELSE 4 END AS ma,
         24 AS page_hdr,
-        23 + CASE WHEN MAX(coalesce(null_frac,0)) > 0 THEN ( 7 + count(*) ) / 8 ELSE 0::int END
-          + CASE WHEN tbl.relhasoids THEN 4 ELSE 0 END AS tpl_hdr_size,
+        23 + CASE WHEN MAX(coalesce(null_frac,0)) > 0 THEN ( 7 + count(*) ) / 8 ELSE 0::int END AS tpl_hdr_size,
         sum( (1-coalesce(s.null_frac, 0)) * coalesce(s.avg_width, 1024) ) AS tpl_data_size,
         bool_or(att.atttypid = 'pg_catalog.name'::regtype)
           OR count(att.attname) <> count(s.attname) AS is_na
@@ -72,7 +71,7 @@ FROM (
         LEFT JOIN pg_class AS toast ON tbl.reltoastrelid = toast.oid
       WHERE att.attnum > 0 AND NOT att.attisdropped
         AND tbl.relkind = 'r'
-      GROUP BY 1,2,3,4,5,6,7,8,9,10, tbl.relhasoids
+      GROUP BY 1,2,3,4,5,6,7,8,9,10
       ORDER BY 2,3
     ) AS s
   ) AS s2
@@ -175,7 +174,7 @@ FROM (
           WHERE pg_index.indisvalid AND tbl.relkind = 'r' AND idx.relpages > 0
         ) AS i ON a.attrelid = i.indexrelid
         JOIN pg_stats AS s ON s.schemaname = i.nspname
-          AND ((s.tablename = i.tblname AND s.attname = pg_catalog.pg_get_indexdef(a.attrelid, a.attnum, TRUE)) -- stats from tbl
+          AND ((s.tablename = i.tblname AND quote_ident(s.attname) = pg_catalog.pg_get_indexdef(a.attrelid, a.attnum, TRUE)) -- stats from tbl
           OR   (s.tablename = i.idxname AND s.attname = a.attname))-- stats from functionnal cols
         JOIN pg_type AS t ON a.atttypid = t.oid
       WHERE a.attnum > 0

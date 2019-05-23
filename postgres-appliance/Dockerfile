@@ -1,4 +1,4 @@
-ARG PGVERSION=11
+ARG PGVERSION=12
 
 FROM ubuntu:18.04 as builder
 
@@ -50,9 +50,10 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && find /var/log -type f -exec truncate --size 0 {} \;
 
 COPY dependencies/debs /builddeps
+ADD patches/*.patch /builddeps/
 
 ARG PGVERSION
-ARG PGOLDVERSIONS="9.3 9.4 9.5 9.6 10"
+ARG PGOLDVERSIONS="9.3 9.4 9.5 9.6 10 11"
 ARG WITH_PERL=false
 
 # Install PostgreSQL, extensions and contribs
@@ -61,7 +62,7 @@ ENV POSTGIS_VERSION=2.5 \
     PG_AUTH_MON_COMMIT=a37987ad1465503ae805167fd1873270d5e9a010 \
     DECODERBUFS=v0.9.5.Final \
     SET_USER=REL1_6_2 \
-    PLPGSQL_CHECK=v1.7.1 \
+    PLPGSQL_CHECK=v1.7.2 \
     PLPROFILER=REL3_5 \
     TIMESCALEDB=1.3.0 \
     PAM_OAUTH2=v1.0
@@ -78,10 +79,12 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         PGOLDVERSIONS="" \
         && apt-get install -y $BUILD_PACKAGES; \
     else \
-        BUILD_PACKAGES="$BUILD_PACKAGES equivs pgxnclient cmake libssl-dev zlib1g-dev libprotobuf-c-dev liblwgeom-dev libproj-dev libxslt1-dev libxml2-dev libpam0g-dev libkrb5-dev libedit-dev libselinux1-dev libcurl4-openssl-dev libicu-dev libc-ares-dev python-docutils pkg-config" \
+        BUILD_PACKAGES="$BUILD_PACKAGES equivs pgxnclient cmake libssl-dev zlib1g-dev libprotobuf-c-dev liblwgeom-dev libproj-dev libxslt1-dev libxml2-dev libpam0g-dev libkrb5-dev libedit-dev libselinux1-dev libcurl4-openssl-dev libicu-dev libc-ares-dev python-docutils pkg-config flex bison asciidoc liblua5.3-dev lua5.3" \
 # debezium-decoderbufs: libprotobuf-c-dev liblwgeom-dev libproj-dev
 # pgbouncer: libc-ares-dev python-docutils pkg-config
 # pg_rewind: libxslt1-dev libxml2-dev libpam0g-dev libkrb5-dev libedit-dev libselinux1-dev
+# plproxy: flex bison asciidoc
+# pllua: liblua5.3-dev lua5.3
         && apt-get install -y $BUILD_PACKAGES libprotobuf-c1 libcurl4 \
 \
         && if [ "$WITH_PERL" != "true" ]; then \
@@ -116,21 +119,27 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && apt-get install -y libevent-2.1 libevent-pthreads-2.1 python3.6 python3-psycopg2 \
 \
     && for version in ${PGOLDVERSIONS} ${PGVERSION}; do \
-            sed -i "s/ main.*$/ main $version/g" /etc/apt/sources.list.d/pgdg.list \
+            if [ $version = 12 ]; then \
+                sed -i "s/ main.*$/-testing main $version/g" /etc/apt/sources.list.d/pgdg.list; \
+            else \
+                sed -i "s/ main.*$/ main $version/g" /etc/apt/sources.list.d/pgdg.list; \
+            fi \
             && apt-get update \
 \
             && if [ "$DEMO" != "true" ]; then \
-                EXTRAS="postgresql-pltcl-${version} \
-                        postgresql-${version}-hypopg \
-                        postgresql-${version}-pgq3 \
-                        postgresql-${version}-pldebugger \
-                        postgresql-${version}-pllua \
-                        postgresql-${version}-plproxy \
-                        postgresql-${version}-repack" \
+                EXTRAS="postgresql-pltcl-${version}" \
+                && if [ $version != 12 ]; then \
+                    EXTRAS="$EXTRAS postgresql-${version}-hypopg \
+                            postgresql-${version}-pgq3 \
+                            postgresql-${version}-pldebugger \
+                            postgresql-${version}-pllua \
+                            postgresql-${version}-plproxy \
+                            postgresql-${version}-repack"; \
+                fi \
                 && if [ "$WITH_PERL" = "true" ]; then \
                     EXTRAS="$EXTRAS postgresql-plperl-${version}"; \
                 fi \
-                && if [ $version != "9.3" ]; then \
+                && if [ $version != "9.3" ] && [ $version != 12 ]; then \
                     EXTRAS="$EXTRAS \
                             postgresql-${version}-partman \
                             postgresql-${version}-pglogical \
@@ -145,7 +154,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                     fi; \
                 fi; \
             fi \
-            && if [ $version != "9.3" ]; then \
+            && if [ $version != "9.3" ] && [ $version != 12 ]; then \
                 EXTRAS="$EXTRAS postgresql-${version}-pg-stat-kcache" \
                 && if [ $version != "9.4" ]; then \
                     EXTRAS="$EXTRAS postgresql-${version}-cron"; \
@@ -159,7 +168,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 \
             # Install 3rd party stuff
             && if [ "$DEMO" != "true" ]; then \
-                if [ "$version" != "11" ]; then \
+                if [ "$version" != "11" ] && [ $version != 12 ]; then \
                     for extension in quantile trimmed_aggregates; do \
                         pgxn install $extension \
                         && strip /usr/lib/postgresql/$version/lib/$extension.so; \
@@ -214,23 +223,28 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && sed -i 's/\(SEND_wrap(\)512\(, pktbuf_write_PasswordMessage, res, sk, psw)\)/\11024\2/' include/pktbuf.h \
         && debuild -b -uc -us \
         && cd .. \
-        && dpkg -i pgbouncer_*.deb; \
+        && dpkg -i pgbouncer_*.deb \
+        && PACKAGES="pldebugger pllua plproxy partman"; \
     fi \
+    && echo "#!/bin/sh\n\n/bin/echo -e \"9.3\\n9.4\\n9.5\\n9.6\\n10\\n11\\n12\"" > /usr/share/postgresql-common/supported-versions \
 \
     # build and install missing packages
-    && apt-get install -y postgresql-server-dev-all postgresql-server-dev-9.3 \
-    && for pkg in pgextwlist; do \
-        apt-get source postgresql-10-${pkg} \
-        && cd $(ls -d *${pkg%?}*-*) \
+    && apt-get install -y postgresql-server-dev-all libpq-dev=$PGVERSION* \
+    && for version in ${PGOLDVERSIONS} ${PGVERSION}; do \
+        apt-get install -y postgresql-server-dev-${version}; \
+    done \
+    && for pkg in pgextwlist pgq3 cron pg-stat-kcache $PACKAGES; do \
+        apt-get source postgresql-11-${pkg} \
+        && cd $(ls -d *${pkg%?}*-*/) \
+        && if [ -f ../$pkg.patch ]; then patch -p1 < ../$pkg.patch; fi \
         && if [ "$pkg" = "pgextwlist" ]; then \
-            # make it possible to use it from shared_preload_libraries
-            perl -ne 'print unless /PG_TRY/ .. /PG_CATCH/' pgextwlist.c > pgextwlist.c.f \
-            && egrep -v '(PG_END_TRY|EmitWarningsOnPlaceholders)' pgextwlist.c.f > pgextwlist.c; \
+            rm -f debian/pgversions \
+            && for version in ${PGOLDVERSIONS} ${PGVERSION}; do \
+                echo ${version} >> debian/pgversions; \
+            done; \
+        else \
+            echo $PGVERSION > debian/pgversions; \
         fi \
-        && rm -f debian/pgversions \
-        && for version in ${PGOLDVERSIONS} ${PGVERSION}; do \
-            echo ${version} >> debian/pgversions; \
-        done \
         && pg_buildext updatecontrol \
         && debuild -b -uc -us \
         && cd .. \
@@ -242,7 +256,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     done \
 \
     # Remove unnecessary packages
-    && apt-get purge -y ${BUILD_PACKAGES} postgresql-server-dev-* libmagic1 bsdmainutils \
+    && apt-get purge -y ${BUILD_PACKAGES} postgresql-server-dev-* libpq-dev=$PGVERSION* libmagic1 bsdmainutils \
     && apt-get autoremove -y \
     && apt-get clean \
     && dpkg -l | grep '^rc' | awk '{print $2}' | xargs apt-get purge -y \
@@ -259,6 +273,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             done; \
         done \
 \
+        && PGVERSION=11 \
         && cd /usr/share/postgresql/$PGVERSION/contrib/postgis-$POSTGIS_VERSION \
         && for f in *.sql *.pl; do \
             for v in /usr/share/postgresql/*; do \
@@ -368,7 +383,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && find /var/log -type f -exec truncate --size 0 {} \;
 
 # Install patroni, wal-e and wal-g
-ENV PATRONIVERSION=1.5.6
+ENV PATRONIVERSION=1.6.0
 ENV WALE_VERSION=1.1.0
 ENV WALG_VERSION=v0.2.9
 RUN export DEBIAN_FRONTEND=noninteractive \
@@ -418,7 +433,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 \
         && echo 4.0.0.dev0 > supervisor/version.txt; \
     fi \
-    && pip3 install "patroni[kubernetes$EXTRAS]==$PATRONIVERSION" \
+    && pip3 install "git+https://github.com/zalando/patroni.git@feature/pg12#egg=patroni[kubernetes$EXTRAS]" \
 \
     && for d in /usr/local/lib/python3.6 /usr/lib/python3; do \
         cd $d/dist-packages \
