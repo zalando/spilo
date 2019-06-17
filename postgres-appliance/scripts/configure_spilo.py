@@ -42,7 +42,7 @@ extensions = {
 
 def parse_args():
     sections = ['all', 'patroni', 'patronictl', 'certificate', 'wal-e', 'crontab',
-                'pam-oauth2', 'pgbouncer', 'bootstrap', 'standby-cluster', 'log']
+                'pam-oauth2', 'pgbouncer', 'bootstrap', 'standby-cluster', 'log', 'renice']
     argp = argparse.ArgumentParser(description='Configures Spilo',
                                    epilog="Choose from the following sections:\n\t{}".format('\n\t'.join(sections)),
                                    formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -703,12 +703,23 @@ def write_clone_pgpass(placeholders, overwrite):
     os.chown(pgpassfile, uid, -1)
 
 
+def check_crontab(user):
+    with open(os.devnull, 'w') as devnull:
+        cron_exit = subprocess.call(['crontab', '-lu', user], stdout=devnull, stderr=devnull)
+        if cron_exit == 0:
+            return logging.warning('Cron for %s is already configured. (Use option --force to overwrite cron)', user)
+    return True
+
+
+def setup_crontab(user, lines):
+    lines += ['']  # EOF requires empty line for cron
+    c = subprocess.Popen(['crontab', '-u', user, '-'], stdin=subprocess.PIPE)
+    c.communicate(input='\n'.join(lines).encode())
+
+
 def write_crontab(placeholders, overwrite):
-    if not overwrite:
-        with open(os.devnull, 'w') as devnull:
-            cron_exit = subprocess.call(['crontab', '-lu', 'postgres'], stdout=devnull, stderr=devnull)
-            if cron_exit == 0:
-                return logging.warning('Cron is already configured. (Use option --force to overwrite cron)')
+    if not (overwrite or check_crontab('postgres')):
+        return
 
     lines = ['PATH={PATH}'.format(**placeholders)]
 
@@ -721,10 +732,21 @@ def write_crontab(placeholders, overwrite):
                    ' /scripts/upload_pg_log_to_s3.py').format(**placeholders)]
 
     lines += yaml.load(placeholders['CRONTAB'])
-    lines += ['']  # EOF requires empty line for cron
 
-    c = subprocess.Popen(['crontab', '-u', 'postgres', '-'], stdin=subprocess.PIPE)
-    c.communicate(input='\n'.join(lines).encode())
+    setup_crontab('postgres', lines)
+
+
+def configure_renice(overwrite):
+    if not (overwrite or check_crontab('root')):
+        return
+
+    try:
+        os.nice(-1)
+    except (OSError, PermissionError):
+        return logging.info('Skipping creation of renice cron job due to lack of permissions')
+
+    setup_crontab('root', ['*/5 * * * * bash /scripts/renice.sh'])
+    os.nice(1)
 
 
 def write_etcd_configuration(placeholders, overwrite=False):
@@ -882,6 +904,8 @@ def main():
         elif section == 'standby-cluster':
             if placeholders['STANDBY_WITH_WALE']:
                 update_and_write_wale_configuration(placeholders, 'STANDBY_', args['force'])
+        elif section == 'renice':
+            configure_renice(args['force'])
         else:
             raise Exception('Unknown section: {}'.format(section))
 
