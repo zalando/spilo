@@ -57,13 +57,13 @@ ARG WITH_PERL=false
 
 # Install PostgreSQL, extensions and contribs
 ENV POSTGIS_VERSION=2.5 \
-    BG_MON_COMMIT=7b77e21a6220cb16fe040ee7088c6aed165236b6 \
+    BG_MON_COMMIT=00311ac9b10351edde909584028339de8da4b0d1 \
     PG_AUTH_MON_COMMIT=a37987ad1465503ae805167fd1873270d5e9a010 \
     DECODERBUFS=v0.9.5.Final \
     SET_USER=REL1_6_2 \
-    PLPGSQL_CHECK=v1.7.1 \
+    PLPGSQL_CHECK=v1.7.2 \
     PLPROFILER=REL3_5 \
-    TIMESCALEDB=1.3.0 \
+    TIMESCALEDB=1.3.1 \
     PAM_OAUTH2=v1.0
 
 RUN export DEBIAN_FRONTEND=noninteractive \
@@ -169,7 +169,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 && if [ "$version" = "9.6" ] || [ "$version" = "10" ] || [ "$version" = "11" ] ; then \
                     cd timescaledb \
                     && rm -fr build \
-                    && ./bootstrap -DAPACHE_ONLY=1 \
+                    && ./bootstrap -DAPACHE_ONLY=1 -DSEND_TELEMETRY_DEFAULT=NO \
                     && make -C build install \
                     && strip /usr/lib/postgresql/$version/lib/timescaledb*.so \
                     && cd ..; \
@@ -368,7 +368,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && find /var/log -type f -exec truncate --size 0 {} \;
 
 # Install patroni, wal-e and wal-g
-ENV PATRONIVERSION=1.5.6
+ENV PATRONIVERSION=1.5.7
 ENV WALE_VERSION=1.1.0
 ENV WALG_VERSION=v0.2.9
 RUN export DEBIAN_FRONTEND=noninteractive \
@@ -397,7 +397,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 \
         && find /usr/share/python-babel-localedata/locale-data -type f ! -name 'en_US*.dat' -delete \
 \
-        && pip3 install filechunkio wal-e[aws,google,swift]==$WALE_VERSION \
+        && pip3 install filechunkio wal-e[aws,google,swift]==$WALE_VERSION kubernetes==3.0.0 \
                 'git+https://github.com/Supervisor/supervisor.git@master#egg=supervisor' \
                 'git+https://github.com/zalando/pg_view.git@master#egg=pg-view' \
 \
@@ -418,7 +418,9 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 \
         && echo 4.0.0.dev0 > supervisor/version.txt; \
     fi \
-    && pip3 install "patroni[kubernetes$EXTRAS]==$PATRONIVERSION" \
+    && pip3 install "git+https://github.com/zalando/patroni.git@1a6db4f5afbc3f8d7f42d1d2c57edd988e830bda#egg=patroni[kubernetes$EXTRAS]" \
+    && sed -i 's/1, 5, 6/1, 5, 7/' /usr/local/lib/python3.6/dist-packages/patroni/dcs/__init__.py \
+    && echo "__version__ = '$PATRONIVERSION'" > /usr/local/lib/python3.6/dist-packages/patroni/version.py \
 \
     && for d in /usr/local/lib/python3.6 /usr/lib/python3; do \
         cd $d/dist-packages \
