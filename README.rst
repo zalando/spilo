@@ -19,8 +19,6 @@ Spilo's setup assumes that you've correctly configured a load balancer (HAProxy,
 How to Build This Docker Image
 ==============================
 
-    $ sudo pip install 'docker<3' docker-squash
-    
     $ cd postgres-appliance
 
     $ ./build.sh --build-arg COMPRESS=true --tag $YOUR_TAG .
