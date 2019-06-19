@@ -23,8 +23,6 @@ How to Build This Docker Image
 
     $ ./build.sh --build-arg COMPRESS=true --tag $YOUR_TAG .
 
-The first command requires older Docker version to avoid `the known docker-squash bug <https://github.com/goldmann/docker-squash/issues/158>`__
-
 Other build arguments and their default values:
 
 - WITH_PERL=false # set to true if you want to install perl and plperl packages into image
