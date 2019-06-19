@@ -30,8 +30,8 @@ The first command requires older Docker version to avoid `the known docker-squas
 Other build arguments and their default values:
 
 - WITH_PERL=false # set to true if you want to install perl and plperl packages into image
-- PGVERSION="10"
-- PGOLDVERSIONS="9.3 9.4 9.5 9.6"
+- PGVERSION="11"
+- PGOLDVERSIONS="9.3 9.4 9.5 9.6 10"
 - DEMO=false # set to true to build the smallest possible image which will work only on Kubernetes
 
 Run the image locally after build:
