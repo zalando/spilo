@@ -6,7 +6,7 @@ Wanna contribute to Spilo? Yay - here is how!
 Reporting issues
 ----------------
 
-If you have a question about Spilo, or have a problem using it, please read the :ref:`README <readme>` before filing an issue.
+If you have a question about Spilo, or have a problem using it, please read the `README <https://github.com/zalando/spilo/blob/master/README.rst>`__ before filing an issue.
 Also double-check with the current issues on our `Issues Tracker <https://github.com/zalando/spilo/issues>`__.
 
 Contributing a pull request

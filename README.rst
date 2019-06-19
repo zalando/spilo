@@ -50,11 +50,15 @@ PostgreSQL is configured by default to listen to port 5432. Spilo master initial
 
 You'll need to setup Spilo to create a database and roles for your application(s). For example:
 
+.. code-block:: bash
+
     psql -h myfirstspilo.example.com -p 5432 -U admin -d postgres
 
 **Application Connections**
 
 Once you have created a database and roles for your application, you can connect to Spilo just like you want to connect to any other PostgreSQL cluster:
+
+.. code-block:: bash
 
     psql -h myfirstspilo.example.com -p 5432 -U wow_app -d wow
     psql -d "postgresql://myfirstspilo.example.com:5432/wow?user=wow_app"
