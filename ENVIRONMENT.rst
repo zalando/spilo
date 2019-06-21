@@ -54,3 +54,22 @@ Environment Configuration Settings
 - **KUBERNETES_ROLE_LABEL**: name of the label containing Postgres role when running on Kubernetens. Default is 'spilo-role'.
 - **KUBERNETES_SCOPE_LABEL**: name of the label containing cluster name. Default is 'version'.
 - **KUBERNETES_LABELS**: a JSON describing names and values of other labels used by Patroni on Kubernetes to locate its metadata. Default is '{"application": "spilo"}'.
+- **STANDBY_WALE_S3_PREFIX**: the wal path picked up from the manifest to stream from for remote standby cluster.
+- **STANDBY_METHOD**: method to perform standby from the remote master, default is 'STANDBY_WITH_WALE'
+- **STANDBY_WAL_BUCKET_SCOPE_PREFIX**: default is empty.
+- **CLONE_SCOPE**: name of the host cluster
+- **CLONE_METHOD**: method for performing the cloning activity. Default is 'CLONE_WITH_BASEBACKUP'
+- **CLONE_HOST**: host name for creating connection string for cloning.
+- **CLONE_PORT**: connection port at the host for cloning, default is 5432.
+- **CLONE_USER**: the user to perform cloning.
+- **CLONE_PASSWORD**: password for the cloning user.
+- **CLONE_WAL_S3_BUCKET**: s3 bucket wal path for cloned cluster
+- **CLONE_WAL_BUCKET_SCOPE_SUFFIX**:
+- **CLONE_WALE_S3_PREFIX**:
+- **CLONE_TARGET_TIME**: the timestamp used for cloning
+- **CLONE_WAL_BUCKET_SCOPE_PREFIX**: default is empty.
+- **CLONE_AWS_ENDPOINT**: the url of s3 bucket for performing cloning from wal.
+- **CLONE_WALE_S3_ENDPOINT**: the url of the S3-compatible service should be set when cloning from non AWS S3.
+- **CLONE_AWS_ACCESS_KEY_ID**: the access key id, used for authentication on S3 service
+- **CLONE_AWS_SECRET_ACCESS_KEY**: the secret access key, used for authentication on S3 service.
+- **CLONE_AWS_S3_FORCE_PATH_STYLE**: to enable path-style addressing(i.e., http://s3.amazonaws.com/BUCKET/KEY) when connecting to an S3-compatible service that lack of support for sub-domain style bucket URLs (i.e., http://BUCKET.s3.amazonaws.com/KEY).
