@@ -54,7 +54,7 @@ class PostgresqlUpgrade(Postgresql):
         return self.bootstrap(config)
 
     def get_binary_version(self):
-        version = subprocess.check_output([self._pgcommand('postgres'), '--version']).decode()
+        version = subprocess.check_output([self.pgcommand('postgres'), '--version']).decode()
         version = re.match('^[^\s]+ [^\s]+ (\d+)\.(\d+)', version)
         return '.'.join(version.groups()) if int(version.group(1)) < 10 else version.group(1)
 
@@ -112,7 +112,7 @@ class PostgresqlUpgrade(Postgresql):
         if 'username' in self._superuser:
             pg_upgrade_args += ['-U', self._superuser['username']]
 
-        return subprocess.call([self._pgcommand('pg_upgrade')] + pg_upgrade_args) == 0
+        return subprocess.call([self.pgcommand('pg_upgrade')] + pg_upgrade_args) == 0
 
     def do_upgrade(self, version, initdb_config):
         self._data_dir = os.path.abspath(self._data_dir)
@@ -131,4 +131,4 @@ class PostgresqlUpgrade(Postgresql):
         vacuumdb_args = ['-a', '-Z', '-j', str(psutil.cpu_count())]
         if 'username' in self._superuser:
             vacuumdb_args += ['-U', self._superuser['username']]
-        subprocess.call([self._pgcommand('vacuumdb')] + vacuumdb_args)
+        subprocess.call([self.pgcommand('vacuumdb')] + vacuumdb_args)
