@@ -11,6 +11,7 @@ def main():
     from pg_upgrade import PostgresqlUpgrade
 
     config = Config()
+    config['postgresql'].update({'callbacks': {}, 'pg_ctl_timeout': 3600*24*7})
     upgrade = PostgresqlUpgrade(config['postgresql'])
 
     bin_version = upgrade.get_binary_version()
@@ -22,19 +23,17 @@ def main():
     logger.info('Cluster version: %s, bin version: %s', cluster_version, bin_version)
     assert float(cluster_version) < float(bin_version)
 
-    upgrade.config['pg_ctl_timeout'] = 3600*24*7
-
     logger.info('Trying to start the cluster with old postgres')
     if not upgrade.start_old_cluster(config['bootstrap'], cluster_version):
         raise Exception('Failed to start the cluster with old postgres')
 
-    for _ in polling_loop(upgrade.config['pg_ctl_timeout'], 10):
+    for _ in polling_loop(upgrade.config.get('pg_ctl_timeout'), 10):
         upgrade.reset_cluster_info_state()
         if upgrade.is_leader():
             break
         logger.info('waiting for end of recovery of the old cluster')
 
-    if not upgrade.run_bootstrap_post_init(config['bootstrap']):
+    if not upgrade.bootstrap.call_post_bootstrap(config['bootstrap']):
         upgrade.stop(block_callbacks=True, checkpoint=False)
         raise Exception('Failed to run bootstrap.post_init')
 
@@ -58,7 +57,7 @@ def main():
     logger.info('initdb config: %s', initdb_config)
 
     logger.info('Executing pg_upgrade')
-    if not upgrade.do_upgrade(bin_version, {'initdb': initdb_config}):
+    if not upgrade.do_upgrade(bin_version, initdb_config):
         raise Exception('Failed to upgrade cluster from {0} to {1}'.format(cluster_version, bin_version))
 
     logger.info('Starting the cluster with new postgres after upgrade')
