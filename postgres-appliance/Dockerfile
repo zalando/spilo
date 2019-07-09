@@ -58,13 +58,13 @@ ARG WITH_PERL=false
 
 # Install PostgreSQL, extensions and contribs
 ENV POSTGIS_VERSION=2.5 \
-    BG_MON_COMMIT=7b77e21a6220cb16fe040ee7088c6aed165236b6 \
+    BG_MON_COMMIT=00311ac9b10351edde909584028339de8da4b0d1 \
     PG_AUTH_MON_COMMIT=a37987ad1465503ae805167fd1873270d5e9a010 \
     DECODERBUFS=v0.9.5.Final \
     SET_USER=REL1_6_2 \
     PLPGSQL_CHECK=v1.7.2 \
     PLPROFILER=REL3_5 \
-    TIMESCALEDB=1.3.0 \
+    TIMESCALEDB=1.3.2 \
     PAM_OAUTH2=v1.0
 
 RUN export DEBIAN_FRONTEND=noninteractive \
@@ -127,12 +127,12 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             && apt-get update \
 \
             && if [ "$DEMO" != "true" ]; then \
-                EXTRAS="postgresql-pltcl-${version}" \
+                EXTRAS="postgresql-pltcl-${version} \
+                        postgresql-${version}-hypopg \
+                        postgresql-${version}-pldebugger \
+                        postgresql-${version}-pllua " \
                 && if [ $version != 12 ]; then \
-                    EXTRAS="$EXTRAS postgresql-${version}-hypopg \
-                            postgresql-${version}-pgq3 \
-                            postgresql-${version}-pldebugger \
-                            postgresql-${version}-pllua \
+                    EXTRAS="$EXTRAS postgresql-${version}-pgq3 \
                             postgresql-${version}-plproxy \
                             postgresql-${version}-repack"; \
                 fi \
@@ -154,9 +154,9 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                     fi; \
                 fi; \
             fi \
-            && if [ $version != "9.3" ] && [ $version != 12 ]; then \
+            && if [ $version != "9.3" ]; then \
                 EXTRAS="$EXTRAS postgresql-${version}-pg-stat-kcache" \
-                && if [ $version != "9.4" ]; then \
+                && if [ $version != "9.4" ] && [ $version != 12 ]; then \
                     EXTRAS="$EXTRAS postgresql-${version}-cron"; \
                 fi; \
             fi \
@@ -178,7 +178,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 && if [ "$version" = "9.6" ] || [ "$version" = "10" ] || [ "$version" = "11" ] ; then \
                     cd timescaledb \
                     && rm -fr build \
-                    && ./bootstrap -DAPACHE_ONLY=1 \
+                    && ./bootstrap -DAPACHE_ONLY=1 -DSEND_TELEMETRY_DEFAULT=NO \
                     && make -C build install \
                     && strip /usr/lib/postgresql/$version/lib/timescaledb*.so \
                     && cd ..; \
@@ -224,7 +224,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && debuild -b -uc -us \
         && cd .. \
         && dpkg -i pgbouncer_*.deb \
-        && PACKAGES="pldebugger pllua plproxy partman"; \
+        && PACKAGES="plproxy partman"; \
     fi \
     && echo "#!/bin/sh\n\n/bin/echo -e \"9.3\\n9.4\\n9.5\\n9.6\\n10\\n11\\n12\"" > /usr/share/postgresql-common/supported-versions \
 \
@@ -233,12 +233,15 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && for version in ${PGOLDVERSIONS} ${PGVERSION}; do \
         apt-get install -y postgresql-server-dev-${version}; \
     done \
-    && for pkg in pgextwlist pgq3 cron pg-stat-kcache $PACKAGES; do \
+    && for pkg in pgextwlist pgq3 cron $PACKAGES; do \
         apt-get source postgresql-11-${pkg} \
         && cd $(ls -d *${pkg%?}*-*/) \
         && if [ -f ../$pkg.patch ]; then patch -p1 < ../$pkg.patch; fi \
         && if [ "$pkg" = "pgextwlist" ]; then \
-            rm -f debian/pgversions \
+            # make it possible to use it from shared_preload_libraries
+            perl -ne 'print unless /PG_TRY/ .. /PG_CATCH/' pgextwlist.c > pgextwlist.c.f \
+            && egrep -v '(PG_END_TRY|EmitWarningsOnPlaceholders)' pgextwlist.c.f > pgextwlist.c \
+            && rm -f debian/pgversions \
             && for version in ${PGOLDVERSIONS} ${PGVERSION}; do \
                 echo ${version} >> debian/pgversions; \
             done; \
@@ -412,7 +415,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 \
         && find /usr/share/python-babel-localedata/locale-data -type f ! -name 'en_US*.dat' -delete \
 \
-        && pip3 install filechunkio wal-e[aws,google,swift]==$WALE_VERSION \
+        && pip3 install filechunkio wal-e[aws,google,swift]==$WALE_VERSION kubernetes==3.0.0 \
                 'git+https://github.com/Supervisor/supervisor.git@master#egg=supervisor' \
                 'git+https://github.com/zalando/pg_view.git@master#egg=pg-view' \
 \
@@ -434,6 +437,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && echo 4.0.0.dev0 > supervisor/version.txt; \
     fi \
     && pip3 install "git+https://github.com/zalando/patroni.git@feature/pg12#egg=patroni[kubernetes$EXTRAS]" \
+    && sed -i 's/1, 5, 6/1, 6, 0/' /usr/local/lib/python3.6/dist-packages/patroni/dcs/__init__.py \
+    && echo "__version__ = '$PATRONIVERSION'" > /usr/local/lib/python3.6/dist-packages/patroni/version.py \
 \
     && for d in /usr/local/lib/python3.6 /usr/lib/python3; do \
         cd $d/dist-packages \

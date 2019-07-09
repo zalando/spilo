@@ -16,6 +16,28 @@ How to Use This Docker Image
 
 Spilo's setup assumes that you've correctly configured a load balancer (HAProxy, ELB, Google load balancer) that directs client connections to the master. There are two ways to achieve this: A) if the load balancer relies on the status code to distinguish between the healthy and failed nodes (like ELB), then one needs to configure it to poll the API URL; otherwise, B) you can use callback scripts to change the load balancer configuration dynamically.
 
+How to Build This Docker Image
+==============================
+
+    $ cd postgres-appliance
+
+    $ ./build.sh --build-arg COMPRESS=true --tag $YOUR_TAG .
+
+Other build arguments and their default values:
+
+- WITH_PERL=false # set to true if you want to install perl and plperl packages into image
+- PGVERSION="11"
+- PGOLDVERSIONS="9.3 9.4 9.5 9.6 10"
+- DEMO=false # set to true to build the smallest possible image which will work only on Kubernetes
+
+Run the image locally after build:
+
+    $ docker run -it your-spilo-image:$YOUR_TAG
+
+Have a look inside the container:
+
+    $ docker exec -it $CONTAINER_NAME bash
+
 Connecting to PostgreSQL
 ------------------------
 **Administrative Connections**
@@ -43,6 +65,10 @@ Configuration
 Spilo is configured via environment variables, the values of which are either supplied manually via the environment (whenever Spilo is launched as a set of Docker containers) or added in the configuration file or manifest (whenever Spilo is used in the Docker orchestration environment, such as Kubernetes or Docker Compose).
 
 Please go `here <https://github.com/zalando/spilo/blob/master/ENVIRONMENT.rst>`__ to see our list of environment variables.
+
+To supply env variables manually via the environment for local testing:
+
+    docker run -it -e YOUR_ENV_VAR=test your-spilo-image:latest
 
 Issues and Contributing
 -----------------------
