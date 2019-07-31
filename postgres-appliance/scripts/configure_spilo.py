@@ -334,7 +334,7 @@ def get_provider():
 
 
 def get_instance_metadata(provider):
-    metadata = {'ip': socket.gethostbyname(socket.gethostname()),
+    metadata = {'ip': socket.getaddrinfo(socket.gethostname(), 0, socket.AF_UNSPEC, socket.SOCK_STREAM, 0)[0][4][0],
                 'id': socket.gethostname(),
                 'zone': 'local'}
 
