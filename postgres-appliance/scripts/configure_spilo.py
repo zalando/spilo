@@ -214,12 +214,12 @@ bootstrap:
   {{/USE_ADMIN}}
 scope: &scope '{{SCOPE}}'
 restapi:
-  listen: 0.0.0.0:{{APIPORT}}
+  listen: ':{{APIPORT}}'
   connect_address: {{instance_data.ip}}:{{APIPORT}}
 postgresql:
   use_unix_socket: true
   name: '{{instance_data.id}}'
-  listen: 0.0.0.0:{{PGPORT}}
+  listen: '*:{{PGPORT}}'
   connect_address: {{instance_data.ip}}:{{PGPORT}}
   data_dir: {{PGDATA}}
   parameters:
@@ -236,7 +236,7 @@ postgresql:
     ssl_cert_file: {{SSL_CERTIFICATE_FILE}}
     ssl_key_file: {{SSL_PRIVATE_KEY_FILE}}
     shared_preload_libraries: 'bg_mon,pg_stat_statements,pgextwlist,pg_auth_mon,set_user'
-    bg_mon.listen_address: '0.0.0.0'
+    bg_mon.listen_address: '{{BGMON_LISTEN_IP}}'
     pg_stat_statements.track_utility: 'off'
     extwlist.extensions: 'btree_gin,btree_gist,citext,hstore,intarray,ltree,pgcrypto,pgq,pg_trgm,postgres_fdw,uuid-ossp,hypopg'
     extwlist.custom_path: /scripts
@@ -389,6 +389,26 @@ def set_walg_placeholders(placeholders, prefix=''):
         value = str(placeholders.get(prefix + name, placeholders[prefix + 'USE_WALG'])).lower()
         placeholders[prefix + name] = 'true' if value == 'true' and walg_supported else None
 
+def get_listen_ip():
+    """ Get IP to listen on for things that don't natively support detecting IPv4/IPv6 dualstack """
+    def has_dual_stack():
+        if hasattr(socket, 'AF_INET6') and hasattr(socket, 'IPPROTO_IPV6') and hasattr(socket, 'IPV6_V6ONLY'):
+            sock = None
+            try:
+                sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+                sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, False)
+                return True
+            except socket.error as e:
+                logger.debug('Error when working with ipv6 socket: %s', e)
+            finally:
+                if sock:
+                    sock.close()
+        return False
+
+    info = socket.getaddrinfo(None, 0, socket.AF_UNSPEC, socket.SOCK_STREAM, 0, socket.AI_PASSIVE)
+    # in case dual stack is not supported we want IPv4 to be preferred over IPv6
+    info.sort(key=lambda x: x[0] == socket.AF_INET, reverse=not has_dual_stack())
+    return info[0][4][0]
 
 def get_placeholders(provider):
     placeholders = dict(os.environ)
@@ -409,6 +429,7 @@ def get_placeholders(provider):
     placeholders.setdefault('PGPASSWORD_ADMIN', 'cola')
     placeholders.setdefault('PGUSER_SUPERUSER', 'postgres')
     placeholders.setdefault('PGPASSWORD_SUPERUSER', 'zalando')
+    placeholders.setdefault('BGMON_LISTEN_IP', '0.0.0.0')
     placeholders.setdefault('PGPORT', '5432')
     placeholders.setdefault('SCOPE', 'dummy')
     placeholders.setdefault('SSL_CERTIFICATE_FILE', os.path.join(placeholders['PGHOME'], 'server.crt'))
@@ -526,6 +547,9 @@ def get_placeholders(provider):
     placeholders['postgresql']['parameters']['max_connections'] = min(max(100, int(os_memory_mb/30)), 1000)
 
     placeholders['instance_data'] = get_instance_metadata(provider)
+
+    placeholders['BGMON_LISTEN_IP'] = get_listen_ip()
+
     return placeholders
 
 
@@ -872,7 +896,7 @@ def main():
 
     # Ensure replication is available
     if 'pg_hba' in config['bootstrap'] and not any(['replication' in i for i in config['bootstrap']['pg_hba']]):
-        rep_hba = 'hostssl replication {} 0.0.0.0/0 md5'.\
+        rep_hba = 'hostssl replication {} all md5'.\
             format(config['postgresql']['authentication']['replication']['username'])
         config['bootstrap']['pg_hba'].insert(0, rep_hba)
 
