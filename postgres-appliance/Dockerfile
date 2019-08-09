@@ -1,8 +1,7 @@
 ARG PGVERSION=11
+ARG DEMO=false
 
 FROM ubuntu:18.04 as builder
-
-ARG DEMO=false
 
 RUN export DEBIAN_FRONTEND=noninteractive \
     && echo 'APT::Install-Recommends "0";\nAPT::Install-Suggests "0";' > /etc/apt/apt.conf.d/01norecommend \
@@ -52,18 +51,19 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 COPY dependencies/debs /builddeps
 
 ARG PGVERSION
+ARG DEMO
 ARG PGOLDVERSIONS="9.3 9.4 9.5 9.6 10"
 ARG WITH_PERL=false
 
 # Install PostgreSQL, extensions and contribs
 ENV POSTGIS_VERSION=2.5 \
-    BG_MON_COMMIT=00311ac9b10351edde909584028339de8da4b0d1 \
-    PG_AUTH_MON_COMMIT=a37987ad1465503ae805167fd1873270d5e9a010 \
+    BG_MON_COMMIT=0df2a6f7ebcaf805465271032d1ec788779938d7 \
+    PG_AUTH_MON_COMMIT=902c670c9f2071b30e1d4437e7a38e2e136f9be6 \
     DECODERBUFS=v0.9.5.Final \
     SET_USER=REL1_6_2 \
-    PLPGSQL_CHECK=v1.7.2 \
-    PLPROFILER=REL3_5 \
-    TIMESCALEDB=1.3.2 \
+    PLPGSQL_CHECK=v1.7.3 \
+    PLPROFILER=REL4_0 \
+    TIMESCALEDB=1.4.1 \
     PAM_OAUTH2=v1.0
 
 RUN export DEBIAN_FRONTEND=noninteractive \
@@ -72,15 +72,15 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && apt-get update \
     && cd /builddeps \
 \
-    && BUILD_PACKAGES="devscripts build-essential fakeroot debhelper git gcc libc6-dev make libevent-dev naturaldocs python" \
+    && BUILD_PACKAGES="devscripts build-essential fakeroot debhelper git gcc libc6-dev make cmake libevent-dev naturaldocs python libssl-dev libkrb5-dev" \
 # pgq3: naturaldocs python
     && if [ "$DEMO" = "true" ]; then \
         PGOLDVERSIONS="" \
         && apt-get install -y $BUILD_PACKAGES; \
     else \
-        BUILD_PACKAGES="$BUILD_PACKAGES equivs pgxnclient cmake libssl-dev zlib1g-dev libprotobuf-c-dev liblwgeom-dev libproj-dev libxslt1-dev libxml2-dev libpam0g-dev libkrb5-dev libedit-dev libselinux1-dev libcurl4-openssl-dev libicu-dev libc-ares-dev python-docutils pkg-config" \
+        BUILD_PACKAGES="$BUILD_PACKAGES equivs pgxnclient zlib1g-dev libprotobuf-c-dev liblwgeom-dev libproj-dev libxslt1-dev libxml2-dev libpam0g-dev libedit-dev libselinux1-dev libcurl4-openssl-dev libicu-dev libc-ares-dev pandoc pkg-config" \
 # debezium-decoderbufs: libprotobuf-c-dev liblwgeom-dev libproj-dev
-# pgbouncer: libc-ares-dev python-docutils pkg-config
+# pgbouncer: libc-ares-dev pandoc pkg-config
 # pg_rewind: libxslt1-dev libxml2-dev libpam0g-dev libkrb5-dev libedit-dev libselinux1-dev
         && apt-get install -y $BUILD_PACKAGES libprotobuf-c1 libcurl4 \
 \
@@ -103,15 +103,15 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 \
         # prepare 3rd sources
         && git clone -b $DECODERBUFS https://github.com/debezium/postgres-decoderbufs.git \
-        && git clone -b $PLPROFILER https://github.com/pgcentral/plprofiler.git \
+        && git clone -b $PLPROFILER https://github.com/bigsql/plprofiler.git \
         && git clone -b $PLPGSQL_CHECK https://github.com/okbob/plpgsql_check.git \
-        && git clone -b $TIMESCALEDB https://github.com/timescale/timescaledb.git \
         && git clone git://www.sigaev.ru/plantuner.git; \
     fi \
 \
     && curl -sL https://github.com/CyberDem0n/bg_mon/archive/$BG_MON_COMMIT.tar.gz | tar xz \
     && curl -sL https://github.com/RafiaSabih/pg_auth_mon/archive/$PG_AUTH_MON_COMMIT.tar.gz | tar xz \
     && git clone -b $SET_USER https://github.com/pgaudit/set_user.git \
+    && git clone -b $TIMESCALEDB https://github.com/timescale/timescaledb.git \
 \
     && apt-get install -y libevent-2.1 libevent-pthreads-2.1 python3.6 python3-psycopg2 \
 \
@@ -158,21 +158,21 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                         libpq-dev=$version* postgresql-server-dev-${version} \
 \
             # Install 3rd party stuff
+            && if [ "$version" = "9.6" ] || [ "$version" = "10" ] || [ "$version" = "11" ] ; then \
+                cd timescaledb \
+                && rm -fr build \
+                && ./bootstrap -DAPACHE_ONLY=1 -DSEND_TELEMETRY_DEFAULT=NO \
+                && make -C build install \
+                && strip /usr/lib/postgresql/$version/lib/timescaledb*.so \
+                && cd ..; \
+            fi \
+\
             && if [ "$DEMO" != "true" ]; then \
                 if [ "$version" != "11" ]; then \
                     for extension in quantile trimmed_aggregates; do \
                         pgxn install $extension \
                         && strip /usr/lib/postgresql/$version/lib/$extension.so; \
                     done; \
-                fi \
-\
-                && if [ "$version" = "9.6" ] || [ "$version" = "10" ] || [ "$version" = "11" ] ; then \
-                    cd timescaledb \
-                    && rm -fr build \
-                    && ./bootstrap -DAPACHE_ONLY=1 -DSEND_TELEMETRY_DEFAULT=NO \
-                    && make -C build install \
-                    && strip /usr/lib/postgresql/$version/lib/timescaledb*.so \
-                    && cd ..; \
                 fi \
 \
                 # Install pg_rewind on 9.3 and 9.4
@@ -205,8 +205,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         # patch, build and install pgbouncer
         apt-get source pgbouncer \
         && cd $(ls -d pgbouncer-*) \
-        # Set last_connect_time for pool only when it really failed to connect
-        && curl -sL https://github.com/pgbouncer/pgbouncer/pull/127.diff | patch -p1 \
+        # Enable pam authentication support via HBA
         && curl -sL https://github.com/pgbouncer/pgbouncer/pull/326.diff \
             | sed -n '/^diff --git a\/src\/client.c b\/src\/client.c/,$ p' | patch -p1 \
         # Increase password size
@@ -368,7 +367,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && find /var/log -type f -exec truncate --size 0 {} \;
 
 # Install patroni, wal-e and wal-g
-ENV PATRONIVERSION=1.5.7
+ENV PATRONIVERSION=1.6.0
 ENV WALE_VERSION=1.1.0
 ENV WALG_VERSION=v0.2.9
 RUN export DEBIAN_FRONTEND=noninteractive \
@@ -418,9 +417,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 \
         && echo 4.0.0.dev0 > supervisor/version.txt; \
     fi \
-    && pip3 install "git+https://github.com/zalando/patroni.git@1a6db4f5afbc3f8d7f42d1d2c57edd988e830bda#egg=patroni[kubernetes$EXTRAS]" \
-    && sed -i 's/1, 5, 6/1, 5, 7/' /usr/local/lib/python3.6/dist-packages/patroni/dcs/__init__.py \
-    && echo "__version__ = '$PATRONIVERSION'" > /usr/local/lib/python3.6/dist-packages/patroni/version.py \
+    && pip3 install "patroni[kubernetes$EXTRAS]==$PATRONIVERSION" \
 \
     && for d in /usr/local/lib/python3.6 /usr/lib/python3; do \
         cd $d/dist-packages \
@@ -472,12 +469,14 @@ COPY --from=builder / /
 LABEL maintainer="Alexander Kukushkin <alexander.kukushkin@zalando.de>"
 
 ARG PGVERSION
+ARG DEMO
 
 EXPOSE 5432 8008 8080
 
 ENV LC_ALL=en_US.utf-8 \
     PATH=$PATH:/usr/lib/postgresql/$PGVERSION/bin \
-    PGHOME=/home/postgres
+    PGHOME=/home/postgres \
+    DEMO=$DEMO
 
 ENV WALE_ENV_DIR=$PGHOME/etc/wal-e.d/env \
     PGROOT=$PGHOME/pgdata/pgroot \
