@@ -386,7 +386,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 # Install patroni, wal-e and wal-g
 ENV PATRONIVERSION=1.6.0
 ENV WALE_VERSION=1.1.0
-ENV WALG_VERSION=v0.2.9
+ENV WALG_VERSION=v0.2.11
 RUN export DEBIAN_FRONTEND=noninteractive \
     && set -ex \
     && BUILD_PACKAGES="python3-pip python3-wheel python3-dev git patchutils binutils" \
@@ -396,7 +396,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && apt-cache depends patroni \
             | sed -n -e 's/.* Depends: \(python3-.\+\)$/\1/p' \
             | grep -Ev '^python3-(sphinx|etcd|consul|kazoo|kubernetes)' \
-            | xargs apt-get install -y ${BUILD_PACKAGES} \
+            | xargs apt-get install -y ${BUILD_PACKAGES} python3-distutils \
                                         python3-pystache python3-cachetools \
                                         python3-rsa python3-pyasn1-modules \
 \
@@ -404,7 +404,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 \
     && if [ "$DEMO" != "true" ]; then \
         EXTRAS=",etcd,consul,zookeeper,aws" \
-        && curl -sL https://github.com/wal-g/wal-g/releases/download/$WALG_VERSION/wal-g.linux-amd64-lzo.tar.gz \
+        && curl -sL https://github.com/wal-g/wal-g/releases/download/$WALG_VERSION/wal-g.linux-amd64.tar.gz \
                 | tar -C /usr/local/bin -xz \
         && strip /usr/local/bin/wal-g \
         && apt-get install -y python3-etcd python3-consul python3-kazoo python3-meld3 \

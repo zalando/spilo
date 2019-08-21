@@ -39,6 +39,8 @@ extensions = {
     'set_user':       (9.4, 12, True,  False)
 }
 
+AUTO_ENABLE_WALG_RESTORE = ('WAL_S3_BUCKET', 'WALE_S3_PREFIX', 'WALG_S3_PREFIX')
+
 
 def parse_args():
     sections = ['all', 'patroni', 'patronictl', 'certificate', 'wal-e', 'crontab',
@@ -376,11 +378,12 @@ def set_extended_wale_placeholders(placeholders, prefix):
     dirname = 'env-' + prefix[:-1].lower() + ('-' + scope if scope else '')
     placeholders[prefix + 'WALE_ENV_DIR'] = os.path.join(placeholders['PGHOME'], 'etc', 'wal-e.d', dirname)
     placeholders[prefix + 'WITH_WALE'] = True
+    return name
 
 
 def set_walg_placeholders(placeholders, prefix=''):
-    walg_supported = any(placeholders.get(prefix + n) for n in ('WAL_S3_BUCKET', 'WALE_S3_PREFIX', 'WALG_S3_PREFIX',
-                                                                'WAL_GS_BUCKET', 'WALE_GS_PREFIX', 'WALG_GS_PREFIX'))
+    walg_supported = any(placeholders.get(prefix + n) for n in AUTO_ENABLE_WALG_RESTORE +
+                         ('WAL_GS_BUCKET', 'WALE_GS_PREFIX', 'WALG_GS_PREFIX'))
     default = placeholders.get('USE_WALG', False)
     placeholders.setdefault(prefix + 'USE_WALG', default)
     for name in ('USE_WALG_BACKUP', 'USE_WALG_RESTORE'):
@@ -452,9 +455,12 @@ def get_placeholders(provider):
 
     if placeholders['CLONE_METHOD'] == 'CLONE_WITH_WALE':
         # modify placeholders and take care of error cases
-        if set_extended_wale_placeholders(placeholders, 'CLONE_') is False:
+        name = set_extended_wale_placeholders(placeholders, 'CLONE_')
+        if name is False:
             logging.warning('Cloning with WAL-E is only possible when CLONE_WALE_*_PREFIX '
                             'or CLONE_WALG_*_PREFIX or CLONE_WAL_*_BUCKET and CLONE_SCOPE are set.')
+        elif name == 'S3':
+            placeholders.setdefault('CLONE_USE_WALG', 'true')
     elif placeholders['CLONE_METHOD'] == 'CLONE_WITH_BASEBACKUP':
         clone_scope = placeholders.get('CLONE_SCOPE')
         if clone_scope and placeholders.get('CLONE_HOST') \
@@ -467,7 +473,8 @@ def get_placeholders(provider):
             logging.warning("Clone method is set to basebackup, but no 'CLONE_SCOPE' "
                             "or 'CLONE_HOST' or 'CLONE_USER' or 'CLONE_PASSWORD' specified")
     else:
-        set_extended_wale_placeholders(placeholders, 'STANDBY_')
+        if set_extended_wale_placeholders(placeholders, 'STANDBY_') == 'S3':
+            placeholders.setdefault('STANDBY_USE_WALG', 'true')
 
     placeholders.setdefault('STANDBY_WITH_WALE', '')
     placeholders.setdefault('STANDBY_HOST', '')
@@ -480,12 +487,13 @@ def get_placeholders(provider):
         if placeholders.get('EIP_ALLOCATION'):
             placeholders['CALLBACK_SCRIPT'] += ' ' + placeholders['EIP_ALLOCATION']
 
+    if any(placeholders.get(n) for n in AUTO_ENABLE_WALG_RESTORE):
+        placeholders.setdefault('USE_WALG_RESTORE', 'true')
     set_walg_placeholders(placeholders)
 
-    placeholders['USE_WALE'] = any(placeholders.get(n)
-                                   for n in ('WAL_S3_BUCKET', 'WALE_S3_PREFIX', 'WALG_S3_PREFIX',
-                                             'WAL_SWIFT_BUCKET', 'WALE_SWIFT_PREFIX', 'WAL_GCS_BUCKET',
-                                             'WAL_GS_BUCKET', 'WALE_GS_PREFIX', 'WALG_GS_PREFIX'))
+    placeholders['USE_WALE'] = any(placeholders.get(n) for n in AUTO_ENABLE_WALG_RESTORE +
+                                   ('WAL_SWIFT_BUCKET', 'WALE_SWIFT_PREFIX', 'WAL_GCS_BUCKET',
+                                    'WAL_GS_BUCKET', 'WALE_GS_PREFIX', 'WALG_GS_PREFIX'))
 
     if placeholders.get('WALG_BACKUP_FROM_REPLICA'):
         placeholders['WALG_BACKUP_FROM_REPLICA'] = str(placeholders['WALG_BACKUP_FROM_REPLICA']).lower()
@@ -512,8 +520,9 @@ def get_placeholders(provider):
         os_memory_mb = sys.maxsize
     os_memory_mb = min(os_memory_mb, os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES') / 1048576)
 
-    # # We take 1/4 of the memory, expressed in full MB's
-    placeholders['postgresql']['parameters']['shared_buffers'] = '{}MB'.format(int(os_memory_mb/4))
+    # Depending on environment we take 1/4 or 1/5 of the memory, expressed in full MB's
+    sb_ratio = 5 if USE_KUBERNETES else 4
+    placeholders['postgresql']['parameters']['shared_buffers'] = '{}MB'.format(int(os_memory_mb/sb_ratio))
     # # 1 connection per 30 MB, at least 100, at most 1000
     placeholders['postgresql']['parameters']['max_connections'] = min(max(100, int(os_memory_mb/30)), 1000)
 
