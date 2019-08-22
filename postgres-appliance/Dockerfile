@@ -1,4 +1,5 @@
 ARG PGVERSION=12
+ARG TIMESCALEDB=1.4.1
 ARG DEMO=false
 
 FROM ubuntu:18.04 as builder
@@ -52,8 +53,9 @@ COPY dependencies/debs /builddeps
 ADD patches/*.patch /builddeps/
 
 ARG PGVERSION
-ARG PGOLDVERSIONS="9.3 9.4 9.5 9.6 10 11"
+ARG TIMESCALEDB
 ARG DEMO
+ARG PGOLDVERSIONS="9.3 9.4 9.5 9.6 10 11"
 ARG WITH_PERL=false
 
 # Install PostgreSQL, extensions and contribs
@@ -62,9 +64,8 @@ ENV POSTGIS_VERSION=2.5 \
     PG_AUTH_MON_COMMIT=902c670c9f2071b30e1d4437e7a38e2e136f9be6 \
     DECODERBUFS=v0.9.5.Final \
     SET_USER=REL1_6_2 \
-    PLPGSQL_CHECK=v1.7.3 \
+    PLPGSQL_CHECK=v1.7.4 \
     PLPROFILER=REL4_0 \
-    TIMESCALEDB=1.4.1 \
     PAM_OAUTH2=v1.0
 
 RUN export DEBIAN_FRONTEND=noninteractive \
@@ -486,6 +487,7 @@ COPY --from=builder / /
 LABEL maintainer="Alexander Kukushkin <alexander.kukushkin@zalando.de>"
 
 ARG PGVERSION
+ARG TIMESCALEDB
 ARG DEMO
 
 EXPOSE 5432 8008 8080
@@ -493,6 +495,7 @@ EXPOSE 5432 8008 8080
 ENV LC_ALL=en_US.utf-8 \
     PATH=$PATH:/usr/lib/postgresql/$PGVERSION/bin \
     PGHOME=/home/postgres \
+    TIMESCALEDB=$TIMESCALEDB \
     DEMO=$DEMO
 
 ENV WALE_ENV_DIR=$PGHOME/etc/wal-e.d/env \
