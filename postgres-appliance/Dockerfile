@@ -59,7 +59,7 @@ ARG PGOLDVERSIONS="9.3 9.4 9.5 9.6 10 11"
 ARG WITH_PERL=false
 
 # Install PostgreSQL, extensions and contribs
-ENV POSTGIS_VERSION=2.5 \
+ENV POSTGIS_VERSION=3.0 \
     BG_MON_COMMIT=0df2a6f7ebcaf805465271032d1ec788779938d7 \
     PG_AUTH_MON_COMMIT=902c670c9f2071b30e1d4437e7a38e2e136f9be6 \
     DECODERBUFS=v0.9.5.Final \
@@ -139,12 +139,10 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 && if [ "$WITH_PERL" = "true" ]; then \
                     EXTRAS="$EXTRAS postgresql-plperl-${version}"; \
                 fi \
-                && if [ $version != "9.3" ] && [ $version != 12 ]; then \
+                && if [ $version != "9.3" ] && [ $version != "12" ]; then \
                     EXTRAS="$EXTRAS \
                             postgresql-${version}-partman \
                             postgresql-${version}-pglogical \
-                            postgresql-${version}-postgis-${POSTGIS_VERSION} \
-                            postgresql-${version}-postgis-${POSTGIS_VERSION}-scripts \
                             postgresql-${version}-wal2json" \
                     && if [ $version != "9.4" ]; then \
                         EXTRAS="$EXTRAS postgresql-${version}-pgl-ddl-deploy"; \
@@ -211,8 +209,16 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && apt-get install -y skytools3-ticker pspg \
 \
     && if [ "$DEMO" != "true" ]; then \
+        # Install postgis
+        apt-get install -y libgeos-c1v5=3.7* \
+        && for version in ${PGOLDVERSIONS} ${PGVERSION}; do \
+            if [ $version != "9.3" ] && [ $version != "9.4" ]; then \
+                apt-get install -y postgresql-${version}-postgis-${POSTGIS_VERSION%.0} \
+                                postgresql-${version}-postgis-${POSTGIS_VERSION%.0}-scripts; \
+            fi; \
+        done \
         # patch, build and install pgbouncer
-        apt-get source pgbouncer \
+        && apt-get source pgbouncer \
         && cd $(ls -d pgbouncer-*) \
         # Enable pam authentication support via HBA
         && curl -sL https://github.com/pgbouncer/pgbouncer/pull/326.diff \
@@ -228,6 +234,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && echo "#!/bin/sh\n\n/bin/echo -e \"9.3\\n9.4\\n9.5\\n9.6\\n10\\n11\\n12\"" > /usr/share/postgresql-common/supported-versions \
 \
     # build and install missing packages
+    && sed -i 's/-testing//' /etc/apt/sources.list.d/pgdg.list \
+    && apt-get update \
     && apt-get install -y postgresql-server-dev-all libpq-dev=$PGVERSION* \
     && for version in ${PGOLDVERSIONS} ${PGVERSION}; do \
         apt-get install -y postgresql-server-dev-${version}; \
