@@ -2,6 +2,7 @@ Environment Configuration Settings
 ==================================
 
 - **ETCD_HOST**: the DNS A record pointing to Etcd hosts.
+- **ETCD_HOSTS**: list of Etcd hosts in format host1:port1,host2:port2,etc.
 - **ETCD_DISCOVERY_DOMAIN**: the DNS SRV record pointing to Etcd hosts.
 - **PGHOME**: filesystem path where to put PostgreSQL home directory (/home/postgres by default)
 - **APIPORT**: TCP port to Patroni API connections (8008 by default)

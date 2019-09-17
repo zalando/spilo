@@ -566,6 +566,8 @@ def get_dcs_config(config, placeholders):
                                 'port': placeholders['EXHIBITOR_PORT']}}
     elif 'ETCD_HOST' in placeholders:
         config = {'etcd': {'host': placeholders['ETCD_HOST']}}
+    elif 'ETCD_HOSTS' in placeholders:
+        config = {'etcd': {'hosts': placeholders['ETCD_HOSTS']}}
     elif 'ETCD_DISCOVERY_DOMAIN' in placeholders:
         config = {'etcd': {'discovery_srv': placeholders['ETCD_DISCOVERY_DOMAIN']}}
     else:
@@ -837,6 +839,7 @@ def main():
     if (provider == PROVIDER_LOCAL and
             not USE_KUBERNETES and
             'ETCD_HOST' not in placeholders and
+            'ETCD_HOSTS' not in placeholders and
             'ETCD_DISCOVERY_DOMAIN' not in placeholders):
         write_etcd_configuration(placeholders)
 
