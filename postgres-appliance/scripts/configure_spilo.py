@@ -155,9 +155,9 @@ bootstrap:
         wal_level: hot_standby
         wal_keep_segments: 8
         wal_log_hints: 'on'
-        max_wal_senders: 5
+        max_wal_senders: 10
         max_connections: {{postgresql.parameters.max_connections}}
-        max_replication_slots: 5
+        max_replication_slots: 10
         hot_standby: 'on'
         tcp_keepalives_idle: 900
         tcp_keepalives_interval: 100
