@@ -40,10 +40,21 @@ Environment Configuration Settings
 - **WAL_SWIFT_BUCKET**: ditto for the OpenStack Object Storage (Swift)
 - **SWIFT_AUTHURL**: see wal-e documentation https://github.com/wal-e/wal-e#swift
 - **SWIFT_TENANT**:
+- **SWIFT_TENANT_ID**:
 - **SWIFT_USER**:
+- **SWIFT_USER_ID**:
 - **SWIFT_PASSWORD**:
 - **SWIFT_AUTH_VERSION**:
 - **SWIFT_ENDPOINT_TYPE**:
+- **SWIFT_REGION**:
+- **SWIFT_DOMAIN_NAME**:
+- **SWIFT_DOMAIN_ID**:
+- **SWIFT_USER_DOMAIN_NAME**:
+- **SWIFT_USER_DOMAIN_ID**:
+- **SWIFT_PROJECT_NAME**:
+- **SWIFT_PROJECT_ID**:
+- **SWIFT_PROJECT_DOMAIN_NAME**:
+- **SWIFT_PROJECT_DOMAIN_ID**:
 - **WALE_SWIFT_PREFIX**: (optional) the full path to the backup location on the Swift Storage in the format swift://bucket-name/very/long/path. If not specified Spilo will generate it from WAL_SWIFT_BUCKET.
 - **CALLBACK_SCRIPT**: the callback script to run on various cluster actions (on start, on stop, on restart, on role change). The script will receive the cluster name, connection string and the current action. See `Patroni <http://patroni.readthedocs.io/en/latest/SETTINGS.html?highlight=callback#postgresql>`__ documentation for details.
 - **LOG_S3_BUCKET**: path to the S3 bucket used for PostgreSQL daily log files (i.e. s3://foobar). Spilo will add /spilo/scope/pg_daily_logs to that path. Logs are shipped if this variable is set.
