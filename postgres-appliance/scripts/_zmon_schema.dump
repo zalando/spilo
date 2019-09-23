@@ -130,7 +130,7 @@ BEGIN
                                 ('idle_in_transaction_max_age'::text,
                                  coalesce(max(CASE WHEN state = 'idle in transaction' THEN extract(epoch from statement_timestamp() - state_change) END), 0)::text),
                                 ('locked_connections'::text,
-                                 count(wait_event_type)::text),
+                                 count(CASE WHEN wait_event_type = 'Lock' THEN 1 END)::text),
                                 ('current_connections'::text,
                                  count(1)::text),
                                 ('transaction_max_age'::text,
