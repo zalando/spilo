@@ -33,10 +33,9 @@ MEMORY_LIMIT_IN_BYTES_PATH = '/sys/fs/cgroup/memory/memory.limit_in_bytes'
 # (min_version, max_version, shared_preload_libraries, extwlist.extensions)
 extensions = {
     'timescaledb':    (9.6, 11, True,  True),
-    'pg_cron':        (9.5, 11, True,  False),
-    'pg_stat_kcache': (9.4, 11, True,  False),
-    'pg_partman':     (9.4, 11, False, True),
-    'set_user':       (9.4, 11, True,  False)
+    'pg_cron':        (9.5, 12, True,  False),
+    'pg_stat_kcache': (9.4, 12, True,  False),
+    'pg_partman':     (9.4, 12, False, True)
 }
 
 AUTO_ENABLE_WALG_RESTORE = ('WAL_S3_BUCKET', 'WALE_S3_PREFIX', 'WALG_S3_PREFIX')
@@ -156,9 +155,9 @@ bootstrap:
         wal_level: hot_standby
         wal_keep_segments: 8
         wal_log_hints: 'on'
-        max_wal_senders: 5
+        max_wal_senders: 10
         max_connections: {{postgresql.parameters.max_connections}}
-        max_replication_slots: 5
+        max_replication_slots: 10
         hot_standby: 'on'
         tcp_keepalives_idle: 900
         tcp_keepalives_interval: 100
@@ -236,7 +235,7 @@ postgresql:
     ssl: 'on'
     ssl_cert_file: {{SSL_CERTIFICATE_FILE}}
     ssl_key_file: {{SSL_PRIVATE_KEY_FILE}}
-    shared_preload_libraries: 'bg_mon,pg_stat_statements,pgextwlist,pg_auth_mon'
+    shared_preload_libraries: 'bg_mon,pg_stat_statements,pgextwlist,pg_auth_mon,set_user'
     bg_mon.listen_address: '0.0.0.0'
     pg_stat_statements.track_utility: 'off'
     extwlist.extensions: 'btree_gin,btree_gist,citext,hstore,intarray,ltree,pgcrypto,pgq,pg_trgm,postgres_fdw,uuid-ossp,hypopg'
