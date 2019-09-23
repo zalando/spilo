@@ -76,17 +76,15 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && apt-get update \
     && cd /builddeps \
 \
-    && BUILD_PACKAGES="devscripts build-essential fakeroot debhelper git gcc libc6-dev make cmake libevent-dev naturaldocs python libssl-dev libkrb5-dev" \
-# pgq3: naturaldocs python
+    && BUILD_PACKAGES="devscripts build-essential fakeroot debhelper git gcc libc6-dev make cmake libevent-dev libssl-dev libkrb5-dev" \
     && if [ "$DEMO" = "true" ]; then \
         export DEB_PG_SUPPORTED_VERSIONS="$PGVERSION" \
         && apt-get install -y $BUILD_PACKAGES; \
     else \
-        BUILD_PACKAGES="$BUILD_PACKAGES equivs pgxnclient zlib1g-dev libprotobuf-c-dev liblwgeom-dev libproj-dev libxslt1-dev libxml2-dev libpam0g-dev libedit-dev libselinux1-dev libcurl4-openssl-dev libicu-dev libc-ares-dev pandoc pkg-config flex bison asciidoc" \
+        BUILD_PACKAGES="$BUILD_PACKAGES equivs pgxnclient zlib1g-dev libprotobuf-c-dev liblwgeom-dev libproj-dev libxslt1-dev libxml2-dev libpam0g-dev libedit-dev libselinux1-dev libcurl4-openssl-dev libicu-dev python libc-ares-dev pandoc pkg-config" \
 # debezium-decoderbufs: libprotobuf-c-dev liblwgeom-dev libproj-dev
 # pgbouncer: libc-ares-dev pandoc pkg-config
 # pg_rewind: libxslt1-dev libxml2-dev libpam0g-dev libkrb5-dev libedit-dev libselinux1-dev
-# plproxy: flex bison asciidoc
         && apt-get install -y $BUILD_PACKAGES libprotobuf-c1 libcurl4 \
 \
         && if [ "$WITH_PERL" != "true" ]; then \
@@ -132,19 +130,21 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             && if [ "$DEMO" != "true" ]; then \
                 EXTRAS="postgresql-pltcl-${version} \
                         postgresql-${version}-hypopg \
+                        postgresql-${version}-pgq3 \
                         postgresql-${version}-pldebugger \
-                        postgresql-${version}-pllua " \
+                        postgresql-${version}-pllua \
+                        postgresql-${version}-plproxy" \
                 && if [ $version != 12 ]; then \
-                    EXTRAS="$EXTRAS postgresql-${version}-pgq3 \
-                            postgresql-${version}-plproxy \
-                            postgresql-${version}-repack"; \
+                    EXTRAS="$EXTRAS postgresql-${version}-repack"; \
                 fi \
                 && if [ "$WITH_PERL" = "true" ]; then \
                     EXTRAS="$EXTRAS postgresql-plperl-${version}"; \
                 fi \
+                && if [ $version != "9.3" ]; then \
+                    EXTRAS="$EXTRAS postgresql-${version}-partman"; \
+                fi \
                 && if [ $version != "9.3" ] && [ $version != "12" ]; then \
                     EXTRAS="$EXTRAS \
-                            postgresql-${version}-partman \
                             postgresql-${version}-pglogical \
                             postgresql-${version}-wal2json" \
                     && if [ $version != "9.4" ]; then \
@@ -214,7 +214,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && if [ "$DEMO" != "true" ]; then \
         # Install postgis
         apt-get install -y libgeos-c1v5=3.7* \
-        && for version in ${PGOLDVERSIONS} ${PGVERSION}; do \
+        && for version in $DEB_PG_SUPPORTED_VERSIONS; do \
             if [ $version != "9.3" ] && [ $version != "9.4" ]; then \
                 apt-get install -y postgresql-${version}-postgis-${POSTGIS_VERSION%.0} \
                                 postgresql-${version}-postgis-${POSTGIS_VERSION%.0}-scripts; \
@@ -232,9 +232,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && debuild -b -uc -us \
         && cd .. \
         && dpkg -i pgbouncer_*.deb \
-        && PACKAGES="plproxy partman"; \
+        && PACKAGES="repack"; \
     fi \
-    && echo "#!/bin/sh\n\n/bin/echo -e \"9.3\\n9.4\\n9.5\\n9.6\\n10\\n11\\n12\"" > /usr/share/postgresql-common/supported-versions \
 \
     # build and install missing packages
     && sed -i 's/-testing//' /etc/apt/sources.list.d/pgdg.list \
@@ -243,7 +242,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && for version in $DEB_PG_SUPPORTED_VERSIONS; do \
         apt-get install -y postgresql-server-dev-${version}; \
     done \
-    && for pkg in pgextwlist pgq3 cron $PACKAGES; do \
+    && for pkg in pgextwlist cron $PACKAGES; do \
         apt-get source postgresql-11-${pkg} \
         && cd $(ls -d *${pkg%?}*-*/) \
         && if [ -f ../$pkg.patch ]; then patch -p1 < ../$pkg.patch; fi \
