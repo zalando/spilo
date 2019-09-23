@@ -35,8 +35,7 @@ extensions = {
     'timescaledb':    (9.6, 11, True,  True),
     'pg_cron':        (9.5, 12, True,  False),
     'pg_stat_kcache': (9.4, 12, True,  False),
-    'pg_partman':     (9.4, 12, False, True),
-    'set_user':       (9.4, 12, True,  False)
+    'pg_partman':     (9.4, 12, False, True)
 }
 
 AUTO_ENABLE_WALG_RESTORE = ('WAL_S3_BUCKET', 'WALE_S3_PREFIX', 'WALG_S3_PREFIX')
@@ -156,9 +155,9 @@ bootstrap:
         wal_level: hot_standby
         wal_keep_segments: 8
         wal_log_hints: 'on'
-        max_wal_senders: 5
+        max_wal_senders: 10
         max_connections: {{postgresql.parameters.max_connections}}
-        max_replication_slots: 5
+        max_replication_slots: 10
         hot_standby: 'on'
         tcp_keepalives_idle: 900
         tcp_keepalives_interval: 100
@@ -236,7 +235,7 @@ postgresql:
     ssl: 'on'
     ssl_cert_file: {{SSL_CERTIFICATE_FILE}}
     ssl_key_file: {{SSL_PRIVATE_KEY_FILE}}
-    shared_preload_libraries: 'bg_mon,pg_stat_statements,pgextwlist,pg_auth_mon'
+    shared_preload_libraries: 'bg_mon,pg_stat_statements,pgextwlist,pg_auth_mon,set_user'
     bg_mon.listen_address: '0.0.0.0'
     pg_stat_statements.track_utility: 'off'
     extwlist.extensions: 'btree_gin,btree_gist,citext,hstore,intarray,ltree,pgcrypto,pgq,pg_trgm,postgres_fdw,uuid-ossp,hypopg'
@@ -566,6 +565,8 @@ def get_dcs_config(config, placeholders):
                                 'port': placeholders['EXHIBITOR_PORT']}}
     elif 'ETCD_HOST' in placeholders:
         config = {'etcd': {'host': placeholders['ETCD_HOST']}}
+    elif 'ETCD_HOSTS' in placeholders:
+        config = {'etcd': {'hosts': placeholders['ETCD_HOSTS']}}
     elif 'ETCD_DISCOVERY_DOMAIN' in placeholders:
         config = {'etcd': {'discovery_srv': placeholders['ETCD_DISCOVERY_DOMAIN']}}
     else:
@@ -606,8 +607,10 @@ def write_wale_environment(placeholders, prefix, overwrite):
                 'WALE_S3_ENDPOINT', 'AWS_ENDPOINT', 'AWS_REGION', 'AWS_INSTANCE_PROFILE',
                 'WALG_S3_SSE_KMS_ID', 'WALG_S3_SSE', 'WALG_DISABLE_S3_SSE', 'AWS_S3_FORCE_PATH_STYLE']
     gs_names = ['WALE_GS_PREFIX', 'WALG_GS_PREFIX', 'GOOGLE_APPLICATION_CREDENTIALS']
-    swift_names = ['WALE_SWIFT_PREFIX', 'SWIFT_AUTHURL', 'SWIFT_TENANT', 'SWIFT_USER',
-                   'SWIFT_PASSWORD', 'SWIFT_AUTH_VERSION', 'SWIFT_ENDPOINT_TYPE']
+    swift_names = ['WALE_SWIFT_PREFIX', 'SWIFT_AUTHURL', 'SWIFT_TENANT', 'SWIFT_TENANT_ID', 'SWIFT_USER',
+                   'SWIFT_USER_ID', 'SWIFT_USER_DOMAIN_NAME', 'SWIFT_USER_DOMAIN_ID', 'SWIFT_PASSWORD',
+                   'SWIFT_AUTH_VERSION', 'SWIFT_ENDPOINT_TYPE', 'SWIFT_REGION', 'SWIFT_DOMAIN_NAME', 'SWIFT_DOMAIN_ID',
+                   'SWIFT_PROJECT_NAME', 'SWIFT_PROJECT_ID', 'SWIFT_PROJECT_DOMAIN_NAME', 'SWIFT_PROJECT_DOMAIN_ID']
 
     walg_names = ['WALG_DELTA_MAX_STEPS', 'WALG_DELTA_ORIGIN', 'WALG_DOWNLOAD_CONCURRENCY',
                   'WALG_UPLOAD_CONCURRENCY', 'WALG_UPLOAD_DISK_CONCURRENCY', 'WALG_DISK_RATE_LIMIT',
@@ -837,6 +840,7 @@ def main():
     if (provider == PROVIDER_LOCAL and
             not USE_KUBERNETES and
             'ETCD_HOST' not in placeholders and
+            'ETCD_HOSTS' not in placeholders and
             'ETCD_DISCOVERY_DOMAIN' not in placeholders):
         write_etcd_configuration(placeholders)
 

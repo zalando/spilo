@@ -1,5 +1,5 @@
 ARG PGVERSION=12
-ARG TIMESCALEDB=1.4.1
+ARG TIMESCALEDB=1.4.2
 ARG DEMO=false
 
 FROM ubuntu:18.04 as builder
@@ -50,7 +50,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && find /var/log -type f -exec truncate --size 0 {} \;
 
 COPY dependencies/debs /builddeps
-ADD patches/*.patch /builddeps/
+ADD patches/*.patch set_user.patch /builddeps/
 
 ARG PGVERSION
 ARG TIMESCALEDB
@@ -58,14 +58,16 @@ ARG DEMO
 ARG PGOLDVERSIONS="9.3 9.4 9.5 9.6 10 11"
 ARG WITH_PERL=false
 
+ARG DEB_PG_SUPPORTED_VERSIONS="$PGOLDVERSIONS $PGVERSION"
+
 # Install PostgreSQL, extensions and contribs
 ENV POSTGIS_VERSION=3.0 \
     BG_MON_COMMIT=0df2a6f7ebcaf805465271032d1ec788779938d7 \
     PG_AUTH_MON_COMMIT=902c670c9f2071b30e1d4437e7a38e2e136f9be6 \
     DECODERBUFS=v0.9.5.Final \
     SET_USER=REL1_6_2 \
-    PLPGSQL_CHECK=v1.7.4 \
-    PLPROFILER=REL4_0 \
+    PLPGSQL_CHECK=v1.7.5 \
+    PLPROFILER=REL4_1 \
     PAM_OAUTH2=v1.0
 
 RUN export DEBIAN_FRONTEND=noninteractive \
@@ -77,7 +79,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && BUILD_PACKAGES="devscripts build-essential fakeroot debhelper git gcc libc6-dev make cmake libevent-dev naturaldocs python libssl-dev libkrb5-dev" \
 # pgq3: naturaldocs python
     && if [ "$DEMO" = "true" ]; then \
-        PGOLDVERSIONS="" \
+        export DEB_PG_SUPPORTED_VERSIONS="$PGVERSION" \
         && apt-get install -y $BUILD_PACKAGES; \
     else \
         BUILD_PACKAGES="$BUILD_PACKAGES equivs pgxnclient zlib1g-dev libprotobuf-c-dev liblwgeom-dev libproj-dev libxslt1-dev libxml2-dev libpam0g-dev libedit-dev libselinux1-dev libcurl4-openssl-dev libicu-dev libc-ares-dev pandoc pkg-config flex bison asciidoc" \
@@ -114,11 +116,12 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && curl -sL https://github.com/CyberDem0n/bg_mon/archive/$BG_MON_COMMIT.tar.gz | tar xz \
     && curl -sL https://github.com/RafiaSabih/pg_auth_mon/archive/$PG_AUTH_MON_COMMIT.tar.gz | tar xz \
     && git clone -b $SET_USER https://github.com/pgaudit/set_user.git \
+    && patch -d set_user -p1 < set_user.patch \
     && git clone -b $TIMESCALEDB https://github.com/timescale/timescaledb.git \
 \
     && apt-get install -y libevent-2.1 libevent-pthreads-2.1 python3.6 python3-psycopg2 \
 \
-    && for version in ${PGOLDVERSIONS} ${PGVERSION}; do \
+    && for version in $DEB_PG_SUPPORTED_VERSIONS; do \
             if [ $version = 12 ]; then \
                 sed -i "s/ main.*$/-testing main $version/g" /etc/apt/sources.list.d/pgdg.list; \
             else \
@@ -237,7 +240,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && sed -i 's/-testing//' /etc/apt/sources.list.d/pgdg.list \
     && apt-get update \
     && apt-get install -y postgresql-server-dev-all libpq-dev=$PGVERSION* \
-    && for version in ${PGOLDVERSIONS} ${PGVERSION}; do \
+    && for version in $DEB_PG_SUPPORTED_VERSIONS; do \
         apt-get install -y postgresql-server-dev-${version}; \
     done \
     && for pkg in pgextwlist pgq3 cron $PACKAGES; do \
@@ -247,18 +250,14 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && if [ "$pkg" = "pgextwlist" ]; then \
             # make it possible to use it from shared_preload_libraries
             perl -ne 'print unless /PG_TRY/ .. /PG_CATCH/' pgextwlist.c > pgextwlist.c.f \
-            && egrep -v '(PG_END_TRY|EmitWarningsOnPlaceholders)' pgextwlist.c.f > pgextwlist.c \
-            && rm -f debian/pgversions \
-            && for version in ${PGOLDVERSIONS} ${PGVERSION}; do \
-                echo ${version} >> debian/pgversions; \
-            done; \
+            && egrep -v '(PG_END_TRY|EmitWarningsOnPlaceholders)' pgextwlist.c.f > pgextwlist.c; \
         else \
             echo $PGVERSION > debian/pgversions; \
         fi \
         && pg_buildext updatecontrol \
         && debuild -b -uc -us \
         && cd .. \
-        && for version in ${PGOLDVERSIONS} ${PGVERSION}; do \
+        && for version in $DEB_PG_SUPPORTED_VERSIONS; do \
             for deb in postgresql-${version}-${pkg}_*.deb; do \
                 if [ -f $deb ]; then dpkg -i $deb; fi; \
             done; \
@@ -395,7 +394,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 # Install patroni, wal-e and wal-g
 ENV PATRONIVERSION=1.6.0
 ENV WALE_VERSION=1.1.0
-ENV WALG_VERSION=v0.2.11
+ENV WALG_VERSION=v0.2.12
 RUN export DEBIAN_FRONTEND=noninteractive \
     && set -ex \
     && BUILD_PACKAGES="python3-pip python3-wheel python3-dev git patchutils binutils" \
