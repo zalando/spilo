@@ -389,6 +389,7 @@ def set_walg_placeholders(placeholders, prefix=''):
         value = str(placeholders.get(prefix + name, placeholders[prefix + 'USE_WALG'])).lower()
         placeholders[prefix + name] = 'true' if value == 'true' and walg_supported else None
 
+
 def get_listen_ip():
     """ Get IP to listen on for things that don't natively support detecting IPv4/IPv6 dualstack """
     def has_dual_stack():
@@ -399,7 +400,7 @@ def get_listen_ip():
                 sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, False)
                 return True
             except socket.error as e:
-                logger.debug('Error when working with ipv6 socket: %s', e)
+                logging.debug('Error when working with ipv6 socket: %s', e)
             finally:
                 if sock:
                     sock.close()
@@ -409,6 +410,7 @@ def get_listen_ip():
     # in case dual stack is not supported we want IPv4 to be preferred over IPv6
     info.sort(key=lambda x: x[0] == socket.AF_INET, reverse=not has_dual_stack())
     return info[0][4][0]
+
 
 def get_placeholders(provider):
     placeholders = dict(os.environ)
