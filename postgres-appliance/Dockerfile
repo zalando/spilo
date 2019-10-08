@@ -120,11 +120,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && apt-get install -y libevent-2.1 libevent-pthreads-2.1 python3.6 python3-psycopg2 \
 \
     && for version in $DEB_PG_SUPPORTED_VERSIONS; do \
-            if [ $version = 12 ]; then \
-                sed -i "s/ main.*$/-testing main $version/g" /etc/apt/sources.list.d/pgdg.list; \
-            else \
-                sed -i "s/ main.*$/ main $version/g" /etc/apt/sources.list.d/pgdg.list; \
-            fi \
+            sed -i "s/ main.*$/ main $version/g" /etc/apt/sources.list.d/pgdg.list \
             && apt-get update \
 \
             && if [ "$DEMO" != "true" ]; then \
@@ -133,15 +129,10 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                         postgresql-${version}-pgq3 \
                         postgresql-${version}-pldebugger \
                         postgresql-${version}-pllua \
-                        postgresql-${version}-plproxy" \
-                && if [ $version != 12 ]; then \
-                    EXTRAS="$EXTRAS postgresql-${version}-repack"; \
-                fi \
+                        postgresql-${version}-plproxy \
+                        postgresql-${version}-repack" \
                 && if [ "$WITH_PERL" = "true" ]; then \
                     EXTRAS="$EXTRAS postgresql-plperl-${version}"; \
-                fi \
-                && if [ $version != "9.3" ]; then \
-                    EXTRAS="$EXTRAS postgresql-${version}-partman"; \
                 fi \
                 && if [ $version != "9.3" ] && [ $version != "12" ]; then \
                     EXTRAS="$EXTRAS \
@@ -211,13 +202,20 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 \
     && apt-get install -y skytools3-ticker pspg \
 \
+    # postgis-3 is still in testing
+    && sed -i "s/ main.*$/-testing main $PGVERSION/g" /etc/apt/sources.list.d/pgdg.list \
+    && apt-get update \
     && if [ "$DEMO" != "true" ]; then \
-        # Install postgis
+        # Install postgis and partman
         apt-get install -y libgeos-c1v5=3.7* \
         && for version in $DEB_PG_SUPPORTED_VERSIONS; do \
             if [ $version != "9.3" ] && [ $version != "9.4" ]; then \
                 apt-get install -y postgresql-${version}-postgis-${POSTGIS_VERSION%.0} \
                                 postgresql-${version}-postgis-${POSTGIS_VERSION%.0}-scripts; \
+            fi \
+            # due to dependency on python3-psycopg2 partman has to be installed separately
+            && if [ $version != "9.3" ]; then \
+                apt-get install -y postgresql-${version}-partman; \
             fi; \
         done \
         # patch, build and install pgbouncer
@@ -231,8 +229,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && sed -i 's/\(SEND_wrap(\)512\(, pktbuf_write_PasswordMessage, res, sk, psw)\)/\11024\2/' include/pktbuf.h \
         && debuild -b -uc -us \
         && cd .. \
-        && dpkg -i pgbouncer_*.deb \
-        && PACKAGES="repack"; \
+        && dpkg -i pgbouncer_*.deb; \
     fi \
 \
     # build and install missing packages
@@ -242,7 +239,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && for version in $DEB_PG_SUPPORTED_VERSIONS; do \
         apt-get install -y postgresql-server-dev-${version}; \
     done \
-    && for pkg in pgextwlist cron $PACKAGES; do \
+    && for pkg in pgextwlist cron; do \
         apt-get source postgresql-11-${pkg} \
         && cd $(ls -d *${pkg%?}*-*/) \
         && if [ -f ../$pkg.patch ]; then patch -p1 < ../$pkg.patch; fi \
