@@ -278,6 +278,10 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             done; \
         done \
 \
+        cd /usr/lib/postgresql/$PGVERSION/lib \
+        && ln -s postgis-${POSTGIS_VERSION%.0}.so postgis-2.5.so \
+        done \
+\
         && PGVERSION=11 \
         && cd /usr/share/postgresql/$PGVERSION/contrib/postgis-$POSTGIS_VERSION \
         && for f in *.sql *.pl; do \
