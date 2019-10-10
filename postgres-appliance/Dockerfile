@@ -212,6 +212,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             if [ $version != "9.3" ] && [ $version != "9.4" ]; then \
                 apt-get install -y postgresql-${version}-postgis-${POSTGIS_VERSION%.0} \
                                 postgresql-${version}-postgis-${POSTGIS_VERSION%.0}-scripts; \
+                && ln -s /usr/lib/postgresql/$PGVERSION/lib/postgis-${POSTGIS_VERSION%.0}.so /usr/lib/postgresql/$PGVERSION/lib/postgis-2.5.so \
             fi \
             # due to dependency on python3-psycopg2 partman has to be installed separately
             && if [ $version != "9.3" ]; then \
@@ -276,10 +277,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                     && ln -s ../../$PGVERSION/bin/$u $v/bin/$u; \
                 fi; \
             done; \
-        done \
-\
-        cd /usr/lib/postgresql/$PGVERSION/lib \
-        && ln -s postgis-${POSTGIS_VERSION%.0}.so postgis-2.5.so \
         done \
 \
         && PGVERSION=11 \

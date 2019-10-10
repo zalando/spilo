@@ -137,7 +137,6 @@ while IFS= read -r db_name; do
     if [ "x$TIMESCALEDB_VERSION" != "x" ] && [ "x$TIMESCALEDB_VERSION" != "x$TIMESCALEDB" ]; then
         echo "ALTER EXTENSION timescaledb UPDATE;"
     fi
-    
     POSTGISDB_VERSION=$(echo -e "SELECT NULL;\nSELECT extversion FROM pg_extension WHERE extname = 'postgis'" | psql -tAX -d ${db_name} 2> /dev/null | tail -n 1)
     if [ "x$POSTGISDB_VERSION" != "x" ] && [ "x$POSTGISDB_VERSION" != "x$POSTGIS_VERSION" ]; then
         echo "ALTER EXTENSION postgis UPDATE;"
