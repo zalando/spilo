@@ -256,6 +256,9 @@ postgresql:
     - hostssl all             +{{HUMAN_ROLE}}    all                pam
     {{/PAM_OAUTH2}}
     - hostssl all             all                all                md5
+    {{#ALLOW_NOSSL}}
+    - host    all             all                all                md5
+    {{/ALLOW_NOSSL}}
 
   {{#USE_WALE}}
   recovery_conf:
@@ -409,6 +412,7 @@ def get_placeholders(provider):
     placeholders.setdefault('PGPASSWORD_ADMIN', 'cola')
     placeholders.setdefault('PGUSER_SUPERUSER', 'postgres')
     placeholders.setdefault('PGPASSWORD_SUPERUSER', 'zalando')
+    placeholders.setdefault('ALLOW_NOSSL', '')
     placeholders.setdefault('PGPORT', '5432')
     placeholders.setdefault('SCOPE', 'dummy')
     placeholders.setdefault('SSL_CERTIFICATE_FILE', os.path.join(placeholders['PGHOME'], 'server.crt'))
