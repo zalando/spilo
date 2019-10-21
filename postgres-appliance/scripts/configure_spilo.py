@@ -260,7 +260,9 @@ postgresql:
     {{#ALLOW_NOSSL}}
     - host    all             all                all                md5
     {{/ALLOW_NOSSL}}
+    {{^ALLOW_NOSSL}}
     - hostssl all             all                all                md5
+    {{/ALLOW_NOSSL}}
 
   {{#USE_WALE}}
   recovery_conf:
