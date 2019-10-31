@@ -64,9 +64,9 @@ ARG DEB_PG_SUPPORTED_VERSIONS="$PGOLDVERSIONS $PGVERSION"
 ENV POSTGIS_VERSION=3.0 \
     BG_MON_COMMIT=0df2a6f7ebcaf805465271032d1ec788779938d7 \
     PG_AUTH_MON_COMMIT=902c670c9f2071b30e1d4437e7a38e2e136f9be6 \
-    DECODERBUFS=v0.9.5.Final \
+    DECODERBUFS=v0.10.0.Final \
     SET_USER=REL1_6_2 \
-    PLPGSQL_CHECK=v1.7.5 \
+    PLPGSQL_CHECK=v1.7.6 \
     PLPROFILER=REL4_1 \
     PAM_OAUTH2=v1.0
 
@@ -134,6 +134,10 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 && if [ "$WITH_PERL" = "true" ]; then \
                     EXTRAS="$EXTRAS postgresql-plperl-${version}"; \
                 fi \
+                && if [ $version != "9.3" ] && [ $version != "9.4" ]; then \
+                    EXTRAS="$EXTRAS postgresql-${version}-postgis-${POSTGIS_VERSION%.0} \
+                            postgresql-${version}-postgis-${POSTGIS_VERSION%.0}-scripts"; \
+                fi \
                 && if [ $version != "9.3" ] && [ $version != "12" ]; then \
                     EXTRAS="$EXTRAS \
                             postgresql-${version}-pglogical \
@@ -148,7 +152,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             fi \
             && if [ $version != "9.3" ]; then \
                 EXTRAS="$EXTRAS postgresql-${version}-pg-stat-kcache" \
-                && if [ $version != "9.4" ] && [ $version != 12 ]; then \
+                && if [ $version != "9.4" ] && [ $version != "12" ]; then \
                     EXTRAS="$EXTRAS postgresql-${version}-cron"; \
                 fi; \
             fi \
@@ -202,21 +206,16 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 \
     && apt-get install -y skytools3-ticker pspg \
 \
-    # postgis-3 is still in testing
-    && sed -i "s/ main.*$/-testing main $PGVERSION/g" /etc/apt/sources.list.d/pgdg.list \
-    && apt-get update \
     && if [ "$DEMO" != "true" ]; then \
-        # Install postgis and partman
-        apt-get install -y libgeos-c1v5=3.7* \
-        && for version in $DEB_PG_SUPPORTED_VERSIONS; do \
-            if [ $version != "9.3" ] && [ $version != "9.4" ]; then \
-                apt-get install -y postgresql-${version}-postgis-${POSTGIS_VERSION%.0} \
-                                postgresql-${version}-postgis-${POSTGIS_VERSION%.0}-scripts; \
-                && ln -s /usr/lib/postgresql/${version}/lib/postgis-${POSTGIS_VERSION%.0}.so /usr/lib/postgresql/${version}/lib/postgis-2.5.so \
-            fi \
-            # due to dependency on python3-psycopg2 partman has to be installed separately
-            && if [ $version != "9.3" ]; then \
-                apt-get install -y postgresql-${version}-partman; \
+        for version in $DEB_PG_SUPPORTED_VERSIONS; do \
+            if [ $version != "9.3" ]; then \
+                # due to dependency issues partman has to be installed separately
+                apt-get install -y postgresql-${version}-partman \
+                && if [ $version != "9.4" ]; then \
+                    # create postgis symlinks to make it possible to perform update
+                    ln -s postgis-${POSTGIS_VERSION%.0}.so \
+                        /usr/lib/postgresql/${version}/lib/postgis-2.5.so; \
+                fi; \
             fi; \
         done \
         # patch, build and install pgbouncer
@@ -234,8 +233,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     fi \
 \
     # build and install missing packages
-    && sed -i 's/-testing//' /etc/apt/sources.list.d/pgdg.list \
-    && apt-get update \
     && apt-get install -y postgresql-server-dev-all libpq-dev=$PGVERSION* \
     && for version in $DEB_PG_SUPPORTED_VERSIONS; do \
         apt-get install -y postgresql-server-dev-${version}; \
@@ -391,7 +388,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 # Install patroni, wal-e and wal-g
 ENV PATRONIVERSION=1.6.0
 ENV WALE_VERSION=1.1.0
-ENV WALG_VERSION=v0.2.12
+ENV WALG_VERSION=v0.2.13
 RUN export DEBIAN_FRONTEND=noninteractive \
     && set -ex \
     && BUILD_PACKAGES="python3-pip python3-wheel python3-dev git patchutils binutils" \
