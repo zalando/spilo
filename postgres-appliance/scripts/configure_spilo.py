@@ -251,11 +251,18 @@ postgresql:
     {{/PAM_OAUTH2}}
     - host    all             all                ::1/128            md5
     - hostssl replication     {{PGUSER_STANDBY}} all                md5
+    {{^ALLOW_NOSSL}}
     - hostnossl all           all                all                reject
+    {{/ALLOW_NOSSL}}
     {{#PAM_OAUTH2}}
     - hostssl all             +{{HUMAN_ROLE}}    all                pam
     {{/PAM_OAUTH2}}
+    {{#ALLOW_NOSSL}}
+    - host    all             all                all                md5
+    {{/ALLOW_NOSSL}}
+    {{^ALLOW_NOSSL}}
     - hostssl all             all                all                md5
+    {{/ALLOW_NOSSL}}
 
   {{#USE_WALE}}
   recovery_conf:
@@ -431,6 +438,7 @@ def get_placeholders(provider):
     placeholders.setdefault('PGPASSWORD_ADMIN', 'cola')
     placeholders.setdefault('PGUSER_SUPERUSER', 'postgres')
     placeholders.setdefault('PGPASSWORD_SUPERUSER', 'zalando')
+    placeholders.setdefault('ALLOW_NOSSL', '')
     placeholders.setdefault('BGMON_LISTEN_IP', '0.0.0.0')
     placeholders.setdefault('PGPORT', '5432')
     placeholders.setdefault('SCOPE', 'dummy')
