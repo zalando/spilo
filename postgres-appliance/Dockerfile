@@ -137,7 +137,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 fi \
                 && if [ $version != "9.3" ]; then \
                     EXTRAS="$EXTRAS \
-                            postgresql-${version}-partman \
                             postgresql-${version}-pglogical \
                             postgresql-${version}-postgis-${POSTGIS_VERSION} \
                             postgresql-${version}-postgis-${POSTGIS_VERSION}-scripts \
@@ -207,8 +206,14 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && apt-get install -y skytools3-ticker pspg \
 \
     && if [ "$DEMO" != "true" ]; then \
+        for version in $DEB_PG_SUPPORTED_VERSIONS; do \
+            if [ $version != "9.3" ]; then \
+                # due to dependency issues partman has to be installed separately
+                apt-get install -y postgresql-${version}-partman; \
+            fi; \
+        done \
         # patch, build and install pgbouncer
-        apt-get source pgbouncer \
+        && apt-get source pgbouncer \
         && cd $(ls -d pgbouncer-*) \
         # Enable pam authentication support via HBA
         && curl -sL https://github.com/pgbouncer/pgbouncer/pull/326.diff \
@@ -222,7 +227,9 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     fi \
 \
     # build and install missing packages
-    && apt-get install -y postgresql-server-dev-all libpq-dev=$PGVERSION* \
+    && sed -i "s/ main.*$/ main/g" /etc/apt/sources.list.d/pgdg.list \
+    && apt-get update \
+    && apt-get install -y postgresql-server-dev-all libpq-dev \
     && for version in $DEB_PG_SUPPORTED_VERSIONS; do \
         apt-get install -y postgresql-server-dev-${version}; \
     done \
@@ -419,7 +426,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         # https://github.com/wal-e/wal-e/pull/392
         && curl -sL https://github.com/wal-e/wal-e/pull/392.diff | patch -p1 \
 \
-        && echo 4.0.0.dev0 > supervisor/version.txt; \
+        && echo 4.1.1.dev0 > supervisor/version.txt; \
     fi \
     && pip3 install "patroni[kubernetes$EXTRAS]==$PATRONIVERSION" \
 \
