@@ -515,4 +515,4 @@ RUN sed -i "s|/var/lib/postgresql.*|$PGHOME:/bin/bash|" /etc/passwd \
 COPY scripts bootstrap /scripts/
 COPY scm-source.json launch.sh /
 
-CMD ["/usr/bin/dumb-init", "-c", "--rewrite", "1:0", "--", "/bin/sh", "/launch.sh"]
+CMD ["/bin/sh", "/launch.sh", "init"]
