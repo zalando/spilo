@@ -1,0 +1,15 @@
+#!/bin/sh -e
+
+# Make patroni process real-time if we have enough permissions
+CHRT="chrt -Rr 99"
+if ! $CHRT true 2> /dev/null; then
+    CHRT=""
+fi
+
+CHPST="chpst -u postgres"
+if ! $CHPST true 2> /dev/null; then
+    CHPST=""
+fi
+
+exec 2>&1
+exec $CHRT $CHPST env -i HOME=/home/postgres PATH=$PATH patroni /home/postgres/postgres.yml

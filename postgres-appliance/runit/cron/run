@@ -1,0 +1,4 @@
+#!/bin/sh -e
+
+exec 2>&1
+exec env -i /usr/sbin/cron -f

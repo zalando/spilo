@@ -1,0 +1,4 @@
+#!/bin/sh -e
+
+exec 2>&1
+exec env -i /bin/etcd --data-dir /tmp/etcd.data

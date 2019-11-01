@@ -7,7 +7,8 @@ FROM ubuntu:18.04 as builder
 RUN export DEBIAN_FRONTEND=noninteractive \
     && echo 'APT::Install-Recommends "0";\nAPT::Install-Suggests "0";' > /etc/apt/apt.conf.d/01norecommend \
     && apt-get update \
-    && apt-get install -y curl ca-certificates less locales jq vim-tiny gnupg1 cron \
+    && apt-get install -y curl ca-certificates less locales jq vim-tiny gnupg1 cron runit dumb-init \
+    && ln -s chpst /usr/bin/envdir \
 \
     && if [ "$DEMO" != "true" ]; then \
         # Required for wal-e
@@ -408,7 +409,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && find /usr/share/python-babel-localedata/locale-data -type f ! -name 'en_US*.dat' -delete \
 \
         && pip3 install filechunkio wal-e[aws,google,swift]==$WALE_VERSION kubernetes==3.0.0 \
-                'git+https://github.com/Supervisor/supervisor.git@master#egg=supervisor' \
                 'git+https://github.com/zalando/pg_view.git@master#egg=pg-view' \
 \
         && cd /usr/local/lib/python3.6/dist-packages \
@@ -424,9 +424,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && curl -sL https://github.com/wal-e/wal-e/pull/384.diff | patch -p1 \
 \
         # https://github.com/wal-e/wal-e/pull/392
-        && curl -sL https://github.com/wal-e/wal-e/pull/392.diff | patch -p1 \
-\
-        && echo 4.1.1.dev0 > supervisor/version.txt; \
+        && curl -sL https://github.com/wal-e/wal-e/pull/392.diff | patch -p1; \
     fi \
     && pip3 install "patroni[kubernetes$EXTRAS]==$PATRONIVERSION" \
 \
@@ -486,7 +484,7 @@ ARG DEMO
 EXPOSE 5432 8008 8080
 
 ENV LC_ALL=en_US.utf-8 \
-    PATH=$PATH:/usr/lib/postgresql/$PGVERSION/bin \
+    PATH=/usr/lib/postgresql/$PGVERSION/bin:$PATH \
     PGHOME=/home/postgres \
     TIMESCALEDB=$TIMESCALEDB \
     DEMO=$DEMO
@@ -501,15 +499,14 @@ ENV PGDATA=$PGROOT/data \
 WORKDIR $PGHOME
 
 COPY motd /etc/
-COPY supervisor /etc/supervisor
+COPY runit /etc/service/
 COPY pgq_ticker.ini $PGHOME/
-COPY envdir /usr/local/bin/
 
-RUN mkdir -p /var/log/supervisor \
-        && ln -s supervisor/supervisord.conf /etc/supervisord.conf \
-        && sed -i "s|/var/lib/postgresql.*|$PGHOME:/bin/bash|" /etc/passwd \
+RUN sed -i "s|/var/lib/postgresql.*|$PGHOME:/bin/bash|" /etc/passwd \
         && chown -R postgres:postgres $PGHOME /run \
+        && ln -snf /run/service /etc/service \
         && sed -i 's/set compatible/set nocompatible/' /etc/vim/vimrc.tiny \
+        && echo "PATH=\"$PATH\"" > /etc/environment \
         && for e in TERM=linux LC_ALL=C.UTF-8 LANG=C.UTF-8 EDITOR=editor "PAGER='pspg -bX --no-mouse'"; \
             do echo "export $e" >> /etc/bash.bashrc; \
         done \
@@ -518,4 +515,4 @@ RUN mkdir -p /var/log/supervisor \
 COPY scripts bootstrap /scripts/
 COPY scm-source.json launch.sh /
 
-CMD ["/bin/sh", "/launch.sh"]
+CMD ["/usr/bin/dumb-init", "-c", "--rewrite", "1:0", "--", "/bin/sh", "/launch.sh"]

@@ -42,7 +42,7 @@ AUTO_ENABLE_WALG_RESTORE = ('WAL_S3_BUCKET', 'WALE_S3_PREFIX', 'WALG_S3_PREFIX')
 
 
 def parse_args():
-    sections = ['all', 'patroni', 'patronictl', 'certificate', 'wal-e', 'crontab',
+    sections = ['all', 'patroni', 'patronictl', 'pgqd', 'certificate', 'wal-e', 'crontab',
                 'pam-oauth2', 'pgbouncer', 'bootstrap', 'standby-cluster', 'log', 'renice']
     argp = argparse.ArgumentParser(description='Configures Spilo',
                                    epilog="Choose from the following sections:\n\t{}".format('\n\t'.join(sections)),
@@ -61,6 +61,16 @@ def parse_args():
     args['sections'] = set(args['sections'])
 
     return args
+
+
+def link_runit_service(name):
+    service_dir = '/run/service/' + name
+    if not os.path.exists(service_dir):
+        os.makedirs(service_dir)
+        run_file = service_dir + '/run'
+        if not os.path.exists(run_file):
+            source_file = '/etc/runit/runsvdir/default/{0}/run'.format(name)
+            os.symlink(source_file, run_file)
 
 
 def write_certificates(environment, overwrite):
@@ -405,7 +415,8 @@ def get_listen_ip():
             try:
                 sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
                 sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, False)
-                return True
+                import urllib3
+                return urllib3.util.connection.HAS_IPV6
             except socket.error as e:
                 logging.debug('Error when working with ipv6 socket: %s', e)
             finally:
@@ -767,6 +778,8 @@ def write_crontab(placeholders, overwrite):
     if not (overwrite or check_crontab('postgres')):
         return
 
+    link_runit_service('cron')
+
     lines = ['PATH={PATH}'.format(**placeholders)]
 
     if bool(placeholders.get('USE_WALE')):
@@ -797,19 +810,7 @@ def configure_renice(overwrite):
 
 def write_etcd_configuration(placeholders, overwrite=False):
     placeholders.setdefault('ETCD_HOST', '127.0.0.1:2379')
-
-    etcd_config = """\
-[program:etcd]
-user=postgres
-autostart=1
-priority=10
-directory=/
-command=env -i /bin/etcd --data-dir /tmp/etcd.data
-stdout_logfile=/dev/stdout
-stdout_logfile_maxbytes=0
-redirect_stderr=true
-"""
-    write_file(etcd_config, '/etc/supervisor/conf.d/etcd.conf', overwrite)
+    link_runit_service('etcd')
 
 
 def write_pam_oauth2_configuration(placeholders, overwrite):
@@ -916,6 +917,13 @@ def main():
         logging.info('Configuring {}'.format(section))
         if section == 'patroni':
             write_file(yaml.dump(config, default_flow_style=False, width=120), patroni_configfile, args['force'])
+            link_runit_service('patroni')
+            pg_socket_dir = '/run/postgresql'
+            if not os.path.exists(pg_socket_dir):
+                os.makedirs(pg_socket_dir)
+                st = os.stat(placeholders['PGHOME'])
+                os.chown(pg_socket_dir, st.st_uid, st.st_gid)
+                os.chmod(pg_socket_dir, 0o2775)
         elif section == 'patronictl':
             configdir = os.path.join(placeholders['PGHOME'], '.config', 'patroni')
             patronictl_configfile = os.path.join(configdir, 'patronictl.yaml')
@@ -928,6 +936,8 @@ def main():
                     continue
                 os.unlink(patronictl_configfile)
             os.symlink(patroni_configfile, patronictl_configfile)
+        elif section == 'pgqd':
+            link_runit_service('pgqd')
         elif section == 'log':
             if bool(placeholders.get('LOG_S3_BUCKET')):
                 write_log_environment(placeholders)
