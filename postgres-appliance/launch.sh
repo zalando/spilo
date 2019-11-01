@@ -11,6 +11,10 @@ if [ -f /a.tar.xz ]; then
     fi
 fi
 
+if [ "x$1" = "xinit" ]; then
+    exec /usr/bin/dumb-init -c --rewrite 1:0 -- /bin/sh /launch.sh
+fi
+
 mkdir -p "$PGLOG"
 
 ## Ensure all logfiles exist, most appliances will have
