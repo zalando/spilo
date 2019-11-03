@@ -459,6 +459,7 @@ def get_placeholders(provider):
     placeholders.setdefault('SSL_CRL_FILE', '')
     placeholders.setdefault('SSL_CERTIFICATE_FILE', os.path.join(placeholders['PGHOME'], 'server.crt'))
     placeholders.setdefault('SSL_PRIVATE_KEY_FILE', os.path.join(placeholders['PGHOME'], 'server.key'))
+    placeholders.setdefault('SSL_TEST_RELOAD', os.environ.get('SSL_PRIVATE_KEY_FILE', '') != '')
     placeholders.setdefault('WALE_BACKUP_THRESHOLD_MEGABYTES', 102400)
     placeholders.setdefault('WALE_BACKUP_THRESHOLD_PERCENTAGE', 30)
     # if Kubernetes is defined as a DCS, derive the namespace from the POD_NAMESPACE, if not set explicitely.
@@ -785,6 +786,9 @@ def write_crontab(placeholders, overwrite):
     link_runit_service('cron')
 
     lines = ['PATH={PATH}'.format(**placeholders)]
+
+    if placeholders.get('SSL_TEST_RELOAD'):
+        lines += ['*/5 * * * * PGDATA={PGDATA} SSL_CA_FILE={SSL_CA_FILE} SSL_CRL_FILE={SSL_CRL_FILE} SSL_CERTIFICATE_FILE={SSL_CERTIFICATE_FILE} SSL_PRIVATE_KEY_FILE={SSL_PRIVATE_KEY_FILE} /scripts/test_reload_ssl.sh 5'.format(**placeholders)]
 
     if bool(placeholders.get('USE_WALE')):
         lines += [('{BACKUP_SCHEDULE} envdir "{WALE_ENV_DIR}" /scripts/postgres_backup.sh' +
