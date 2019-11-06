@@ -12,9 +12,9 @@ if ! $CHPST true 2> /dev/null; then
 fi
 
 # Only small subset of environment variables is allowed. We don't want accidentally disclose sensitive information
-for E in $(env | grep -vE '^(KUBERNETES_(SERVICE|PORT|ROLE)[_=]|((POD_(IP|NAMESPACE))|HOSTNAME|HOME|PATH|LC_ALL|TIMESCALEDB)=)' | sed 's/=.*//g'); do
+for E in $(env | grep -vE '^(KUBERNETES_(SERVICE|PORT|ROLE)[_=]|((POD_(IP|NAMESPACE))|HOSTNAME|PATH|LC_ALL|TIMESCALEDB)=)' | sed 's/=.*//g'); do
     unset $E
 done
 
 exec 2>&1
-exec $CHRT $CHPST patroni /home/postgres/postgres.yml
+exec $CHRT $CHPST env HOME=/home/postgres patroni /home/postgres/postgres.yml
