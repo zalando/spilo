@@ -834,24 +834,16 @@ def write_pgbouncer_configuration(placeholders, overwrite):
     if not pgbouncer_config:
         return logging.info('No PGBOUNCER_CONFIGURATION was specified, skipping')
 
-    write_file(pgbouncer_config, '/etc/pgbouncer/pgbouncer.ini', overwrite)
+    pgbouncer_dir = '/run/pgbouncer'
+    if not os.path.exists(pgbouncer_dir):
+        os.makedirs(pgbouncer_dir)
+    write_file(pgbouncer_config, pgbouncer_dir + '/pgbouncer.ini', overwrite)
 
     pgbouncer_auth = placeholders.get('PGBOUNCER_AUTHENTICATION') or placeholders.get('PGBOUNCER_AUTH')
     if pgbouncer_auth:
-        write_file(pgbouncer_auth, '/etc/pgbouncer/userlist.txt', overwrite)
+        write_file(pgbouncer_auth, pgbouncer_dir + '/userlist.txt', overwrite)
 
-    supervisord_config = """\
-[program:pgbouncer]
-user=postgres
-autostart=1
-priority=500
-directory=/
-command=env -i /usr/sbin/pgbouncer /etc/pgbouncer/pgbouncer.ini
-stdout_logfile=/dev/stdout
-stdout_logfile_maxbytes=0
-redirect_stderr=true
-"""
-    write_file(supervisord_config, '/etc/supervisor/conf.d/pgbouncer.conf', overwrite)
+    link_runit_service('pgbouncer')
 
 
 def get_binary_version(bin_dir):
