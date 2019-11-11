@@ -1,0 +1,20 @@
+#!/bin/sh -e
+
+# Make patroni process real-time if we have enough permissions
+CHRT="chrt -Rr 99"
+if ! $CHRT true 2> /dev/null; then
+    CHRT=""
+fi
+
+CHPST="chpst -u postgres"
+if ! $CHPST true 2> /dev/null; then
+    CHPST=""
+fi
+
+# Only small subset of environment variables is allowed. We don't want accidentally disclose sensitive information
+for E in $(env | grep -vE '^(KUBERNETES_(SERVICE|PORT|ROLE)[_=]|((POD_(IP|NAMESPACE))|HOSTNAME|PATH|LC_ALL|TIMESCALEDB)=)' | sed 's/=.*//g'); do
+    unset $E
+done
+
+exec 2>&1
+exec $CHRT $CHPST env HOME=/home/postgres patroni /home/postgres/postgres.yml

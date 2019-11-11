@@ -42,7 +42,7 @@ AUTO_ENABLE_WALG_RESTORE = ('WAL_S3_BUCKET', 'WALE_S3_PREFIX', 'WALG_S3_PREFIX')
 
 
 def parse_args():
-    sections = ['all', 'patroni', 'patronictl', 'certificate', 'wal-e', 'crontab',
+    sections = ['all', 'patroni', 'patronictl', 'pgqd', 'certificate', 'wal-e', 'crontab',
                 'pam-oauth2', 'pgbouncer', 'bootstrap', 'standby-cluster', 'log', 'renice']
     argp = argparse.ArgumentParser(description='Configures Spilo',
                                    epilog="Choose from the following sections:\n\t{}".format('\n\t'.join(sections)),
@@ -61,6 +61,16 @@ def parse_args():
     args['sections'] = set(args['sections'])
 
     return args
+
+
+def link_runit_service(name):
+    service_dir = '/run/service/' + name
+    if not os.path.exists(service_dir):
+        os.makedirs(service_dir)
+        run_file = service_dir + '/run'
+        if not os.path.exists(run_file):
+            source_file = '/etc/runit/runsvdir/default/{0}/run'.format(name)
+            os.symlink(source_file, run_file)
 
 
 def write_certificates(environment, overwrite):
@@ -214,12 +224,12 @@ bootstrap:
   {{/USE_ADMIN}}
 scope: &scope '{{SCOPE}}'
 restapi:
-  listen: 0.0.0.0:{{APIPORT}}
+  listen: ':{{APIPORT}}'
   connect_address: {{instance_data.ip}}:{{APIPORT}}
 postgresql:
   use_unix_socket: true
   name: '{{instance_data.id}}'
-  listen: 0.0.0.0:{{PGPORT}}
+  listen: '*:{{PGPORT}}'
   connect_address: {{instance_data.ip}}:{{PGPORT}}
   data_dir: {{PGDATA}}
   parameters:
@@ -236,7 +246,7 @@ postgresql:
     ssl_cert_file: {{SSL_CERTIFICATE_FILE}}
     ssl_key_file: {{SSL_PRIVATE_KEY_FILE}}
     shared_preload_libraries: 'bg_mon,pg_stat_statements,pgextwlist,pg_auth_mon,set_user'
-    bg_mon.listen_address: '0.0.0.0'
+    bg_mon.listen_address: '{{BGMON_LISTEN_IP}}'
     pg_stat_statements.track_utility: 'off'
     extwlist.extensions: 'btree_gin,btree_gist,citext,hstore,intarray,ltree,pgcrypto,pgq,pg_trgm,postgres_fdw,uuid-ossp,hypopg'
     extwlist.custom_path: /scripts
@@ -251,11 +261,18 @@ postgresql:
     {{/PAM_OAUTH2}}
     - host    all             all                ::1/128            md5
     - hostssl replication     {{PGUSER_STANDBY}} all                md5
+    {{^ALLOW_NOSSL}}
     - hostnossl all           all                all                reject
+    {{/ALLOW_NOSSL}}
     {{#PAM_OAUTH2}}
     - hostssl all             +{{HUMAN_ROLE}}    all                pam
     {{/PAM_OAUTH2}}
+    {{#ALLOW_NOSSL}}
+    - host    all             all                all                md5
+    {{/ALLOW_NOSSL}}
+    {{^ALLOW_NOSSL}}
     - hostssl all             all                all                md5
+    {{/ALLOW_NOSSL}}
 
   {{#USE_WALE}}
   recovery_conf:
@@ -334,7 +351,7 @@ def get_provider():
 
 
 def get_instance_metadata(provider):
-    metadata = {'ip': socket.gethostbyname(socket.gethostname()),
+    metadata = {'ip': socket.getaddrinfo(socket.gethostname(), 0, socket.AF_UNSPEC, socket.SOCK_STREAM, 0)[0][4][0],
                 'id': socket.gethostname(),
                 'zone': 'local'}
 
@@ -390,6 +407,29 @@ def set_walg_placeholders(placeholders, prefix=''):
         placeholders[prefix + name] = 'true' if value == 'true' and walg_supported else None
 
 
+def get_listen_ip():
+    """ Get IP to listen on for things that don't natively support detecting IPv4/IPv6 dualstack """
+    def has_dual_stack():
+        if hasattr(socket, 'AF_INET6') and hasattr(socket, 'IPPROTO_IPV6') and hasattr(socket, 'IPV6_V6ONLY'):
+            sock = None
+            try:
+                sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+                sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, False)
+                import urllib3
+                return urllib3.util.connection.HAS_IPV6
+            except socket.error as e:
+                logging.debug('Error when working with ipv6 socket: %s', e)
+            finally:
+                if sock:
+                    sock.close()
+        return False
+
+    info = socket.getaddrinfo(None, 0, socket.AF_UNSPEC, socket.SOCK_STREAM, 0, socket.AI_PASSIVE)
+    # in case dual stack is not supported we want IPv4 to be preferred over IPv6
+    info.sort(key=lambda x: x[0] == socket.AF_INET, reverse=not has_dual_stack())
+    return info[0][4][0]
+
+
 def get_placeholders(provider):
     placeholders = dict(os.environ)
 
@@ -409,6 +449,8 @@ def get_placeholders(provider):
     placeholders.setdefault('PGPASSWORD_ADMIN', 'cola')
     placeholders.setdefault('PGUSER_SUPERUSER', 'postgres')
     placeholders.setdefault('PGPASSWORD_SUPERUSER', 'zalando')
+    placeholders.setdefault('ALLOW_NOSSL', '')
+    placeholders.setdefault('BGMON_LISTEN_IP', '0.0.0.0')
     placeholders.setdefault('PGPORT', '5432')
     placeholders.setdefault('SCOPE', 'dummy')
     placeholders.setdefault('SSL_CERTIFICATE_FILE', os.path.join(placeholders['PGHOME'], 'server.crt'))
@@ -526,6 +568,9 @@ def get_placeholders(provider):
     placeholders['postgresql']['parameters']['max_connections'] = min(max(100, int(os_memory_mb/30)), 1000)
 
     placeholders['instance_data'] = get_instance_metadata(provider)
+
+    placeholders['BGMON_LISTEN_IP'] = get_listen_ip()
+
     return placeholders
 
 
@@ -733,6 +778,8 @@ def write_crontab(placeholders, overwrite):
     if not (overwrite or check_crontab('postgres')):
         return
 
+    link_runit_service('cron')
+
     lines = ['PATH={PATH}'.format(**placeholders)]
 
     if bool(placeholders.get('USE_WALE')):
@@ -763,19 +810,7 @@ def configure_renice(overwrite):
 
 def write_etcd_configuration(placeholders, overwrite=False):
     placeholders.setdefault('ETCD_HOST', '127.0.0.1:2379')
-
-    etcd_config = """\
-[program:etcd]
-user=postgres
-autostart=1
-priority=10
-directory=/
-command=env -i /bin/etcd --data-dir /tmp/etcd.data
-stdout_logfile=/dev/stdout
-stdout_logfile_maxbytes=0
-redirect_stderr=true
-"""
-    write_file(etcd_config, '/etc/supervisor/conf.d/etcd.conf', overwrite)
+    link_runit_service('etcd')
 
 
 def write_pam_oauth2_configuration(placeholders, overwrite):
@@ -799,24 +834,16 @@ def write_pgbouncer_configuration(placeholders, overwrite):
     if not pgbouncer_config:
         return logging.info('No PGBOUNCER_CONFIGURATION was specified, skipping')
 
-    write_file(pgbouncer_config, '/etc/pgbouncer/pgbouncer.ini', overwrite)
+    pgbouncer_dir = '/run/pgbouncer'
+    if not os.path.exists(pgbouncer_dir):
+        os.makedirs(pgbouncer_dir)
+    write_file(pgbouncer_config, pgbouncer_dir + '/pgbouncer.ini', overwrite)
 
     pgbouncer_auth = placeholders.get('PGBOUNCER_AUTHENTICATION') or placeholders.get('PGBOUNCER_AUTH')
     if pgbouncer_auth:
-        write_file(pgbouncer_auth, '/etc/pgbouncer/userlist.txt', overwrite)
+        write_file(pgbouncer_auth, pgbouncer_dir + '/userlist.txt', overwrite)
 
-    supervisord_config = """\
-[program:pgbouncer]
-user=postgres
-autostart=1
-priority=500
-directory=/
-command=env -i /usr/sbin/pgbouncer /etc/pgbouncer/pgbouncer.ini
-stdout_logfile=/dev/stdout
-stdout_logfile_maxbytes=0
-redirect_stderr=true
-"""
-    write_file(supervisord_config, '/etc/supervisor/conf.d/pgbouncer.conf', overwrite)
+    link_runit_service('pgbouncer')
 
 
 def get_binary_version(bin_dir):
@@ -872,7 +899,7 @@ def main():
 
     # Ensure replication is available
     if 'pg_hba' in config['bootstrap'] and not any(['replication' in i for i in config['bootstrap']['pg_hba']]):
-        rep_hba = 'hostssl replication {} 0.0.0.0/0 md5'.\
+        rep_hba = 'hostssl replication {} all md5'.\
             format(config['postgresql']['authentication']['replication']['username'])
         config['bootstrap']['pg_hba'].insert(0, rep_hba)
 
@@ -882,6 +909,13 @@ def main():
         logging.info('Configuring {}'.format(section))
         if section == 'patroni':
             write_file(yaml.dump(config, default_flow_style=False, width=120), patroni_configfile, args['force'])
+            link_runit_service('patroni')
+            pg_socket_dir = '/run/postgresql'
+            if not os.path.exists(pg_socket_dir):
+                os.makedirs(pg_socket_dir)
+                st = os.stat(placeholders['PGHOME'])
+                os.chown(pg_socket_dir, st.st_uid, st.st_gid)
+                os.chmod(pg_socket_dir, 0o2775)
         elif section == 'patronictl':
             configdir = os.path.join(placeholders['PGHOME'], '.config', 'patroni')
             patronictl_configfile = os.path.join(configdir, 'patronictl.yaml')
@@ -894,6 +928,8 @@ def main():
                     continue
                 os.unlink(patronictl_configfile)
             os.symlink(patroni_configfile, patronictl_configfile)
+        elif section == 'pgqd':
+            link_runit_service('pgqd')
         elif section == 'log':
             if bool(placeholders.get('LOG_S3_BUCKET')):
                 write_log_environment(placeholders)

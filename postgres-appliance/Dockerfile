@@ -7,7 +7,8 @@ FROM ubuntu:18.04 as builder
 RUN export DEBIAN_FRONTEND=noninteractive \
     && echo 'APT::Install-Recommends "0";\nAPT::Install-Suggests "0";' > /etc/apt/apt.conf.d/01norecommend \
     && apt-get update \
-    && apt-get install -y curl ca-certificates less locales jq vim-tiny gnupg1 cron \
+    && apt-get install -y curl ca-certificates less locales jq vim-tiny gnupg1 cron runit dumb-init \
+    && ln -s chpst /usr/bin/envdir \
 \
     && if [ "$DEMO" != "true" ]; then \
         # Required for wal-e
@@ -50,7 +51,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && find /var/log -type f -exec truncate --size 0 {} \;
 
 COPY dependencies/debs /builddeps
-ADD patches/*.patch set_user.patch /builddeps/
+ADD set_user.patch pgbouncer.patch /builddeps/
 
 ARG PGVERSION
 ARG TIMESCALEDB
@@ -152,7 +153,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             fi \
             && if [ $version != "9.3" ]; then \
                 EXTRAS="$EXTRAS postgresql-${version}-pg-stat-kcache" \
-                && if [ $version != "9.4" ] && [ $version != "12" ]; then \
+                && if [ $version != "9.4" ]; then \
                     EXTRAS="$EXTRAS postgresql-${version}-cron"; \
                 fi; \
             fi \
@@ -206,6 +207,13 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 \
     && apt-get install -y skytools3-ticker pspg \
 \
+    && sed -i "s/ main.*$/ main/g" /etc/apt/sources.list.d/pgdg.list \
+    && apt-get update \
+    && apt-get install -y postgresql postgresql-server-dev-all libpq-dev \
+    && for version in $DEB_PG_SUPPORTED_VERSIONS; do \
+        apt-get install -y postgresql-server-dev-${version}; \
+    done \
+\
     && if [ "$DEMO" != "true" ]; then \
         for version in $DEB_PG_SUPPORTED_VERSIONS; do \
             if [ $version != "9.3" ]; then \
@@ -222,31 +230,23 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && apt-get source pgbouncer \
         && cd $(ls -d pgbouncer-*) \
         # Enable pam authentication support via HBA
-        && curl -sL https://github.com/pgbouncer/pgbouncer/pull/326.diff \
-            | sed -n '/^diff --git a\/src\/client.c b\/src\/client.c/,$ p' | patch -p1 \
+        && patch -p1 < ../pgbouncer.patch \
         # Increase password size
         && sed -i 's/\(MAX_PASSWORD\t\).*/\11024/' include/bouncer.h \
         && sed -i 's/\(SEND_wrap(\)512\(, pktbuf_write_PasswordMessage, res, sk, psw)\)/\11024\2/' include/pktbuf.h \
-        && debuild -b -uc -us \
+        && DEB_BUILD_OPTIONS=nocheck debuild -b -uc -us \
         && cd .. \
         && dpkg -i pgbouncer_*.deb; \
     fi \
 \
     # build and install missing packages
-    && apt-get install -y postgresql-server-dev-all libpq-dev=$PGVERSION* \
-    && for version in $DEB_PG_SUPPORTED_VERSIONS; do \
-        apt-get install -y postgresql-server-dev-${version}; \
-    done \
-    && for pkg in pgextwlist cron; do \
+    && for pkg in pgextwlist; do \
         apt-get source postgresql-11-${pkg} \
         && cd $(ls -d *${pkg%?}*-*/) \
-        && if [ -f ../$pkg.patch ]; then patch -p1 < ../$pkg.patch; fi \
         && if [ "$pkg" = "pgextwlist" ]; then \
             # make it possible to use it from shared_preload_libraries
             perl -ne 'print unless /PG_TRY/ .. /PG_CATCH/' pgextwlist.c > pgextwlist.c.f \
             && egrep -v '(PG_END_TRY|EmitWarningsOnPlaceholders)' pgextwlist.c.f > pgextwlist.c; \
-        else \
-            echo $PGVERSION > debian/pgversions; \
         fi \
         && pg_buildext updatecontrol \
         && debuild -b -uc -us \
@@ -416,7 +416,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && find /usr/share/python-babel-localedata/locale-data -type f ! -name 'en_US*.dat' -delete \
 \
         && pip3 install filechunkio wal-e[aws,google,swift]==$WALE_VERSION kubernetes==3.0.0 \
-                'git+https://github.com/Supervisor/supervisor.git@master#egg=supervisor' \
                 'git+https://github.com/zalando/pg_view.git@master#egg=pg-view' \
 \
         && cd /usr/local/lib/python3.6/dist-packages \
@@ -432,9 +431,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && curl -sL https://github.com/wal-e/wal-e/pull/384.diff | patch -p1 \
 \
         # https://github.com/wal-e/wal-e/pull/392
-        && curl -sL https://github.com/wal-e/wal-e/pull/392.diff | patch -p1 \
-\
-        && echo 4.0.0.dev0 > supervisor/version.txt; \
+        && curl -sL https://github.com/wal-e/wal-e/pull/392.diff | patch -p1; \
     fi \
     && pip3 install "patroni[kubernetes$EXTRAS]==$PATRONIVERSION" \
 \
@@ -494,7 +491,7 @@ ARG DEMO
 EXPOSE 5432 8008 8080
 
 ENV LC_ALL=en_US.utf-8 \
-    PATH=$PATH:/usr/lib/postgresql/$PGVERSION/bin \
+    PATH=/usr/lib/postgresql/$PGVERSION/bin:$PATH \
     PGHOME=/home/postgres \
     TIMESCALEDB=$TIMESCALEDB \
     DEMO=$DEMO
@@ -509,15 +506,14 @@ ENV PGDATA=$PGROOT/data \
 WORKDIR $PGHOME
 
 COPY motd /etc/
-COPY supervisor /etc/supervisor
+COPY runit /etc/service/
 COPY pgq_ticker.ini $PGHOME/
-COPY envdir /usr/local/bin/
 
-RUN mkdir -p /var/log/supervisor \
-        && ln -s supervisor/supervisord.conf /etc/supervisord.conf \
-        && sed -i "s|/var/lib/postgresql.*|$PGHOME:/bin/bash|" /etc/passwd \
+RUN sed -i "s|/var/lib/postgresql.*|$PGHOME:/bin/bash|" /etc/passwd \
         && chown -R postgres:postgres $PGHOME /run \
+        && ln -snf /run/service /etc/service \
         && sed -i 's/set compatible/set nocompatible/' /etc/vim/vimrc.tiny \
+        && echo "PATH=\"$PATH\"" > /etc/environment \
         && for e in TERM=linux LC_ALL=C.UTF-8 LANG=C.UTF-8 EDITOR=editor "PAGER='pspg -bX --no-mouse'"; \
             do echo "export $e" >> /etc/bash.bashrc; \
         done \
@@ -526,4 +522,4 @@ RUN mkdir -p /var/log/supervisor \
 COPY scripts bootstrap /scripts/
 COPY scm-source.json launch.sh /
 
-CMD ["/bin/sh", "/launch.sh"]
+CMD ["/bin/sh", "/launch.sh", "init"]
