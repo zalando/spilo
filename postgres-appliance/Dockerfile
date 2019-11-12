@@ -51,7 +51,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && find /var/log -type f -exec truncate --size 0 {} \;
 
 COPY dependencies/debs /builddeps
-ADD set_user.patch pgbouncer.patch /builddeps/
+ADD set_user.patch /builddeps/
 
 ARG PGVERSION
 ARG TIMESCALEDB
@@ -229,8 +229,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         # patch, build and install pgbouncer
         && apt-get source pgbouncer \
         && cd $(ls -d pgbouncer-*) \
-        # Enable pam authentication support via HBA
-        && patch -p1 < ../pgbouncer.patch \
         # Increase password size
         && sed -i 's/\(MAX_PASSWORD\t\).*/\11024/' include/bouncer.h \
         && sed -i 's/\(SEND_wrap(\)512\(, pktbuf_write_PasswordMessage, res, sk, psw)\)/\11024\2/' include/pktbuf.h \
@@ -241,7 +239,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 \
     # build and install missing packages
     && for pkg in pgextwlist; do \
-        apt-get source postgresql-11-${pkg} \
+        apt-get source postgresql-$PGVERSION-${pkg} \
         && cd $(ls -d *${pkg%?}*-*/) \
         && if [ "$pkg" = "pgextwlist" ]; then \
             # make it possible to use it from shared_preload_libraries
@@ -259,7 +257,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     done \
 \
     # Remove unnecessary packages
-    && apt-get purge -y ${BUILD_PACKAGES} postgresql-server-dev-* libpq-dev=$PGVERSION* libmagic1 bsdmainutils \
+    && apt-get purge -y ${BUILD_PACKAGES} postgresql postgresql-server-dev-* libpq-dev=$PGVERSION* libmagic1 bsdmainutils \
     && apt-get autoremove -y \
     && apt-get clean \
     && dpkg -l | grep '^rc' | awk '{print $2}' | xargs apt-get purge -y \
@@ -398,7 +396,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && apt-cache depends patroni \
             | sed -n -e 's/.* Depends: \(python3-.\+\)$/\1/p' \
             | grep -Ev '^python3-(sphinx|etcd|consul|kazoo|kubernetes)' \
-            | xargs apt-get install -y ${BUILD_PACKAGES} python3-distutils \
+            | xargs apt-get install -y ${BUILD_PACKAGES} \
                                         python3-pystache python3-cachetools \
                                         python3-rsa python3-pyasn1-modules \
 \
@@ -433,7 +431,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         # https://github.com/wal-e/wal-e/pull/392
         && curl -sL https://github.com/wal-e/wal-e/pull/392.diff | patch -p1; \
     fi \
-    && pip3 install "patroni[kubernetes$EXTRAS]==$PATRONIVERSION" \
+    && pip3 install "git+https://github.com/zalando/patroni.git@feature/k8s-list-watch#egg=patroni[kubernetes$EXTRAS]" \
 \
     && for d in /usr/local/lib/python3.6 /usr/lib/python3; do \
         cd $d/dist-packages \
