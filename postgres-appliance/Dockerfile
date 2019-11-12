@@ -65,9 +65,9 @@ ARG DEB_PG_SUPPORTED_VERSIONS="$PGOLDVERSIONS $PGVERSION"
 ENV POSTGIS_VERSION=2.5 \
     BG_MON_COMMIT=0df2a6f7ebcaf805465271032d1ec788779938d7 \
     PG_AUTH_MON_COMMIT=902c670c9f2071b30e1d4437e7a38e2e136f9be6 \
-    DECODERBUFS=v0.9.5.Final \
+    DECODERBUFS=v0.10.0.Final \
     SET_USER=REL1_6_2 \
-    PLPGSQL_CHECK=v1.7.5 \
+    PLPGSQL_CHECK=v1.7.6 \
     PLPROFILER=REL4_1 \
     PAM_OAUTH2=v1.0
 
@@ -206,6 +206,13 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 \
     && apt-get install -y skytools3-ticker pspg \
 \
+    && sed -i "s/ main.*$/ main/g" /etc/apt/sources.list.d/pgdg.list \
+    && apt-get update \
+    && apt-get install -y postgresql postgresql-server-dev-all libpq-dev \
+    && for version in $DEB_PG_SUPPORTED_VERSIONS; do \
+        apt-get install -y postgresql-server-dev-${version}; \
+    done \
+\
     && if [ "$DEMO" != "true" ]; then \
         for version in $DEB_PG_SUPPORTED_VERSIONS; do \
             if [ $version != "9.3" ]; then \
@@ -216,27 +223,18 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         # patch, build and install pgbouncer
         && apt-get source pgbouncer \
         && cd $(ls -d pgbouncer-*) \
-        # Enable pam authentication support via HBA
-        && curl -sL https://github.com/pgbouncer/pgbouncer/pull/326.diff \
-            | sed -n '/^diff --git a\/src\/client.c b\/src\/client.c/,$ p' | patch -p1 \
         # Increase password size
         && sed -i 's/\(MAX_PASSWORD\t\).*/\11024/' include/bouncer.h \
         && sed -i 's/\(SEND_wrap(\)512\(, pktbuf_write_PasswordMessage, res, sk, psw)\)/\11024\2/' include/pktbuf.h \
-        && debuild -b -uc -us \
+        && DEB_BUILD_OPTIONS=nocheck debuild -b -uc -us \
         && cd .. \
         && dpkg -i pgbouncer_*.deb; \
     fi \
 \
     # build and install missing packages
-    && sed -i "s/ main.*$/ main/g" /etc/apt/sources.list.d/pgdg.list \
-    && apt-get update \
-    && apt-get install -y postgresql-server-dev-all libpq-dev \
-    && for version in $DEB_PG_SUPPORTED_VERSIONS; do \
-        apt-get install -y postgresql-server-dev-${version}; \
-    done \
     && for pkg in pgextwlist; do \
-        apt-get source postgresql-10-${pkg} \
-        && cd $(ls -d *${pkg%?}*-*) \
+        apt-get source postgresql-$PGVERSION-${pkg} \
+        && cd $(ls -d *${pkg%?}*-*/) \
         && if [ "$pkg" = "pgextwlist" ]; then \
             # make it possible to use it from shared_preload_libraries
             perl -ne 'print unless /PG_TRY/ .. /PG_CATCH/' pgextwlist.c > pgextwlist.c.f \
@@ -253,7 +251,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     done \
 \
     # Remove unnecessary packages
-    && apt-get purge -y ${BUILD_PACKAGES} postgresql-server-dev-* libmagic1 bsdmainutils \
+    && apt-get purge -y ${BUILD_PACKAGES} postgresql postgresql-server-dev-* libmagic1 bsdmainutils \
     && apt-get autoremove -y \
     && apt-get clean \
     && dpkg -l | grep '^rc' | awk '{print $2}' | xargs apt-get purge -y \
@@ -381,7 +379,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 # Install patroni, wal-e and wal-g
 ENV PATRONIVERSION=1.6.0
 ENV WALE_VERSION=1.1.0
-ENV WALG_VERSION=v0.2.12
+ENV WALG_VERSION=v0.2.13
 RUN export DEBIAN_FRONTEND=noninteractive \
     && set -ex \
     && BUILD_PACKAGES="python3-pip python3-wheel python3-dev git patchutils binutils" \
