@@ -12,7 +12,7 @@ if ! $CHPST true 2> /dev/null; then
 fi
 
 # Only small subset of environment variables is allowed. We don't want accidentally disclose sensitive information
-for E in $(env | grep -vE '^(KUBERNETES_(SERVICE|PORT|ROLE)[_=]|((POD_(IP|NAMESPACE))|HOSTNAME|PATH|LC_ALL|TIMESCALEDB)=)' | sed 's/=.*//g'); do
+for E in $(env | grep -vE '^(KUBERNETES_(SERVICE|PORT|ROLE)[_=]|((POD_(IP|NAMESPACE))|HOSTNAME|PATH|PGHOME|LC_ALL|TIMESCALEDB)=)' | sed 's/=.*//g'); do
     unset $E
 done
 
