@@ -6,9 +6,9 @@ logger = logging.getLogger(__name__)
 
 
 def main():
+    from pg_upgrade import PostgresqlUpgrade
     from patroni.config import Config
     from patroni.utils import polling_loop
-    from pg_upgrade import PostgresqlUpgrade
 
     config = Config()
     config['postgresql'].update({'callbacks': {}, 'pg_ctl_timeout': 3600*24*7})
