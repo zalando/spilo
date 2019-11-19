@@ -23,6 +23,7 @@ Environment Configuration Settings
 - **PGVERSION**: Specifies the version of postgreSQL to reference in the bin_dir variable (/usr/lib/postgresql/PGVERSION/bin) if postgresql.bin_dir wasn't set in SPILO_CONFIGURATION
 - **SCOPE**: cluster name, multiple Spilos belonging to the same cluster must have identical scope.
 - **SSL_CA_FILE**: path to the SSL CA certificate file inside the container (by default: '')
+- **SSL_CRL_FILE**: path to the SSL Certificate Revocation List file inside the container (by default: '')
 - **SSL_CERTIFICATE_FILE**: path to the SSL certificate file inside the container (by default PGHOME/server.crt), Spilo will generate one if not present.
 - **SSL_PRIVATE_KEY_FILE**: path to the SSL private key within the container (by default PGHOME/server.key), Spilo will generate one if not present
 - **WALE_BACKUP_THRESHOLD_MEGABYTES**: maximum size of the WAL segments accumulated after the base backup to consider WAL-E restore instead of pg_basebackup.
