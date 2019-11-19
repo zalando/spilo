@@ -614,8 +614,19 @@ def get_dcs_config(config, placeholders):
         config = {'etcd': {'hosts': placeholders['ETCD_HOSTS']}}
     elif 'ETCD_DISCOVERY_DOMAIN' in placeholders:
         config = {'etcd': {'discovery_srv': placeholders['ETCD_DISCOVERY_DOMAIN']}}
+    elif 'ETCD_URL' in placeholders:
+        config = {'etcd': {'url': placeholders['ETCD_URL']}}
+    elif 'ETCD_PROXY' in placeholders:
+        config = {'etcd': {'proxy': placeholders['ETCD_PROXY']}}
     else:
         config = {}  # Configuration can also be specified using either SPILO_CONFIGURATION or PATRONI_CONFIGURATION
+
+    if 'CACERT' in placeholders :
+        config['etcd'].update({'cacert': placeholders['CACERT']})
+    if 'KEY' in placeholders :
+        config['etcd'].update({'key': placeholders['KEY']})
+    if 'CERT' in placeholders :
+        config['etcd'].update({'cert': placeholders['CERT']})
 
     if placeholders['NAMESPACE'] not in ('default', ''):
         config['namespace'] = placeholders['NAMESPACE']
@@ -868,6 +879,8 @@ def main():
             not USE_KUBERNETES and
             'ETCD_HOST' not in placeholders and
             'ETCD_HOSTS' not in placeholders and
+            'ETCD_URL' not in placeholders and
+            'ETCD_PROXY' not in placeholders and
             'ETCD_DISCOVERY_DOMAIN' not in placeholders):
         write_etcd_configuration(placeholders)
 
