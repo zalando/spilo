@@ -69,8 +69,7 @@ def choose_backup(output, recovery_target_time):
         raise Exception("wal-e could not found any backups")
     match_timestamp = match = None
     for backup in backup_list:
-        last_modified = parse(backup['last_modified'])
-        last_modified = last_modified.replace(tzinfo=recovery_target_time.tzinfo)
+        last_modified = parse('%s %s' % (backup['last_modified'], backup['expanded_size_bytes']))
         if last_modified < recovery_target_time:
             if match is None or last_modified > match_timestamp:
                 match = backup
