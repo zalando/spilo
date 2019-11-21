@@ -384,7 +384,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && find /var/log -type f -exec truncate --size 0 {} \;
 
 # Install patroni, wal-e and wal-g
-ENV PATRONIVERSION=1.6.0
+ENV PATRONIVERSION=1.6.1
 ENV WALE_VERSION=1.1.0
 ENV WALG_VERSION=v0.2.13
 RUN export DEBIAN_FRONTEND=noninteractive \
@@ -431,7 +431,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         # https://github.com/wal-e/wal-e/pull/392
         && curl -sL https://github.com/wal-e/wal-e/pull/392.diff | patch -p1; \
     fi \
-    && pip3 install "git+https://github.com/zalando/patroni.git@feature/k8s-list-watch#egg=patroni[kubernetes$EXTRAS]" \
+    && pip3 install "patroni[kubernetes$EXTRAS]==$PATRONIVERSION" \
 \
     && for d in /usr/local/lib/python3.6 /usr/lib/python3; do \
         cd $d/dist-packages \
