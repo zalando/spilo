@@ -377,7 +377,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && find /var/log -type f -exec truncate --size 0 {} \;
 
 # Install patroni, wal-e and wal-g
-ENV PATRONIVERSION=1.6.0
+ENV PATRONIVERSION=1.6.1
 ENV WALE_VERSION=1.1.0
 ENV WALG_VERSION=v0.2.13
 RUN export DEBIAN_FRONTEND=noninteractive \
@@ -413,7 +413,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 \
         # pg_view installs useless pytest
         && sed -i '/^pytest/d' pg_view-*/requires.txt \
-        && pip3 uninstall -y atomicwrites attrs more_itertools pluggy pytest py \
+        && pip3 uninstall -y attrs more_itertools pluggy pytest py \
 \
         # https://github.com/wal-e/wal-e/issues/318
         && sed -i 's/^\(    for i in range(0,\) num_retries):.*/\1 100):/g' /usr/lib/python3/dist-packages/boto/utils.py \
