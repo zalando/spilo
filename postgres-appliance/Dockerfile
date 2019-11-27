@@ -413,7 +413,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 \
         # pg_view installs useless pytest
         && sed -i '/^pytest/d' pg_view-*/requires.txt \
-        && pip3 uninstall -y atomicwrites attrs more_itertools pluggy pytest py \
+        && pip3 uninstall -y attrs more_itertools pluggy pytest py \
 \
         # https://github.com/wal-e/wal-e/issues/318
         && sed -i 's/^\(    for i in range(0,\) num_retries):.*/\1 100):/g' /usr/lib/python3/dist-packages/boto/utils.py \
