@@ -621,12 +621,12 @@ def get_dcs_config(config, placeholders):
     else:
         config = {}  # Configuration can also be specified using either SPILO_CONFIGURATION or PATRONI_CONFIGURATION
 
-    if 'CACERT' in placeholders :
-        config['etcd'].update({'cacert': placeholders['CACERT']})
-    if 'KEY' in placeholders :
-        config['etcd'].update({'key': placeholders['KEY']})
-    if 'CERT' in placeholders :
-        config['etcd'].update({'cert': placeholders['CERT']})
+    if 'ETCD_CACERT' in placeholders :
+        config['etcd'].update({'cacert': placeholders['ETCD_CACERT']})
+    if 'ETCD_KEY' in placeholders :
+        config['etcd'].update({'key': placeholders['ETCD_KEY']})
+    if 'ETCD_CERT' in placeholders :
+        config['etcd'].update({'cert': placeholders['ETCD_CERT']})
 
     if placeholders['NAMESPACE'] not in ('default', ''):
         config['namespace'] = placeholders['NAMESPACE']
