@@ -4,6 +4,11 @@ Environment Configuration Settings
 - **ETCD_HOST**: the DNS A record pointing to Etcd hosts.
 - **ETCD_HOSTS**: list of Etcd hosts in format host1:port1,host2:port2,etc.
 - **ETCD_DISCOVERY_DOMAIN**: the DNS SRV record pointing to Etcd hosts.
+- **ETCD_URL**: url for Etcd host in format http(s)://host1:port
+- **ETCD_PROXY**: url for Etcd Proxy format http(s)://host1:port
+- **ETCD_CACERT**: Etcd CA certificate. If present it will enable validation.
+- **ETCD_CERT**: Etcd client certificate.
+- **ETCD_KEY**: Etcd client certificate key. Can be empty if the key is part of certificate.
 - **PGHOME**: filesystem path where to put PostgreSQL home directory (/home/postgres by default)
 - **APIPORT**: TCP port to Patroni API connections (8008 by default)
 - **BACKUP_SCHEDULE**: cron schedule for doing backups via WAL-E (if WAL-E is enabled, '00 01 * * *' by default)
