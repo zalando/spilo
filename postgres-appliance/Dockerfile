@@ -4,6 +4,7 @@ ARG DEMO=false
 
 FROM ubuntu:18.04 as builder
 
+
 RUN export DEBIAN_FRONTEND=noninteractive \
     && echo 'APT::Install-Recommends "0";\nAPT::Install-Suggests "0";' > /etc/apt/apt.conf.d/01norecommend \
     && apt-get update \
@@ -49,6 +50,9 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             /usr/share/locale/?? \
             /usr/share/locale/??_?? \
     && find /var/log -type f -exec truncate --size 0 {} \;
+
+RUN  apt-get install curl \
+        && curl -sL https://aka.ms/InstallAzureCLIDeb | bash
 
 COPY dependencies/debs /builddeps
 COPY set_user.patch /builddeps
@@ -406,7 +410,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 \
         && find /usr/share/python-babel-localedata/locale-data -type f ! -name 'en_US*.dat' -delete \
 \
-        && pip3 install filechunkio wal-e[aws,google,swift]==$WALE_VERSION kubernetes==3.0.0 \
+        && pip3 install filechunkio wal-e[azure,aws,google,swift]==$WALE_VERSION kubernetes==3.0.0 \
                 'git+https://github.com/zalando/pg_view.git@master#egg=pg-view' \
 \
         && cd /usr/local/lib/python3.6/dist-packages \
