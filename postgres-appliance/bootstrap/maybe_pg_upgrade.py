@@ -10,7 +10,7 @@ def main():
     from patroni.config import Config
     from patroni.utils import polling_loop
 
-    config = Config()
+    config = Config(sys.argv[1])
     config['postgresql'].update({'callbacks': {}, 'pg_ctl_timeout': 3600*24*7})
     upgrade = PostgresqlUpgrade(config['postgresql'])
 
