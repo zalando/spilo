@@ -384,7 +384,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && find /var/log -type f -exec truncate --size 0 {} \;
 
 # Install patroni, wal-e and wal-g
-ENV PATRONIVERSION=1.6.1
+ENV PATRONIVERSION=1.6.2
 ENV WALE_VERSION=1.1.0
 ENV WALG_VERSION=v0.2.13
 RUN export DEBIAN_FRONTEND=noninteractive \
@@ -396,9 +396,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && apt-cache depends patroni \
             | sed -n -e 's/.* Depends: \(python3-.\+\)$/\1/p' \
             | grep -Ev '^python3-(sphinx|etcd|consul|kazoo|kubernetes)' \
-            | xargs apt-get install -y ${BUILD_PACKAGES} \
-                                        python3-pystache python3-cachetools \
-                                        python3-rsa python3-pyasn1-modules \
+            | xargs apt-get install -y ${BUILD_PACKAGES} python3-pystache \
 \
     && pip3 install setuptools \
 \
@@ -409,11 +407,11 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && strip /usr/local/bin/wal-g \
         && apt-get install -y python3-etcd python3-consul python3-kazoo python3-meld3 \
                         python3-boto python3-gevent python3-greenlet python3-protobuf \
-                        python3-websocket python3-requests-oauthlib python3-swiftclient \
+                        python3-cachetools python3-rsa python3-pyasn1-modules python3-swiftclient \
 \
         && find /usr/share/python-babel-localedata/locale-data -type f ! -name 'en_US*.dat' -delete \
 \
-        && pip3 install filechunkio wal-e[aws,google,swift]==$WALE_VERSION kubernetes==3.0.0 \
+        && pip3 install filechunkio wal-e[aws,google,swift]==$WALE_VERSION \
                 'git+https://github.com/zalando/pg_view.git@master#egg=pg-view' \
 \
         && cd /usr/local/lib/python3.6/dist-packages \
@@ -431,7 +429,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         # https://github.com/wal-e/wal-e/pull/392
         && curl -sL https://github.com/wal-e/wal-e/pull/392.diff | patch -p1; \
     fi \
-    && pip3 install "patroni[kubernetes$EXTRAS]==$PATRONIVERSION" \
+    && pip3 install "git+https://github.com/zalando/patroni.git@feature/no-kubernetes#egg=patroni[kubernetes$EXTRAS]" \
 \
     && for d in /usr/local/lib/python3.6 /usr/lib/python3; do \
         cd $d/dist-packages \
