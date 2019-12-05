@@ -243,8 +243,12 @@ postgresql:
     log_rotation_age: '1d'
     log_truncate_on_rotation: 'on'
     ssl: 'on'
+    {{#SSL_CA_FILE}}
     ssl_ca_file: {{SSL_CA_FILE}}
+    {{/SSL_CA_FILE}}
+    {{#SSL_CRL_FILE}}
     ssl_crl_file: {{SSL_CRL_FILE}}
+    {{/SSL_CRL_FILE}}
     ssl_cert_file: {{SSL_CERTIFICATE_FILE}}
     ssl_key_file: {{SSL_PRIVATE_KEY_FILE}}
     shared_preload_libraries: 'bg_mon,pg_stat_statements,pgextwlist,pg_auth_mon,set_user'
@@ -455,11 +459,11 @@ def get_placeholders(provider):
     placeholders.setdefault('BGMON_LISTEN_IP', '0.0.0.0')
     placeholders.setdefault('PGPORT', '5432')
     placeholders.setdefault('SCOPE', 'dummy')
+    placeholders.setdefault('SSL_TEST_RELOAD', 'SSL_PRIVATE_KEY_FILE' in os.environ)
     placeholders.setdefault('SSL_CA_FILE', '')
     placeholders.setdefault('SSL_CRL_FILE', '')
     placeholders.setdefault('SSL_CERTIFICATE_FILE', os.path.join(placeholders['PGHOME'], 'server.crt'))
     placeholders.setdefault('SSL_PRIVATE_KEY_FILE', os.path.join(placeholders['PGHOME'], 'server.key'))
-    placeholders.setdefault('SSL_TEST_RELOAD', os.environ.get('SSL_PRIVATE_KEY_FILE', '') != '')
     placeholders.setdefault('WALE_BACKUP_THRESHOLD_MEGABYTES', 102400)
     placeholders.setdefault('WALE_BACKUP_THRESHOLD_PERCENTAGE', 30)
     # if Kubernetes is defined as a DCS, derive the namespace from the POD_NAMESPACE, if not set explicitely.
@@ -626,12 +630,9 @@ def get_dcs_config(config, placeholders):
     else:
         config = {}  # Configuration can also be specified using either SPILO_CONFIGURATION or PATRONI_CONFIGURATION
 
-    if 'ETCD_CACERT' in placeholders :
-        config['etcd'].update({'cacert': placeholders['ETCD_CACERT']})
-    if 'ETCD_KEY' in placeholders :
-        config['etcd'].update({'key': placeholders['ETCD_KEY']})
-    if 'ETCD_CERT' in placeholders :
-        config['etcd'].update({'cert': placeholders['ETCD_CERT']})
+    if 'etcd' in config:
+        config['etcd'].update({n.lower(): placeholders['ETCD_' + n]
+                               for n in ('CACERT', 'KEY', 'CERT') if placeholders.get('ETCD_' + n)})
 
     if placeholders['NAMESPACE'] not in ('default', ''):
         config['namespace'] = placeholders['NAMESPACE']
@@ -799,7 +800,9 @@ def write_crontab(placeholders, overwrite):
     lines = ['PATH={PATH}'.format(**placeholders)]
 
     if placeholders.get('SSL_TEST_RELOAD'):
-        lines += ['*/5 * * * * PGDATA={PGDATA} SSL_CA_FILE={SSL_CA_FILE} SSL_CRL_FILE={SSL_CRL_FILE} SSL_CERTIFICATE_FILE={SSL_CERTIFICATE_FILE} SSL_PRIVATE_KEY_FILE={SSL_PRIVATE_KEY_FILE} /scripts/test_reload_ssl.sh 5'.format(**placeholders)]
+        env = ' '.join('{0}="{1}"'.format(n, placeholders[n]) for n in ('SSL_CA_FILE', 'SSL_CRL_FILE',
+                       'SSL_CERTIFICATE_FILE', 'SSL_PRIVATE_KEY_FILE') if placeholders.get(n))
+        lines += ['*/5 * * * * {0} /scripts/test_reload_ssl.sh 5'.format(env)]
 
     if bool(placeholders.get('USE_WALE')):
         lines += [('{BACKUP_SCHEDULE} envdir "{WALE_ENV_DIR}" /scripts/postgres_backup.sh' +
