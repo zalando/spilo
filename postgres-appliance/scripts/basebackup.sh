@@ -9,7 +9,7 @@ while getopts ":-:" optchar; do
             DATA_DIR=${OPTARG#*=}
             ;;
         connstring=* )
-            CONNSTR=${OPTARG#*=}
+            CONNSTR="${OPTARG#*=}"
             ;;
         retries=* )
             RETRIES=${OPTARG#*=}
@@ -17,7 +17,7 @@ while getopts ":-:" optchar; do
     esac
 done
 
-[[ -z $DATA_DIR || -z $CONNSTR || ! $RETRIES =~ ^[1-9]$ ]] && exit 1
+[[ -z $DATA_DIR || -z "$CONNSTR" || ! $RETRIES =~ ^[1-9]$ ]] && exit 1
 
 if which pg_receivewal &> /dev/null; then
     PG_RECEIVEWAL=pg_receivewal
