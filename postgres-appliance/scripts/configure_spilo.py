@@ -243,6 +243,8 @@ postgresql:
     log_rotation_age: '1d'
     log_truncate_on_rotation: 'on'
     ssl: 'on'
+    ssl_ca_file: {{SSL_CA_FILE}}
+    ssl_crl_file: {{SSL_CRL_FILE}}
     ssl_cert_file: {{SSL_CERTIFICATE_FILE}}
     ssl_key_file: {{SSL_PRIVATE_KEY_FILE}}
     shared_preload_libraries: 'bg_mon,pg_stat_statements,pgextwlist,pg_auth_mon,set_user'
@@ -453,8 +455,11 @@ def get_placeholders(provider):
     placeholders.setdefault('BGMON_LISTEN_IP', '0.0.0.0')
     placeholders.setdefault('PGPORT', '5432')
     placeholders.setdefault('SCOPE', 'dummy')
+    placeholders.setdefault('SSL_CA_FILE', '')
+    placeholders.setdefault('SSL_CRL_FILE', '')
     placeholders.setdefault('SSL_CERTIFICATE_FILE', os.path.join(placeholders['PGHOME'], 'server.crt'))
     placeholders.setdefault('SSL_PRIVATE_KEY_FILE', os.path.join(placeholders['PGHOME'], 'server.key'))
+    placeholders.setdefault('SSL_TEST_RELOAD', os.environ.get('SSL_PRIVATE_KEY_FILE', '') != '')
     placeholders.setdefault('WALE_BACKUP_THRESHOLD_MEGABYTES', 102400)
     placeholders.setdefault('WALE_BACKUP_THRESHOLD_PERCENTAGE', 30)
     # if Kubernetes is defined as a DCS, derive the namespace from the POD_NAMESPACE, if not set explicitely.
@@ -614,8 +619,19 @@ def get_dcs_config(config, placeholders):
         config = {'etcd': {'hosts': placeholders['ETCD_HOSTS']}}
     elif 'ETCD_DISCOVERY_DOMAIN' in placeholders:
         config = {'etcd': {'discovery_srv': placeholders['ETCD_DISCOVERY_DOMAIN']}}
+    elif 'ETCD_URL' in placeholders:
+        config = {'etcd': {'url': placeholders['ETCD_URL']}}
+    elif 'ETCD_PROXY' in placeholders:
+        config = {'etcd': {'proxy': placeholders['ETCD_PROXY']}}
     else:
         config = {}  # Configuration can also be specified using either SPILO_CONFIGURATION or PATRONI_CONFIGURATION
+
+    if 'ETCD_CACERT' in placeholders :
+        config['etcd'].update({'cacert': placeholders['ETCD_CACERT']})
+    if 'ETCD_KEY' in placeholders :
+        config['etcd'].update({'key': placeholders['ETCD_KEY']})
+    if 'ETCD_CERT' in placeholders :
+        config['etcd'].update({'cert': placeholders['ETCD_CERT']})
 
     if placeholders['NAMESPACE'] not in ('default', ''):
         config['namespace'] = placeholders['NAMESPACE']
@@ -782,6 +798,9 @@ def write_crontab(placeholders, overwrite):
 
     lines = ['PATH={PATH}'.format(**placeholders)]
 
+    if placeholders.get('SSL_TEST_RELOAD'):
+        lines += ['*/5 * * * * PGDATA={PGDATA} SSL_CA_FILE={SSL_CA_FILE} SSL_CRL_FILE={SSL_CRL_FILE} SSL_CERTIFICATE_FILE={SSL_CERTIFICATE_FILE} SSL_PRIVATE_KEY_FILE={SSL_PRIVATE_KEY_FILE} /scripts/test_reload_ssl.sh 5'.format(**placeholders)]
+
     if bool(placeholders.get('USE_WALE')):
         lines += [('{BACKUP_SCHEDULE} envdir "{WALE_ENV_DIR}" /scripts/postgres_backup.sh' +
                    ' "{PGDATA}" {BACKUP_NUM_TO_RETAIN}').format(**placeholders)]
@@ -868,6 +887,8 @@ def main():
             not USE_KUBERNETES and
             'ETCD_HOST' not in placeholders and
             'ETCD_HOSTS' not in placeholders and
+            'ETCD_URL' not in placeholders and
+            'ETCD_PROXY' not in placeholders and
             'ETCD_DISCOVERY_DOMAIN' not in placeholders):
         write_etcd_configuration(placeholders)
 
