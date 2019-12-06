@@ -19,7 +19,7 @@ import yaml
 import pystache
 import requests
 
-
+PROVIDER_AZURE = "azure"
 PROVIDER_AWS = "aws"
 PROVIDER_GOOGLE = "google"
 PROVIDER_OPENSTACK = "openstack"
@@ -328,7 +328,7 @@ postgresql:
 def get_provider():
     provider = os.environ.get('SPILO_PROVIDER')
     if provider:
-        if provider in {PROVIDER_AWS, PROVIDER_GOOGLE, PROVIDER_OPENSTACK, PROVIDER_LOCAL}:
+        if provider in {PROVIDER_AZURE, PROVIDER_AWS, PROVIDER_GOOGLE, PROVIDER_OPENSTACK, PROVIDER_LOCAL}:
             return provider
         else:
             logging.error('Unknown SPILO_PROVIDER: %s', provider)
@@ -338,7 +338,7 @@ def get_provider():
         return PROVIDER_LOCAL
 
     try:
-        logging.info("Figuring out my environment (Google? AWS? Openstack? Local?)")
+        logging.info("Figuring out my environment (Google? Azure? AWS? Openstack? Local?)")
         r = requests.get('http://169.254.169.254', timeout=2)
         if r.headers.get('Metadata-Flavor', '') == 'Google':
             return PROVIDER_GOOGLE
@@ -371,7 +371,7 @@ def get_instance_metadata(provider):
         mapping = {'zone': 'zone'}
         if not USE_KUBERNETES:
             mapping.update({'id': 'id'})
-    elif provider == PROVIDER_AWS or provider == PROVIDER_OPENSTACK:
+    elif provider == PROVIDER_AWS or provider == PROVIDER_OPENSTACK or provider == PROVIDER_AZURE:
         url = 'http://169.254.169.254/latest/meta-data'
         mapping = {'zone': 'placement/availability-zone'}
         if not USE_KUBERNETES:
@@ -680,10 +680,12 @@ def write_wale_environment(placeholders, prefix, overwrite):
                   'USE_WALG_RESTORE', 'WALG_BACKUP_COMPRESSION_METHOD', 'WALG_BACKUP_FROM_REPLICA',
                   'WALG_SENTINEL_USER_DATA', 'WALG_PREVENT_WAL_OVERWRITE']
 
+    azure_names = ['WALE_WABS_PREFIX','WABS_ACCOUNT_NAME','WABS_ACCESS_KEY','WABS_SAS_TOKEN','WALG_AZ_PREFIX']
+
     wale = defaultdict(lambda: '')
     for name in ['WALE_ENV_DIR', 'SCOPE', 'WAL_BUCKET_SCOPE_PREFIX', 'WAL_BUCKET_SCOPE_SUFFIX',
                  'WAL_S3_BUCKET', 'WAL_GCS_BUCKET', 'WAL_GS_BUCKET', 'WAL_SWIFT_BUCKET'] +\
-            s3_names + swift_names + gs_names + walg_names:
+            s3_names + swift_names + gs_names + walg_names + azure_names:
         wale[name] = placeholders.get(prefix + name, '')
 
     if wale.get('WAL_S3_BUCKET') or wale.get('WALE_S3_PREFIX') or wale.get('WALG_S3_PREFIX'):
