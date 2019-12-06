@@ -339,6 +339,12 @@ def get_provider():
 
     try:
         logging.info("Figuring out my environment (Google? Azure? AWS? Openstack? Local?)")
+        # Check if Azure is the cloud provider
+        bashCommand='curl -H Metadata:true "http://169.254.169.254/metadata/instance?api-version=2019-03-11"'
+        ra = os.popen(bashCommand).read()
+        raj = json.loads(ra)
+        if raj["compute"]["provider"]=="Microsoft.Compute":
+            return PROVIDER_AZURE
         r = requests.get('http://169.254.169.254', timeout=2)
         if r.headers.get('Metadata-Flavor', '') == 'Google':
             return PROVIDER_GOOGLE
@@ -365,13 +371,15 @@ def get_instance_metadata(provider):
         metadata['ip'] = os.environ.get('POD_IP', metadata['ip'])
 
     headers = {}
+    if provider == PROVIDER_AZURE:
+        url = 'http://169.254.169.254/metadata/instance?api-version=2019-03-11'
     if provider == PROVIDER_GOOGLE:
         headers['Metadata-Flavor'] = 'Google'
         url = 'http://metadata.google.internal/computeMetadata/v1/instance'
         mapping = {'zone': 'zone'}
         if not USE_KUBERNETES:
             mapping.update({'id': 'id'})
-    elif provider == PROVIDER_AWS or provider == PROVIDER_OPENSTACK or provider == PROVIDER_AZURE:
+    elif provider == PROVIDER_AWS or provider == PROVIDER_OPENSTACK:
         url = 'http://169.254.169.254/latest/meta-data'
         mapping = {'zone': 'placement/availability-zone'}
         if not USE_KUBERNETES:
