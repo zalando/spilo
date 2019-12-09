@@ -871,8 +871,8 @@ def write_pgbouncer_configuration(placeholders, overwrite):
 def get_binary_version(bin_dir):
     postgres = os.path.join(bin_dir or '', 'postgres')
     version = subprocess.check_output([postgres, '--version']).decode()
-    version = re.match('^[^\s]+ [^\s]+ (\d+)\.(\d+)', version)
-    return '.'.join(version.groups()) if int(version.group(1)) < 10 else version.group(1)
+    version = re.match('^[^\s]+ [^\s]+ (\d+)(\.(\d+))?', version)
+    return '.'.join([version.group(1), version.group(3)]) if int(version.group(1)) < 10 else version.group(1)
 
 
 def main():

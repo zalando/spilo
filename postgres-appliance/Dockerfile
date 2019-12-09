@@ -1,4 +1,4 @@
-ARG PGVERSION=11
+ARG PGVERSION=12
 ARG TIMESCALEDB=1.4.2
 ARG DEMO=false
 
@@ -51,18 +51,18 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && find /var/log -type f -exec truncate --size 0 {} \;
 
 COPY dependencies/debs /builddeps
-COPY set_user.patch /builddeps
+ADD set_user.patch /builddeps/
 
 ARG PGVERSION
 ARG TIMESCALEDB
 ARG DEMO
-ARG PGOLDVERSIONS="9.3 9.4 9.5 9.6 10"
+ARG PGOLDVERSIONS="9.3 9.4 9.5 9.6 10 11"
 ARG WITH_PERL=false
 
 ARG DEB_PG_SUPPORTED_VERSIONS="$PGOLDVERSIONS $PGVERSION"
 
 # Install PostgreSQL, extensions and contribs
-ENV POSTGIS_VERSION=2.5 \
+ENV POSTGIS_VERSION=3.0 \
     BG_MON_COMMIT=0df2a6f7ebcaf805465271032d1ec788779938d7 \
     PG_AUTH_MON_COMMIT=902c670c9f2071b30e1d4437e7a38e2e136f9be6 \
     DECODERBUFS=v0.10.0.Final \
@@ -77,13 +77,12 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && apt-get update \
     && cd /builddeps \
 \
-    && BUILD_PACKAGES="devscripts build-essential fakeroot debhelper git gcc libc6-dev make cmake libevent-dev naturaldocs python libssl-dev libkrb5-dev" \
-# pgq3: naturaldocs python
+    && BUILD_PACKAGES="devscripts build-essential fakeroot debhelper git gcc libc6-dev make cmake libevent-dev libssl-dev libkrb5-dev" \
     && if [ "$DEMO" = "true" ]; then \
         export DEB_PG_SUPPORTED_VERSIONS="$PGVERSION" \
         && apt-get install -y $BUILD_PACKAGES; \
     else \
-        BUILD_PACKAGES="$BUILD_PACKAGES equivs pgxnclient zlib1g-dev libprotobuf-c-dev liblwgeom-dev libproj-dev libxslt1-dev libxml2-dev libpam0g-dev libedit-dev libselinux1-dev libcurl4-openssl-dev libicu-dev libc-ares-dev pandoc pkg-config" \
+        BUILD_PACKAGES="$BUILD_PACKAGES equivs pgxnclient zlib1g-dev libprotobuf-c-dev liblwgeom-dev libproj-dev libxslt1-dev libxml2-dev libpam0g-dev libedit-dev libselinux1-dev libcurl4-openssl-dev libicu-dev python libc-ares-dev pandoc pkg-config" \
 # debezium-decoderbufs: libprotobuf-c-dev liblwgeom-dev libproj-dev
 # pgbouncer: libc-ares-dev pandoc pkg-config
 # pg_rewind: libxslt1-dev libxml2-dev libpam0g-dev libkrb5-dev libedit-dev libselinux1-dev
@@ -136,11 +135,13 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 && if [ "$WITH_PERL" = "true" ]; then \
                     EXTRAS="$EXTRAS postgresql-plperl-${version}"; \
                 fi \
-                && if [ $version != "9.3" ]; then \
+                && if [ $version != "9.3" ] && [ $version != "9.4" ]; then \
+                    EXTRAS="$EXTRAS postgresql-${version}-postgis-${POSTGIS_VERSION%.0} \
+                            postgresql-${version}-postgis-${POSTGIS_VERSION%.0}-scripts"; \
+                fi \
+                && if [ $version != "9.3" ] && [ $version != "12" ]; then \
                     EXTRAS="$EXTRAS \
                             postgresql-${version}-pglogical \
-                            postgresql-${version}-postgis-${POSTGIS_VERSION} \
-                            postgresql-${version}-postgis-${POSTGIS_VERSION}-scripts \
                             postgresql-${version}-wal2json" \
                     && if [ $version != "9.4" ]; then \
                         EXTRAS="$EXTRAS postgresql-${version}-pgl-ddl-deploy"; \
@@ -173,7 +174,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             fi \
 \
             && if [ "$DEMO" != "true" ]; then \
-                if [ "$version" != "11" ]; then \
+                if [ "$version" != "11" ] && [ $version != 12 ]; then \
                     for extension in quantile trimmed_aggregates; do \
                         pgxn install $extension \
                         && strip /usr/lib/postgresql/$version/lib/$extension.so; \
@@ -217,7 +218,12 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         for version in $DEB_PG_SUPPORTED_VERSIONS; do \
             if [ $version != "9.3" ]; then \
                 # due to dependency issues partman has to be installed separately
-                apt-get install -y postgresql-${version}-partman; \
+                apt-get install -y postgresql-${version}-partman \
+                && if [ $version != "9.4" ]; then \
+                    # create postgis symlinks to make it possible to perform update
+                    ln -s postgis-${POSTGIS_VERSION%.0}.so \
+                        /usr/lib/postgresql/${version}/lib/postgis-2.5.so; \
+                fi; \
             fi; \
         done \
         # patch, build and install pgbouncer
@@ -251,7 +257,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     done \
 \
     # Remove unnecessary packages
-    && apt-get purge -y ${BUILD_PACKAGES} postgresql postgresql-server-dev-* libmagic1 bsdmainutils \
+    && apt-get purge -y ${BUILD_PACKAGES} postgresql postgresql-server-dev-* libpq-dev=$PGVERSION* libmagic1 bsdmainutils \
     && apt-get autoremove -y \
     && apt-get clean \
     && dpkg -l | grep '^rc' | awk '{print $2}' | xargs apt-get purge -y \
@@ -268,6 +274,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             done; \
         done \
 \
+        && PGVERSION=11 \
         && cd /usr/share/postgresql/$PGVERSION/contrib/postgis-$POSTGIS_VERSION \
         && for f in *.sql *.pl; do \
             for v in /usr/share/postgresql/*; do \
@@ -389,9 +396,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && apt-cache depends patroni \
             | sed -n -e 's/.* Depends: \(python3-.\+\)$/\1/p' \
             | grep -Ev '^python3-(sphinx|etcd|consul|kazoo|kubernetes)' \
-            | xargs apt-get install -y ${BUILD_PACKAGES} python3-distutils \
-                                        python3-pystache python3-cachetools \
-                                        python3-rsa python3-pyasn1-modules \
+            | xargs apt-get install -y ${BUILD_PACKAGES} python3-pystache \
 \
     && pip3 install setuptools \
 \
@@ -402,11 +407,11 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && strip /usr/local/bin/wal-g \
         && apt-get install -y python3-etcd python3-consul python3-kazoo python3-meld3 \
                         python3-boto python3-gevent python3-greenlet python3-protobuf \
-                        python3-websocket python3-requests-oauthlib python3-swiftclient \
+                        python3-cachetools python3-rsa python3-pyasn1-modules python3-swiftclient \
 \
         && find /usr/share/python-babel-localedata/locale-data -type f ! -name 'en_US*.dat' -delete \
 \
-        && pip3 install filechunkio wal-e[aws,google,swift]==$WALE_VERSION kubernetes==3.0.0 \
+        && pip3 install filechunkio wal-e[aws,google,swift]==$WALE_VERSION \
                 'git+https://github.com/zalando/pg_view.git@master#egg=pg-view' \
 \
         && cd /usr/local/lib/python3.6/dist-packages \
@@ -424,7 +429,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         # https://github.com/wal-e/wal-e/pull/392
         && curl -sL https://github.com/wal-e/wal-e/pull/392.diff | patch -p1; \
     fi \
-    && pip3 install "patroni[kubernetes$EXTRAS]==$PATRONIVERSION" \
+    && pip3 install "git+https://github.com/zalando/patroni.git@feature/no-kubernetes#egg=patroni[kubernetes$EXTRAS]" \
 \
     && for d in /usr/local/lib/python3.6 /usr/lib/python3; do \
         cd $d/dist-packages \

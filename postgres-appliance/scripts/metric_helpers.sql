@@ -30,7 +30,10 @@ SELECT
     ELSE 0
   END AS extra_ratio,
   fillfactor,
-  ((tblpages-est_tblpages_ff)*bs) AS bloat_size,
+  CASE WHEN tblpages - est_tblpages_ff > 0
+    THEN (tblpages-est_tblpages_ff)*bs
+    ELSE 0
+  END AS bloat_size,
   CASE WHEN tblpages - est_tblpages_ff > 0
     THEN 100 * (tblpages - est_tblpages_ff)/tblpages::float
     ELSE 0
@@ -40,7 +43,7 @@ FROM (
   SELECT ceil( reltuples / ( (bs-page_hdr)/tpl_size ) ) + ceil( toasttuples / 4 ) AS est_tblpages,
     ceil( reltuples / ( (bs-page_hdr)*fillfactor/(tpl_size*100) ) ) + ceil( toasttuples / 4 ) AS est_tblpages_ff,
     tblpages, fillfactor, bs, tblid, schemaname, tblname, heappages, toastpages, is_na
-    -- , stattuple.pgstattuple(tblid) AS pst
+    -- , tpl_hdr_size, tpl_data_size, pgstattuple(tblid) AS pst -- (DEBUG INFO)
   FROM (
     SELECT
       ( 4 + tpl_hdr_size + tpl_data_size + (2*ma)
@@ -48,6 +51,7 @@ FROM (
         - CASE WHEN ceil(tpl_data_size)::int%ma = 0 THEN ma ELSE ceil(tpl_data_size)::int%ma END
       ) AS tpl_size, bs - page_hdr AS size_per_block, (heappages + toastpages) AS tblpages, heappages,
       toastpages, reltuples, toasttuples, bs, page_hdr, tblid, schemaname, tblname, fillfactor, is_na
+      -- , tpl_hdr_size, tpl_data_size
     FROM (
       SELECT
         tbl.oid AS tblid, ns.nspname AS schemaname, tbl.relname AS tblname, tbl.reltuples,
@@ -59,20 +63,20 @@ FROM (
         current_setting('block_size')::numeric AS bs,
         CASE WHEN version()~'mingw32' OR version()~'64-bit|x86_64|ppc64|ia64|amd64' THEN 8 ELSE 4 END AS ma,
         24 AS page_hdr,
-        23 + CASE WHEN MAX(coalesce(null_frac,0)) > 0 THEN ( 7 + count(*) ) / 8 ELSE 0::int END
-          + CASE WHEN tbl.relhasoids THEN 4 ELSE 0 END AS tpl_hdr_size,
-        sum( (1-coalesce(s.null_frac, 0)) * coalesce(s.avg_width, 1024) ) AS tpl_data_size,
+        23 + CASE WHEN MAX(coalesce(s.null_frac,0)) > 0 THEN ( 7 + count(s.attname) ) / 8 ELSE 0::int END
+           + CASE WHEN bool_or(att.attname = 'oid' and att.attnum < 0) THEN 4 ELSE 0 END AS tpl_hdr_size,
+        sum( (1-coalesce(s.null_frac, 0)) * coalesce(s.avg_width, 0) ) AS tpl_data_size,
         bool_or(att.atttypid = 'pg_catalog.name'::regtype)
-          OR count(att.attname) <> count(s.attname) AS is_na
+          OR sum(CASE WHEN att.attnum > 0 THEN 1 ELSE 0 END) <> count(s.attname) AS is_na
       FROM pg_attribute AS att
         JOIN pg_class AS tbl ON att.attrelid = tbl.oid
         JOIN pg_namespace AS ns ON ns.oid = tbl.relnamespace
         LEFT JOIN pg_stats AS s ON s.schemaname=ns.nspname
           AND s.tablename = tbl.relname AND s.inherited=false AND s.attname=att.attname
         LEFT JOIN pg_class AS toast ON tbl.reltoastrelid = toast.oid
-      WHERE att.attnum > 0 AND NOT att.attisdropped
+      WHERE NOT att.attisdropped
         AND tbl.relkind = 'r'
-      GROUP BY 1,2,3,4,5,6,7,8,9,10, tbl.relhasoids
+      GROUP BY 1,2,3,4,5,6,7,8,9,10
       ORDER BY 2,3
     ) AS s
   ) AS s2
@@ -138,7 +142,7 @@ FROM (
             )::numeric AS nulldatahdrwidth, pagehdr, pageopqdata, is_na
             -- , index_tuple_hdr_bm, nulldatawidth -- (DEBUG INFO)
       FROM (
-          SELECT n.nspname, i.tblname, i.idxname, i.reltuples, i.relpages,
+          SELECT n.nspname, ct.relname AS tblname, i.idxname, i.reltuples, i.relpages,
               i.idxoid, i.fillfactor, current_setting('block_size')::numeric AS bs,
               CASE -- MAXALIGN: 4 on 32bits, 8 on 64bits (and mingw32 ?)
                 WHEN version() ~ 'mingw32' OR version() ~ '64-bit|x86_64|ppc64|ia64|amd64' THEN 8
@@ -149,23 +153,19 @@ FROM (
               /* per page btree opaque data */
               16 AS pageopqdata,
               /* per tuple header: add IndexAttributeBitMapData if some cols are null-able */
-              CASE WHEN max(coalesce(s.null_frac,0)) = 0
+              CASE WHEN max(coalesce(s.stanullfrac,0)) = 0
                   THEN 2 -- IndexTupleData size
                   ELSE 2 + (( 32 + 8 - 1 ) / 8) -- IndexTupleData size + IndexAttributeBitMapData size ( max num filed per index + 8 - 1 /8)
               END AS index_tuple_hdr_bm,
               /* data len: we remove null values save space using it fractionnal part from stats */
-              sum( (1-coalesce(s.null_frac, 0)) * coalesce(s.avg_width, 1024)) AS nulldatawidth,
-              max( CASE WHEN i.atttypid = 'pg_catalog.name'::regtype THEN 1 ELSE 0 END ) > 0 AS is_na
+              sum( (1-coalesce(s.stanullfrac, 0)) * coalesce(s.stawidth, 1024)) AS nulldatawidth,
+              max( CASE WHEN a.atttypid = 'pg_catalog.name'::regtype THEN 1 ELSE 0 END ) > 0 AS is_na
           FROM (
-              SELECT ct.relname AS tblname, ct.relnamespace, ic.idxname, ic.attpos, ic.indkey, ic.indkey[ic.attpos], ic.reltuples, ic.relpages, ic.tbloid, ic.idxoid, ic.fillfactor,
-                  coalesce(a1.attnum, a2.attnum) AS attnum, coalesce(a1.attname, a2.attname) AS attname, coalesce(a1.atttypid, a2.atttypid) AS atttypid,
-                  CASE WHEN a1.attnum IS NULL
-                  THEN ic.idxname
-                  ELSE ct.relname
-                  END AS attrelname
+              SELECT idxname, reltuples, relpages, tbloid, idxoid, fillfactor,
+                  CASE WHEN indkey[i]=0 THEN idxoid ELSE tbloid END AS att_rel,
+                  CASE WHEN indkey[i]=0 THEN i ELSE indkey[i] END AS att_pos
               FROM (
-                  SELECT idxname, reltuples, relpages, tbloid, idxoid, fillfactor, indkey,
-                      pg_catalog.generate_series(1,indnatts) AS attpos
+                  SELECT idxname, reltuples, relpages, tbloid, idxoid, fillfactor, indkey, generate_series(1,indnatts) AS i
                   FROM (
                       SELECT ci.relname AS idxname, ci.reltuples, ci.relpages, i.indrelid AS tbloid,
                           i.indexrelid AS idxoid,
@@ -173,29 +173,21 @@ FROM (
                               array_to_string(ci.reloptions, ' ')
                               from 'fillfactor=([0-9]+)')::smallint, 90) AS fillfactor,
                           i.indnatts,
-                          pg_catalog.string_to_array(pg_catalog.textin(
-                              pg_catalog.int2vectorout(i.indkey)),' ')::int[] AS indkey
-                      FROM pg_catalog.pg_index i
-                      JOIN pg_catalog.pg_class ci ON ci.oid = i.indexrelid
+                          string_to_array(textin(int2vectorout(i.indkey)),' ')::int[] AS indkey
+                      FROM pg_index i
+                      JOIN pg_class ci ON ci.oid=i.indexrelid
                       WHERE ci.relam=(SELECT oid FROM pg_am WHERE amname = 'btree')
-                      AND ci.relpages > 0
+                        AND ci.relpages > 0
                   ) AS idx_data
-              ) AS ic
-              JOIN pg_catalog.pg_class ct ON ct.oid = ic.tbloid
-              LEFT JOIN pg_catalog.pg_attribute a1 ON
-                  ic.indkey[ic.attpos] <> 0
-                  AND a1.attrelid = ic.tbloid
-                  AND a1.attnum = ic.indkey[ic.attpos]
-              LEFT JOIN pg_catalog.pg_attribute a2 ON
-                  ic.indkey[ic.attpos] = 0
-                  AND a2.attrelid = ic.idxoid
-                  AND a2.attnum = ic.attpos
-            ) i
-            JOIN pg_catalog.pg_namespace n ON n.oid = i.relnamespace
-            JOIN pg_catalog.pg_stats s ON s.schemaname = n.nspname
-                                      AND s.tablename = i.attrelname
-                                      AND s.attname = i.attname
-            GROUP BY 1,2,3,4,5,6,7,8,9,10,11
+              ) AS idx_data_cross
+          ) i
+          JOIN pg_attribute a ON a.attrelid = i.att_rel
+                             AND a.attnum = i.att_pos
+          JOIN pg_statistic s ON s.starelid = i.att_rel
+                             AND s.staattnum = i.att_pos
+          JOIN pg_class ct ON ct.oid = i.tbloid
+          JOIN pg_namespace n ON ct.relnamespace = n.oid
+          GROUP BY 1,2,3,4,5,6,7,8,9,10
       ) AS rows_data_stats
   ) AS rows_hdr_pdg_stats
 ) AS relation_stats;
