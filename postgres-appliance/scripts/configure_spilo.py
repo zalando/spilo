@@ -341,9 +341,9 @@ def get_provider():
         logging.info("Figuring out my environment (Google? Azure? AWS? Openstack? Local?)")
         # Check if Azure is the cloud provider
         bashCommand='curl -H Metadata:true "http://169.254.169.254/metadata/instance?api-version=2019-03-11"'
-        ra = os.popen(bashCommand).read()
-        raj = json.loads(ra)
-        if raj["compute"]["provider"]=="Microsoft.Compute":
+        c = os.popen(bashCommand).read()
+        cj = json.loads(c)
+        if cj["compute"]["provider"]=="Microsoft.Compute":
             return PROVIDER_AZURE
         r = requests.get('http://169.254.169.254', timeout=2)
         if r.headers.get('Metadata-Flavor', '') == 'Google':
@@ -396,9 +396,9 @@ def get_instance_metadata(provider):
 
 def set_extended_wale_placeholders(placeholders, prefix):
     """ checks that enough parameters are provided to configure cloning or standby with WAL-E """
-    for name in ('S3', 'GS', 'GCS', 'SWIFT'):
+    for name in ('S3', 'GS', 'GCS', 'SWIFT', 'WABS'):
         if placeholders.get('{0}WALE_{1}_PREFIX'.format(prefix, name)) or\
-                name in ('S3', 'GS') and placeholders.get('{0}WALG_{1}_PREFIX'.format(prefix, name)) or\
+                name in ('S3', 'GS', 'WABS') and placeholders.get('{0}WALG_{1}_PREFIX'.format(prefix, name)) or\
                 placeholders.get('{0}WAL_{1}_BUCKET'.format(prefix, name)) and placeholders.get(prefix + 'SCOPE'):
             break
     else:
