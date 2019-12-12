@@ -930,7 +930,7 @@ def main():
     patroni_configfile = os.path.join(placeholders['PGHOME'], 'postgres.yml')
 
     for section in args['sections']:
-        logging.info('Configuring {}'.format(section))
+        logging.info('Configuring %s', section)
         if section == 'patroni':
             write_file(yaml.dump(config, default_flow_style=False, width=120), patroni_configfile, args['force'])
             link_runit_service('patroni')
@@ -940,6 +940,28 @@ def main():
                 st = os.stat(placeholders['PGHOME'])
                 os.chown(pg_socket_dir, st.st_uid, st.st_gid)
                 os.chmod(pg_socket_dir, 0o2775)
+
+            # It is a recurring and very annoying problem with crashes (host/pod/container)
+            # while the backup is taken in the exclusive mode which leaves the backup_label
+            # in the PGDATA. Having the backup_label file in the PGDATA makes postgres think
+            # that we are restoring from the backup and it puts this information into the
+            # pg_control. Effectively it makes it impossible to start postgres in recovery
+            # with such PGDATA because the recovery never-ever-ever-ever finishes.
+            #
+            # As a workaround we will remove the backup_label file from PGDATA if we know
+            # for sure that the Postgres was already running with exactly this PGDATA.
+            # As proof that the postgres was running we will use the presence of postmaster.pid
+            # in the PGDATA, because it is 100% known that neither pg_basebackup nor
+            # wal-e/wal-g are backing up/restoring this file.
+            #
+            # We are not doing such trick in the Patroni (removing backup_label) because
+            # we have absolutely no idea what software people use for backup/recovery.
+            # In case of some home-grown solution they might end up in copying postmaster.pid...
+            pgdata = config['postgresql']['data_dir']
+            postmaster_pid = os.path.join(pgdata, 'postmaster.pid')
+            backup_label = os.path.join(pgdata, 'backup_label')
+            if os.path.isfile(postmaster_pid) and os.path.isfile(backup_label):
+                os.unlink(backup_label)
         elif section == 'patronictl':
             configdir = os.path.join(placeholders['PGHOME'], '.config', 'patroni')
             patronictl_configfile = os.path.join(configdir, 'patronictl.yaml')
