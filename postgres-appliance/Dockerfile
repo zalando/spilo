@@ -1,5 +1,6 @@
 ARG PGVERSION=12
-ARG TIMESCALEDB=1.4.2
+ARG TIMESCALEDB=1.5.1
+ARG TIMESCALEDB_LEGACY=$TIMESCALEDB
 ARG DEMO=false
 
 FROM ubuntu:18.04 as builder
@@ -55,6 +56,7 @@ ADD set_user.patch /builddeps/
 
 ARG PGVERSION
 ARG TIMESCALEDB
+ARG TIMESCALEDB_LEGACY
 ARG DEMO
 ARG PGOLDVERSIONS="9.3 9.4 9.5 9.6 10 11"
 ARG WITH_PERL=false
@@ -116,7 +118,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && curl -sL https://github.com/RafiaSabih/pg_auth_mon/archive/$PG_AUTH_MON_COMMIT.tar.gz | tar xz \
     && git clone -b $SET_USER https://github.com/pgaudit/set_user.git \
     && patch -d set_user -p1 < set_user.patch \
-    && git clone -b $TIMESCALEDB https://github.com/timescale/timescaledb.git \
+    && git clone -b $TIMESCALEDB_LEGACY https://github.com/timescale/timescaledb.git \
 \
     && apt-get install -y libevent-2.1 libevent-pthreads-2.1 python3.6 python3-psycopg2 \
 \
@@ -166,8 +168,9 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             # Install 3rd party stuff
             && if [ "$version" = "9.6" ] || [ "$version" = "10" ] || [ "$version" = "11" ] ; then \
                 cd timescaledb \
+                && if [ "$version" != "9.6" ]; then git checkout $TIMESCALEDB; fi \
                 && rm -fr build \
-                && ./bootstrap -DAPACHE_ONLY=1 -DSEND_TELEMETRY_DEFAULT=NO \
+                && ./bootstrap -DAPACHE_ONLY=1 -DSEND_TELEMETRY_DEFAULT=NO -DREGRESS_CHECKS=OFF \
                 && make -C build install \
                 && strip /usr/lib/postgresql/$version/lib/timescaledb*.so \
                 && cd ..; \
@@ -482,14 +485,16 @@ LABEL maintainer="Alexander Kukushkin <alexander.kukushkin@zalando.de>"
 
 ARG PGVERSION
 ARG TIMESCALEDB
+ARG TIMESCALEDB_LEGACY
 ARG DEMO
 
 EXPOSE 5432 8008 8080
 
 ENV LC_ALL=en_US.utf-8 \
-    PATH=/usr/lib/postgresql/$PGVERSION/bin:$PATH \
+    PATH=$PATH:/usr/lib/postgresql/$PGVERSION/bin \
     PGHOME=/home/postgres \
     TIMESCALEDB=$TIMESCALEDB \
+    TIMESCALEDB_LEGACY=$TIMESCALEDB_LEGACY \
     DEMO=$DEMO
 
 ENV WALE_ENV_DIR=$PGHOME/etc/wal-e.d/env \

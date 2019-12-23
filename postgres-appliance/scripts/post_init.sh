@@ -133,14 +133,17 @@ while IFS= read -r db_name; do
     echo "\c ${db_name}"
     # In case if timescaledb binary is missing the first query fails with the error
     # ERROR:  could not access file "$libdir/timescaledb-$OLD_VERSION": No such file or directory
-    TIMESCALEDB_VERSION=$(echo -e "SELECT NULL;\nSELECT extversion FROM pg_catalog.pg_extension WHERE extname = 'timescaledb'" | psql -tAX -d ${db_name} 2> /dev/null | tail -n 1)
+    TIMESCALEDB_VERSION=$(echo -e "SELECT NULL;\nSELECT extversion FROM pg_catalog.pg_extension WHERE extname = 'timescaledb'" | psql -tAX -d "${db_name}" 2> /dev/null | tail -n 1)
     if [ "x$TIMESCALEDB_VERSION" != "x" ] && [ "x$TIMESCALEDB_VERSION" != "x$TIMESCALEDB" ]; then
-        echo "ALTER EXTENSION timescaledb UPDATE;"
+        LEGACY=$(psql -d "$2" -XtAc "SELECT pg_catalog.current_setting('server_version_num')::int/10000 < 10")
+        if [ "x$LEGACY" != "xt" ] || [ "x$TIMESCALEDB_VERSION" != "x$TIMESCALEDB_LEGACY" ]; then
+            echo "ALTER EXTENSION timescaledb UPDATE;"
+        fi
     fi
-    POSTGISDB_VERSION=$(echo -e "SELECT extversion != postgis_lib_version() FROM pg_catalog.pg_extension WHERE extname = 'postgis'" | psql -tAX -d ${db_name} 2> /dev/null | tail -n 1)
-    if [ "x$POSTGISDB_VERSION" = "xtrue" ]; then
+    UPGRADE_POSTGIS=$(echo -e "SELECT extversion != public.postgis_lib_version() FROM pg_catalog.pg_extension WHERE extname = 'postgis'" | psql -tAX -d "${db_name}" 2> /dev/null | tail -n 1)
+    if [ "x$UPGRADE_POSTGIS" = "xt" ]; then
         echo "ALTER EXTENSION postgis UPDATE;"
-        echo "SELECT postgis_extensions_upgrade();"
+        echo "SELECT public.postgis_extensions_upgrade();"
     fi
     sed "s/:HUMAN_ROLE/$1/" create_user_functions.sql
     echo "CREATE EXTENSION IF NOT EXISTS pg_stat_statements SCHEMA public;
