@@ -135,14 +135,13 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 && if [ "$WITH_PERL" = "true" ]; then \
                     EXTRAS="$EXTRAS postgresql-plperl-${version}"; \
                 fi \
+                && if [ $version != "9.3" ]; then EXTRAS="$EXTRAS postgresql-${version}-wal2json"; fi \
                 && if [ $version != "9.3" ] && [ $version != "9.4" ]; then \
                     EXTRAS="$EXTRAS postgresql-${version}-postgis-${POSTGIS_VERSION%.0} \
                             postgresql-${version}-postgis-${POSTGIS_VERSION%.0}-scripts"; \
                 fi \
                 && if [ $version != "9.3" ] && [ $version != "12" ]; then \
-                    EXTRAS="$EXTRAS \
-                            postgresql-${version}-pglogical \
-                            postgresql-${version}-wal2json" \
+                    EXTRAS="$EXTRAS postgresql-${version}-pglogical" \
                     && if [ $version != "9.4" ]; then \
                         EXTRAS="$EXTRAS postgresql-${version}-pgl-ddl-deploy"; \
                     fi \
