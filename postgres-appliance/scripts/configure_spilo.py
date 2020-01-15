@@ -68,9 +68,9 @@ def link_runit_service(name):
     if not os.path.exists(service_dir):
         os.makedirs(service_dir)
         for f in ('run', 'finish'):
+            src_file = os.path.join('/etc/runit/runsvdir/default', name, f)
             dst_file = os.path.join(service_dir, f)
-            if not os.path.exists(dst_file):
-                src_file = os.path.join('/etc/runit/runsvdir/default', name, f)
+            if os.path.exists(src_file) and not os.path.exists(dst_file):
                 os.symlink(src_file, dst_file)
 
 
