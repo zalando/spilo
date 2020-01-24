@@ -314,13 +314,13 @@ postgresql:
     command: /scripts/basebackup.sh
     retries: 2
 {{/USE_WALE}}
-{{#STANDBY_HOST}}
+{{#STANDBY_CLUSTER}}
   create_replica_method:
     - basebackup_fast_xlog
   basebackup_fast_xlog:
     command: /scripts/basebackup.sh
     retries: 2
-{{/STANDBY_HOST}}
+{{/STANDBY_CLUSTER}}
 {{#STANDBY_WITH_WALE}}
   bootstrap_standby_with_wale:
     command: envdir "{{STANDBY_WALE_ENV_DIR}}" bash /scripts/wale_restore.sh
