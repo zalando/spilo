@@ -15,7 +15,7 @@ if [ "x$1" = "xinit" ]; then
     exec /usr/bin/dumb-init -c --rewrite 1:0 -- /bin/sh /launch.sh
 fi
 
-mkdir -p "$PGLOG"
+mkdir -p "$PGLOG" "$RW_DIR/postgresql" "$RW_DIR/tmp"
 
 ## Ensure all logfiles exist, most appliances will have
 ## a foreign data wrapper pointing to these files
@@ -24,7 +24,8 @@ for i in $(seq 0 7); do
         touch "${PGLOG}/postgresql-$i.csv"
     fi
 done
-chown -R postgres:postgres "$PGROOT"
+chown -R postgres:postgres "$PGROOT" "$RW_DIR/postgresql"
+chmod 01777 "$RW_DIR/tmp"
 
 if [ "$DEMO" = "true" ]; then
     python3 /scripts/configure_spilo.py patroni patronictl pgqd certificate pam-oauth2
