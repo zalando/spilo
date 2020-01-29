@@ -11,7 +11,7 @@ log "I was called as: $0 $@"
 
 
 readonly PGDATA=$1
-DAYS_TO_RETAIN=$2
+DAYS_TO_RETAIN=$BACKUP_NUM_TO_RETAIN
 
 readonly IN_RECOVERY=$(psql -tXqAc "select pg_is_in_recovery()")
 if [[ $IN_RECOVERY == "f" ]]; then
