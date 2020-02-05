@@ -67,10 +67,11 @@ def link_runit_service(placeholders, name):
     service_dir = os.path.join(placeholders['RW_DIR'], 'service', name)
     if not os.path.exists(service_dir):
         os.makedirs(service_dir)
-        run_file = service_dir + '/run'
-        if not os.path.exists(run_file):
-            source_file = '/etc/runit/runsvdir/default/{0}/run'.format(name)
-            os.symlink(source_file, run_file)
+        for f in ('run', 'finish'):
+            src_file = os.path.join('/etc/runit/runsvdir/default', name, f)
+            dst_file = os.path.join(service_dir, f)
+            if os.path.exists(src_file) and not os.path.exists(dst_file):
+                os.symlink(src_file, dst_file)
 
 
 def write_certificates(environment, overwrite):
