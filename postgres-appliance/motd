@@ -1,4 +1,4 @@
-cat <<__EOT__
+echo "
  ____        _ _
 / ___| _ __ (_) | ___
 \___ \| '_ \| | |/ _ \\
@@ -14,7 +14,6 @@ sv stop cron
 sv restart patroni
 
 Current status: (sv status /etc/service/*)
-
-__EOT__
+"
 
 [ -d /etc/service ] && sv status /etc/service/*

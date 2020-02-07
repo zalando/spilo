@@ -42,7 +42,7 @@ AUTO_ENABLE_WALG_RESTORE = ('WAL_S3_BUCKET', 'WALE_S3_PREFIX', 'WALG_S3_PREFIX')
 
 
 def parse_args():
-    sections = ['all', 'patroni', 'patronictl', 'pgqd', 'certificate', 'wal-e', 'crontab',
+    sections = ['all', 'patroni', 'pgqd', 'certificate', 'wal-e', 'crontab',
                 'pam-oauth2', 'pgbouncer', 'bootstrap', 'standby-cluster', 'log', 'renice']
     argp = argparse.ArgumentParser(description='Configures Spilo',
                                    epilog="Choose from the following sections:\n\t{}".format('\n\t'.join(sections)),
@@ -63,8 +63,8 @@ def parse_args():
     return args
 
 
-def link_runit_service(name):
-    service_dir = os.path.join('/run/service', name)
+def link_runit_service(placeholders, name):
+    service_dir = os.path.join(placeholders['RW_DIR'], 'service', name)
     if not os.path.exists(service_dir):
         os.makedirs(service_dir)
         for f in ('run', 'finish'):
@@ -228,6 +228,7 @@ restapi:
   listen: ':{{APIPORT}}'
   connect_address: {{instance_data.ip}}:{{APIPORT}}
 postgresql:
+  pgpass: /run/postgresql/pgpass
   use_unix_socket: true
   name: '{{instance_data.id}}'
   listen: '*:{{PGPORT}}'
@@ -399,7 +400,7 @@ def set_extended_wale_placeholders(placeholders, prefix):
 
     scope = placeholders.get(prefix + 'SCOPE')
     dirname = 'env-' + prefix[:-1].lower() + ('-' + scope if scope else '')
-    placeholders[prefix + 'WALE_ENV_DIR'] = os.path.join(placeholders['PGHOME'], 'etc', 'wal-e.d', dirname)
+    placeholders[prefix + 'WALE_ENV_DIR'] = os.path.join(placeholders['RW_DIR'], 'etc', 'wal-e.d', dirname)
     placeholders[prefix + 'WITH_WALE'] = True
     return name
 
@@ -443,7 +444,7 @@ def get_placeholders(provider):
     placeholders.setdefault('PGHOME', os.path.expanduser('~'))
     placeholders.setdefault('APIPORT', '8008')
     placeholders.setdefault('BACKUP_SCHEDULE', '0 1 * * *')
-    placeholders.setdefault('BACKUP_NUM_TO_RETAIN', 5)
+    placeholders.setdefault('BACKUP_NUM_TO_RETAIN', '5')
     placeholders.setdefault('CRONTAB', '[]')
     placeholders.setdefault('PGROOT', os.path.join(placeholders['PGHOME'], 'pgroot'))
     placeholders.setdefault('WALE_TMPDIR', os.path.abspath(os.path.join(placeholders['PGROOT'], '../tmp')))
@@ -460,11 +461,12 @@ def get_placeholders(provider):
     placeholders.setdefault('BGMON_LISTEN_IP', '0.0.0.0')
     placeholders.setdefault('PGPORT', '5432')
     placeholders.setdefault('SCOPE', 'dummy')
+    placeholders.setdefault('RW_DIR', '/run')
     placeholders.setdefault('SSL_TEST_RELOAD', 'SSL_PRIVATE_KEY_FILE' in os.environ)
     placeholders.setdefault('SSL_CA_FILE', '')
     placeholders.setdefault('SSL_CRL_FILE', '')
-    placeholders.setdefault('SSL_CERTIFICATE_FILE', os.path.join(placeholders['PGHOME'], 'server.crt'))
-    placeholders.setdefault('SSL_PRIVATE_KEY_FILE', os.path.join(placeholders['PGHOME'], 'server.key'))
+    placeholders.setdefault('SSL_CERTIFICATE_FILE', os.path.join(placeholders['RW_DIR'], 'server.crt'))
+    placeholders.setdefault('SSL_PRIVATE_KEY_FILE', os.path.join(placeholders['RW_DIR'], 'server.key'))
     placeholders.setdefault('WALE_BACKUP_THRESHOLD_MEGABYTES', 102400)
     placeholders.setdefault('WALE_BACKUP_THRESHOLD_PERCENTAGE', 30)
     # if Kubernetes is defined as a DCS, derive the namespace from the POD_NAMESPACE, if not set explicitely.
@@ -476,7 +478,7 @@ def get_placeholders(provider):
     placeholders.setdefault('WAL_BUCKET_SCOPE_PREFIX', '{0}-'.format(placeholders['NAMESPACE'])
                             if placeholders['NAMESPACE'] not in ('default', '') else '')
     placeholders.setdefault('WAL_BUCKET_SCOPE_SUFFIX', '')
-    placeholders.setdefault('WALE_ENV_DIR', os.path.join(placeholders['PGHOME'], 'etc', 'wal-e.d', 'env'))
+    placeholders.setdefault('WALE_ENV_DIR', os.path.join(placeholders['RW_DIR'], 'etc', 'wal-e.d', 'env'))
     placeholders.setdefault('USE_WALE', False)
     cpu_count = str(min(psutil.cpu_count(), 10))
     placeholders.setdefault('WALG_DOWNLOAD_CONCURRENCY', cpu_count)
@@ -747,7 +749,7 @@ def write_wale_environment(placeholders, prefix, overwrite):
         os.makedirs(wale['WALE_ENV_DIR'])
 
     wale['WALE_LOG_DESTINATION'] = 'stderr'
-    for name in write_envdir_names + ['WALE_LOG_DESTINATION']:
+    for name in write_envdir_names + ['WALE_LOG_DESTINATION'] + ([] if prefix else ['BACKUP_NUM_TO_RETAIN']):
         if wale.get(name):
             write_file(wale[name], os.path.join(wale['WALE_ENV_DIR'], name), overwrite)
 
@@ -796,7 +798,11 @@ def write_crontab(placeholders, overwrite):
     if not (overwrite or check_crontab('postgres')):
         return
 
-    link_runit_service('cron')
+    crontabs = os.path.join(placeholders['RW_DIR'], 'cron', 'crontabs')
+    if not os.path.exists(crontabs):
+        os.makedirs(crontabs)
+        os.chmod(crontabs, 0o1730)
+    link_runit_service(placeholders, 'cron')
 
     lines = ['PATH={PATH}'.format(**placeholders)]
 
@@ -807,7 +813,7 @@ def write_crontab(placeholders, overwrite):
 
     if bool(placeholders.get('USE_WALE')):
         lines += [('{BACKUP_SCHEDULE} envdir "{WALE_ENV_DIR}" /scripts/postgres_backup.sh' +
-                   ' "{PGDATA}" {BACKUP_NUM_TO_RETAIN}').format(**placeholders)]
+                   ' "{PGDATA}"').format(**placeholders)]
 
     if bool(placeholders.get('LOG_S3_BUCKET')):
         lines += [('{LOG_SHIP_SCHEDULE} nice -n 5 envdir "{LOG_ENV_DIR}"' +
@@ -833,7 +839,7 @@ def configure_renice(overwrite):
 
 def write_etcd_configuration(placeholders, overwrite=False):
     placeholders.setdefault('ETCD_HOST', '127.0.0.1:2379')
-    link_runit_service('etcd')
+    link_runit_service(placeholders, 'etcd')
 
 
 def write_pam_oauth2_configuration(placeholders, overwrite):
@@ -857,7 +863,7 @@ def write_pgbouncer_configuration(placeholders, overwrite):
     if not pgbouncer_config:
         return logging.info('No PGBOUNCER_CONFIGURATION was specified, skipping')
 
-    pgbouncer_dir = '/run/pgbouncer'
+    pgbouncer_dir = os.path.join(placeholders['RW_DIR'], 'pgbouncer')
     if not os.path.exists(pgbouncer_dir):
         os.makedirs(pgbouncer_dir)
     write_file(pgbouncer_config, pgbouncer_dir + '/pgbouncer.ini', overwrite)
@@ -866,7 +872,7 @@ def write_pgbouncer_configuration(placeholders, overwrite):
     if pgbouncer_auth:
         write_file(pgbouncer_auth, pgbouncer_dir + '/userlist.txt', overwrite)
 
-    link_runit_service('pgbouncer')
+    link_runit_service(placeholders, 'pgbouncer')
 
 
 def get_binary_version(bin_dir):
@@ -934,7 +940,7 @@ def main():
         logging.info('Configuring %s', section)
         if section == 'patroni':
             write_file(yaml.dump(config, default_flow_style=False, width=120), patroni_configfile, args['force'])
-            link_runit_service('patroni')
+            link_runit_service(placeholders, 'patroni')
             pg_socket_dir = '/run/postgresql'
             if not os.path.exists(pg_socket_dir):
                 os.makedirs(pg_socket_dir)
@@ -963,20 +969,8 @@ def main():
             backup_label = os.path.join(pgdata, 'backup_label')
             if os.path.isfile(postmaster_pid) and os.path.isfile(backup_label):
                 os.unlink(backup_label)
-        elif section == 'patronictl':
-            configdir = os.path.join(placeholders['PGHOME'], '.config', 'patroni')
-            patronictl_configfile = os.path.join(configdir, 'patronictl.yaml')
-            if not os.path.exists(configdir):
-                os.makedirs(configdir)
-            if os.path.exists(patronictl_configfile):
-                if not args['force']:
-                    logging.warning('File %s already exists, not overriding. (Use option --force if necessary)',
-                                    patronictl_configfile)
-                    continue
-                os.unlink(patronictl_configfile)
-            os.symlink(patroni_configfile, patronictl_configfile)
         elif section == 'pgqd':
-            link_runit_service('pgqd')
+            link_runit_service(placeholders, 'pgqd')
         elif section == 'log':
             if bool(placeholders.get('LOG_S3_BUCKET')):
                 write_log_environment(placeholders)
@@ -986,7 +980,7 @@ def main():
         elif section == 'certificate':
             write_certificates(placeholders, args['force'])
         elif section == 'crontab':
-            if placeholders['CRONTAB'] or placeholders['USE_WALE'] or bool(placeholders.get('LOG_S3_BUCKET')):
+            if placeholders['CRONTAB'] != '[]' or placeholders['USE_WALE'] or bool(placeholders.get('LOG_S3_BUCKET')):
                 write_crontab(placeholders, args['force'])
         elif section == 'pam-oauth2':
             write_pam_oauth2_configuration(placeholders, args['force'])

@@ -492,13 +492,14 @@ EXPOSE 5432 8008 8080
 ENV LC_ALL=en_US.utf-8 \
     PATH=$PATH:/usr/lib/postgresql/$PGVERSION/bin \
     PGHOME=/home/postgres \
+    RW_DIR=/run \
     TIMESCALEDB=$TIMESCALEDB \
     TIMESCALEDB_LEGACY=$TIMESCALEDB_LEGACY \
     DEMO=$DEMO
 
-ENV WALE_ENV_DIR=$PGHOME/etc/wal-e.d/env \
-    PGROOT=$PGHOME/pgdata/pgroot \
-    LOG_ENV_DIR=$PGHOME/etc/log.d/env
+ENV WALE_ENV_DIR=$RW_DIR/etc/wal-e.d/env \
+    LOG_ENV_DIR=$RW_DIR/etc/log.d/env \
+    PGROOT=$PGHOME/pgdata/pgroot
 
 ENV PGDATA=$PGROOT/data \
     PGLOG=$PGROOT/pg_log
@@ -510,13 +511,27 @@ COPY runit /etc/service/
 COPY pgq_ticker.ini $PGHOME/
 
 RUN sed -i "s|/var/lib/postgresql.*|$PGHOME:/bin/bash|" /etc/passwd \
-        && chown -R postgres:postgres $PGHOME /run \
-        && ln -snf /run/service /etc/service \
+        && chown -R postgres:postgres $PGHOME $RW_DIR \
+        && rm -fr /var/spool/cron /var/tmp \
+        && ln -s $RW_DIR/cron /var/spool/cron \
+        && ln -s $RW_DIR/tmp /var/tmp \
+        && ln -snf $RW_DIR/service /etc/service \
+        && ln -s $RW_DIR/pam.d-postgresql /etc/pam.d/postgresql \
+        && ln -s $RW_DIR/postgres.yml $PGHOME/postgres.yml \
+        && ln -s $RW_DIR/.bash_history /root/.bash_history \
+        && ln -s $RW_DIR/postgresql/.bash_history $PGHOME/.bash_history \
+        && ln -s $RW_DIR/postgresql/.psql_history $PGHOME/.psql_history \
+        && for d in $PGHOME /root; do \
+            d=$d/.config/patroni \
+            && mkdir -p $d \
+            && ln -s $PGHOME/postgres.yml $d/patronictl.yaml; \
+        done \
         && sed -i 's/set compatible/set nocompatible/' /etc/vim/vimrc.tiny \
         && echo "PATH=\"$PATH\"" > /etc/environment \
         && for e in TERM=linux LC_ALL=C.UTF-8 LANG=C.UTF-8 EDITOR=editor "PAGER='pspg -bX --no-mouse'"; \
             do echo "export $e" >> /etc/bash.bashrc; \
         done \
+        && ln -s /etc/skel/.bashrc $PGHOME/.bashrc \
         && echo "source /etc/motd" >> /root/.bashrc
 
 COPY scripts bootstrap /scripts/
