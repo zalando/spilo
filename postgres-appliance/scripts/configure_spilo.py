@@ -690,34 +690,27 @@ def write_wale_environment(placeholders, prefix, overwrite):
         wale[name] = placeholders.get(prefix + name, '')
 
     if wale.get('WAL_S3_BUCKET') or wale.get('WALE_S3_PREFIX') or wale.get('WALG_S3_PREFIX'):
-        wale_endpoint = wale.get('WALE_S3_ENDPOINT')
-        aws_endpoint = wale.get('AWS_ENDPOINT')
-        aws_region = wale.get('AWS_REGION')
+        wale_endpoint = wale.pop('WALE_S3_ENDPOINT', None)
+        aws_endpoint = wale.pop('AWS_ENDPOINT', None)
+        aws_region = wale.pop('AWS_REGION', None)
 
-        if not aws_region:
+        # for S3-compatible storage we want to specify WALE_S3_ENDPOINT and AWS_ENDPOINT, but not AWS_REGION
+        if aws_endpoint or wale_endpoint:
+            if not aws_endpoint:
+                aws_endpoint = wale_endpoint.replace('+path://', '://')
+            elif not wale_endpoint:
+                wale_endpoint = aws_endpoint.replace('://', '+path://')
+            wale.update(WALE_S3_ENDPOINT=wale_endpoint, AWS_ENDPOINT=aws_endpoint, WALG_DISABLE_S3_SSE='true')
+        elif not aws_region:
             # try to determine region from the endpoint or bucket name
-            name = wale_endpoint or aws_endpoint or wale.get('WAL_S3_BUCKET') or wale.get('WALE_S3_PREFIX')
+            name = wale.get('WAL_S3_BUCKET') or wale.get('WALE_S3_PREFIX')
             match = re.search(r'.*(\w{2}-\w+-\d)-.*', name)
             if match:
                 aws_region = match.group(1)
             else:
                 aws_region = placeholders['instance_data']['zone'][:-1]
+            wale['AWS_REGION'] = aws_region
 
-        if not aws_endpoint:
-            if wale_endpoint:
-                aws_endpoint = wale_endpoint.replace('+path://', '://')
-                try:
-                    idx = aws_endpoint.index('amazonaws.com:')
-                    aws_endpoint = aws_endpoint[:idx + 13]
-                except ValueError:
-                    pass
-            else:
-                aws_endpoint = 'https://s3.{0}.amazonaws.com'.format(aws_region)
-
-        if not wale_endpoint and aws_endpoint:
-            wale_endpoint = aws_endpoint.replace('://', '+path://') + ':443'
-
-        wale.update(WALE_S3_ENDPOINT=wale_endpoint, AWS_ENDPOINT=aws_endpoint, AWS_REGION=aws_region)
         if not (wale.get('AWS_SECRET_ACCESS_KEY') and wale.get('AWS_ACCESS_KEY_ID')):
             wale['AWS_INSTANCE_PROFILE'] = 'true'
         if wale.get('USE_WALG_BACKUP') and wale.get('WALG_DISABLE_S3_SSE') != 'true' and not wale.get('WALG_S3_SSE'):
