@@ -12,6 +12,8 @@ if [ -f /a.tar.xz ]; then
 fi
 
 if [ "x$1" = "xinit" ]; then
+    sysctl -w vm.dirty_background_bytes=67108864 > /dev/null 2>&1
+    sysctl -w vm.dirty_bytes=134217728 > /dev/null 2>&1
     exec /usr/bin/dumb-init -c --rewrite 1:0 -- /bin/sh /launch.sh
 fi
 

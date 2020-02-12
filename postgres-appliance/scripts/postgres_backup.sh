@@ -25,9 +25,6 @@ fi
 # leave at least 2 days base backups before creating a new one
 [[ "$DAYS_TO_RETAIN" -lt 2 ]] && DAYS_TO_RETAIN=2
 
-# the "BEFORE" backup is always retained
-((DAYS_TO_RETAIN=DAYS_TO_RETAIN-1))
-
 if [[ "$USE_WALG_BACKUP" == "true" ]]; then
     readonly WAL_E="wal-g"
     [[ -z $WALG_BACKUP_COMPRESSION_METHOD ]] || export WALG_COMPRESSION_METHOD=$WALG_BACKUP_COMPRESSION_METHOD
