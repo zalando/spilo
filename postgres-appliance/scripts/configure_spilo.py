@@ -685,7 +685,7 @@ def write_wale_environment(placeholders, prefix, overwrite):
 
     wale = defaultdict(lambda: '')
     for name in ['WALE_ENV_DIR', 'SCOPE', 'WAL_BUCKET_SCOPE_PREFIX', 'WAL_BUCKET_SCOPE_SUFFIX',
-                 'WAL_S3_BUCKET', 'WAL_GCS_BUCKET', 'WAL_GS_BUCKET', 'WAL_SWIFT_BUCKET'] +\
+                 'WAL_S3_BUCKET', 'WAL_GCS_BUCKET', 'WAL_GS_BUCKET', 'WAL_SWIFT_BUCKET', 'BACKUP_NUM_TO_RETAIN'] +\
             s3_names + swift_names + gs_names + walg_names:
         wale[name] = placeholders.get(prefix + name, '')
 
@@ -787,15 +787,19 @@ def setup_crontab(user, lines):
     c.communicate(input='\n'.join(lines).encode())
 
 
-def write_crontab(placeholders, overwrite):
-    if not (overwrite or check_crontab('postgres')):
-        return
-
+def setup_runit_cron(placeholders):
     crontabs = os.path.join(placeholders['RW_DIR'], 'cron', 'crontabs')
     if not os.path.exists(crontabs):
         os.makedirs(crontabs)
         os.chmod(crontabs, 0o1730)
     link_runit_service(placeholders, 'cron')
+
+
+def write_crontab(placeholders, overwrite):
+    setup_runit_cron(placeholders)
+
+    if not (overwrite or check_crontab('postgres')):
+        return
 
     lines = ['PATH={PATH}'.format(**placeholders)]
 
@@ -817,7 +821,9 @@ def write_crontab(placeholders, overwrite):
     setup_crontab('postgres', lines)
 
 
-def configure_renice(overwrite):
+def configure_renice(placeholders, overwrite):
+    setup_runit_cron(placeholders)
+
     if not (overwrite or check_crontab('root')):
         return
 
@@ -988,7 +994,7 @@ def main():
             if placeholders['STANDBY_WITH_WALE']:
                 update_and_write_wale_configuration(placeholders, 'STANDBY_', args['force'])
         elif section == 'renice':
-            configure_renice(args['force'])
+            configure_renice(placeholders, args['force'])
         else:
             raise Exception('Unknown section: {}'.format(section))
 

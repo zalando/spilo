@@ -10,16 +10,16 @@ pipeline:
     cmd: |
       cd postgres-appliance
 
-      COMPRESS=false
-      # compress and push docker images only for commits to the master branch
+      MASTER=false
+      # push docker images only for commits to the master branch
       if [ "x${CDP_SOURCE_BRANCH}" == "x" ] && [ "x${CDP_TARGET_BRANCH}" == "xfeature/pg12" ]; then
-          COMPRESS=true
+          MASTER=true
           PATRONIVERSION=$(sed -n 's/^ENV PATRONIVERSION=\([1-9][0-9]*\.[1-9][0-9]*\).*$/\1/p' Dockerfile)
           IMAGE="$IMAGE-cdp-$PGVERSION:$PATRONIVERSION-p$CDP_TARGET_BRANCH_COUNTER"
       fi
 
-      ./build.sh --build-arg PGVERSION=$PGVERSION --build-arg COMPRESS=$COMPRESS -t $IMAGE .
+      ./build.sh --build-arg PGVERSION=$PGVERSION -t $IMAGE .
 
       docker images
 
-      if [ "$COMPRESS" == "true" ]; then docker push $IMAGE; fi
+      if [ "$MASTER" == "true" ]; then docker push $IMAGE; fi
