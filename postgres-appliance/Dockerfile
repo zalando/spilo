@@ -1,9 +1,10 @@
 ARG PGVERSION=12
-ARG TIMESCALEDB=1.5.1
+ARG TIMESCALEDB=1.6.0
 ARG TIMESCALEDB_LEGACY=$TIMESCALEDB
 ARG DEMO=false
+ARG COMPRESS=false
 
-FROM ubuntu:18.04 as builder
+FROM ubuntu:18.04 as builder-false
 
 RUN export DEBIAN_FRONTEND=noninteractive \
     && echo 'APT::Install-Recommends "0";\nAPT::Install-Suggests "0";' > /etc/apt/apt.conf.d/01norecommend \
@@ -35,12 +36,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     done \
     && curl -s -o - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
 \
-    && apt-get update \
-    && apt-get install -y postgresql-common \
-\
-    # forbid creation of a main cluster when package is installed
-    && sed -ri 's/#(create_main_cluster) .*$/\1 = false/' /etc/postgresql-common/createcluster.conf \
-\
     # Clean up
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* \
@@ -58,6 +53,7 @@ ARG PGVERSION
 ARG TIMESCALEDB
 ARG TIMESCALEDB_LEGACY
 ARG DEMO
+ARG COMPRESS
 ARG PGOLDVERSIONS="9.3 9.4 9.5 9.6 10 11"
 ARG WITH_PERL=false
 
@@ -65,11 +61,11 @@ ARG DEB_PG_SUPPORTED_VERSIONS="$PGOLDVERSIONS $PGVERSION"
 
 # Install PostgreSQL, extensions and contribs
 ENV POSTGIS_VERSION=3.0 \
-    BG_MON_COMMIT=0df2a6f7ebcaf805465271032d1ec788779938d7 \
+    BG_MON_COMMIT=7a4a4a621f89cc032bd7d497ce2373a1220c89a5 \
     PG_AUTH_MON_COMMIT=902c670c9f2071b30e1d4437e7a38e2e136f9be6 \
-    DECODERBUFS=v0.10.0.Final \
+    DECODERBUFS=v1.0.1.Final \
     SET_USER=REL1_6_2 \
-    PLPGSQL_CHECK=v1.7.6 \
+    PLPGSQL_CHECK=v1.8.2 \
     PLPROFILER=REL4_1 \
     PAM_OAUTH2=v1.0
 
@@ -79,29 +75,18 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && apt-get update \
     && cd /builddeps \
 \
-    && BUILD_PACKAGES="devscripts build-essential fakeroot debhelper git gcc libc6-dev make cmake libevent-dev libssl-dev libkrb5-dev" \
+    && BUILD_PACKAGES="devscripts equivs build-essential fakeroot debhelper git gcc libc6-dev make cmake libevent-dev libssl-dev libkrb5-dev" \
     && if [ "$DEMO" = "true" ]; then \
         export DEB_PG_SUPPORTED_VERSIONS="$PGVERSION" \
+        && WITH_PERL=false \
+        && rm -f *.deb \
         && apt-get install -y $BUILD_PACKAGES; \
     else \
-        BUILD_PACKAGES="$BUILD_PACKAGES equivs pgxnclient zlib1g-dev libprotobuf-c-dev liblwgeom-dev libproj-dev libxslt1-dev libxml2-dev libpam0g-dev libedit-dev libselinux1-dev libcurl4-openssl-dev libicu-dev python libc-ares-dev pandoc pkg-config" \
+        BUILD_PACKAGES="$BUILD_PACKAGES pgxnclient zlib1g-dev libprotobuf-c-dev liblwgeom-dev libproj-dev libxslt1-dev libxml2-dev libpam0g-dev libedit-dev libselinux1-dev libcurl4-openssl-dev libicu-dev python libc-ares-dev pandoc pkg-config" \
 # debezium-decoderbufs: libprotobuf-c-dev liblwgeom-dev libproj-dev
 # pgbouncer: libc-ares-dev pandoc pkg-config
 # pg_rewind: libxslt1-dev libxml2-dev libpam0g-dev libkrb5-dev libedit-dev libselinux1-dev
         && apt-get install -y $BUILD_PACKAGES libprotobuf-c1 libcurl4 \
-\
-        && if [ "$WITH_PERL" != "true" ]; then \
-            version=$(apt-cache show perl | sed -n 's/^Version: //p' | sort -rV | head -n 1) \
-            && echo "Section: misc\nPriority: optional\nStandards-Version: 3.9.8\nPackage: perl\nSection:perl\nMulti-Arch: allowed\nReplaces: perl-base\nVersion: $version\nDescription: perl" > perl \
-            && equivs-build perl; \
-        fi \
-\
-        && for p in python3-keyring python3-docutils ieee-data; do \
-            version=$(apt-cache show $p | sed -n 's/^Version: //p' | sort -rV | head -n 1) \
-            && echo "Section: misc\nPriority: optional\nStandards-Version: 3.9.8\nPackage: $p\nVersion: $version\nDescription: $p" > $p \
-            && equivs-build $p; \
-        done \
-        && dpkg -i *.deb || apt-get -y -f install \
 \
         # install pam_oauth2.so
         && git clone -b $PAM_OAUTH2 --recurse-submodules https://github.com/CyberDem0n/pam-oauth2.git \
@@ -111,8 +96,23 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && git clone -b $DECODERBUFS https://github.com/debezium/postgres-decoderbufs.git \
         && git clone -b $PLPROFILER https://github.com/bigsql/plprofiler.git \
         && git clone -b $PLPGSQL_CHECK https://github.com/okbob/plpgsql_check.git \
-        && git clone git://www.sigaev.ru/plantuner.git; \
+        && git clone git://www.sigaev.ru/plantuner.git \
+\
+        && for p in python3-keyring python3-docutils ieee-data; do \
+            version=$(apt-cache show $p | sed -n 's/^Version: //p' | sort -rV | head -n 1) \
+            && echo "Section: misc\nPriority: optional\nStandards-Version: 3.9.8\nPackage: $p\nVersion: $version\nDescription: $p" > $p \
+            && equivs-build $p; \
+        done; \
     fi \
+
+\
+    && if [ "$WITH_PERL" != "true" ]; then \
+        version=$(apt-cache show perl | sed -n 's/^Version: //p' | sort -rV | head -n 1) \
+        && echo "Section: misc\nPriority: optional\nStandards-Version: 3.9.8\nPackage: perl\nSection:perl\nMulti-Arch: allowed\nReplaces: perl-base\nVersion: $version\nDescription: perl" > perl \
+        && equivs-build perl; \
+    fi \
+\
+    && if [ "$WITH_PERL" != "true" ] || [ "$DEMO" != "true" ]; then dpkg -i *.deb || apt-get -y -f install; fi \
 \
     && curl -sL https://github.com/CyberDem0n/bg_mon/archive/$BG_MON_COMMIT.tar.gz | tar xz \
     && curl -sL https://github.com/RafiaSabih/pg_auth_mon/archive/$PG_AUTH_MON_COMMIT.tar.gz | tar xz \
@@ -120,7 +120,10 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && patch -d set_user -p1 < set_user.patch \
     && git clone -b $TIMESCALEDB_LEGACY https://github.com/timescale/timescaledb.git \
 \
-    && apt-get install -y libevent-2.1 libevent-pthreads-2.1 python3.6 python3-psycopg2 \
+    && apt-get install -y postgresql-common libevent-2.1 libevent-pthreads-2.1 python3.6 python3-psycopg2 \
+\
+    # forbid creation of a main cluster when package is installed
+    && sed -ri 's/#(create_main_cluster) .*$/\1 = false/' /etc/postgresql-common/createcluster.conf \
 \
     && for version in $DEB_PG_SUPPORTED_VERSIONS; do \
             sed -i "s/ main.*$/ main $version/g" /etc/apt/sources.list.d/pgdg.list \
@@ -386,7 +389,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && find /var/log -type f -exec truncate --size 0 {} \;
 
 # Install patroni, wal-e and wal-g
-ENV PATRONIVERSION=1.6.3
+ENV PATRONIVERSION=1.6.4
 ENV WALE_VERSION=1.1.0
 ENV WALG_VERSION=v0.2.14
 RUN export DEBIAN_FRONTEND=noninteractive \
@@ -456,8 +459,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             /usr/share/info \
     && find /var/log -type f -exec truncate --size 0 {} \;
 
-ARG COMPRESS=false
-
 RUN set -ex \
     && if [ "$COMPRESS" = "true" ]; then \
         apt-get update \
@@ -467,7 +468,7 @@ RUN set -ex \
         && ln -snf busybox /bin/sh \
         && files="/bin/sh" \
         && libs="$(ldd $files | awk '{print $3;}' | grep '^/' | sort -u) /lib/x86_64-linux-gnu/ld-linux-x86-64.so.* /lib/x86_64-linux-gnu/libnsl.so.* /lib/x86_64-linux-gnu/libnss_compat.so.*" \
-        && (echo /var/run $files $libs | tr ' ' '\n' && realpath $files $libs) | sort -u | sed 's/^\///' > /exclude \
+        && (echo /var/run /var/spool $files $libs | tr ' ' '\n' && realpath $files $libs) | sort -u | sed 's/^\///' > /exclude \
         && find /etc/alternatives -xtype l -delete \
         && save_dirs="usr lib var bin sbin etc/ssl etc/init.d etc/alternatives etc/apt" \
         && XZ_OPT=-e9v tar -X /exclude -cpJf a.tar.xz $save_dirs \
@@ -477,8 +478,10 @@ RUN set -ex \
         && /bin/busybox sh -c "find $save_dirs -type d -depth -exec rmdir -p {} \; 2> /dev/null"; \
     fi
 
-FROM scratch
-COPY --from=builder / /
+FROM scratch as builder-true
+COPY --from=builder-false / /
+
+FROM builder-${COMPRESS}
 
 LABEL maintainer="Alexander Kukushkin <alexander.kukushkin@zalando.de>"
 
@@ -486,6 +489,7 @@ ARG PGVERSION
 ARG TIMESCALEDB
 ARG TIMESCALEDB_LEGACY
 ARG DEMO
+ARG COMPRESS
 
 EXPOSE 5432 8008 8080
 
@@ -513,6 +517,7 @@ COPY pgq_ticker.ini $PGHOME/
 RUN sed -i "s|/var/lib/postgresql.*|$PGHOME:/bin/bash|" /etc/passwd \
         && chown -R postgres:postgres $PGHOME $RW_DIR \
         && rm -fr /var/spool/cron /var/tmp \
+        && mkdir -p /var/spool \
         && ln -s $RW_DIR/cron /var/spool/cron \
         && ln -s $RW_DIR/tmp /var/tmp \
         && ln -snf $RW_DIR/service /etc/service \
