@@ -141,10 +141,14 @@ while IFS= read -r db_name; do
             && [ $PGVER -gt 9 -o "x$TIMESCALEDB_VERSION" != "x$TIMESCALEDB_LEGACY" ]; then
         echo "ALTER EXTENSION timescaledb UPDATE;"
     fi
-    UPGRADE_POSTGIS=$(echo -e "SELECT extversion != public.postgis_lib_version() FROM pg_catalog.pg_extension WHERE extname = 'postgis'" | psql -tAX -d "${db_name}" 2> /dev/null | tail -n 1)
-    if [ "x$UPGRADE_POSTGIS" = "xt" ]; then
-        echo "ALTER EXTENSION postgis UPDATE;"
-        echo "SELECT public.postgis_extensions_upgrade();"
+    UPGRADE_POSTGIS=$(echo -e "SELECT COUNT(*) FROM pg_catalog.pg_extension WHERE extname = 'postgis'" | psql -tAX -d "${db_name}" 2> /dev/null | tail -n 1)
+    if [ "x$UPGRADE_POSTGIS" = "x1" ]; then
+        # public.postgis_lib_version() is available only if postgis extension is created
+        UPGRADE_POSTGIS=$(echo -e "SELECT extversion != public.postgis_lib_version() FROM pg_catalog.pg_extension WHERE extname = 'postgis'" | psql -tAX -d "${db_name}" 2> /dev/null | tail -n 1)
+        if [ "x$UPGRADE_POSTGIS" = "xt" ]; then
+            echo "ALTER EXTENSION postgis UPDATE;"
+            echo "SELECT public.postgis_extensions_upgrade();"
+        fi
     fi
     sed "s/:HUMAN_ROLE/$1/" create_user_functions.sql
     echo "CREATE EXTENSION IF NOT EXISTS pg_stat_statements SCHEMA public;
