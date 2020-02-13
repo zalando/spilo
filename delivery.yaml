@@ -23,7 +23,6 @@ pipeline:
       docker images
 
       if [ "$MASTER" == "true" ]; then docker push $IMAGE; fi
-
 - id: tag-spilo
   type: script
   requires_human_approval: true
