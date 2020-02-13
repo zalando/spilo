@@ -1,0 +1,38 @@
+#!/bin/sh -e
+
+STATUS_FILE=supervise/restarts
+MAX_RESTARTS=5
+BACKOFF=30
+
+echo "$PWD: finished with code=$1 signal=$2"
+
+# unexpected exit code
+if [ "$1" != "0" ] && [ "$1" != "2" ]; then
+    # don't count restarts if the service was killed by OOM
+    if [ "$2" = "9" ]; then
+        exit 0
+    fi
+
+    if [ -f $STATUS_FILE ]; then
+        RESTARTS=$(cat $STATUS_FILE)
+    fi
+
+    # no status file or garbage in it
+    if ! [ "$RESTARTS" -eq "$RESTARTS" ] 2> /dev/null
+    then
+        RESTARTS=1
+    fi
+
+    echo $((RESTARTS + 1)) > $STATUS_FILE
+
+    if [ "$RESTARTS" -lt "$MAX_RESTARTS" ]; then
+        SLEEPTIME=$((RESTARTS * BACKOFF))
+        echo "$PWD: sleeping $SLEEPTIME seconds"
+        exec sleep $SLEEPTIME
+    fi
+    echo "$PWD: exceeded maximum number of restarts $MAX_RESTARTS"
+fi
+
+echo "stopping $PWD"
+sv stop .
+rm -f $STATUS_FILE

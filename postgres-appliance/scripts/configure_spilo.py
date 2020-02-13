@@ -42,7 +42,7 @@ AUTO_ENABLE_WALG_RESTORE = ('WAL_S3_BUCKET', 'WALE_S3_PREFIX', 'WALG_S3_PREFIX')
 
 
 def parse_args():
-    sections = ['all', 'patroni', 'patronictl', 'pgqd', 'certificate', 'wal-e', 'crontab',
+    sections = ['all', 'patroni', 'pgqd', 'certificate', 'wal-e', 'crontab',
                 'pam-oauth2', 'pgbouncer', 'bootstrap', 'standby-cluster', 'log', 'renice']
     argp = argparse.ArgumentParser(description='Configures Spilo',
                                    epilog="Choose from the following sections:\n\t{}".format('\n\t'.join(sections)),
@@ -63,14 +63,15 @@ def parse_args():
     return args
 
 
-def link_runit_service(name):
-    service_dir = '/run/service/' + name
+def link_runit_service(placeholders, name):
+    service_dir = os.path.join(placeholders['RW_DIR'], 'service', name)
     if not os.path.exists(service_dir):
         os.makedirs(service_dir)
-        run_file = service_dir + '/run'
-        if not os.path.exists(run_file):
-            source_file = '/etc/runit/runsvdir/default/{0}/run'.format(name)
-            os.symlink(source_file, run_file)
+        for f in ('run', 'finish'):
+            src_file = os.path.join('/etc/runit/runsvdir/default', name, f)
+            dst_file = os.path.join(service_dir, f)
+            if os.path.exists(src_file) and not os.path.exists(dst_file):
+                os.symlink(src_file, dst_file)
 
 
 def write_certificates(environment, overwrite):
@@ -227,6 +228,7 @@ restapi:
   listen: ':{{APIPORT}}'
   connect_address: {{instance_data.ip}}:{{APIPORT}}
 postgresql:
+  pgpass: /run/postgresql/pgpass
   use_unix_socket: true
   name: '{{instance_data.id}}'
   listen: '*:{{PGPORT}}'
@@ -398,7 +400,7 @@ def set_extended_wale_placeholders(placeholders, prefix):
 
     scope = placeholders.get(prefix + 'SCOPE')
     dirname = 'env-' + prefix[:-1].lower() + ('-' + scope if scope else '')
-    placeholders[prefix + 'WALE_ENV_DIR'] = os.path.join(placeholders['PGHOME'], 'etc', 'wal-e.d', dirname)
+    placeholders[prefix + 'WALE_ENV_DIR'] = os.path.join(placeholders['RW_DIR'], 'etc', 'wal-e.d', dirname)
     placeholders[prefix + 'WITH_WALE'] = True
     return name
 
@@ -442,7 +444,7 @@ def get_placeholders(provider):
     placeholders.setdefault('PGHOME', os.path.expanduser('~'))
     placeholders.setdefault('APIPORT', '8008')
     placeholders.setdefault('BACKUP_SCHEDULE', '0 1 * * *')
-    placeholders.setdefault('BACKUP_NUM_TO_RETAIN', 2)
+    placeholders.setdefault('BACKUP_NUM_TO_RETAIN', '5')
     placeholders.setdefault('CRONTAB', '[]')
     placeholders.setdefault('PGROOT', os.path.join(placeholders['PGHOME'], 'pgroot'))
     placeholders.setdefault('WALE_TMPDIR', os.path.abspath(os.path.join(placeholders['PGROOT'], '../tmp')))
@@ -459,11 +461,12 @@ def get_placeholders(provider):
     placeholders.setdefault('BGMON_LISTEN_IP', '0.0.0.0')
     placeholders.setdefault('PGPORT', '5432')
     placeholders.setdefault('SCOPE', 'dummy')
+    placeholders.setdefault('RW_DIR', '/run')
     placeholders.setdefault('SSL_TEST_RELOAD', 'SSL_PRIVATE_KEY_FILE' in os.environ)
     placeholders.setdefault('SSL_CA_FILE', '')
     placeholders.setdefault('SSL_CRL_FILE', '')
-    placeholders.setdefault('SSL_CERTIFICATE_FILE', os.path.join(placeholders['PGHOME'], 'server.crt'))
-    placeholders.setdefault('SSL_PRIVATE_KEY_FILE', os.path.join(placeholders['PGHOME'], 'server.key'))
+    placeholders.setdefault('SSL_CERTIFICATE_FILE', os.path.join(placeholders['RW_DIR'], 'server.crt'))
+    placeholders.setdefault('SSL_PRIVATE_KEY_FILE', os.path.join(placeholders['RW_DIR'], 'server.key'))
     placeholders.setdefault('WALE_BACKUP_THRESHOLD_MEGABYTES', 102400)
     placeholders.setdefault('WALE_BACKUP_THRESHOLD_PERCENTAGE', 30)
     # if Kubernetes is defined as a DCS, derive the namespace from the POD_NAMESPACE, if not set explicitely.
@@ -475,7 +478,7 @@ def get_placeholders(provider):
     placeholders.setdefault('WAL_BUCKET_SCOPE_PREFIX', '{0}-'.format(placeholders['NAMESPACE'])
                             if placeholders['NAMESPACE'] not in ('default', '') else '')
     placeholders.setdefault('WAL_BUCKET_SCOPE_SUFFIX', '')
-    placeholders.setdefault('WALE_ENV_DIR', os.path.join(placeholders['PGHOME'], 'etc', 'wal-e.d', 'env'))
+    placeholders.setdefault('WALE_ENV_DIR', os.path.join(placeholders['RW_DIR'], 'etc', 'wal-e.d', 'env'))
     placeholders.setdefault('USE_WALE', False)
     cpu_count = str(min(psutil.cpu_count(), 10))
     placeholders.setdefault('WALG_DOWNLOAD_CONCURRENCY', cpu_count)
@@ -682,39 +685,32 @@ def write_wale_environment(placeholders, prefix, overwrite):
 
     wale = defaultdict(lambda: '')
     for name in ['WALE_ENV_DIR', 'SCOPE', 'WAL_BUCKET_SCOPE_PREFIX', 'WAL_BUCKET_SCOPE_SUFFIX',
-                 'WAL_S3_BUCKET', 'WAL_GCS_BUCKET', 'WAL_GS_BUCKET', 'WAL_SWIFT_BUCKET'] +\
+                 'WAL_S3_BUCKET', 'WAL_GCS_BUCKET', 'WAL_GS_BUCKET', 'WAL_SWIFT_BUCKET', 'BACKUP_NUM_TO_RETAIN'] +\
             s3_names + swift_names + gs_names + walg_names:
         wale[name] = placeholders.get(prefix + name, '')
 
     if wale.get('WAL_S3_BUCKET') or wale.get('WALE_S3_PREFIX') or wale.get('WALG_S3_PREFIX'):
-        wale_endpoint = wale.get('WALE_S3_ENDPOINT')
-        aws_endpoint = wale.get('AWS_ENDPOINT')
-        aws_region = wale.get('AWS_REGION')
+        wale_endpoint = wale.pop('WALE_S3_ENDPOINT', None)
+        aws_endpoint = wale.pop('AWS_ENDPOINT', None)
+        aws_region = wale.pop('AWS_REGION', None)
 
-        if not aws_region:
+        # for S3-compatible storage we want to specify WALE_S3_ENDPOINT and AWS_ENDPOINT, but not AWS_REGION
+        if aws_endpoint or wale_endpoint:
+            if not aws_endpoint:
+                aws_endpoint = wale_endpoint.replace('+path://', '://')
+            elif not wale_endpoint:
+                wale_endpoint = aws_endpoint.replace('://', '+path://')
+            wale.update(WALE_S3_ENDPOINT=wale_endpoint, AWS_ENDPOINT=aws_endpoint, WALG_DISABLE_S3_SSE='true')
+        elif not aws_region:
             # try to determine region from the endpoint or bucket name
-            name = wale_endpoint or aws_endpoint or wale.get('WAL_S3_BUCKET') or wale.get('WALE_S3_PREFIX')
+            name = wale.get('WAL_S3_BUCKET') or wale.get('WALE_S3_PREFIX')
             match = re.search(r'.*(\w{2}-\w+-\d)-.*', name)
             if match:
                 aws_region = match.group(1)
             else:
                 aws_region = placeholders['instance_data']['zone'][:-1]
+            wale['AWS_REGION'] = aws_region
 
-        if not aws_endpoint:
-            if wale_endpoint:
-                aws_endpoint = wale_endpoint.replace('+path://', '://')
-                try:
-                    idx = aws_endpoint.index('amazonaws.com:')
-                    aws_endpoint = aws_endpoint[:idx + 13]
-                except ValueError:
-                    pass
-            else:
-                aws_endpoint = 'https://s3.{0}.amazonaws.com'.format(aws_region)
-
-        if not wale_endpoint and aws_endpoint:
-            wale_endpoint = aws_endpoint.replace('://', '+path://') + ':443'
-
-        wale.update(WALE_S3_ENDPOINT=wale_endpoint, AWS_ENDPOINT=aws_endpoint, AWS_REGION=aws_region)
         if not (wale.get('AWS_SECRET_ACCESS_KEY') and wale.get('AWS_ACCESS_KEY_ID')):
             wale['AWS_INSTANCE_PROFILE'] = 'true'
         if wale.get('USE_WALG_BACKUP') and wale.get('WALG_DISABLE_S3_SSE') != 'true' and not wale.get('WALG_S3_SSE'):
@@ -746,7 +742,7 @@ def write_wale_environment(placeholders, prefix, overwrite):
         os.makedirs(wale['WALE_ENV_DIR'])
 
     wale['WALE_LOG_DESTINATION'] = 'stderr'
-    for name in write_envdir_names + ['WALE_LOG_DESTINATION']:
+    for name in write_envdir_names + ['WALE_LOG_DESTINATION'] + ([] if prefix else ['BACKUP_NUM_TO_RETAIN']):
         if wale.get(name):
             write_file(wale[name], os.path.join(wale['WALE_ENV_DIR'], name), overwrite)
 
@@ -791,11 +787,19 @@ def setup_crontab(user, lines):
     c.communicate(input='\n'.join(lines).encode())
 
 
+def setup_runit_cron(placeholders):
+    crontabs = os.path.join(placeholders['RW_DIR'], 'cron', 'crontabs')
+    if not os.path.exists(crontabs):
+        os.makedirs(crontabs)
+        os.chmod(crontabs, 0o1730)
+    link_runit_service(placeholders, 'cron')
+
+
 def write_crontab(placeholders, overwrite):
+    setup_runit_cron(placeholders)
+
     if not (overwrite or check_crontab('postgres')):
         return
-
-    link_runit_service('cron')
 
     lines = ['PATH={PATH}'.format(**placeholders)]
 
@@ -806,7 +810,7 @@ def write_crontab(placeholders, overwrite):
 
     if bool(placeholders.get('USE_WALE')):
         lines += [('{BACKUP_SCHEDULE} envdir "{WALE_ENV_DIR}" /scripts/postgres_backup.sh' +
-                   ' "{PGDATA}" {BACKUP_NUM_TO_RETAIN}').format(**placeholders)]
+                   ' "{PGDATA}"').format(**placeholders)]
 
     if bool(placeholders.get('LOG_S3_BUCKET')):
         lines += [('{LOG_SHIP_SCHEDULE} nice -n 5 envdir "{LOG_ENV_DIR}"' +
@@ -817,7 +821,9 @@ def write_crontab(placeholders, overwrite):
     setup_crontab('postgres', lines)
 
 
-def configure_renice(overwrite):
+def configure_renice(placeholders, overwrite):
+    setup_runit_cron(placeholders)
+
     if not (overwrite or check_crontab('root')):
         return
 
@@ -832,7 +838,7 @@ def configure_renice(overwrite):
 
 def write_etcd_configuration(placeholders, overwrite=False):
     placeholders.setdefault('ETCD_HOST', '127.0.0.1:2379')
-    link_runit_service('etcd')
+    link_runit_service(placeholders, 'etcd')
 
 
 def write_pam_oauth2_configuration(placeholders, overwrite):
@@ -856,7 +862,7 @@ def write_pgbouncer_configuration(placeholders, overwrite):
     if not pgbouncer_config:
         return logging.info('No PGBOUNCER_CONFIGURATION was specified, skipping')
 
-    pgbouncer_dir = '/run/pgbouncer'
+    pgbouncer_dir = os.path.join(placeholders['RW_DIR'], 'pgbouncer')
     if not os.path.exists(pgbouncer_dir):
         os.makedirs(pgbouncer_dir)
     write_file(pgbouncer_config, pgbouncer_dir + '/pgbouncer.ini', overwrite)
@@ -865,14 +871,14 @@ def write_pgbouncer_configuration(placeholders, overwrite):
     if pgbouncer_auth:
         write_file(pgbouncer_auth, pgbouncer_dir + '/userlist.txt', overwrite)
 
-    link_runit_service('pgbouncer')
+    link_runit_service(placeholders, 'pgbouncer')
 
 
 def get_binary_version(bin_dir):
     postgres = os.path.join(bin_dir or '', 'postgres')
     version = subprocess.check_output([postgres, '--version']).decode()
-    version = re.match('^[^\s]+ [^\s]+ (\d+)\.(\d+)', version)
-    return '.'.join(version.groups()) if int(version.group(1)) < 10 else version.group(1)
+    version = re.match('^[^\s]+ [^\s]+ (\d+)(\.(\d+))?', version)
+    return '.'.join([version.group(1), version.group(3)]) if int(version.group(1)) < 10 else version.group(1)
 
 
 def main():
@@ -930,30 +936,40 @@ def main():
     patroni_configfile = os.path.join(placeholders['PGHOME'], 'postgres.yml')
 
     for section in args['sections']:
-        logging.info('Configuring {}'.format(section))
+        logging.info('Configuring %s', section)
         if section == 'patroni':
             write_file(yaml.dump(config, default_flow_style=False, width=120), patroni_configfile, args['force'])
-            link_runit_service('patroni')
+            link_runit_service(placeholders, 'patroni')
             pg_socket_dir = '/run/postgresql'
             if not os.path.exists(pg_socket_dir):
                 os.makedirs(pg_socket_dir)
                 st = os.stat(placeholders['PGHOME'])
                 os.chown(pg_socket_dir, st.st_uid, st.st_gid)
                 os.chmod(pg_socket_dir, 0o2775)
-        elif section == 'patronictl':
-            configdir = os.path.join(placeholders['PGHOME'], '.config', 'patroni')
-            patronictl_configfile = os.path.join(configdir, 'patronictl.yaml')
-            if not os.path.exists(configdir):
-                os.makedirs(configdir)
-            if os.path.exists(patronictl_configfile):
-                if not args['force']:
-                    logging.warning('File %s already exists, not overriding. (Use option --force if necessary)',
-                                    patronictl_configfile)
-                    continue
-                os.unlink(patronictl_configfile)
-            os.symlink(patroni_configfile, patronictl_configfile)
+
+            # It is a recurring and very annoying problem with crashes (host/pod/container)
+            # while the backup is taken in the exclusive mode which leaves the backup_label
+            # in the PGDATA. Having the backup_label file in the PGDATA makes postgres think
+            # that we are restoring from the backup and it puts this information into the
+            # pg_control. Effectively it makes it impossible to start postgres in recovery
+            # with such PGDATA because the recovery never-ever-ever-ever finishes.
+            #
+            # As a workaround we will remove the backup_label file from PGDATA if we know
+            # for sure that the Postgres was already running with exactly this PGDATA.
+            # As proof that the postgres was running we will use the presence of postmaster.pid
+            # in the PGDATA, because it is 100% known that neither pg_basebackup nor
+            # wal-e/wal-g are backing up/restoring this file.
+            #
+            # We are not doing such trick in the Patroni (removing backup_label) because
+            # we have absolutely no idea what software people use for backup/recovery.
+            # In case of some home-grown solution they might end up in copying postmaster.pid...
+            pgdata = config['postgresql']['data_dir']
+            postmaster_pid = os.path.join(pgdata, 'postmaster.pid')
+            backup_label = os.path.join(pgdata, 'backup_label')
+            if os.path.isfile(postmaster_pid) and os.path.isfile(backup_label):
+                os.unlink(backup_label)
         elif section == 'pgqd':
-            link_runit_service('pgqd')
+            link_runit_service(placeholders, 'pgqd')
         elif section == 'log':
             if bool(placeholders.get('LOG_S3_BUCKET')):
                 write_log_environment(placeholders)
@@ -963,7 +979,7 @@ def main():
         elif section == 'certificate':
             write_certificates(placeholders, args['force'])
         elif section == 'crontab':
-            if placeholders['CRONTAB'] or placeholders['USE_WALE'] or bool(placeholders.get('LOG_S3_BUCKET')):
+            if placeholders['CRONTAB'] != '[]' or placeholders['USE_WALE'] or bool(placeholders.get('LOG_S3_BUCKET')):
                 write_crontab(placeholders, args['force'])
         elif section == 'pam-oauth2':
             write_pam_oauth2_configuration(placeholders, args['force'])
@@ -978,7 +994,7 @@ def main():
             if placeholders['STANDBY_WITH_WALE']:
                 update_and_write_wale_configuration(placeholders, 'STANDBY_', args['force'])
         elif section == 'renice':
-            configure_renice(args['force'])
+            configure_renice(placeholders, args['force'])
         else:
             raise Exception('Unknown section: {}'.format(section))
 
