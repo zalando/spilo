@@ -46,7 +46,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             /usr/share/locale/??_?? \
     && find /var/log -type f -exec truncate --size 0 {} \;
 
-COPY dependencies/debs /builddeps
+COPY dependencies/debs dependencies/src /builddeps/
 ADD set_user.patch /builddeps/
 
 ARG PGVERSION
@@ -67,7 +67,8 @@ ENV POSTGIS_VERSION=3.0 \
     SET_USER=REL1_6_2 \
     PLPGSQL_CHECK=v1.8.2 \
     PLPROFILER=REL4_1 \
-    PAM_OAUTH2=v1.0
+    PAM_OAUTH2=v1.0 \
+    PLANTUNER_COMMIT=7c276460e4a4052e454b9c44148346e7286eb280
 
 RUN export DEBIAN_FRONTEND=noninteractive \
     && set -ex \
@@ -96,7 +97,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && git clone -b $DECODERBUFS https://github.com/debezium/postgres-decoderbufs.git \
         && git clone -b $PLPROFILER https://github.com/bigsql/plprofiler.git \
         && git clone -b $PLPGSQL_CHECK https://github.com/okbob/plpgsql_check.git \
-        && git clone git://www.sigaev.ru/plantuner.git \
+        && mkdir plantuner \
+            && tar -C plantuner --strip-components=1 -xzf /builddeps/plantuner-${PLANTUNER_COMMIT}.tar.gz \
 \
         && for p in python3-keyring python3-docutils ieee-data; do \
             version=$(apt-cache show $p | sed -n 's/^Version: //p' | sort -rV | head -n 1) \
