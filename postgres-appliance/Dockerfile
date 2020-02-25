@@ -515,18 +515,12 @@ WORKDIR $PGHOME
 COPY motd /etc/
 COPY runit /etc/service/
 COPY pgq_ticker.ini $PGHOME/
-COPY scripts bootstrap /scripts/
 
 RUN sed -i "s|/var/lib/postgresql.*|$PGHOME:/bin/bash|" /etc/passwd \
+        && chown -R postgres:postgres $PGHOME $RW_DIR \
         && if [ "$COMPRESS" != "true" ]; then \
            # non-root prep
-           mkdir -p $PGHOME \
-           && sed -i "s|/var/lib/postgresql.*|$PGHOME:/bin/bash|" /etc/passwd \
-           # Set permissions
-           && chmod 775 $PGHOME \
-           && chmod 664 /etc/passwd \
-           && mkdir -p $PGHOME/rw_dir \
-           && ln -s $PGHOME/rw_dir $RW_DIR/postgresql; \
+           chmod 664 /etc/passwd; \
         fi \
         && rm -fr /var/spool/cron /var/tmp \
         && mkdir -p /var/spool \
@@ -560,6 +554,7 @@ RUN sed -i "s|/var/lib/postgresql.*|$PGHOME:/bin/bash|" /etc/passwd \
            && chmod gu+s /usr/sbin/cron; \
         fi
 
+COPY scripts bootstrap /scripts/
 COPY scm-source.json launch.sh /
 
 CMD ["/bin/sh", "/launch.sh", "init"]

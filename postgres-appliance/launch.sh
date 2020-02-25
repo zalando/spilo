@@ -4,7 +4,7 @@ if [ "$(id -u)" -ne 0 ]; then
     sed -e "s/^postgres:x:[^:]*:[^:]*:/postgres:x:$(id -u):$(id -g):/" /etc/passwd > /tmp/passwd
     cat /tmp/passwd > /etc/passwd
     rm /tmp/passwd
-    mkdir -p "$PGROOT" "$RW_DIR/cron/crontabs"
+    mkdir -p "$PGROOT"
 fi
 
 if [ -f /a.tar.xz ]; then
@@ -38,14 +38,10 @@ chmod 01777 "$RW_DIR/tmp"
 
 if [ "$DEMO" = "true" ]; then
     python3 /scripts/configure_spilo.py patroni pgqd certificate pam-oauth2
-else
-    if [ "$(id -u)" -ne 0 ]; then
-        python3 /scripts/configure_spilo.py all
-        PATH=$PATH /scripts/patroni_wait.sh -t 3600 -- envdir $WALE_ENV_DIR /scripts/postgres_backup.sh $PGDATA $BACKUP_NUM_TO_RETAIN &
-    else
-        python3 /scripts/configure_spilo.py all
-        su postgres -c "PATH=$PATH /scripts/patroni_wait.sh -t 3600 -- envdir $WALE_ENV_DIR /scripts/postgres_backup.sh $PGDATA $BACKUP_NUM_TO_RETAIN" &
-    fi
+elif [ "$(id -u)" -ne 0 ] && python3 /scripts/configure_spilo.py all; then
+        PATH=$PATH /scripts/patroni_wait.sh -t 3600 -- envdir $WALE_ENV_DIR /scripts/postgres_backup.sh $PGDATA &
+elif python3 /scripts/configure_spilo.py all; then
+        su postgres -c "PATH=$PATH /scripts/patroni_wait.sh -t 3600 -- envdir $WALE_ENV_DIR /scripts/postgres_backup.sh $PGDATA" &
 fi
 
 sv_stop() {
