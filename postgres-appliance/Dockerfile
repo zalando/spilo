@@ -145,7 +145,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                     EXTRAS="$EXTRAS postgresql-${version}-postgis-${POSTGIS_VERSION%.0} \
                             postgresql-${version}-postgis-${POSTGIS_VERSION%.0}-scripts"; \
                 fi \
-                && if [ $version != "9.3" ] && [ $version != "12" ]; then \
+                && if [ $version != "9.3" ]; then \
                     EXTRAS="$EXTRAS postgresql-${version}-pglogical" \
                     && if [ $version != "9.4" ]; then \
                         EXTRAS="$EXTRAS postgresql-${version}-pgl-ddl-deploy"; \
