@@ -38,10 +38,13 @@ chmod 01777 "$RW_DIR/tmp"
 
 if [ "$DEMO" = "true" ]; then
     python3 /scripts/configure_spilo.py patroni pgqd certificate pam-oauth2
-elif [ "$(id -u)" -ne 0 ] && python3 /scripts/configure_spilo.py all; then
-    PATH=$PATH /scripts/patroni_wait.sh -t 3600 -- envdir $WALE_ENV_DIR /scripts/postgres_backup.sh $PGDATA &
 elif python3 /scripts/configure_spilo.py all; then
-    su postgres -c "PATH=$PATH /scripts/patroni_wait.sh -t 3600 -- envdir $WALE_ENV_DIR /scripts/postgres_backup.sh $PGDATA" &
+    CMD="/scripts/patroni_wait.sh -t 3600 -- envdir $WALE_ENV_DIR /scripts/postgres_backup.sh $PGDATA"
+    if [ "$(id -u)" -ne 0 ]; then
+        su postgres -c "PATH=$PATH $CMD" &
+    else
+        $CMD &
+    fi
 fi
 
 sv_stop() {
