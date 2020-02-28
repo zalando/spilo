@@ -526,6 +526,7 @@ RUN sed -i "s|/var/lib/postgresql.*|$PGHOME:/bin/bash|" /etc/passwd \
         && ln -s $RW_DIR/.bash_history /root/.bash_history \
         && ln -s $RW_DIR/postgresql/.bash_history $PGHOME/.bash_history \
         && ln -s $RW_DIR/postgresql/.psql_history $PGHOME/.psql_history \
+        && ln -s $RW_DIR/etc $PGHOME/etc \
         && for d in $PGHOME /root; do \
             d=$d/.config/patroni \
             && mkdir -p $d \
