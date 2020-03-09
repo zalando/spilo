@@ -9,8 +9,12 @@ FROM ubuntu:18.04 as builder-false
 RUN export DEBIAN_FRONTEND=noninteractive \
     && echo 'APT::Install-Recommends "0";\nAPT::Install-Suggests "0";' > /etc/apt/apt.conf.d/01norecommend \
     && apt-get update \
-    && apt-get install -y curl ca-certificates less locales jq vim-tiny gnupg1 cron runit dumb-init \
+    && apt-get install -y curl ca-certificates less locales jq vim-tiny gnupg1 cron runit dumb-init libcap2-bin \
     && ln -s chpst /usr/bin/envdir \
+    # Make it possible to use the following utilities without root
+    && setcap 'cap_sys_nice+ep' /usr/bin/chrt \
+    && setcap 'cap_sys_nice+ep' /usr/bin/renice \
+    && chmod u+s /usr/sbin/cron \
 \
     && if [ "$DEMO" != "true" ]; then \
         # Required for wal-e
@@ -37,6 +41,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && curl -s -o - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
 \
     # Clean up
+    && apt-get purge -y libcap2-bin \
+    && apt-get autoremove -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* \
             /var/cache/debconf/* \
@@ -104,7 +110,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             && equivs-build $p; \
         done; \
     fi \
-
 \
     && if [ "$WITH_PERL" != "true" ]; then \
         version=$(apt-cache show perl | sed -n 's/^Version: //p' | sort -rV | head -n 1) \
