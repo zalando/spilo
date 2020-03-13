@@ -548,9 +548,8 @@ RUN sed -i "s|/var/lib/postgresql.*|$PGHOME:/bin/bash|" /etc/passwd \
         done \
         && ln -s /etc/skel/.bashrc $PGHOME/.bashrc \
         && echo "source /etc/motd" >> /root/.bashrc \
-        # Allow users in the root group to access the following dirs
+        # Allow users in the root group to access the following files and dirs
         && if [ "$COMPRESS" != "true" ]; then \
-           # non-root prep
            chmod 664 /etc/passwd \
            && chgrp -R 0 $PGHOME $RW_DIR \
            && chmod -R g=u $PGHOME $RW_DIR \
