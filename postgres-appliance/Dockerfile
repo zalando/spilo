@@ -473,8 +473,6 @@ RUN set -ex \
         apt-get update \
         && apt-get install -y busybox xz-utils \
         && apt-get clean \
-        && usermod -a -G root postgres \
-        && chmod gu+s /usr/sbin/cron \
         && rm -rf /var/lib/apt/lists/* /var/cache/debconf/* /usr/share/doc /usr/share/man /etc/rc?.d /etc/systemd \
         && ln -snf busybox /bin/sh \
         && files="/bin/sh" \
@@ -527,10 +525,6 @@ COPY pgq_ticker.ini $PGHOME/
 
 RUN sed -i "s|/var/lib/postgresql.*|$PGHOME:/bin/bash|" /etc/passwd \
         && chown -R postgres:postgres $PGHOME $RW_DIR \
-        && if [ "$COMPRESS" != "true" ]; then \
-           # non-root prep
-           chmod 664 /etc/passwd; \
-        fi \
         && rm -fr /var/spool/cron /var/tmp \
         && mkdir -p /var/spool \
         && ln -s $RW_DIR/cron /var/spool/cron \
@@ -556,12 +550,11 @@ RUN sed -i "s|/var/lib/postgresql.*|$PGHOME:/bin/bash|" /etc/passwd \
         && echo "source /etc/motd" >> /root/.bashrc \
         # Allow users in the root group to access the following dirs
         && if [ "$COMPRESS" != "true" ]; then \
-           chgrp -R 0 $RW_DIR \
-           && chmod -R g=u $RW_DIR \
-           && chgrp -R 0 $PGHOME \
-           && chmod -R g=u $PGHOME \
-           && usermod -a -G root postgres \
-           && chmod gu+s /usr/sbin/cron; \
+           # non-root prep
+           chmod 664 /etc/passwd \
+           && chgrp -R 0 $PGHOME $RW_DIR \
+           && chmod -R g=u $PGHOME $RW_DIR \
+           && usermod -a -G root postgres; \
         fi
 
 COPY scripts bootstrap /scripts/
