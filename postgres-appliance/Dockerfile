@@ -137,6 +137,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             && if [ "$DEMO" != "true" ]; then \
                 EXTRAS="postgresql-pltcl-${version} \
                         postgresql-${version}-hypopg \
+                        postgresql-${version}-pg-checksums \
                         postgresql-${version}-pgq3 \
                         postgresql-${version}-pldebugger \
                         postgresql-${version}-pllua \
@@ -145,15 +146,18 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 && if [ "$WITH_PERL" = "true" ]; then \
                     EXTRAS="$EXTRAS postgresql-plperl-${version}"; \
                 fi \
-                && if [ $version != "9.3" ]; then EXTRAS="$EXTRAS postgresql-${version}-wal2json"; fi \
+                && if [ $version != "9.3" ]; then \
+                    EXTRAS="$EXTRAS postgresql-${version}-pglogical \
+                            postgresql-${version}-wal2json"; \
+                fi \
                 && if [ $version != "9.3" ] && [ $version != "9.4" ]; then \
                     EXTRAS="$EXTRAS postgresql-${version}-postgis-${POSTGIS_VERSION%.0} \
                             postgresql-${version}-postgis-${POSTGIS_VERSION%.0}-scripts"; \
                 fi \
                 && if [ $version != "9.3" ] && [ $version != "12" ]; then \
-                    EXTRAS="$EXTRAS postgresql-${version}-pglogical" \
-                    && if [ $version != "9.4" ]; then \
-                        EXTRAS="$EXTRAS postgresql-${version}-pgl-ddl-deploy"; \
+                    if [ $version != "9.4" ]; then \
+                        EXTRAS="$EXTRAS postgresql-${version}-pgl-ddl-deploy \
+                                postgresql-${version}-pglogical-ticker"; \
                     fi \
                     && if [ $version != "11" ]; then \
                         EXTRAS="$EXTRAS postgresql-${version}-amcheck"; \
