@@ -44,7 +44,7 @@ AUTO_ENABLE_WALG_RESTORE = ('WAL_S3_BUCKET', 'WALE_S3_PREFIX', 'WALG_S3_PREFIX')
 
 def parse_args():
     sections = ['all', 'patroni', 'pgqd', 'certificate', 'wal-e', 'crontab',
-                'pam-oauth2', 'pgbouncer', 'bootstrap', 'standby-cluster', 'log', 'renice']
+                'pam-oauth2', 'pgbouncer', 'bootstrap', 'standby-cluster', 'log']
     argp = argparse.ArgumentParser(description='Configures Spilo',
                                    epilog="Choose from the following sections:\n\t{}".format('\n\t'.join(sections)),
                                    formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -190,7 +190,8 @@ bootstrap:
   {{#CLONE_WITH_WALE}}
   method: clone_with_wale
   clone_with_wale:
-    command: envdir "{{CLONE_WALE_ENV_DIR}}" python3 /scripts/clone_with_wale.py --recovery-target-time="{{CLONE_TARGET_TIME}}"
+    command: envdir "{{CLONE_WALE_ENV_DIR}}" python3 /scripts/clone_with_wale.py
+      --recovery-target-time="{{CLONE_TARGET_TIME}}"
     recovery_conf:
         restore_command: envdir "{{CLONE_WALE_ENV_DIR}}" /scripts/restore_command.sh "%f" "%p"
         recovery_target_timeline: latest
@@ -210,7 +211,8 @@ bootstrap:
   {{#CLONE_WITH_BASEBACKUP}}
   method: clone_with_basebackup
   clone_with_basebackup:
-    command: python3 /scripts/clone_with_basebackup.py --pgpass={{CLONE_PGPASS}} --host={{CLONE_HOST}} --port={{CLONE_PORT}} --user="{{CLONE_USER}}"
+    command: python3 /scripts/clone_with_basebackup.py --pgpass={{CLONE_PGPASS}} --host={{CLONE_HOST}}
+      --port={{CLONE_PORT}} --user="{{CLONE_USER}}"
   {{/CLONE_WITH_BASEBACKUP}}
   initdb:
     - encoding: UTF8
@@ -257,7 +259,8 @@ postgresql:
     shared_preload_libraries: 'bg_mon,pg_stat_statements,pgextwlist,pg_auth_mon,set_user'
     bg_mon.listen_address: '{{BGMON_LISTEN_IP}}'
     pg_stat_statements.track_utility: 'off'
-    extwlist.extensions: 'btree_gin,btree_gist,citext,hstore,intarray,ltree,pgcrypto,pgq,pg_trgm,postgres_fdw,uuid-ossp,hypopg'
+    extwlist.extensions: 'btree_gin,btree_gist,citext,hstore,intarray,\
+ltree,pgcrypto,pgq,pg_trgm,postgres_fdw,tablefunc,uuid-ossp,hypopg'
     extwlist.custom_path: /scripts
   pg_hba:
     - local   all             all                                   trust
@@ -793,16 +796,25 @@ def setup_runit_cron(placeholders):
     if not os.path.exists(crontabs):
         os.makedirs(crontabs)
         os.chmod(crontabs, 0o1730)
+        if os.getuid() == 0:
+            import grp
+            os.chown(crontabs, -1, grp.getgrnam('crontab').gr_gid)
+
     link_runit_service(placeholders, 'cron')
 
 
 def write_crontab(placeholders, overwrite):
-    setup_runit_cron(placeholders)
-
-    if not (overwrite or check_crontab('postgres')):
-        return
-
     lines = ['PATH={PATH}'.format(**placeholders)]
+
+    with open('/proc/self/status') as f:
+        for line in f:
+            if line.startswith('CapBnd:'):
+                sys_nice = 0x800000
+                if int(line[8:], 16) & sys_nice == sys_nice:
+                    lines += ['*/5 * * * * bash /scripts/renice.sh']
+                else:
+                    logging.info('Skipping creation of renice cron job due to lack of SYS_NICE capability')
+                break
 
     if placeholders.get('SSL_TEST_RELOAD'):
         env = ' '.join('{0}="{1}"'.format(n, placeholders[n]) for n in ('SSL_CA_FILE', 'SSL_CRL_FILE',
@@ -819,22 +831,10 @@ def write_crontab(placeholders, overwrite):
 
     lines += yaml.load(placeholders['CRONTAB'])
 
-    setup_crontab('postgres', lines)
-
-
-def configure_renice(placeholders, overwrite):
-    setup_runit_cron(placeholders)
-
-    if not (overwrite or check_crontab('root')):
-        return
-
-    try:
-        os.nice(-1)
-    except (OSError, PermissionError):
-        return logging.info('Skipping creation of renice cron job due to lack of permissions')
-
-    setup_crontab('root', ['*/5 * * * * bash /scripts/renice.sh'])
-    os.nice(1)
+    if len(lines) > 1:
+        setup_runit_cron(placeholders)
+        if overwrite or check_crontab('postgres'):
+            setup_crontab('postgres', lines)
 
 
 def write_etcd_configuration(placeholders, overwrite=False):
@@ -980,8 +980,7 @@ def main():
         elif section == 'certificate':
             write_certificates(placeholders, args['force'])
         elif section == 'crontab':
-            if placeholders['CRONTAB'] != '[]' or placeholders['USE_WALE'] or bool(placeholders.get('LOG_S3_BUCKET')):
-                write_crontab(placeholders, args['force'])
+            write_crontab(placeholders, args['force'])
         elif section == 'pam-oauth2':
             write_pam_oauth2_configuration(placeholders, args['force'])
         elif section == 'pgbouncer':
@@ -994,8 +993,6 @@ def main():
         elif section == 'standby-cluster':
             if placeholders['STANDBY_WITH_WALE']:
                 update_and_write_wale_configuration(placeholders, 'STANDBY_', args['force'])
-        elif section == 'renice':
-            configure_renice(placeholders, args['force'])
         else:
             raise Exception('Unknown section: {}'.format(section))
 
