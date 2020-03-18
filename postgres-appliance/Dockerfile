@@ -58,6 +58,7 @@ ADD set_user.patch /builddeps/
 ARG PGVERSION
 ARG TIMESCALEDB
 ARG TIMESCALEDB_LEGACY
+ARG TIMESCALEDB_APACHE_ONLY=true
 ARG DEMO
 ARG COMPRESS
 ARG PGOLDVERSIONS="9.3 9.4 9.5 9.6 10 11"
@@ -181,7 +182,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 cd timescaledb \
                 && if [ "$version" != "9.6" ]; then git checkout $TIMESCALEDB; fi \
                 && rm -fr build \
-                && ./bootstrap -DAPACHE_ONLY=1 -DSEND_TELEMETRY_DEFAULT=NO -DREGRESS_CHECKS=OFF \
+                && ./bootstrap -DAPACHE_ONLY=$TIMESCALEDB_APACHE_ONLY -DSEND_TELEMETRY_DEFAULT=NO -DREGRESS_CHECKS=OFF \
                 && make -C build install \
                 && strip /usr/lib/postgresql/$version/lib/timescaledb*.so \
                 && cd ..; \

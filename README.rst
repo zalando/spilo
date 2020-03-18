@@ -29,6 +29,7 @@ Other build arguments and their default values:
 - PGVERSION="11"
 - PGOLDVERSIONS="9.3 9.4 9.5 9.6 10"
 - DEMO=false # set to true to build the smallest possible image which will work only on Kubernetes
+- TIMESCALEDB_APACHE_ONLY=true # set to false to build timescaledb community version (Timescale License)
 
 Run the image locally after build:
 
