@@ -97,8 +97,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && git clone -b $DECODERBUFS https://github.com/debezium/postgres-decoderbufs.git \
         && git clone -b $PLPROFILER https://github.com/bigsql/plprofiler.git \
         && git clone -b $PLPGSQL_CHECK https://github.com/okbob/plpgsql_check.git \
-        && mkdir plantuner \
-            && tar -C plantuner --strip-components=1 -xzf /builddeps/plantuner-${PLANTUNER_COMMIT}.tar.gz \
+        && tar -xzf plantuner-${PLANTUNER_COMMIT}.tar.gz \
 \
         && for p in python3-keyring python3-docutils ieee-data; do \
             version=$(apt-cache show $p | sed -n 's/^Version: //p' | sort -rV | head -n 1) \
@@ -197,7 +196,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                     && rm -fr pg_rewind-${REWIND_VER} postgresql-${version}*; \
                 fi \
 \
-                && EXTRA_EXTENSIONS="plprofiler plantuner" \
+                && EXTRA_EXTENSIONS="plprofiler plantuner-${PLANTUNER_COMMIT}" \
                 && if [ "$version" != "9.3" ]; then \
                     EXTRA_EXTENSIONS="$EXTRA_EXTENSIONS plpgsql_check postgres-decoderbufs"; \
                 fi; \
