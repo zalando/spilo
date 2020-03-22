@@ -5,6 +5,7 @@ if [ "$(id -u)" -ne 0 ]; then
     cat /tmp/passwd > /etc/passwd
     rm /tmp/passwd
     mkdir -p "$PGROOT"
+    chmod -R go-w "$PGROOT" || true
 fi
 
 if [ -f /a.tar.xz ]; then
