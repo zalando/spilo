@@ -9,8 +9,12 @@ FROM ubuntu:18.04 as builder-false
 RUN export DEBIAN_FRONTEND=noninteractive \
     && echo 'APT::Install-Recommends "0";\nAPT::Install-Suggests "0";' > /etc/apt/apt.conf.d/01norecommend \
     && apt-get update \
-    && apt-get install -y curl ca-certificates less locales jq vim-tiny gnupg1 cron runit dumb-init \
+    && apt-get install -y curl ca-certificates less locales jq vim-tiny gnupg1 cron runit dumb-init libcap2-bin \
     && ln -s chpst /usr/bin/envdir \
+    # Make it possible to use the following utilities without root
+    && setcap 'cap_sys_nice+ep' /usr/bin/chrt \
+    && setcap 'cap_sys_nice+ep' /usr/bin/renice \
+    && chmod u+s /usr/sbin/cron \
 \
     && if [ "$DEMO" != "true" ]; then \
         # Required for wal-e
@@ -37,6 +41,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && curl -s -o - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
 \
     # Clean up
+    && apt-get purge -y libcap2-bin \
+    && apt-get autoremove -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* \
             /var/cache/debconf/* \
@@ -104,7 +110,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             && equivs-build $p; \
         done; \
     fi \
-
 \
     && if [ "$WITH_PERL" != "true" ]; then \
         version=$(apt-cache show perl | sed -n 's/^Version: //p' | sort -rV | head -n 1) \
@@ -132,6 +137,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             && if [ "$DEMO" != "true" ]; then \
                 EXTRAS="postgresql-pltcl-${version} \
                         postgresql-${version}-hypopg \
+                        postgresql-${version}-pg-checksums \
                         postgresql-${version}-pgq3 \
                         postgresql-${version}-pldebugger \
                         postgresql-${version}-pllua \
@@ -140,15 +146,18 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 && if [ "$WITH_PERL" = "true" ]; then \
                     EXTRAS="$EXTRAS postgresql-plperl-${version}"; \
                 fi \
-                && if [ $version != "9.3" ]; then EXTRAS="$EXTRAS postgresql-${version}-wal2json"; fi \
+                && if [ $version != "9.3" ]; then \
+                    EXTRAS="$EXTRAS postgresql-${version}-pglogical \
+                            postgresql-${version}-wal2json"; \
+                fi \
                 && if [ $version != "9.3" ] && [ $version != "9.4" ]; then \
                     EXTRAS="$EXTRAS postgresql-${version}-postgis-${POSTGIS_VERSION%.0} \
                             postgresql-${version}-postgis-${POSTGIS_VERSION%.0}-scripts"; \
                 fi \
                 && if [ $version != "9.3" ] && [ $version != "12" ]; then \
-                    EXTRAS="$EXTRAS postgresql-${version}-pglogical" \
-                    && if [ $version != "9.4" ]; then \
-                        EXTRAS="$EXTRAS postgresql-${version}-pgl-ddl-deploy"; \
+                    if [ $version != "9.4" ]; then \
+                        EXTRAS="$EXTRAS postgresql-${version}-pgl-ddl-deploy \
+                                postgresql-${version}-pglogical-ticker"; \
                     fi \
                     && if [ $version != "11" ]; then \
                         EXTRAS="$EXTRAS postgresql-${version}-amcheck"; \
@@ -464,8 +473,6 @@ RUN set -ex \
         apt-get update \
         && apt-get install -y busybox xz-utils \
         && apt-get clean \
-        && usermod -a -G root postgres \
-        && chmod gu+s /usr/sbin/cron \
         && rm -rf /var/lib/apt/lists/* /var/cache/debconf/* /usr/share/doc /usr/share/man /etc/rc?.d /etc/systemd \
         && ln -snf busybox /bin/sh \
         && files="/bin/sh" \
@@ -518,10 +525,6 @@ COPY pgq_ticker.ini $PGHOME/
 
 RUN sed -i "s|/var/lib/postgresql.*|$PGHOME:/bin/bash|" /etc/passwd \
         && chown -R postgres:postgres $PGHOME $RW_DIR \
-        && if [ "$COMPRESS" != "true" ]; then \
-           # non-root prep
-           chmod 664 /etc/passwd; \
-        fi \
         && rm -fr /var/spool/cron /var/tmp \
         && mkdir -p /var/spool \
         && ln -s $RW_DIR/cron /var/spool/cron \
@@ -532,6 +535,7 @@ RUN sed -i "s|/var/lib/postgresql.*|$PGHOME:/bin/bash|" /etc/passwd \
         && ln -s $RW_DIR/.bash_history /root/.bash_history \
         && ln -s $RW_DIR/postgresql/.bash_history $PGHOME/.bash_history \
         && ln -s $RW_DIR/postgresql/.psql_history $PGHOME/.psql_history \
+        && ln -s $RW_DIR/etc $PGHOME/etc \
         && for d in $PGHOME /root; do \
             d=$d/.config/patroni \
             && mkdir -p $d \
@@ -544,14 +548,12 @@ RUN sed -i "s|/var/lib/postgresql.*|$PGHOME:/bin/bash|" /etc/passwd \
         done \
         && ln -s /etc/skel/.bashrc $PGHOME/.bashrc \
         && echo "source /etc/motd" >> /root/.bashrc \
-        # Allow users in the root group to access the following dirs
+        # Allow users in the root group to access the following files and dirs
         && if [ "$COMPRESS" != "true" ]; then \
-           chgrp -R 0 $RW_DIR \
-           && chmod -R g=u $RW_DIR \
-           && chgrp -R 0 $PGHOME \
-           && chmod -R g=u $PGHOME \
-           && usermod -a -G root postgres \
-           && chmod gu+s /usr/sbin/cron; \
+           chmod 664 /etc/passwd \
+           && chgrp -R 0 $PGHOME $RW_DIR \
+           && chmod -R g=u $PGHOME $RW_DIR \
+           && usermod -a -G root postgres; \
         fi
 
 COPY scripts bootstrap /scripts/
