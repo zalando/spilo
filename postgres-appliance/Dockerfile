@@ -70,7 +70,7 @@ ARG DEB_PG_SUPPORTED_VERSIONS="$PGOLDVERSIONS $PGVERSION"
 ENV POSTGIS_VERSION=3.0 \
     BG_MON_COMMIT=7a4a4a621f89cc032bd7d497ce2373a1220c89a5 \
     PG_AUTH_MON_COMMIT=902c670c9f2071b30e1d4437e7a38e2e136f9be6 \
-    PG_MON_COMMIT=e4b577c71583cbdbc1f1c1cdf2612bc58ada5288 \
+    PG_MON_COMMIT=54c679478006f19df441bd98a273e2e3352690b6 \
     DECODERBUFS=v1.0.1.Final \
     SET_USER=REL1_6_2 \
     PLPGSQL_CHECK=v1.8.2 \
@@ -208,7 +208,10 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                     && rm -fr pg_rewind-${REWIND_VER} postgresql-${version}*; \
                 fi \
 \
-                && EXTRA_EXTENSIONS="plprofiler plantuner-${PLANTUNER_COMMIT} pg_mon-${PG_MON_COMMIT}" \
+                && EXTRA_EXTENSIONS="plprofiler plantuner-${PLANTUNER_COMMIT}" \
+                && if [ "$version" = "10" ] || [ "$version" = "11" ] || [ "$version" = "12" ] ; then \
+                     EXTRA_EXTENSIONS="$EXTRA_EXTENSIONS  pg_mon-${PG_MON_COMMIT}"; \
+                fi \
                 && if [ "$version" != "9.3" ]; then \
                     EXTRA_EXTENSIONS="$EXTRA_EXTENSIONS plpgsql_check postgres-decoderbufs"; \
                 fi; \
