@@ -70,6 +70,7 @@ ARG DEB_PG_SUPPORTED_VERSIONS="$PGOLDVERSIONS $PGVERSION"
 ENV POSTGIS_VERSION=3.0 \
     BG_MON_COMMIT=7a4a4a621f89cc032bd7d497ce2373a1220c89a5 \
     PG_AUTH_MON_COMMIT=902c670c9f2071b30e1d4437e7a38e2e136f9be6 \
+    PG_MON_COMMIT=54c679478006f19df441bd98a273e2e3352690b6 \
     DECODERBUFS=v1.0.1.Final \
     SET_USER=REL1_6_2 \
     PLPGSQL_CHECK=v1.8.2 \
@@ -105,6 +106,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && git clone -b $PLPROFILER https://github.com/bigsql/plprofiler.git \
         && git clone -b $PLPGSQL_CHECK https://github.com/okbob/plpgsql_check.git \
         && tar -xzf plantuner-${PLANTUNER_COMMIT}.tar.gz \
+        && curl -sL https://github.com/RafiaSabih/pg_mon/archive/$PG_MON_COMMIT.tar.gz | tar xz \
 \
         && for p in python3-keyring python3-docutils ieee-data; do \
             version=$(apt-cache show $p | sed -n 's/^Version: //p' | sort -rV | head -n 1) \
@@ -207,6 +209,9 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 fi \
 \
                 && EXTRA_EXTENSIONS="plprofiler plantuner-${PLANTUNER_COMMIT}" \
+                && if [ "$version" = "10" ] || [ "$version" = "11" ] || [ "$version" = "12" ] ; then \
+                     EXTRA_EXTENSIONS="$EXTRA_EXTENSIONS  pg_mon-${PG_MON_COMMIT}"; \
+                fi \
                 && if [ "$version" != "9.3" ]; then \
                     EXTRA_EXTENSIONS="$EXTRA_EXTENSIONS plpgsql_check postgres-decoderbufs"; \
                 fi; \
