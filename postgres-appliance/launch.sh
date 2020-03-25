@@ -1,13 +1,5 @@
 #!/bin/sh
 
-if [ "$(id -u)" -ne 0 ]; then
-    sed -e "s/^postgres:x:[^:]*:[^:]*:/postgres:x:$(id -u):$(id -g):/" /etc/passwd > /tmp/passwd
-    cat /tmp/passwd > /etc/passwd
-    rm /tmp/passwd
-    mkdir -p "$PGROOT"
-    chmod -R go-w "$PGROOT" || true
-fi
-
 if [ -f /a.tar.xz ]; then
     echo "decompressing spilo image..."
     if tar xpJf /a.tar.xz -C / > /dev/null 2>&1; then
@@ -26,6 +18,11 @@ if [ "x$1" = "xinit" ]; then
 fi
 
 mkdir -p "$PGLOG" "$RW_DIR/postgresql" "$RW_DIR/tmp" "$RW_DIR/certs"
+if [ "$(id -u)" -ne 0 ]; then
+    sed -e "s/^postgres:x:[^:]*:[^:]*:/postgres:x:$(id -u):$(id -g):/" /etc/passwd > "$RW_DIR/tmp/passwd"
+    cat "$RW_DIR/tmp/passwd" > /etc/passwd
+    rm "$RW_DIR/tmp/passwd"
+fi
 
 ## Ensure all logfiles exist, most appliances will have
 ## a foreign data wrapper pointing to these files
@@ -35,6 +32,7 @@ for i in $(seq 0 7); do
     fi
 done
 chown -R postgres: "$PGROOT" "$RW_DIR/certs"
+chmod -R go-w "$PGROOT"
 chmod 01777 "$RW_DIR/tmp"
 
 if [ "$DEMO" = "true" ]; then
