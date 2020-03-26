@@ -554,7 +554,14 @@ RUN sed -i "s|/var/lib/postgresql.*|$PGHOME:/bin/bash|" /etc/passwd \
             do echo "export $e" >> /etc/bash.bashrc; \
         done \
         && ln -s /etc/skel/.bashrc $PGHOME/.bashrc \
-        && echo "source /etc/motd" >> /root/.bashrc
+        && echo "source /etc/motd" >> /root/.bashrc \
+        # Allow users in the root group to access the following files and dirs
+        && if [ "$COMPRESS" != "true" ]; then \
+           chmod 664 /etc/passwd \
+           && chgrp -R 0 $PGHOME $RW_DIR \
+           && chmod -R g=u $PGHOME $RW_DIR \
+           && usermod -a -G root postgres; \
+        fi
 
 COPY scripts bootstrap /scripts/
 COPY scm-source.json launch.sh /
