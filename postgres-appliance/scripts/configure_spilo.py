@@ -33,7 +33,7 @@ MEMORY_LIMIT_IN_BYTES_PATH = '/sys/fs/cgroup/memory/memory.limit_in_bytes'
 
 # (min_version, max_version, shared_preload_libraries, extwlist.extensions)
 extensions = {
-    'timescaledb':    (9.6, 11, True,  True),
+    'timescaledb':    (9.6, 12, True,  True),
     'pg_cron':        (9.5, 12, True,  False),
     'pg_stat_kcache': (9.4, 12, True,  False),
     'pg_partman':     (9.4, 12, False, True)

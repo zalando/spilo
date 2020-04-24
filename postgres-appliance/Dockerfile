@@ -1,6 +1,6 @@
 ARG PGVERSION=12
-ARG TIMESCALEDB=1.6.1
-ARG TIMESCALEDB_LEGACY=$TIMESCALEDB
+ARG TIMESCALEDB=1.7.0
+ARG TIMESCALEDB_LEGACY=1.6.1
 ARG DEMO=false
 ARG COMPRESS=false
 
@@ -168,11 +168,12 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                         libpq-dev=$version* postgresql-server-dev-${version} \
 \
             # Install 3rd party stuff
-            && if [ "$version" = "9.6" ] || [ "$version" = "10" ] || [ "$version" = "11" ] ; then \
+            && if [ "$version" != "9.5" ]; then \
                 cd timescaledb \
-                && if [ "$version" != "9.6" ]; then git checkout $TIMESCALEDB; fi \
+                && if [ "$version" = "12" ]; then git checkout $TIMESCALEDB; fi \
                 && rm -fr build \
-                && ./bootstrap -DAPACHE_ONLY=$TIMESCALEDB_APACHE_ONLY -DSEND_TELEMETRY_DEFAULT=NO -DREGRESS_CHECKS=OFF \
+                && ./bootstrap -DAPACHE_ONLY=$TIMESCALEDB_APACHE_ONLY -DSEND_TELEMETRY_DEFAULT=NO \
+                    -DREGRESS_CHECKS=OFF -DPG_CONFIG=/usr/lib/postgresql/$version/bin/pg_config \
                 && make -C build install \
                 && strip /usr/lib/postgresql/$version/lib/timescaledb*.so \
                 && cd ..; \
@@ -187,7 +188,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 fi \
 \
                 && EXTRA_EXTENSIONS="plantuner-${PLANTUNER_COMMIT} plpgsql_check plprofiler postgres-decoderbufs" \
-                && if [ "$version" = "10" ] || [ "$version" = "11" ] || [ "$version" = "12" ] ; then \
+                && if [ "$version" = "10" ] || [ "$version" = "11" ] || [ "$version" = "12" ]; then \
                      EXTRA_EXTENSIONS="$EXTRA_EXTENSIONS pg_mon-${PG_MON_COMMIT}"; \
                 fi; \
             else \
