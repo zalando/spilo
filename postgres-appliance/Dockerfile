@@ -70,7 +70,7 @@ ENV POSTGIS_VERSION=3.0 \
     BG_MON_COMMIT=7a4a4a621f89cc032bd7d497ce2373a1220c89a5 \
     PG_AUTH_MON_COMMIT=902c670c9f2071b30e1d4437e7a38e2e136f9be6 \
     PG_MON_COMMIT=54c679478006f19df441bd98a273e2e3352690b6 \
-    DECODERBUFS=v1.1.0.Final \
+    DECODERBUFS=v1.1.1.Final \
     SET_USER=REL1_6_2 \
     PLPGSQL_CHECK=v1.9.0 \
     PLPROFILER=REL4_1 \
@@ -376,7 +376,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && find /var/log -type f -exec truncate --size 0 {} \;
 
 # Install patroni, wal-e and wal-g
-ENV PATRONIVERSION=1.6.4
+ENV PATRONIVERSION=1.6.5
 ENV WALE_VERSION=1.1.0
 ENV WALG_VERSION=v0.2.15
 RUN export DEBIAN_FRONTEND=noninteractive \
