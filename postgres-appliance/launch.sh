@@ -40,7 +40,7 @@ if [ "$DEMO" = "true" ]; then
     python3 /scripts/configure_spilo.py patroni pgqd certificate pam-oauth2
 elif python3 /scripts/configure_spilo.py all; then
     CMD="/scripts/patroni_wait.sh -t 3600 -- envdir $WALE_ENV_DIR /scripts/postgres_backup.sh $PGDATA"
-    if [ "$(id -u)" -ne 0 ]; then
+    if [ "$(id -u)" = "0" ]; then
         su postgres -c "PATH=$PATH $CMD" &
     else
         $CMD &

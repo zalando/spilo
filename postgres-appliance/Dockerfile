@@ -1,6 +1,6 @@
 ARG PGVERSION=12
-ARG TIMESCALEDB=1.6.1
-ARG TIMESCALEDB_LEGACY=$TIMESCALEDB
+ARG TIMESCALEDB=1.7.0
+ARG TIMESCALEDB_LEGACY=1.6.1
 ARG DEMO=false
 ARG COMPRESS=false
 
@@ -70,7 +70,7 @@ ENV POSTGIS_VERSION=3.0 \
     BG_MON_COMMIT=7a4a4a621f89cc032bd7d497ce2373a1220c89a5 \
     PG_AUTH_MON_COMMIT=902c670c9f2071b30e1d4437e7a38e2e136f9be6 \
     PG_MON_COMMIT=54c679478006f19df441bd98a273e2e3352690b6 \
-    DECODERBUFS=v1.1.0.Final \
+    DECODERBUFS=v1.1.1.Final \
     SET_USER=REL1_6_2 \
     PLPGSQL_CHECK=v1.9.0 \
     PLPROFILER=REL4_1 \
@@ -168,11 +168,12 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                         libpq-dev=$version* postgresql-server-dev-${version} \
 \
             # Install 3rd party stuff
-            && if [ "$version" = "9.6" ] || [ "$version" = "10" ] || [ "$version" = "11" ] ; then \
+            && if [ "$version" != "9.5" ]; then \
                 cd timescaledb \
-                && if [ "$version" != "9.6" ]; then git checkout $TIMESCALEDB; fi \
+                && if [ "$version" = "12" ]; then git checkout $TIMESCALEDB; fi \
                 && rm -fr build \
-                && ./bootstrap -DAPACHE_ONLY=$TIMESCALEDB_APACHE_ONLY -DSEND_TELEMETRY_DEFAULT=NO -DREGRESS_CHECKS=OFF \
+                && ./bootstrap -DAPACHE_ONLY=$TIMESCALEDB_APACHE_ONLY -DSEND_TELEMETRY_DEFAULT=NO \
+                    -DREGRESS_CHECKS=OFF -DPG_CONFIG=/usr/lib/postgresql/$version/bin/pg_config \
                 && make -C build install \
                 && strip /usr/lib/postgresql/$version/lib/timescaledb*.so \
                 && cd ..; \
@@ -187,7 +188,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 fi \
 \
                 && EXTRA_EXTENSIONS="plantuner-${PLANTUNER_COMMIT} plpgsql_check plprofiler postgres-decoderbufs" \
-                && if [ "$version" = "10" ] || [ "$version" = "11" ] || [ "$version" = "12" ] ; then \
+                && if [ "$version" = "10" ] || [ "$version" = "11" ] || [ "$version" = "12" ]; then \
                      EXTRA_EXTENSIONS="$EXTRA_EXTENSIONS pg_mon-${PG_MON_COMMIT}"; \
                 fi; \
             else \
@@ -376,7 +377,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && find /var/log -type f -exec truncate --size 0 {} \;
 
 # Install patroni, wal-e and wal-g
-ENV PATRONIVERSION=1.6.4
+ENV PATRONIVERSION=1.6.5
 ENV WALE_VERSION=1.1.0
 ENV WALG_VERSION=v0.2.15
 RUN export DEBIAN_FRONTEND=noninteractive \
