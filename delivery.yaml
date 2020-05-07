@@ -18,7 +18,7 @@ pipeline:
           IMAGE="$IMAGE-cdp-$PGVERSION:$PATRONIVERSION-p$CDP_TARGET_BRANCH_COUNTER"
       fi
 
-      ./build.sh --build-arg PGVERSION=$PGVERSION -t $IMAGE .
+      docker build --build-arg PGVERSION=$PGVERSION -t $IMAGE .
 
       docker images
 

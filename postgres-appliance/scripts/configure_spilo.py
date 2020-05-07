@@ -10,6 +10,7 @@ import psutil
 import socket
 import subprocess
 import sys
+import pwd
 
 from copy import deepcopy
 from six.moves.urllib_parse import urlparse
@@ -32,7 +33,7 @@ MEMORY_LIMIT_IN_BYTES_PATH = '/sys/fs/cgroup/memory/memory.limit_in_bytes'
 
 # (min_version, max_version, shared_preload_libraries, extwlist.extensions)
 extensions = {
-    'timescaledb':    (9.6, 11, True,  True),
+    'timescaledb':    (9.6, 12, True,  True),
     'pg_cron':        (9.5, 12, True,  False),
     'pg_stat_kcache': (9.4, 12, True,  False),
     'pg_partman':     (9.4, 12, False, True)
@@ -106,7 +107,7 @@ def write_certificates(environment, overwrite):
         output, _ = p.communicate()
         logging.debug(output)
 
-    uid = os.stat(environment['PGHOME']).st_uid
+    uid = pwd.getpwnam(environment['PGUSER_SUPERUSER']).pw_uid
     os.chmod(environment['SSL_PRIVATE_KEY_FILE'], 0o600)
     os.chown(environment['SSL_PRIVATE_KEY_FILE'], uid, -1)
 
@@ -468,8 +469,8 @@ def get_placeholders(provider):
     placeholders.setdefault('SSL_TEST_RELOAD', 'SSL_PRIVATE_KEY_FILE' in os.environ)
     placeholders.setdefault('SSL_CA_FILE', '')
     placeholders.setdefault('SSL_CRL_FILE', '')
-    placeholders.setdefault('SSL_CERTIFICATE_FILE', os.path.join(placeholders['RW_DIR'], 'server.crt'))
-    placeholders.setdefault('SSL_PRIVATE_KEY_FILE', os.path.join(placeholders['RW_DIR'], 'server.key'))
+    placeholders.setdefault('SSL_CERTIFICATE_FILE', os.path.join(placeholders['RW_DIR'], 'certs', 'server.crt'))
+    placeholders.setdefault('SSL_PRIVATE_KEY_FILE', os.path.join(placeholders['RW_DIR'], 'certs', 'server.key'))
     placeholders.setdefault('WALE_BACKUP_THRESHOLD_MEGABYTES', 102400)
     placeholders.setdefault('WALE_BACKUP_THRESHOLD_PERCENTAGE', 30)
     # if Kubernetes is defined as a DCS, derive the namespace from the POD_NAMESPACE, if not set explicitely.

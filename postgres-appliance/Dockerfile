@@ -1,6 +1,6 @@
 ARG PGVERSION=12
-ARG TIMESCALEDB=1.6.0
-ARG TIMESCALEDB_LEGACY=$TIMESCALEDB
+ARG TIMESCALEDB=1.7.0
+ARG TIMESCALEDB_LEGACY=1.6.1
 ARG DEMO=false
 ARG COMPRESS=false
 
@@ -53,7 +53,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && find /var/log -type f -exec truncate --size 0 {} \;
 
 COPY dependencies/debs dependencies/src /builddeps/
-ADD set_user.patch /builddeps/
 
 ARG PGVERSION
 ARG TIMESCALEDB
@@ -61,7 +60,7 @@ ARG TIMESCALEDB_LEGACY
 ARG TIMESCALEDB_APACHE_ONLY=true
 ARG DEMO
 ARG COMPRESS
-ARG PGOLDVERSIONS="9.3 9.4 9.5 9.6 10 11"
+ARG PGOLDVERSIONS="9.5 9.6 10 11"
 ARG WITH_PERL=false
 
 ARG DEB_PG_SUPPORTED_VERSIONS="$PGOLDVERSIONS $PGVERSION"
@@ -70,10 +69,10 @@ ARG DEB_PG_SUPPORTED_VERSIONS="$PGOLDVERSIONS $PGVERSION"
 ENV POSTGIS_VERSION=3.0 \
     BG_MON_COMMIT=7a4a4a621f89cc032bd7d497ce2373a1220c89a5 \
     PG_AUTH_MON_COMMIT=902c670c9f2071b30e1d4437e7a38e2e136f9be6 \
-    PG_MON_COMMIT=a8e2e6158cb354b7e89335527686a68dac4a7904 \
-    DECODERBUFS=v1.0.1.Final \
+    PG_MON_COMMIT=ce374196975a71f7ef8ad30fa75263428a8b37c4 \
+    DECODERBUFS=v1.1.1.Final \
     SET_USER=REL1_6_2 \
-    PLPGSQL_CHECK=v1.8.2 \
+    PLPGSQL_CHECK=v1.9.0 \
     PLPROFILER=REL4_1 \
     PAM_OAUTH2=v1.0 \
     PLANTUNER_COMMIT=7c276460e4a4052e454b9c44148346e7286eb280
@@ -91,10 +90,9 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && rm -f *.deb \
         && apt-get install -y $BUILD_PACKAGES; \
     else \
-        BUILD_PACKAGES="$BUILD_PACKAGES pgxnclient zlib1g-dev libprotobuf-c-dev liblwgeom-dev libproj-dev libxslt1-dev libxml2-dev libpam0g-dev libedit-dev libselinux1-dev libcurl4-openssl-dev libicu-dev python libc-ares-dev pandoc pkg-config" \
-# debezium-decoderbufs: libprotobuf-c-dev liblwgeom-dev libproj-dev
+        BUILD_PACKAGES="$BUILD_PACKAGES pgxnclient zlib1g-dev libprotobuf-c-dev libpam0g-dev libcurl4-openssl-dev libicu-dev python libc-ares-dev pandoc pkg-config" \
+# debezium-decoderbufs: libprotobuf-c-dev
 # pgbouncer: libc-ares-dev pandoc pkg-config
-# pg_rewind: libxslt1-dev libxml2-dev libpam0g-dev libkrb5-dev libedit-dev libselinux1-dev
         && apt-get install -y $BUILD_PACKAGES libprotobuf-c1 libcurl4 \
 \
         # install pam_oauth2.so
@@ -126,7 +124,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && curl -sL https://github.com/CyberDem0n/bg_mon/archive/$BG_MON_COMMIT.tar.gz | tar xz \
     && curl -sL https://github.com/RafiaSabih/pg_auth_mon/archive/$PG_AUTH_MON_COMMIT.tar.gz | tar xz \
     && git clone -b $SET_USER https://github.com/pgaudit/set_user.git \
-    && patch -d set_user -p1 < set_user.patch \
     && git clone -b $TIMESCALEDB_LEGACY https://github.com/timescale/timescaledb.git \
 \
     && apt-get install -y postgresql-common libevent-2.1 libevent-pthreads-2.1 python3.6 python3-psycopg2 \
@@ -140,38 +137,28 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 \
             && if [ "$DEMO" != "true" ]; then \
                 EXTRAS="postgresql-pltcl-${version} \
+                        postgresql-${version}-cron \
                         postgresql-${version}-hypopg \
                         postgresql-${version}-pg-checksums \
+                        postgresql-${version}-pgl-ddl-deploy \
+                        postgresql-${version}-pglogical \
                         postgresql-${version}-pgq3 \
+                        postgresql-${version}-pg-stat-kcache \
                         postgresql-${version}-pldebugger \
                         postgresql-${version}-pllua \
                         postgresql-${version}-plproxy \
-                        postgresql-${version}-repack" \
+                        postgresql-${version}-postgis-${POSTGIS_VERSION%.0} \
+                        postgresql-${version}-postgis-${POSTGIS_VERSION%.0}-scripts \
+                        postgresql-${version}-repack \
+                        postgresql-${version}-wal2json" \
                 && if [ "$WITH_PERL" = "true" ]; then \
                     EXTRAS="$EXTRAS postgresql-plperl-${version}"; \
                 fi \
-                && if [ $version != "9.3" ]; then \
-                    EXTRAS="$EXTRAS postgresql-${version}-pglogical \
-                            postgresql-${version}-wal2json"; \
-                fi \
-                && if [ $version != "9.3" ] && [ $version != "9.4" ]; then \
-                    EXTRAS="$EXTRAS postgresql-${version}-postgis-${POSTGIS_VERSION%.0} \
-                            postgresql-${version}-postgis-${POSTGIS_VERSION%.0}-scripts"; \
-                fi \
-                && if [ $version != "9.3" ] && [ $version != "12" ]; then \
-                    if [ $version != "9.4" ]; then \
-                        EXTRAS="$EXTRAS postgresql-${version}-pgl-ddl-deploy \
-                                postgresql-${version}-pglogical-ticker"; \
-                    fi \
+                && if [ $version != "12" ]; then \
+                    EXTRAS="$EXTRAS postgresql-${version}-pglogical-ticker" \
                     && if [ $version != "11" ]; then \
                         EXTRAS="$EXTRAS postgresql-${version}-amcheck"; \
                     fi; \
-                fi; \
-            fi \
-            && if [ $version != "9.3" ]; then \
-                EXTRAS="$EXTRAS postgresql-${version}-pg-stat-kcache" \
-                && if [ $version != "9.4" ]; then \
-                    EXTRAS="$EXTRAS postgresql-${version}-cron"; \
                 fi; \
             fi \
 \
@@ -181,11 +168,12 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                         libpq-dev=$version* postgresql-server-dev-${version} \
 \
             # Install 3rd party stuff
-            && if [ "$version" = "9.6" ] || [ "$version" = "10" ] || [ "$version" = "11" ] ; then \
+            && if [ "$version" != "9.5" ]; then \
                 cd timescaledb \
-                && if [ "$version" != "9.6" ]; then git checkout $TIMESCALEDB; fi \
+                && if [ "$version" = "12" ]; then git checkout $TIMESCALEDB; fi \
                 && rm -fr build \
-                && ./bootstrap -DAPACHE_ONLY=$TIMESCALEDB_APACHE_ONLY -DSEND_TELEMETRY_DEFAULT=NO -DREGRESS_CHECKS=OFF \
+                && ./bootstrap -DAPACHE_ONLY=$TIMESCALEDB_APACHE_ONLY -DSEND_TELEMETRY_DEFAULT=NO \
+                    -DREGRESS_CHECKS=OFF -DPG_CONFIG=/usr/lib/postgresql/$version/bin/pg_config \
                 && make -C build install \
                 && strip /usr/lib/postgresql/$version/lib/timescaledb*.so \
                 && cd ..; \
@@ -199,21 +187,9 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                     done; \
                 fi \
 \
-                # Install pg_rewind on 9.3 and 9.4
-                && if [ "$version" = "9.3" ] || [ "$version" = "9.4" ]; then \
-                    REWIND_VER=REL$(echo $version | sed 's/\./_/')_STABLE \
-                    && apt-get source postgresql-${version} \
-                    && curl -sL https://github.com/vmware/pg_rewind/archive/${REWIND_VER}.tar.gz | tar xz \
-                    && make -C pg_rewind-${REWIND_VER} USE_PGXS=1 top_srcdir=../$(ls -d postgresql-${version}-*) install-strip \
-                    && rm -fr pg_rewind-${REWIND_VER} postgresql-${version}*; \
-                fi \
-\
-                && EXTRA_EXTENSIONS="plprofiler plantuner-${PLANTUNER_COMMIT}" \
-                && if [ "$version" = "10" ] || [ "$version" = "11" ] || [ "$version" = "12" ] ; then \
-                     EXTRA_EXTENSIONS="$EXTRA_EXTENSIONS  pg_mon-${PG_MON_COMMIT}"; \
-                fi \
-                && if [ "$version" != "9.3" ]; then \
-                    EXTRA_EXTENSIONS="$EXTRA_EXTENSIONS plpgsql_check postgres-decoderbufs"; \
+                && EXTRA_EXTENSIONS="plantuner-${PLANTUNER_COMMIT} plpgsql_check plprofiler postgres-decoderbufs" \
+                && if [ "$version" = "10" ] || [ "$version" = "11" ] || [ "$version" = "12" ]; then \
+                     EXTRA_EXTENSIONS="$EXTRA_EXTENSIONS pg_mon-${PG_MON_COMMIT}"; \
                 fi; \
             else \
                 EXTRA_EXTENSIONS=""; \
@@ -237,15 +213,11 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 \
     && if [ "$DEMO" != "true" ]; then \
         for version in $DEB_PG_SUPPORTED_VERSIONS; do \
-            if [ $version != "9.3" ]; then \
-                # due to dependency issues partman has to be installed separately
-                apt-get install -y postgresql-${version}-partman \
-                && if [ $version != "9.4" ]; then \
-                    # create postgis symlinks to make it possible to perform update
-                    ln -s postgis-${POSTGIS_VERSION%.0}.so \
-                        /usr/lib/postgresql/${version}/lib/postgis-2.5.so; \
-                fi; \
-            fi; \
+            # due to dependency issues partman has to be installed separately
+            apt-get install -y postgresql-${version}-partman \
+            # create postgis symlinks to make it possible to perform update
+            && ln -s postgis-${POSTGIS_VERSION%.0}.so \
+                /usr/lib/postgresql/${version}/lib/postgis-2.5.so; \
         done \
         # patch, build and install pgbouncer
         && apt-get source pgbouncer \
@@ -405,9 +377,9 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && find /var/log -type f -exec truncate --size 0 {} \;
 
 # Install patroni, wal-e and wal-g
-ENV PATRONIVERSION=1.6.4
+ENV PATRONIVERSION=1.6.5
 ENV WALE_VERSION=1.1.0
-ENV WALG_VERSION=v0.2.14
+ENV WALG_VERSION=v0.2.15
 RUN export DEBIAN_FRONTEND=noninteractive \
     && set -ex \
     && BUILD_PACKAGES="python3-pip python3-wheel python3-dev git patchutils binutils" \
@@ -554,9 +526,16 @@ RUN sed -i "s|/var/lib/postgresql.*|$PGHOME:/bin/bash|" /etc/passwd \
             do echo "export $e" >> /etc/bash.bashrc; \
         done \
         && ln -s /etc/skel/.bashrc $PGHOME/.bashrc \
-        && echo "source /etc/motd" >> /root/.bashrc
+        && echo "source /etc/motd" >> /root/.bashrc \
+        # Allow users in the root group to access the following files and dirs
+        && if [ "$COMPRESS" != "true" ]; then \
+           chmod 664 /etc/passwd \
+           && chgrp -R 0 $PGHOME $RW_DIR \
+           && chmod -R g=u $PGHOME $RW_DIR \
+           && usermod -a -G root postgres; \
+        fi
 
 COPY scripts bootstrap /scripts/
-COPY scm-source.json launch.sh /
+COPY launch.sh /
 
 CMD ["/bin/sh", "/launch.sh", "init"]
