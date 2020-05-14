@@ -306,27 +306,22 @@ ltree,pgcrypto,pgq,pg_trgm,postgres_fdw,tablefunc,uuid-ossp,hypopg'
  {{^CALLBACK_SCRIPT}}
     on_role_change: '/scripts/on_role_change.sh {{HUMAN_ROLE}} true'
  {{/CALLBACK_SCRIPT}}
-{{#USE_WALE}}
   create_replica_method:
+  {{#USE_WALE}}
     - wal_e
+  {{/USE_WALE}}
     - basebackup_fast_xlog
+  {{#USE_WALE}}
   wal_e:
     command: envdir {{WALE_ENV_DIR}} bash /scripts/wale_restore.sh
     threshold_megabytes: {{WALE_BACKUP_THRESHOLD_MEGABYTES}}
     threshold_backup_size_percentage: {{WALE_BACKUP_THRESHOLD_PERCENTAGE}}
     retries: 2
     no_master: 1
+  {{/USE_WALE}}
   basebackup_fast_xlog:
     command: /scripts/basebackup.sh
     retries: 2
-{{/USE_WALE}}
-{{#STANDBY_CLUSTER}}
-  create_replica_method:
-    - basebackup_fast_xlog
-  basebackup_fast_xlog:
-    command: /scripts/basebackup.sh
-    retries: 2
-{{/STANDBY_CLUSTER}}
 {{#STANDBY_WITH_WALE}}
   bootstrap_standby_with_wale:
     command: envdir "{{STANDBY_WALE_ENV_DIR}}" bash /scripts/wale_restore.sh
