@@ -67,7 +67,7 @@ ARG DEB_PG_SUPPORTED_VERSIONS="$PGOLDVERSIONS $PGVERSION"
 
 # Install PostgreSQL, extensions and contribs
 ENV POSTGIS_VERSION=3.0 \
-    BG_MON_COMMIT=7a4a4a621f89cc032bd7d497ce2373a1220c89a5 \
+    BG_MON_COMMIT=1418440bb6eb9466199c037d005560b5bf06aafc \
     PG_AUTH_MON_COMMIT=902c670c9f2071b30e1d4437e7a38e2e136f9be6 \
     PG_MON_COMMIT=ce374196975a71f7ef8ad30fa75263428a8b37c4 \
     DECODERBUFS=v1.1.1.Final \
@@ -83,7 +83,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && apt-get update \
     && cd /builddeps \
 \
-    && BUILD_PACKAGES="devscripts equivs build-essential fakeroot debhelper git gcc libc6-dev make cmake libevent-dev libssl-dev libkrb5-dev" \
+    && BUILD_PACKAGES="devscripts equivs build-essential fakeroot debhelper git gcc libc6-dev make cmake libevent-dev libbrotli-dev libssl-dev libkrb5-dev" \
     && if [ "$DEMO" = "true" ]; then \
         export DEB_PG_SUPPORTED_VERSIONS="$PGVERSION" \
         && WITH_PERL=false \
@@ -126,7 +126,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && git clone -b $SET_USER https://github.com/pgaudit/set_user.git \
     && git clone -b $TIMESCALEDB_LEGACY https://github.com/timescale/timescaledb.git \
 \
-    && apt-get install -y postgresql-common libevent-2.1 libevent-pthreads-2.1 python3.6 python3-psycopg2 \
+    && apt-get install -y postgresql-common libevent-2.1 libevent-pthreads-2.1 sysstat brotli libbrotli1 python3.6 python3-psycopg2 \
 \
     # forbid creation of a main cluster when package is installed
     && sed -ri 's/#(create_main_cluster) .*$/\1 = false/' /etc/postgresql-common/createcluster.conf \

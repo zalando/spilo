@@ -258,6 +258,7 @@ postgresql:
     ssl_key_file: {{SSL_PRIVATE_KEY_FILE}}
     shared_preload_libraries: 'bg_mon,pg_stat_statements,pgextwlist,pg_auth_mon,set_user'
     bg_mon.listen_address: '{{BGMON_LISTEN_IP}}'
+    bg_mon.history_buckets: 120
     pg_stat_statements.track_utility: 'off'
     extwlist.extensions: 'btree_gin,btree_gist,citext,hstore,intarray,\
 ltree,pgcrypto,pgq,pg_trgm,postgres_fdw,tablefunc,uuid-ossp,hypopg'
