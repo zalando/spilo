@@ -1,6 +1,6 @@
 ARG PGVERSION=12
-ARG TIMESCALEDB=1.7.0
-ARG TIMESCALEDB_LEGACY=1.6.1
+ARG TIMESCALEDB=1.7.1
+ARG TIMESCALEDB_LEGACY=1.7.1
 ARG DEMO=false
 ARG COMPRESS=false
 
@@ -74,7 +74,7 @@ ENV POSTGIS_VERSION=3.0 \
     SET_USER=REL1_6_2 \
     PLPGSQL_CHECK=v1.9.0 \
     PLPROFILER=REL4_1 \
-    PAM_OAUTH2=v1.0 \
+    PAM_OAUTH2=v1.0.1 \
     PLANTUNER_COMMIT=7c276460e4a4052e454b9c44148346e7286eb280
 
 RUN export DEBIAN_FRONTEND=noninteractive \
@@ -267,7 +267,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             done; \
         done \
 \
-        && PGVERSION=11 \
         && cd /usr/share/postgresql/$PGVERSION/contrib/postgis-$POSTGIS_VERSION \
         && for f in *.sql *.pl; do \
             for v in /usr/share/postgresql/*; do \
