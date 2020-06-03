@@ -1,0 +1,149 @@
+diff --git a/src/execute.c b/src/execute.c
+index 54aa691..41a35f1 100644
+--- a/src/execute.c
++++ b/src/execute.c
+@@ -286,10 +286,11 @@ prepare_conn(ProxyFunction *func, ProxyConnection *conn)
+ 	{
+ 		case C_DONE:
+ 			conn->cur->state = C_READY;
++			/* fallthrough */
+ 		case C_READY:
+ 			if (check_old_conn(func, conn, &now))
+ 				return;
+-
++			/* fallthrough */
+ 		case C_CONNECT_READ:
+ 		case C_CONNECT_WRITE:
+ 		case C_QUERY_READ:
+diff --git a/src/plproxy.h b/src/plproxy.h
+index 310756c..87fc6fa 100644
+--- a/src/plproxy.h
++++ b/src/plproxy.h
+@@ -36,6 +36,7 @@
+ #include <catalog/pg_foreign_server.h>
+ #include <catalog/pg_user_mapping.h>
+ 
++#include <access/hash.h>
+ #include <access/htup_details.h>
+ #include <access/reloptions.h>
+ #include <access/tupdesc.h>
+diff --git a/test/expected/plproxy_encoding.out b/test/expected/plproxy_encoding.out
+index 2af07c6..c1e305a 100644
+--- a/test/expected/plproxy_encoding.out
++++ b/test/expected/plproxy_encoding.out
+@@ -17,8 +17,8 @@ create database test_enc_part with encoding 'utf-8' template template0;
+ -- initialize proxy db
+ \c test_enc_proxy
+ set client_encoding = 'utf-8';
+-create or replace language plpgsql;
+ set client_min_messages = 'warning';
++create or replace language plpgsql;
+ \set ECHO none
+ create schema plproxy;
+ create or replace function plproxy.get_cluster_version(cluster_name text)
+@@ -42,8 +42,8 @@ create function test_encoding3(text) returns setof intl_data as $$
+ $$ language plproxy;
+ -- initialize part db
+ \c test_enc_part
+-create or replace language plpgsql;
+ set client_min_messages = 'warning';
++create or replace language plpgsql;
+ set client_encoding = 'utf8';
+ create table intl_data (id int4, "コラム" text);
+ insert into intl_data values (1, 'リモートデータ');
+@@ -120,8 +120,8 @@ create database test_enc_proxy with encoding 'utf-8' template template0;
+ create database test_enc_part with encoding 'euc_jp' template template0;
+ -- initialize proxy db
+ \c test_enc_proxy
+-create or replace language plpgsql;
+ set client_min_messages = 'warning';
++create or replace language plpgsql;
+ \set ECHO none
+ set client_encoding = 'utf8';
+ create schema plproxy;
+@@ -146,8 +146,8 @@ create function test_encoding3(text) returns setof intl_data as $$
+ $$ language plproxy;
+ -- initialize part db
+ \c test_enc_part
+-create or replace language plpgsql;
+ set client_min_messages = 'warning';
++create or replace language plpgsql;
+ set client_encoding = 'utf8';
+ create table intl_data (id int4, "コラム" text);
+ insert into intl_data values (1, 'リモートデータ');
+diff --git a/test/sql/plproxy_encoding.sql b/test/sql/plproxy_encoding.sql
+index 3dedc9d..3cb68c0 100644
+--- a/test/sql/plproxy_encoding.sql
++++ b/test/sql/plproxy_encoding.sql
+@@ -23,8 +23,8 @@ create database test_enc_part with encoding 'utf-8' template template0;
+ -- initialize proxy db
+ \c test_enc_proxy
+ set client_encoding = 'utf-8';
+-create or replace language plpgsql;
+ set client_min_messages = 'warning';
++create or replace language plpgsql;
+ \set ECHO none
+ \i sql/plproxy.sql
+ \set ECHO all
+@@ -51,8 +51,8 @@ create function test_encoding3(text) returns setof intl_data as $$
+ $$ language plproxy;
+ -- initialize part db
+ \c test_enc_part
+-create or replace language plpgsql;
+ set client_min_messages = 'warning';
++create or replace language plpgsql;
+ set client_encoding = 'utf8';
+ create table intl_data (id int4, "コラム" text);
+ insert into intl_data values (1, 'リモートデータ');
+@@ -92,8 +92,8 @@ create database test_enc_part with encoding 'euc_jp' template template0;
+ 
+ -- initialize proxy db
+ \c test_enc_proxy
+-create or replace language plpgsql;
+ set client_min_messages = 'warning';
++create or replace language plpgsql;
+ \set ECHO none
+ \i sql/plproxy.sql
+ \set ECHO all
+@@ -122,8 +122,8 @@ $$ language plproxy;
+ 
+ -- initialize part db
+ \c test_enc_part
+-create or replace language plpgsql;
+ set client_min_messages = 'warning';
++create or replace language plpgsql;
+ set client_encoding = 'utf8';
+ create table intl_data (id int4, "コラム" text);
+ insert into intl_data values (1, 'リモートデータ');
+diff --git a/test/sql/plproxy_init.sql b/test/sql/plproxy_init.sql
+index 7079371..18e0205 100644
+--- a/test/sql/plproxy_init.sql
++++ b/test/sql/plproxy_init.sql
+@@ -5,8 +5,8 @@ set client_min_messages = 'warning';
+ 
+ \i sql/plproxy.sql
+ 
+-create or replace language plpgsql;
+ set client_min_messages = 'warning';
++create or replace language plpgsql;
+ 
+ -- create cluster info functions
+ create schema plproxy;
+@@ -62,12 +62,17 @@ drop database if exists test_enc_proxy;
+ drop database if exists test_enc_part;
+ 
+ \c test_part
++set client_min_messages = 'warning';
+ create or replace language plpgsql;
+ \c test_part0
++set client_min_messages = 'warning';
+ create or replace language plpgsql;
+ \c test_part1
++set client_min_messages = 'warning';
+ create or replace language plpgsql;
+ \c test_part2
++set client_min_messages = 'warning';
+ create or replace language plpgsql;
+ \c test_part3
++set client_min_messages = 'warning';
+ create or replace language plpgsql;

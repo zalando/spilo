@@ -1,0 +1,988 @@
+diff --git a/LICENSE b/LICENSE
+index e8537b4..3a6efe5 100644
+--- a/LICENSE
++++ b/LICENSE
+@@ -1,6 +1,6 @@
+ This code is released under the PostgreSQL license.
+ 
+-Copyright 2015-2018 Crunchy Data Solutions, Inc.
++Copyright 2015-2020 Crunchy Data Solutions, Inc.
+ 
+ Permission to use, copy, modify, and distribute this software and its
+ documentation for any purpose, without fee, and without a written agreement is
+diff --git a/README.md b/README.md
+index 86f355b..25ac776 100644
+--- a/README.md
++++ b/README.md
+@@ -246,10 +246,7 @@ variety of nefarious or otherwise undesireable actions. However, these actions
+ will be logged providing an audit trail, which could also be used to trigger
+ alerts.
+ 
+-Although this extension compiles and works with all supported versions of
+-PostgreSQL starting with PostgreSQL 9.1, all features are not supported until
+-PostgreSQL 9.4 or higher. The ALTER SYSTEM command does not exist prior to 9.4
+-and COPY PROGRAM does not exist prior to 9.3.
++This extension supports PostgreSQL versions 9.4 and higher.
+ 
+ ##  Post-Execution Hooks
+ 
+@@ -306,7 +303,7 @@ memory before their implementations can access them.
+ 
+ ### Requirements
+ 
+-* PostgreSQL 9.1 or higher.
++* PostgreSQL 9.4 or higher.
+ 
+ ### Compile and Install
+ 
+diff --git a/compatibility.h b/compatibility.h
+new file mode 100644
+index 0000000..3f2559f
+--- /dev/null
++++ b/compatibility.h
+@@ -0,0 +1,134 @@
++/* -------------------------------------------------------------------------
++ *
++ * compatibility.h
++ *
++ * Definitions for maintaining compatibility across Postgres versions.
++ *
++ * Copyright (c) 2010-2020, PostgreSQL Global Development Group
++ *
++ * -------------------------------------------------------------------------
++ */
++
++#ifndef SET_USER_COMPAT_H
++#define SET_USER_COMPAT_H
++
++/*
++ * PostgreSQL version 13+
++ *
++ * Introduces QueryCompletion struct
++ */
++#if PG_VERSION_NUM >= 130000
++
++static void PU_hook(PlannedStmt *pstmt, const char *queryString,
++					ProcessUtilityContext context, ParamListInfo params,
++					QueryEnvironment *queryEnv,
++					DestReceiver *dest, QueryCompletion *qc);
++#define _PU_HOOK \
++	static void PU_hook(PlannedStmt *pstmt, const char *queryString, \
++						ProcessUtilityContext context, ParamListInfo params, \
++						QueryEnvironment *queryEnv, \
++						DestReceiver *dest, QueryCompletion *qc)
++
++#define _prev_hook \
++	prev_hook(pstmt, queryString, context, params, queryEnv, dest, qc)
++
++#define _standard_ProcessUtility \
++	standard_ProcessUtility(pstmt, queryString,	context, params, queryEnv, dest, qc)
++
++#endif /* 13+ */
++
++/*
++ * PostgreSQL version 12+
++ *
++ * - Removes OID column
++ */
++#if PG_VERSION_NUM >= 120000
++#define HEAP_TUPLE_GET_OID
++static inline Oid
++_heap_tuple_get_oid(HeapTuple roleTup)
++{
++	return ((Form_pg_authid) GETSTRUCT(roleTup))->oid;
++}
++
++#endif /* 12+ */
++
++/*
++ * PostgreSQL version 10+
++ *
++ * - Introduces PlannedStmt struct
++ * - Introduces varlena.h
++ */
++#if PG_VERSION_NUM >= 100000
++# ifndef _PU_HOOK
++static void PU_hook(PlannedStmt *pstmt, const char *queryString,
++					ProcessUtilityContext context, ParamListInfo params,
++					QueryEnvironment *queryEnv, DestReceiver *dest, char *completionTag);
++#define _PU_HOOK \
++	static void PU_hook(PlannedStmt *pstmt, const char *queryString, \
++						ProcessUtilityContext context, ParamListInfo params, \
++						QueryEnvironment *queryEnv, \
++						DestReceiver *dest, char *completionTag)
++
++#define _prev_hook \
++	prev_hook(pstmt, queryString, context, params, queryEnv, dest, completionTag)
++
++#define _standard_ProcessUtility \
++	standard_ProcessUtility(pstmt, queryString, context, params, queryEnv, dest, completionTag)
++
++# endif
++
++#include "utils/varlena.h"
++#define parsetree ((Node *) pstmt->utilityStmt)
++
++#endif /* 10+ */
++
++/*
++ * PostgreSQL version 9.5+
++ *
++ * - Introduces two-argument GetUserNameFromId
++ */
++#if PG_VERSION_NUM >= 90500
++#define GETUSERNAMEFROMID(ouserid) GetUserNameFromId(ouserid, false)
++#endif
++
++/*
++ * PostgreSQL version 9.4+
++ *
++ * Lowest supported version.
++ */
++#if PG_VERSION_NUM >= 90400
++# ifndef _PU_HOOK
++static void PU_hook(Node *parsetree, const char *queryString,
++					ProcessUtilityContext context, ParamListInfo params,
++					DestReceiver *dest, char *completionTag);
++
++#define _PU_HOOK \
++	static void PU_hook(Node *parsetree, const char *queryString, \
++						ProcessUtilityContext context, ParamListInfo params, \
++						DestReceiver *dest, char *completionTag)
++
++#define _prev_hook \
++	prev_hook(parsetree, queryString, context, params, dest, completionTag)
++
++#define _standard_ProcessUtility \
++	standard_ProcessUtility(parsetree, queryString, context, params, dest, completionTag)
++# endif
++
++# ifndef GETUSERNAMEFROMID
++#define GETUSERNAMEFROMID(ouserid) GetUserNameFromId(ouserid)
++# endif
++
++# ifndef HEAP_TUPLE_GET_OID
++static inline Oid
++_heap_tuple_get_oid(HeapTuple roleTup)
++{
++	return HeapTupleGetOid(roleTup);
++}
++# endif
++#endif
++
++#if !defined(PG_VERSION_NUM) || PG_VERSION_NUM < 90400
++#error "This extension only builds with PostgreSQL 9.4 or later"
++#endif
++
++#endif	/* SET_USER_COMPAT_H */
+diff --git a/expected/set_user_1.out b/expected/set_user_1.out
+deleted file mode 100644
+index 1021f30..0000000
+--- a/expected/set_user_1.out
++++ /dev/null
+@@ -1,243 +0,0 @@
+-CREATE EXTENSION set_user;
+--- Ensure the library is loaded.
+-LOAD 'set_user';
+--- Clean up in case a prior regression run failed
+--- First suppress NOTICE messages when users/groups don't exist
+-SET client_min_messages TO 'warning';
+-DROP USER IF EXISTS dba, bob, joe, newbs, su;
+-RESET client_min_messages;
+--- Create some users to work with
+-CREATE USER dba;
+-CREATE USER bob;
+-CREATE USER joe;
+-CREATE ROLE newbs;
+-CREATE ROLE su NOINHERIT;
+--- dba is the role we want to allow to execute set_user()
+-GRANT EXECUTE ON FUNCTION set_user(text) TO dba;
+-GRANT EXECUTE ON FUNCTION set_user_u(text) TO dba;
+-GRANT newbs TO bob;
+--- joe will be able to escalate without set_user() via su
+-GRANT su TO joe;
+-GRANT postgres TO su;
+--- test set_user
+-SET SESSION AUTHORIZATION dba;
+-SELECT SESSION_USER, CURRENT_USER;
+- session_user | current_user 
+---------------+--------------
+- dba          | dba
+-(1 row)
+-
+-SELECT set_user('postgres');
+-ERROR:  Switching to superuser only allowed for privileged procedure: 'set_user_u'
+-SELECT SESSION_USER, CURRENT_USER;
+- session_user | current_user 
+---------------+--------------
+- dba          | dba
+-(1 row)
+-
+--- test set_user_u
+-SET SESSION AUTHORIZATION dba;
+-SELECT SESSION_USER, CURRENT_USER;
+- session_user | current_user 
+---------------+--------------
+- dba          | dba
+-(1 row)
+-
+-SELECT set_user_u('postgres');
+- set_user_u 
+-------------
+- OK
+-(1 row)
+-
+-SELECT SESSION_USER, CURRENT_USER;
+- session_user | current_user 
+---------------+--------------
+- dba          | postgres
+-(1 row)
+-
+--- ALTER SYSTEM should fail
+-ALTER SYSTEM SET wal_level = minimal;
+-ERROR:  syntax error at or near "SYSTEM"
+-LINE 1: ALTER SYSTEM SET wal_level = minimal;
+-              ^
+--- COPY PROGRAM should fail
+-COPY (select 42) TO PROGRAM 'cat';
+-ERROR:  COPY PROGRAM blocked by set_user config
+--- SET log_statement should fail
+-SET log_statement = 'none';
+-ERROR:  "SET log_statement" blocked by set_user config
+-SET log_statement = DEFAULT;
+-ERROR:  "SET log_statement" blocked by set_user config
+-RESET log_statement;
+-ERROR:  "SET log_statement" blocked by set_user config
+-BEGIN; SET LOCAL log_statement = 'none'; ABORT;
+-ERROR:  "SET log_statement" blocked by set_user config
+--- test reset_user
+-RESET ROLE; -- should fail
+-ERROR:  "RESET role" blocked by set_user
+-HINT:  "Use `SELECT reset_user();` to reset role"
+-SELECT reset_user();
+- reset_user 
+-------------
+- OK
+-(1 row)
+-
+-SELECT SESSION_USER, CURRENT_USER;
+- session_user | current_user 
+---------------+--------------
+- dba          | dba
+-(1 row)
+-
+--- test set_user and reset_user with token
+-SELECT SESSION_USER, CURRENT_USER;
+- session_user | current_user 
+---------------+--------------
+- dba          | dba
+-(1 row)
+-
+-SELECT set_user('bob', 'secret');
+- set_user 
+-----------
+- OK
+-(1 row)
+-
+-SELECT SESSION_USER, CURRENT_USER;
+- session_user | current_user 
+---------------+--------------
+- dba          | bob
+-(1 row)
+-
+-RESET ROLE; -- should fail
+-ERROR:  "RESET role" blocked by set_user
+-HINT:  "Use `SELECT reset_user();` to reset role"
+-SELECT reset_user(); -- should fail
+-ERROR:  reset token required but not provided
+-SELECT SESSION_USER, CURRENT_USER;
+- session_user | current_user 
+---------------+--------------
+- dba          | bob
+-(1 row)
+-
+-SELECT reset_user('secret'); -- succeed
+- reset_user 
+-------------
+- OK
+-(1 row)
+-
+-SELECT SESSION_USER, CURRENT_USER;
+- session_user | current_user 
+---------------+--------------
+- dba          | dba
+-(1 row)
+-
+-RESET SESSION AUTHORIZATION;
+-ALTER SYSTEM SET wal_level = minimal;
+-ERROR:  syntax error at or near "SYSTEM"
+-LINE 1: ALTER SYSTEM SET wal_level = minimal;
+-              ^
+-COPY (select 42) TO PROGRAM 'cat';
+-SET log_statement = DEFAULT;
+--- this is an example of how we might audit existing roles
+-SET SESSION AUTHORIZATION dba;
+-SELECT set_user_u('postgres');
+- set_user_u 
+-------------
+- OK
+-(1 row)
+-
+-SELECT rolname FROM pg_authid WHERE rolsuper and rolcanlogin;
+- rolname  
+-----------
+- postgres
+-(1 row)
+-
+-CREATE OR REPLACE VIEW roletree AS
+-WITH RECURSIVE
+-roltree AS (
+-  SELECT u.rolname AS rolname,
+-         u.oid AS roloid,
+-         u.rolcanlogin,
+-         u.rolsuper,
+-         '{}'::name[] AS rolparents,
+-         NULL::oid AS parent_roloid,
+-         NULL::name AS parent_rolname
+-  FROM pg_catalog.pg_authid u
+-  LEFT JOIN pg_catalog.pg_auth_members m on u.oid = m.member
+-  LEFT JOIN pg_catalog.pg_authid g on m.roleid = g.oid
+-  WHERE g.oid IS NULL
+-  UNION ALL
+-  SELECT u.rolname AS rolname,
+-         u.oid AS roloid,
+-         u.rolcanlogin,
+-         u.rolsuper,
+-         t.rolparents || g.rolname AS rolparents,
+-         g.oid AS parent_roloid,
+-         g.rolname AS parent_rolname
+-  FROM pg_catalog.pg_authid u
+-  JOIN pg_catalog.pg_auth_members m on u.oid = m.member
+-  JOIN pg_catalog.pg_authid g on m.roleid = g.oid
+-  JOIN roltree t on t.roloid = g.oid
+-)
+-SELECT
+-  r.rolname,
+-  r.roloid,
+-  r.rolcanlogin,
+-  r.rolsuper,
+-  r.rolparents
+-FROM roltree r
+-ORDER BY 1;
+--- this will show unacceptable results
+--- since postgres can log in directly and
+--- joe can escalate via su to postgres
+-SELECT
+-  ro.rolname,
+-  ro.rolcanlogin,
+-  ro.rolsuper,
+-  ro.rolparents
+-FROM roletree ro
+-WHERE (ro.rolcanlogin AND ro.rolsuper)
+-OR
+-(
+-    ro.rolcanlogin AND EXISTS
+-    (
+-      SELECT TRUE FROM roletree ri
+-      WHERE ri.rolname = ANY (ro.rolparents)
+-      AND ri.rolsuper
+-    )
+-);
+- rolname  | rolcanlogin | rolsuper |  rolparents   
+-----------+-------------+----------+---------------
+- joe      | t           | f        | {postgres,su}
+- postgres | t           | t        | {}
+-(2 rows)
+-
+--- here is how we fix the environment
+--- running this in a transaction that will be aborted
+--- since we don't really want to make the postgres user
+--- nologin during regression testing
+-BEGIN;
+-REVOKE postgres FROM su;
+-ALTER USER postgres NOLOGIN;
+--- retest, this time successfully
+-SELECT
+-  ro.rolname,
+-  ro.rolcanlogin,
+-  ro.rolsuper,
+-  ro.rolparents
+-FROM roletree ro
+-WHERE (ro.rolcanlogin AND ro.rolsuper)
+-OR
+-(
+-    ro.rolcanlogin AND EXISTS
+-    (
+-      SELECT TRUE FROM roletree ri
+-      WHERE ri.rolname = ANY (ro.rolparents)
+-      AND ri.rolsuper
+-    )
+-);
+- rolname | rolcanlogin | rolsuper | rolparents 
+----------+-------------+----------+------------
+-(0 rows)
+-
+--- undo those changes
+-ABORT;
+diff --git a/expected/set_user_2.out b/expected/set_user_2.out
+deleted file mode 100644
+index e79da1b..0000000
+--- a/expected/set_user_2.out
++++ /dev/null
+@@ -1,248 +0,0 @@
+-CREATE EXTENSION set_user;
+--- Ensure the library is loaded.
+-LOAD 'set_user';
+--- Clean up in case a prior regression run failed
+--- First suppress NOTICE messages when users/groups don't exist
+-SET client_min_messages TO 'warning';
+-DROP USER IF EXISTS dba, bob, joe, newbs, su;
+-RESET client_min_messages;
+--- Create some users to work with
+-CREATE USER dba;
+-CREATE USER bob;
+-CREATE USER joe;
+-CREATE ROLE newbs;
+-CREATE ROLE su NOINHERIT;
+--- dba is the role we want to allow to execute set_user()
+-GRANT EXECUTE ON FUNCTION set_user(text) TO dba;
+-GRANT EXECUTE ON FUNCTION set_user_u(text) TO dba;
+-GRANT newbs TO bob;
+--- joe will be able to escalate without set_user() via su
+-GRANT su TO joe;
+-GRANT postgres TO su;
+--- test set_user
+-SET SESSION AUTHORIZATION dba;
+-SELECT SESSION_USER, CURRENT_USER;
+- session_user | current_user 
+---------------+--------------
+- dba          | dba
+-(1 row)
+-
+-SELECT set_user('postgres');
+-ERROR:  Switching to superuser only allowed for privileged procedure: 'set_user_u'
+-SELECT SESSION_USER, CURRENT_USER;
+- session_user | current_user 
+---------------+--------------
+- dba          | dba
+-(1 row)
+-
+--- test set_user_u
+-SET SESSION AUTHORIZATION dba;
+-SELECT SESSION_USER, CURRENT_USER;
+- session_user | current_user 
+---------------+--------------
+- dba          | dba
+-(1 row)
+-
+-SELECT set_user_u('postgres');
+- set_user_u 
+-------------
+- OK
+-(1 row)
+-
+-SELECT SESSION_USER, CURRENT_USER;
+- session_user | current_user 
+---------------+--------------
+- dba          | postgres
+-(1 row)
+-
+--- ALTER SYSTEM should fail
+-ALTER SYSTEM SET wal_level = minimal;
+-ERROR:  syntax error at or near "SYSTEM"
+-LINE 1: ALTER SYSTEM SET wal_level = minimal;
+-              ^
+--- COPY PROGRAM should fail
+-COPY (select 42) TO PROGRAM 'cat';
+-ERROR:  syntax error at or near "PROGRAM"
+-LINE 1: COPY (select 42) TO PROGRAM 'cat';
+-                            ^
+--- SET log_statement should fail
+-SET log_statement = 'none';
+-ERROR:  "SET log_statement" blocked by set_user config
+-SET log_statement = DEFAULT;
+-ERROR:  "SET log_statement" blocked by set_user config
+-RESET log_statement;
+-ERROR:  "SET log_statement" blocked by set_user config
+-BEGIN; SET LOCAL log_statement = 'none'; ABORT;
+-ERROR:  "SET log_statement" blocked by set_user config
+--- test reset_user
+-RESET ROLE; -- should fail
+-ERROR:  "RESET role" blocked by set_user
+-HINT:  "Use `SELECT reset_user();` to reset role"
+-SELECT reset_user();
+- reset_user 
+-------------
+- OK
+-(1 row)
+-
+-SELECT SESSION_USER, CURRENT_USER;
+- session_user | current_user 
+---------------+--------------
+- dba          | dba
+-(1 row)
+-
+--- test set_user and reset_user with token
+-SELECT SESSION_USER, CURRENT_USER;
+- session_user | current_user 
+---------------+--------------
+- dba          | dba
+-(1 row)
+-
+-SELECT set_user('bob', 'secret');
+- set_user 
+-----------
+- OK
+-(1 row)
+-
+-SELECT SESSION_USER, CURRENT_USER;
+- session_user | current_user 
+---------------+--------------
+- dba          | bob
+-(1 row)
+-
+-RESET ROLE; -- should fail
+-ERROR:  "RESET role" blocked by set_user
+-HINT:  "Use `SELECT reset_user();` to reset role"
+-SELECT reset_user(); -- should fail
+-ERROR:  reset token required but not provided
+-SELECT SESSION_USER, CURRENT_USER;
+- session_user | current_user 
+---------------+--------------
+- dba          | bob
+-(1 row)
+-
+-SELECT reset_user('secret'); -- succeed
+- reset_user 
+-------------
+- OK
+-(1 row)
+-
+-SELECT SESSION_USER, CURRENT_USER;
+- session_user | current_user 
+---------------+--------------
+- dba          | dba
+-(1 row)
+-
+-RESET SESSION AUTHORIZATION;
+-ALTER SYSTEM SET wal_level = minimal;
+-ERROR:  syntax error at or near "SYSTEM"
+-LINE 1: ALTER SYSTEM SET wal_level = minimal;
+-              ^
+-COPY (select 42) TO PROGRAM 'cat';
+-ERROR:  syntax error at or near "PROGRAM"
+-LINE 1: COPY (select 42) TO PROGRAM 'cat';
+-                            ^
+-SET log_statement = DEFAULT;
+--- this is an example of how we might audit existing roles
+-SET SESSION AUTHORIZATION dba;
+-SELECT set_user_u('postgres');
+- set_user_u 
+-------------
+- OK
+-(1 row)
+-
+-SELECT rolname FROM pg_authid WHERE rolsuper and rolcanlogin;
+- rolname  
+-----------
+- postgres
+-(1 row)
+-
+-CREATE OR REPLACE VIEW roletree AS
+-WITH RECURSIVE
+-roltree AS (
+-  SELECT u.rolname AS rolname,
+-         u.oid AS roloid,
+-         u.rolcanlogin,
+-         u.rolsuper,
+-         '{}'::name[] AS rolparents,
+-         NULL::oid AS parent_roloid,
+-         NULL::name AS parent_rolname
+-  FROM pg_catalog.pg_authid u
+-  LEFT JOIN pg_catalog.pg_auth_members m on u.oid = m.member
+-  LEFT JOIN pg_catalog.pg_authid g on m.roleid = g.oid
+-  WHERE g.oid IS NULL
+-  UNION ALL
+-  SELECT u.rolname AS rolname,
+-         u.oid AS roloid,
+-         u.rolcanlogin,
+-         u.rolsuper,
+-         t.rolparents || g.rolname AS rolparents,
+-         g.oid AS parent_roloid,
+-         g.rolname AS parent_rolname
+-  FROM pg_catalog.pg_authid u
+-  JOIN pg_catalog.pg_auth_members m on u.oid = m.member
+-  JOIN pg_catalog.pg_authid g on m.roleid = g.oid
+-  JOIN roltree t on t.roloid = g.oid
+-)
+-SELECT
+-  r.rolname,
+-  r.roloid,
+-  r.rolcanlogin,
+-  r.rolsuper,
+-  r.rolparents
+-FROM roltree r
+-ORDER BY 1;
+--- this will show unacceptable results
+--- since postgres can log in directly and
+--- joe can escalate via su to postgres
+-SELECT
+-  ro.rolname,
+-  ro.rolcanlogin,
+-  ro.rolsuper,
+-  ro.rolparents
+-FROM roletree ro
+-WHERE (ro.rolcanlogin AND ro.rolsuper)
+-OR
+-(
+-    ro.rolcanlogin AND EXISTS
+-    (
+-      SELECT TRUE FROM roletree ri
+-      WHERE ri.rolname = ANY (ro.rolparents)
+-      AND ri.rolsuper
+-    )
+-);
+- rolname  | rolcanlogin | rolsuper |  rolparents   
+-----------+-------------+----------+---------------
+- joe      | t           | f        | {postgres,su}
+- postgres | t           | t        | {}
+-(2 rows)
+-
+--- here is how we fix the environment
+--- running this in a transaction that will be aborted
+--- since we don't really want to make the postgres user
+--- nologin during regression testing
+-BEGIN;
+-REVOKE postgres FROM su;
+-ALTER USER postgres NOLOGIN;
+--- retest, this time successfully
+-SELECT
+-  ro.rolname,
+-  ro.rolcanlogin,
+-  ro.rolsuper,
+-  ro.rolparents
+-FROM roletree ro
+-WHERE (ro.rolcanlogin AND ro.rolsuper)
+-OR
+-(
+-    ro.rolcanlogin AND EXISTS
+-    (
+-      SELECT TRUE FROM roletree ri
+-      WHERE ri.rolname = ANY (ro.rolparents)
+-      AND ri.rolsuper
+-    )
+-);
+- rolname | rolcanlogin | rolsuper | rolparents 
+----------+-------------+----------+------------
+-(0 rows)
+-
+--- undo those changes
+-ABORT;
+diff --git a/set_user.c b/set_user.c
+index 984d983..eeabeb8 100644
+--- a/set_user.c
++++ b/set_user.c
+@@ -8,7 +8,7 @@
+  *
+  * This code is released under the PostgreSQL license.
+  *
+- * Copyright 2015-2018 Crunchy Data Solutions, Inc.
++ * Copyright 2015-2020 Crunchy Data Solutions, Inc.
+  *
+  * Permission to use, copy, modify, and distribute this software and its
+  * documentation for any purpose, without fee, and without a written
+@@ -32,62 +32,7 @@
+ 
+ #include "pg_config.h"
+ 
+-#if !defined(PG_VERSION_NUM) || PG_VERSION_NUM < 90100
+-/* prior to 9.1 */
+-#error "This extension only builds with PostgreSQL 9.1 or later"
+-#elif PG_VERSION_NUM < 90200
+-/* 9.1 */
+-
+-#elif PG_VERSION_NUM < 90300
+-/* 9.2 */
+-
+-#elif PG_VERSION_NUM < 90400
+-/* 9.3 */
+-#define HAS_HTUP_DETAILS
+-#define HAS_COPY_PROGRAM
+-#define HAS_PROCESSUTILITYCONTEXT
+-
+-#elif PG_VERSION_NUM < 90500
+-/* 9.4 */
+-#define HAS_HTUP_DETAILS
+-#define HAS_ALTER_SYSTEM
+-#define HAS_COPY_PROGRAM
+-#define HAS_PROCESSUTILITYCONTEXT
+-
+-#elif PG_VERSION_NUM < 90600
+-/* 9.5 */
+-#define HAS_HTUP_DETAILS
+-#define HAS_ALTER_SYSTEM
+-#define HAS_COPY_PROGRAM
+-#define HAS_TWO_ARG_GETUSERNAMEFROMID
+-#define HAS_PROCESSUTILITYCONTEXT
+-
+-#elif PG_VERSION_NUM < 100000
+-/* 9.6 */
+-#define HAS_HTUP_DETAILS
+-#define HAS_ALTER_SYSTEM
+-#define HAS_COPY_PROGRAM
+-#define HAS_TWO_ARG_GETUSERNAMEFROMID
+-#define HAS_PROCESSUTILITYCONTEXT
+-
+-#else
+-/* master */
+-#define HAS_HTUP_DETAILS
+-#define HAS_ALTER_SYSTEM
+-#define HAS_COPY_PROGRAM
+-#define HAS_TWO_ARG_GETUSERNAMEFROMID
+-#define HAS_PROCESSUTILITYCONTEXT
+-#define HAS_PSTMT
+-#define HAS_VARLENA_H
+-
+-#endif
+-
+-#ifdef HAS_HTUP_DETAILS
+ #include "access/htup_details.h"
+-#else
+-#include "access/htup.h"
+-#endif
+-
+ #include "access/xact.h"
+ #include "catalog/pg_authid.h"
+ #include "catalog/pg_proc.h"
+@@ -98,65 +43,28 @@
+ #include "utils/guc.h"
+ #include "utils/memutils.h"
+ #include "utils/syscache.h"
+-#ifdef HAS_VARLENA_H
+-#include "utils/varlena.h"
+-#endif /* HAS_VARLENA_H */
+ 
+ #include "set_user.h"
+-#define WHITELIST_WILDCARD	"*"
+-#define SUPERUSER_AUDIT_TAG	"AUDIT"
+ 
+ PG_MODULE_MAGIC;
+ 
++#include "compatibility.h"
++
++#define WHITELIST_WILDCARD	"*"
++#define SUPERUSER_AUDIT_TAG	"AUDIT"
++
+ static char *save_log_statement = NULL;
+ static Oid save_OldUserId = InvalidOid;
+ static char *reset_token = NULL;
+ static ProcessUtility_hook_type prev_hook = NULL;
+ 
+-#ifdef HAS_ALTER_SYSTEM
+-/* 9.4 & up */
+ static bool Block_AS = false;
+-#endif
+-
+-#ifdef HAS_COPY_PROGRAM
+-/* 9.3 & up */
+ static bool Block_CP = false;
+-#endif
+-
+ static bool Block_LS = false;
+ static char *SU_Whitelist = NULL;
+ static char *NOSU_TargetWhitelist = NULL;
+ static char *SU_AuditTag = NULL;
+ 
+-#ifdef HAS_TWO_ARG_GETUSERNAMEFROMID
+-/* 9.5 - master */
+-#define GETUSERNAMEFROMID(ouserid) GetUserNameFromId(ouserid, false)
+-#else
+-/* 9.1 - 9.4 */
+-#define GETUSERNAMEFROMID(ouserid) GetUserNameFromId(ouserid)
+-#endif
+-
+-#ifdef HAS_PSTMT
+-/* 10 & up */
+-static void PU_hook(PlannedStmt *pstmt, const char *queryString,
+-					ProcessUtilityContext context, ParamListInfo params,
+-					QueryEnvironment *queryEnv,
+-					DestReceiver *dest, char *completionTag);
+-#else
+-/* < 10 */
+-#ifdef HAS_PROCESSUTILITYCONTEXT
+-/* 9.3 - 9.6 */
+-static void PU_hook(Node *parsetree, const char *queryString,
+-					ProcessUtilityContext context, ParamListInfo params,
+-					DestReceiver *dest, char *completionTag);
+-#else
+-/* 9.1 - 9.2 */
+-static void PU_hook(Node *parsetree, const char *queryString,
+-					ParamListInfo params, bool isTopLevel,
+-					DestReceiver *dest, char *completionTag);
+-#endif
+-#endif
+-
+ static void PostSetUserHook(bool is_reset, const char *newuser);
+ 
+ extern Datum set_user(PG_FUNCTION_ARGS);
+@@ -351,12 +259,7 @@ set_user(PG_FUNCTION_ARGS)
+ 		if (!HeapTupleIsValid(roleTup))
+ 			elog(ERROR, "role \"%s\" does not exist", newuser);
+ 
+-/* OID column is removed in PG12 */
+-#if PG_VERSION_NUM >= 120000
+-		NewUserId = ((Form_pg_authid) GETSTRUCT(roleTup))->oid;
+-#else
+-		NewUserId = HeapTupleGetOid(roleTup);
+-#endif
++		NewUserId = _heap_tuple_get_oid(roleTup);
+ 		NewUser_is_superuser = ((Form_pg_authid) GETSTRUCT(roleTup))->rolsuper;
+ 		ReleaseSysCache(roleTup);
+ 
+@@ -479,21 +382,15 @@ set_user(PG_FUNCTION_ARGS)
+ void
+ _PG_init(void)
+ {
+-#ifdef HAS_ALTER_SYSTEM
+-/* 9.4 & up */
+ 	DefineCustomBoolVariable("set_user.block_alter_system",
+ 							 "Block ALTER SYSTEM commands",
+ 							 NULL, &Block_AS, true, PGC_SIGHUP,
+ 							 0, NULL, NULL, NULL);
+-#endif
+ 
+-#ifdef HAS_COPY_PROGRAM
+-/* 9.3 & up */
+ 	DefineCustomBoolVariable("set_user.block_copy_program",
+ 							 "Blocks COPY PROGRAM commands",
+ 							 NULL, &Block_CP, true, PGC_SIGHUP,
+ 							 0, NULL, NULL, NULL);
+-#endif
+ 
+ 	DefineCustomBoolVariable("set_user.block_log_statement",
+ 							 "Blocks \"SET log_statement\" commands",
+@@ -525,58 +422,30 @@ _PG_fini(void)
+ 	ProcessUtility_hook = prev_hook;
+ }
+ 
+-#ifdef HAS_PSTMT
+-/* 10 & up */
+-static void PU_hook(PlannedStmt *pstmt, const char *queryString,
+-					ProcessUtilityContext context, ParamListInfo params,
+-					QueryEnvironment *queryEnv,
+-					DestReceiver *dest, char *completionTag)
+-#else
+-/* < 10 */
+-#ifdef HAS_PROCESSUTILITYCONTEXT
+-/* 9.3 - 9.6 */
+-static void
+-PU_hook(Node *parsetree, const char *queryString,
+-		ProcessUtilityContext context, ParamListInfo params,
+-		DestReceiver *dest, char *completionTag)
+-#else
+-/* 9.1 - 9.2 */
+-static void
+-PU_hook(Node *parsetree, const char *queryString,
+-		ParamListInfo params, bool isTopLevel,
+-		DestReceiver *dest, char *completionTag)
+-#endif
+-#endif
++/*
++ * _PU_HOOK
++ *
++ * Compatibility shim for PU_hook. Handles changing function signature between versions of PostgreSQL.
++ */
++_PU_HOOK
+ {
+-
+-#ifdef HAS_PSTMT
+-	Node	   *parsetree = pstmt->utilityStmt;
+-#endif
+ 	/* if set_user has been used to transition, enforce set_user GUCs */
+ 	if (save_OldUserId != InvalidOid)
+ 	{
+ 		switch (nodeTag(parsetree))
+ 		{
+-#ifdef HAS_ALTER_SYSTEM
+-/* 9.4 & up */
+ 			case T_AlterSystemStmt:
+ 				if (Block_AS)
+ 					ereport(ERROR,
+ 							(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
+ 							 errmsg("ALTER SYSTEM blocked by set_user config")));
+ 				break;
+-#endif
+-
+-#ifdef HAS_COPY_PROGRAM
+-/* 9.3 & up */
+ 			case T_CopyStmt:
+ 				if (((CopyStmt *) parsetree)->is_program && Block_CP)
+ 					ereport(ERROR,
+ 							(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
+ 							 errmsg("COPY PROGRAM blocked by set_user config")));
+ 				break;
+-#endif
+-
+ 			case T_VariableSetStmt:
+ 				if ((strcmp(((VariableSetStmt *) parsetree)->name,
+ 					 "log_statement") == 0) &&
+@@ -611,38 +480,17 @@ PU_hook(Node *parsetree, const char *queryString,
+ 	/*
+ 	 * Now pass-off handling either to the previous ProcessUtility hook
+ 	 * or to the standard ProcessUtility.
++	 *
++	 * These functions are also called by their compatibility variants.
+ 	 */
+-#ifdef HAS_PSTMT
+-/* 10 & up */
+-	if (prev_hook)
+-		prev_hook(pstmt, queryString, context, params,
+-				  queryEnv, dest, completionTag);
+-	else
+-		standard_ProcessUtility(pstmt, queryString,
+-								context, params, queryEnv,
+-								dest, completionTag);
+-#else
+-/* < 10 */
+-#ifdef HAS_PROCESSUTILITYCONTEXT
+-/* 9.3 & up */
+ 	if (prev_hook)
+-		prev_hook(parsetree, queryString, context,
+-				  params, dest, completionTag);
+-	else
+-		standard_ProcessUtility(parsetree, queryString,
+-								context, params,
+-								dest, completionTag);
+-#else
+-/* 9.1 - 9.2 */
+-	if (prev_hook)
+-		prev_hook(parsetree, queryString, params,
+-		isTopLevel, dest, completionTag);
++	{
++		_prev_hook;
++	}
+ 	else
+-		standard_ProcessUtility(parsetree, queryString,
+-								params, isTopLevel,
+-								dest, completionTag);
+-#endif
+-#endif
++	{
++		_standard_ProcessUtility;
++	}
+ }
+ 
+ /*
+diff --git a/set_user.h b/set_user.h
+index f2c1419..5a5165f 100644
+--- a/set_user.h
++++ b/set_user.h
+@@ -1,6 +1,8 @@
+ #ifndef SET_USER_H
+ #define SET_USER_H
+ 
++#include "nodes/pg_list.h"
++
+ typedef struct SetUserHooks
+ {
+ 	void	(*post_set_user) (const char *username);
