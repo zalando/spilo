@@ -18,7 +18,7 @@ fi
 sysctl -w vm.dirty_background_bytes=67108864 > /dev/null 2>&1
 sysctl -w vm.dirty_bytes=134217728 > /dev/null 2>&1
 
-mkdir -p "$PGLOG" "$RW_DIR/postgresql" "$RW_DIR/tmp" "$RW_DIR/certs"
+mkdir -p "$PGLOG" "$PGDATA" "$RW_DIR/postgresql" "$RW_DIR/tmp" "$RW_DIR/certs"
 if [ "$(id -u)" -ne 0 ]; then
     sed -e "s/^postgres:x:[^:]*:[^:]*:/postgres:x:$(id -u):$(id -g):/" /etc/passwd > "$RW_DIR/tmp/passwd"
     cat "$RW_DIR/tmp/passwd" > /etc/passwd
@@ -35,6 +35,7 @@ done
 chown -R postgres: "$PGROOT" "$RW_DIR/certs"
 chmod -R go-w "$PGROOT"
 chmod 01777 "$RW_DIR/tmp"
+chmod 0700 "$PGDATA"
 
 if [ "$DEMO" = "true" ]; then
     python3 /scripts/configure_spilo.py patroni pgqd certificate pam-oauth2
