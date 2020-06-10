@@ -151,7 +151,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                         postgresql-${version}-postgis-${POSTGIS_VERSION%.0} \
                         postgresql-${version}-postgis-${POSTGIS_VERSION%.0}-scripts \
                         postgresql-${version}-repack \
-                        postgresql-${version}-wal2json" \
+                        postgresql-${version}-wal2json \
+                        postgresql-${version}-pgaudit" \
                 && if [ "$WITH_PERL" = "true" ]; then \
                     EXTRAS="$EXTRAS postgresql-plperl-${version}"; \
                 fi \
