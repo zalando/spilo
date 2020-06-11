@@ -139,6 +139,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 EXTRAS="postgresql-pltcl-${version} \
                         postgresql-${version}-cron \
                         postgresql-${version}-hypopg \
+                        postgresql-${version}-pgaudit \
                         postgresql-${version}-pg-checksums \
                         postgresql-${version}-pgl-ddl-deploy \
                         postgresql-${version}-pglogical \
