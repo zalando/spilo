@@ -140,18 +140,19 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             && apt-get update \
 \
             && if [ "$DEMO" != "true" ]; then \
-                EXTRAS="postgresql-pltcl-${version}" \
+                EXTRAS="postgresql-pltcl-${version} \
+                        postgresql-${version}-pg-stat-kcache \
+                        postgresql-${version}-pllua" \
                 && if [ $version != "13" ]; then \
                     EXTRAS="postgresql-${version}-cron \
                             postgresql-${version}-hypopg \
+                            postgresql-${version}-pgaudit \
                             postgresql-${version}-pg-checksums \
                             postgresql-${version}-pgl-ddl-deploy \
                             postgresql-${version}-pglogical \
                             postgresql-${version}-pglogical-ticker \
                             postgresql-${version}-pgq3 \
-                            postgresql-${version}-pg-stat-kcache \
                             postgresql-${version}-pldebugger \
-                            postgresql-${version}-pllua \
                             postgresql-${version}-plproxy \
                             postgresql-${version}-postgis-${POSTGIS_VERSION%.0} \
                             postgresql-${version}-postgis-${POSTGIS_VERSION%.0}-scripts \
@@ -174,7 +175,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             # Install 3rd party stuff
             && if [ "$version" != "9.5" ] && [ "$version" != "13" ]; then \
                 cd timescaledb \
-                && if [ "$version" = "12" ]; then git checkout $TIMESCALEDB; fi \
+                && if [ "$version" = "11" ]; then git checkout $TIMESCALEDB; fi \
                 && rm -fr build \
                 && ./bootstrap -DAPACHE_ONLY=$TIMESCALEDB_APACHE_ONLY -DSEND_TELEMETRY_DEFAULT=NO \
                     -DREGRESS_CHECKS=OFF -DPG_CONFIG=/usr/lib/postgresql/$version/bin/pg_config \
@@ -192,7 +193,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 fi \
 \
                 && EXTRA_EXTENSIONS="plantuner-${PLANTUNER_COMMIT} plpgsql_check plprofiler postgres-decoderbufs" \
-                && if [ "$version" = "10" ] || [ "$version" = "11" ] || [ "$version" = "12" ] || [ $version = 13 ]; then \
+                && if [ "$version" != "9.5" ] && [ "$version" != "9.6" ]; then \
                      EXTRA_EXTENSIONS="$EXTRA_EXTENSIONS pg_mon-${PG_MON_COMMIT}"; \
                 fi; \
             else \
@@ -238,7 +239,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     fi \
 \
     # build and install missing packages
-    && for pkg in pgextwlist cron pgq3 pg-stat-kcache $PACKAGES; do \
+    && for pkg in pgextwlist cron pgq3 $PACKAGES; do \
         apt-get source postgresql-12-${pkg} \
         && cd $(ls -d *${pkg%?}*-*/) \
         && if [ -f ../$pkg.patch ]; then patch -p1 < ../$pkg.patch; fi \
@@ -411,8 +412,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 | tar -C /usr/local/bin -xz \
         && strip /usr/local/bin/wal-g \
         && apt-get install -y python3-etcd python3-consul python3-kazoo python3-meld3 \
-                        python3-boto python3-gevent python3-greenlet python3-protobuf \
-                        python3-cachetools python3-rsa python3-pyasn1-modules python3-swiftclient \
+                        python3-boto python3-gevent python3-greenlet python3-cachetools \
+                        python3-rsa python3-pyasn1-modules python3-swiftclient \
 \
         && find /usr/share/python-babel-localedata/locale-data -type f ! -name 'en_US*.dat' -delete \
 \
