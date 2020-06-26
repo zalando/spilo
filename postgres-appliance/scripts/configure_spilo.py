@@ -36,7 +36,8 @@ extensions = {
     'timescaledb':    (9.6, 12, True,  True),
     'pg_cron':        (9.5, 13, True,  False),
     'pg_stat_kcache': (9.4, 13, True,  False),
-    'pg_partman':     (9.4, 13, False, True)
+    'pg_partman':     (9.4, 13, False, True),
+    'pg_mon':         (10, 13, True, True)
 }
 
 AUTO_ENABLE_WALG_RESTORE = ('WAL_S3_BUCKET', 'WALE_S3_PREFIX', 'WALG_S3_PREFIX')
@@ -256,7 +257,7 @@ postgresql:
     {{/SSL_CRL_FILE}}
     ssl_cert_file: {{SSL_CERTIFICATE_FILE}}
     ssl_key_file: {{SSL_PRIVATE_KEY_FILE}}
-    shared_preload_libraries: 'bg_mon,pg_stat_statements,pgextwlist,pg_auth_mon,set_user,pg_mon'
+    shared_preload_libraries: 'bg_mon,pg_stat_statements,pgextwlist,pg_auth_mon,set_user'
     bg_mon.listen_address: '{{BGMON_LISTEN_IP}}'
     bg_mon.history_buckets: 120
     pg_stat_statements.track_utility: 'off'
