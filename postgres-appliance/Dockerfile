@@ -140,7 +140,9 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             && apt-get update \
 \
             && if [ "$DEMO" != "true" ]; then \
-                EXTRAS="postgresql-pltcl-${version}" \
+                EXTRAS="postgresql-pltcl-${version} \
+                        postgresql-${version}-pg-stat-kcache \
+                        postgresql-${version}-pllua" \
                 && if [ $version != "13" ]; then \
                     EXTRAS="postgresql-${version}-cron \
                             postgresql-${version}-hypopg \
@@ -150,9 +152,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                             postgresql-${version}-pglogical \
                             postgresql-${version}-pglogical-ticker \
                             postgresql-${version}-pgq3 \
-                            postgresql-${version}-pg-stat-kcache \
                             postgresql-${version}-pldebugger \
-                            postgresql-${version}-pllua \
                             postgresql-${version}-plproxy \
                             postgresql-${version}-postgis-${POSTGIS_VERSION%.0} \
                             postgresql-${version}-postgis-${POSTGIS_VERSION%.0}-scripts \
@@ -239,7 +239,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     fi \
 \
     # build and install missing packages
-    && for pkg in pgextwlist cron pgq3 pg-stat-kcache $PACKAGES; do \
+    && for pkg in pgextwlist cron pgq3 $PACKAGES; do \
         apt-get source postgresql-12-${pkg} \
         && cd $(ls -d *${pkg%?}*-*/) \
         && if [ -f ../$pkg.patch ]; then patch -p1 < ../$pkg.patch; fi \
@@ -412,8 +412,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 | tar -C /usr/local/bin -xz \
         && strip /usr/local/bin/wal-g \
         && apt-get install -y python3-etcd python3-consul python3-kazoo python3-meld3 \
-                        python3-boto python3-gevent python3-greenlet python3-protobuf \
-                        python3-cachetools python3-rsa python3-pyasn1-modules python3-swiftclient \
+                        python3-boto python3-gevent python3-greenlet python3-cachetools \
+                        python3-rsa python3-pyasn1-modules python3-swiftclient \
 \
         && find /usr/share/python-babel-localedata/locale-data -type f ! -name 'en_US*.dat' -delete \
 \
