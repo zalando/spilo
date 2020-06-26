@@ -144,6 +144,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 && if [ $version != "13" ]; then \
                     EXTRAS="postgresql-${version}-cron \
                             postgresql-${version}-hypopg \
+                            postgresql-${version}-pgaudit \
                             postgresql-${version}-pg-checksums \
                             postgresql-${version}-pgl-ddl-deploy \
                             postgresql-${version}-pglogical \
@@ -174,7 +175,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             # Install 3rd party stuff
             && if [ "$version" != "9.5" ] && [ "$version" != "13" ]; then \
                 cd timescaledb \
-                && if [ "$version" = "12" ]; then git checkout $TIMESCALEDB; fi \
+                && if [ "$version" = "11" ]; then git checkout $TIMESCALEDB; fi \
                 && rm -fr build \
                 && ./bootstrap -DAPACHE_ONLY=$TIMESCALEDB_APACHE_ONLY -DSEND_TELEMETRY_DEFAULT=NO \
                     -DREGRESS_CHECKS=OFF -DPG_CONFIG=/usr/lib/postgresql/$version/bin/pg_config \
@@ -192,7 +193,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 fi \
 \
                 && EXTRA_EXTENSIONS="plantuner-${PLANTUNER_COMMIT} plpgsql_check plprofiler postgres-decoderbufs" \
-                && if [ "$version" = "10" ] || [ "$version" = "11" ] || [ "$version" = "12" ] || [ $version = 13 ]; then \
+                && if [ "$version" != "9.5" ] && [ "$version" != "9.6" ]; then \
                      EXTRA_EXTENSIONS="$EXTRA_EXTENSIONS pg_mon-${PG_MON_COMMIT}"; \
                 fi; \
             else \

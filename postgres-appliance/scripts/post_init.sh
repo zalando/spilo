@@ -2,9 +2,7 @@
 
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
-(echo "SET synchronous_commit = 'local';
-
-DO \$\$
+(echo "DO \$\$
 BEGIN
     PERFORM * FROM pg_catalog.pg_authid WHERE rolname = 'admin';
     IF FOUND THEN
@@ -159,4 +157,4 @@ GRANT EXECUTE ON FUNCTION public.set_user(text) TO admin;
 GRANT EXECUTE ON FUNCTION public.pg_stat_statements_reset($RESET_ARGS) TO admin;"
     cat metric_helpers.sql
 done < <(psql -d "$2" -tAc 'select pg_catalog.quote_ident(datname) from pg_catalog.pg_database where datallowconn')
-) | psql -Xd "$2"
+) | PGOPTIONS="-c synchronous_commit=local" psql -Xd "$2"
