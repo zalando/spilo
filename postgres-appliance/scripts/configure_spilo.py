@@ -36,7 +36,8 @@ extensions = {
     'timescaledb':    (9.6, 12, True,  True),
     'pg_cron':        (9.5, 13, True,  False),
     'pg_stat_kcache': (9.4, 13, True,  False),
-    'pg_partman':     (9.4, 13, False, True)
+    'pg_partman':     (9.4, 13, False, True),
+    'pg_mon':         (10, 13, True, False)
 }
 
 AUTO_ENABLE_WALG_RESTORE = ('WAL_S3_BUCKET', 'WALE_S3_PREFIX', 'WALG_S3_PREFIX')

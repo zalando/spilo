@@ -152,6 +152,7 @@ while IFS= read -r db_name; do
     echo "CREATE EXTENSION IF NOT EXISTS pg_stat_statements SCHEMA public;
 CREATE EXTENSION IF NOT EXISTS pg_stat_kcache SCHEMA public;
 CREATE EXTENSION IF NOT EXISTS set_user SCHEMA public;
+CREATE EXTENSION IF NOT EXISTS pg_mon SCHEMA public;
 ALTER EXTENSION set_user UPDATE;
 GRANT EXECUTE ON FUNCTION public.set_user(text) TO admin;
 GRANT EXECUTE ON FUNCTION public.pg_stat_statements_reset($RESET_ARGS) TO admin;"
