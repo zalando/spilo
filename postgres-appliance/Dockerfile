@@ -144,7 +144,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                         postgresql-${version}-pg-stat-kcache \
                         postgresql-${version}-pllua" \
                 && if [ $version != "13" ]; then \
-                    EXTRAS="postgresql-${version}-cron \
+                    EXTRAS="$EXTRAS \
+                            postgresql-${version}-cron \
                             postgresql-${version}-hypopg \
                             postgresql-${version}-pgaudit \
                             postgresql-${version}-pg-checksums \
