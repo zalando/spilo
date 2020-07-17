@@ -436,7 +436,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         # https://github.com/wal-e/wal-e/pull/392
         && curl -sL https://github.com/wal-e/wal-e/pull/392.diff | patch -p1; \
     fi \
-    && pip3 install "git+https://github.com/zalando/patroni.git@feature/no-kubernetes#egg=patroni[kubernetes$EXTRAS]" \
+    && pip3 install "git+https://github.com/zalando/patroni.git@feature/bypass-k8s-service#egg=patroni[kubernetes$EXTRAS]" \
 \
     && for d in /usr/local/lib/python3.6 /usr/lib/python3; do \
         cd $d/dist-packages \
