@@ -142,7 +142,9 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             && if [ "$DEMO" != "true" ]; then \
                 EXTRAS="postgresql-pltcl-${version} \
                         postgresql-${version}-pg-stat-kcache \
-                        postgresql-${version}-pllua" \
+                        postgresql-${version}-pllua \
+                        postgresql-${version}-postgis-${POSTGIS_VERSION%.0} \
+                        postgresql-${version}-postgis-${POSTGIS_VERSION%.0}-scripts" \
                 && if [ $version != "13" ]; then \
                     EXTRAS="$EXTRAS \
                             postgresql-${version}-cron \
@@ -155,8 +157,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                             postgresql-${version}-pgq3 \
                             postgresql-${version}-pldebugger \
                             postgresql-${version}-plproxy \
-                            postgresql-${version}-postgis-${POSTGIS_VERSION%.0} \
-                            postgresql-${version}-postgis-${POSTGIS_VERSION%.0}-scripts \
                             postgresql-${version}-repack \
                             postgresql-${version}-wal2json"; \
                 fi \
@@ -221,11 +221,11 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         for version in $DEB_PG_SUPPORTED_VERSIONS; do \
             if [ $version != 13 ]; then \
                 # due to dependency issues partman has to be installed separately
-                apt-get install -y postgresql-${version}-partman \
-                # create postgis symlinks to make it possible to perform update
-                && ln -s postgis-${POSTGIS_VERSION%.0}.so \
-                    /usr/lib/postgresql/${version}/lib/postgis-2.5.so; \
-            fi; \
+                apt-get install -y postgresql-${version}-partman; \
+            fi \
+            # create postgis symlinks to make it possible to perform update
+            && ln -s postgis-${POSTGIS_VERSION%.0}.so \
+                /usr/lib/postgresql/${version}/lib/postgis-2.5.so; \
         done \
         # patch, build and install pgbouncer
         && apt-get source pgbouncer \
