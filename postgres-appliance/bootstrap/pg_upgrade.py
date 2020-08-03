@@ -21,7 +21,8 @@ class PostgresqlUpgrade(Postgresql):
             'timescaledb':    (9.6, 12),
             'pg_cron':        (9.5, 13),
             'pg_stat_kcache': (9.4, 13),
-            'pg_partman':     (9.4, 13)
+            'pg_partman':     (9.4, 13),
+            'pg_mon':         (11,  13)
         }
 
         filtered = []
