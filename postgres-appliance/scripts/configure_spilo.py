@@ -497,6 +497,7 @@ def get_placeholders(provider):
     placeholders.setdefault('KUBERNETES_SCOPE_LABEL', 'version')
     placeholders.setdefault('KUBERNETES_LABELS', KUBERNETES_DEFAULT_LABELS)
     placeholders.setdefault('KUBERNETES_USE_CONFIGMAPS', '')
+    placeholders.setdefault('KUBERNETES_BYPASS_API_SERVICE', 'true')
     placeholders.setdefault('USE_PAUSE_AT_RECOVERY_TARGET', False)
     placeholders.setdefault('CLONE_METHOD', '')
     placeholders.setdefault('CLONE_WITH_WALE', '')
@@ -622,6 +623,8 @@ def get_dcs_config(config, placeholders):
         if not placeholders.get('KUBERNETES_USE_CONFIGMAPS'):
             config['kubernetes'].update({'use_endpoints': True, 'pod_ip': placeholders['instance_data']['ip'],
                                          'ports': [{'port': 5432, 'name': 'postgresql'}]})
+        if str(placeholders.get('KUBERNETES_BYPASS_API_SERVICE')).lower() == 'true':
+            config['kubernetes']['bypass_api_service'] = True
     elif 'ZOOKEEPER_HOSTS' in placeholders:
         config = {'zookeeper': {'hosts': yaml.load(placeholders['ZOOKEEPER_HOSTS'])}}
     elif 'EXHIBITOR_HOSTS' in placeholders and 'EXHIBITOR_PORT' in placeholders:
@@ -881,7 +884,7 @@ def write_pgbouncer_configuration(placeholders, overwrite):
 def get_binary_version(bin_dir):
     postgres = os.path.join(bin_dir or '', 'postgres')
     version = subprocess.check_output([postgres, '--version']).decode()
-    version = re.match('^[^\s]+ [^\s]+ (\d+)(\.(\d+))?', version)
+    version = re.match(r'^[^\s]+ [^\s]+ (\d+)(\.(\d+))?', version)
     return '.'.join([version.group(1), version.group(3)]) if int(version.group(1)) < 10 else version.group(1)
 
 
