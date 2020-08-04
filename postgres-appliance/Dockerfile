@@ -208,7 +208,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             && apt-get purge -y libpq-dev=$version*; \
     done \
 \
-    && apt-get install -y skytools3-ticker pspg \
+    && apt-get install -y skytools3-ticker \
 \
 #    && sed -i "s/ main.*$/ main/g" /etc/apt/sources.list.d/pgdg.list \
 #    && apt-get update \
@@ -536,7 +536,7 @@ RUN sed -i "s|/var/lib/postgresql.*|$PGHOME:/bin/bash|" /etc/passwd \
         done \
         && sed -i 's/set compatible/set nocompatible/' /etc/vim/vimrc.tiny \
         && echo "PATH=\"$PATH\"" > /etc/environment \
-        && for e in TERM=linux LC_ALL=C.UTF-8 LANG=C.UTF-8 EDITOR=editor "PAGER='pspg -bX --no-mouse'"; \
+        && for e in TERM=linux LC_ALL=C.UTF-8 LANG=C.UTF-8 EDITOR=editor; \
             do echo "export $e" >> /etc/bash.bashrc; \
         done \
         && ln -s /etc/skel/.bashrc $PGHOME/.bashrc \
