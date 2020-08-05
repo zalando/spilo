@@ -890,7 +890,7 @@ def get_binary_version(bin_dir):
 
 
 def main():
-    debug = os.environ.get('DEBUG', '') in ['1', 'true', 'on', 'ON']
+    debug = os.environ.get('DEBUG', '') in ['1', 'true', 'TRUE', 'on', 'ON']
     args = parse_args()
 
     logging.basicConfig(format='%(asctime)s - bootstrapping - %(levelname)s - %(message)s', level=('DEBUG'
