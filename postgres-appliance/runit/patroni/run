@@ -11,6 +11,15 @@ if ! $CHPST true 2> /dev/null; then
     CHPST=""
 fi
 
+# Exclude shared memory from coredump
+if ! echo 0x31 > /proc/self/coredump_filter
+then
+    echo "Failed to enable coredump shared memory filter"
+fi
+
+# Enable core dumps
+ulimit -c unlimited
+
 # Only small subset of environment variables is allowed. We don't want accidentally disclose sensitive information
 for E in $(printenv -0 | tr '\n' ' ' | sed 's/\x00/\n/g' | grep -vE '^(KUBERNETES_(SERVICE|PORT|ROLE)[_=]|((POD_(IP|NAMESPACE))|HOSTNAME|PATH|PGHOME|LC_ALL|TIMESCALEDB|TIMESCALEDB_LEGACY)=)' | sed 's/=.*//g'); do
     unset $E
