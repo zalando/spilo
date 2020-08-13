@@ -107,7 +107,7 @@ def write_certificates(environment, overwrite):
         output, _ = p.communicate()
         logging.debug(output)
 
-    uid = pwd.getpwnam(environment['PGUSER_SUPERUSER']).pw_uid
+    uid = pwd.getpwnam('postgres').pw_uid
     os.chmod(environment['SSL_PRIVATE_KEY_FILE'], 0o600)
     os.chown(environment['SSL_PRIVATE_KEY_FILE'], uid, -1)
 
