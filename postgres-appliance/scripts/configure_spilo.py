@@ -721,6 +721,8 @@ def write_wale_environment(placeholders, prefix, overwrite):
             else:
                 aws_region = placeholders['instance_data']['zone'][:-1]
             wale['AWS_REGION'] = aws_region
+        else:
+            wale['AWS_REGION'] = aws_region
 
         if not (wale.get('AWS_SECRET_ACCESS_KEY') and wale.get('AWS_ACCESS_KEY_ID')):
             wale['AWS_INSTANCE_PROFILE'] = 'true'
