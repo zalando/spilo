@@ -72,7 +72,6 @@ ENV POSTGIS_VERSION=3.0 \
     PG_MON_COMMIT=cc028fdae8542ec3f5df3bf4c66f0895d87c127d \
     DECODERBUFS=v1.2.1.Final \
     SET_USER=REL1_6_2 \
-    PLPGSQL_CHECK=v1.11.0 \
     PLPROFILER=REL4_1 \
     PAM_OAUTH2=v1.0.1 \
     PLANTUNER_COMMIT=800d81bc85da64ff3ef66e12aed1d4e1e54fc006
@@ -102,7 +101,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         # prepare 3rd sources
         && git clone -b $DECODERBUFS https://github.com/debezium/postgres-decoderbufs.git \
         && git clone -b $PLPROFILER https://github.com/bigsql/plprofiler.git \
-        && git clone -b $PLPGSQL_CHECK https://github.com/okbob/plpgsql_check.git \
         && tar -xzf plantuner-${PLANTUNER_COMMIT}.tar.gz \
         && curl -sL https://github.com/RafiaSabih/pg_mon/archive/$PG_MON_COMMIT.tar.gz | tar xz \
 \
@@ -148,6 +146,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                         postgresql-${version}-pg-stat-kcache \
                         postgresql-${version}-pldebugger \
                         postgresql-${version}-pllua \
+                        postgresql-${version}-plpgsql-check \
                         postgresql-${version}-plproxy \
                         postgresql-${version}-postgis-${POSTGIS_VERSION%.0} \
                         postgresql-${version}-postgis-${POSTGIS_VERSION%.0}-scripts \
@@ -186,7 +185,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                     done; \
                 fi \
 \
-                && EXTRA_EXTENSIONS="plantuner-${PLANTUNER_COMMIT} plpgsql_check plprofiler postgres-decoderbufs" \
+                && EXTRA_EXTENSIONS="plantuner-${PLANTUNER_COMMIT} plprofiler postgres-decoderbufs" \
                 && if [ "$version" != "9.5" ] && [ "$version" != "9.6" ]; then \
                      EXTRA_EXTENSIONS="$EXTRA_EXTENSIONS pg_mon-${PG_MON_COMMIT}"; \
                 fi; \
