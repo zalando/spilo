@@ -90,10 +90,9 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && rm -f *.deb \
         && apt-get install -y $BUILD_PACKAGES; \
     else \
-        BUILD_PACKAGES="$BUILD_PACKAGES pgxnclient zlib1g-dev libprotobuf-c-dev libpam0g-dev libcurl4-openssl-dev libicu-dev python libc-ares-dev pandoc pkg-config naturaldocs flex bison asciidoc" \
+        BUILD_PACKAGES="$BUILD_PACKAGES pgxnclient zlib1g-dev libprotobuf-c-dev libpam0g-dev libcurl4-openssl-dev libicu-dev python libc-ares-dev pandoc pkg-config flex bison asciidoc" \
 # debezium-decoderbufs: libprotobuf-c-dev
 # pgbouncer: libc-ares-dev pandoc pkg-config
-# pgq3: naturaldocs
 # plproxy: flex bison asciidoc
         && apt-get install -y $BUILD_PACKAGES libprotobuf-c1 libcurl4 \
 \
@@ -139,11 +138,14 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 \
             && if [ "$DEMO" != "true" ]; then \
                 EXTRAS="postgresql-pltcl-${version} \
+                        postgresql-${version}-pgq3 \
                         postgresql-${version}-pg-stat-kcache \
+                        postgresql-${version}-pldebugger \
                         postgresql-${version}-pllua \
                         postgresql-${version}-plpgsql-check \
                         postgresql-${version}-postgis-${POSTGIS_VERSION%.0} \
-                        postgresql-${version}-postgis-${POSTGIS_VERSION%.0}-scripts" \
+                        postgresql-${version}-postgis-${POSTGIS_VERSION%.0}-scripts \
+                        postgresql-${version}-wal2json" \
                 && if [ $version != "13" ]; then \
                     EXTRAS="$EXTRAS \
                             postgresql-${version}-cron \
@@ -153,11 +155,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                             postgresql-${version}-pgl-ddl-deploy \
                             postgresql-${version}-pglogical \
                             postgresql-${version}-pglogical-ticker \
-                            postgresql-${version}-pgq3 \
-                            postgresql-${version}-pldebugger \
                             postgresql-${version}-plproxy \
-                            postgresql-${version}-repack \
-                            postgresql-${version}-wal2json"; \
+                            postgresql-${version}-repack"; \
                 fi \
                 && if [ "$WITH_PERL" = "true" ]; then \
                     EXTRAS="$EXTRAS postgresql-plperl-${version}"; \
@@ -239,7 +238,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     fi \
 \
     # build and install missing packages
-    && for pkg in pgextwlist cron pgq3 $PACKAGES; do \
+    && for pkg in pgextwlist cron $PACKAGES; do \
         apt-get source postgresql-12-${pkg} \
         && cd $(ls -d *${pkg%?}*-*/) \
         && if [ -f ../$pkg.patch ]; then patch -p1 < ../$pkg.patch; fi \
