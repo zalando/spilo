@@ -166,7 +166,6 @@ bootstrap:
         archive_mode: "on"
         archive_timeout: 1800s
         wal_level: hot_standby
-        wal_keep_segments: 8
         wal_log_hints: 'on'
         max_wal_senders: 10
         max_connections: {{postgresql.parameters.max_connections}}
