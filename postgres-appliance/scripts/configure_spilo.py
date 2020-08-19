@@ -127,7 +127,7 @@ def deep_update(a, b):
                 a[key] = b[key]
         return a
     if type(a) is list and type(b) is list:
-        return a + [i for i in b if i not in a]
+        return a
 
     return a if a is not None else b
 
