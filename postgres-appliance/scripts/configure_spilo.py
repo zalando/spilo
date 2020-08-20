@@ -380,11 +380,20 @@ def get_instance_metadata(provider):
         mapping = {'zone': 'zone'}
         if not USE_KUBERNETES:
             mapping.update({'id': 'id'})
-    elif provider == PROVIDER_AWS or provider == PROVIDER_OPENSTACK:
+    elif provider == PROVIDER_AWS:
         url = 'http://169.254.169.254/latest/meta-data'
         mapping = {'zone': 'placement/availability-zone'}
         if not USE_KUBERNETES:
             mapping.update({'ip': 'local-ipv4', 'id': 'instance-id'})
+    elif provider == PROVIDER_OPENSTACK:
+        mapping = {}  # Disable multi-url fetch
+        url = 'http://169.254.169.254/openstack/latest/meta_data.json'
+        openstack_metadata = requests.get(url, timeout=5).json()
+        metadata['zone'] = openstack_metadata.availability_zone
+        if not USE_KUBERNETES:
+            # OpenStack does not support providing an IP through metadata so keep
+            # auto-discovered one.
+            metadata['id'] = openstack_metadata.uuid
     else:
         logging.info("No meta-data available for this provider")
         return metadata
