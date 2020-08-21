@@ -2,6 +2,9 @@
 
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
+PGVER=$(psql -d "$2" -XtAc "SELECT pg_catalog.current_setting('server_version_num')::int/10000")
+if [ $PGVER -ge 12 ]; then RESET_ARGS="oid, oid, bigint"; fi
+
 (echo "DO \$\$
 BEGIN
     PERFORM * FROM pg_catalog.pg_authid WHERE rolname = 'admin';
@@ -104,8 +107,9 @@ CREATE TABLE IF NOT EXISTS public.postgres_log (
     query text,
     query_pos integer,
     location text,
-    application_name text,
-    CONSTRAINT postgres_log_check CHECK (false) NO INHERIT
+    application_name text,"
+if [ $PGVER -ge 13 ]; then echo "    backend_type text,"; fi
+echo "    CONSTRAINT postgres_log_check CHECK (false) NO INHERIT
 );
 GRANT SELECT ON public.postgres_log TO admin;"
 
@@ -126,9 +130,6 @@ GRANT SELECT ON TABLE public.failed_authentication_$i TO robot_zmon;
 done
 
 cat _zmon_schema.dump
-
-PGVER=$(psql -d "$2" -XtAc "SELECT pg_catalog.current_setting('server_version_num')::int/10000")
-if [ $PGVER -ge 12 ]; then RESET_ARGS="oid, oid, bigint"; fi
 
 while IFS= read -r db_name; do
     echo "\c ${db_name}"

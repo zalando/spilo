@@ -337,6 +337,7 @@ hosts deny = *
             return False
 
         logger.info('Doing a clean shutdown of the cluster before pg_upgrade')
+        downtime_start = time.time()
         if not self.postgresql.stop(block_callbacks=True):
             return logger.error('Failed to stop the cluster before pg_upgrade')
 
@@ -363,11 +364,13 @@ hosts deny = *
 
         member = cluster.get_member(self.postgresql.name)
         primary_ip = member.conn_kwargs().get('host')
+        rsync_start = time.time()
         try:
             ret = self.rsync_replicas(primary_ip)
         except Exception as e:
             logger.error('rsync failed: %r', e)
             ret = False
+        logger.info('Rsync took %s seconds', time.time() - rsync_start)
 
         self.stop_rsyncd()
 
@@ -378,7 +381,8 @@ hosts deny = *
         time.sleep(2)  # XXX: check Patroni REST API is available
         logger.info('Starting the local postgres up')
         result = self.request(member, 'post', 'restart', {})
-        logger.info('%s %s', result.status, result.data.decode('utf-8'))
+        logger.info('   %s %s', result.status, result.data.decode('utf-8'))
+        logger.info('Downtime for upgrade: %s', time.time() - downtime_start)
 
         if self.paused:
             try:
@@ -387,6 +391,7 @@ hosts deny = *
                 logger.error('Failed to resume cluster: %r', e)
 
         self.postgresql.analyze()
+        logger.info('Total upgrade time (with analyze): %s', time.time() - downtime_start)
         self.postgresql.bootstrap.call_post_bootstrap(self.config['bootstrap'])
         self.postgresql.cleanup_old_pgdata()
 

@@ -66,6 +66,9 @@ class _PostgresqlUpgrade(Postgresql):
                 cur.execute("DROP FUNCTION metric_helpers.pg_stat_statements(boolean) CASCADE")
                 logger.info('Executing "DROP EXTENSION IF EXISTS amcheck_next" in the database="%s"', d[0])
                 cur.execute("DROP EXTENSION IF EXISTS amcheck_next")
+                if d == 'postgres':
+                    logger.info('Executing DROP TABLE postgres_log CASCADE in the database=postgres')
+                    cur.execute('DROP TABLE postgres_log CASCADE')
 
     @staticmethod
     def remove_new_data(d):
