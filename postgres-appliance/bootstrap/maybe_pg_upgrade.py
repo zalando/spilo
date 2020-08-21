@@ -40,7 +40,6 @@ def main():
     if not upgrade.prepare_new_pgdata(bin_version):
         raise Exception('initdb failed')
 
-    logger.info('Dropping objects from the cluster which could be incompatible')
     try:
         upgrade.drop_possibly_incompatible_objects()
     except Exception:
