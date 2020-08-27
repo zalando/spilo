@@ -10,6 +10,10 @@ import sys
 import time
 import yaml
 
+from collections import defaultdict
+from threading import Thread
+from multiprocessing.pool import ThreadPool
+
 logger = logging.getLogger(__name__)
 CONFIG_FILE = os.path.join('/run/postgres.yml')
 
@@ -68,7 +72,7 @@ class InplaceUpgrade(object):
 
         if self.upgrade_required:
             self.dcs = get_dcs(config)
-            self.request = PatroniRequest(config)
+            self.request = PatroniRequest(config, True)
 
     @staticmethod
     def get_desired_version():
@@ -84,6 +88,13 @@ class InplaceUpgrade(object):
             bin_dir = get_bin_dir(os.environ['PGVERSION'])
 
         return get_binary_version(bin_dir)
+
+    def check_patroni_api(self, member):
+        try:
+            response = self.request(member, timeout=2, retries=0)
+            return response.status == 200
+        except Exception as e:
+            return logger.error('API request to %s name failed: %r', member.name, e)
 
     def toggle_pause(self, paused):
         from patroni.utils import polling_loop
@@ -104,12 +115,21 @@ class InplaceUpgrade(object):
         for _ in polling_loop(ttl + 1):
             cluster = self.dcs.get_cluster()
             if all(m.data.get('pause', False) == paused for m in cluster.members if m.name in old):
+                logger.info('Maintenance mode %s', ('enabled' if paused else 'disabled'))
                 return True
 
         remaining = [m.name for m in cluster.members if m.data.get('pause', False) != paused
                      and m.name in old and old[m.name] != m.index]
         if remaining:
             return logger.error("%s members didn't recognized pause state after %s seconds", remaining, ttl)
+
+    def resume_cluster(self):
+        if self.paused:
+            try:
+                logger.info('Disabling maintenance mode')
+                self.toggle_pause(False)
+            except Exception as e:
+                logger.error('Failed to resume cluster: %r', e)
 
     def ensure_replicas_state(self, cluster):
         self.replica_connections = {}
@@ -124,12 +144,14 @@ class InplaceUpgrade(object):
             if lag is None:
                 return logger.error('Member %s is not streaming from the primary', member.name)
             if lag > 16*1024*1024:
-                return logger.error('Replication lag %s on member %s is to high', lag, member.name)
+                return logger.error('Replication lag %s on member %s is too high', lag, member.name)
 
-            # XXX check that Patroni REST API is accessible
+            if not self.check_patroni_api(member):
+                return logger.error('Patroni on %s is not healthy', member.name)
+
             conn_kwargs = member.conn_kwargs(self.postgresql.config.superuser)
-            for p in ['connect_timeout', 'options']:
-                conn_kwargs.pop(p, None)
+            conn_kwargs['options'] = '-c statement_timeout=0 -c search_path='
+            conn_kwargs.pop('connect_timeout', None)
 
             conn = psycopg2.connect(**conn_kwargs)
             conn.autocommit = True
@@ -258,10 +280,33 @@ hosts deny = *
             except Exception as e:
                 logger.error('Failed to remove %s: %r', self.rsync_conf_dir, e)
 
+    def checkpoint(self, member):
+        name, (_, cur) = member
+        try:
+            cur.execute('CHECKPOINT')
+            return name, True
+        except Exception as e:
+            logger.error('CHECKPOINT on % failed: %r', name, e)
+            return name, False
+
+    def checkpoint_replicas(self):
+        logger.info('Executing CHECKPOINT on replicas %s', ','.join(self.replica_connections.keys()))
+        pool = ThreadPool(len(self.replica_connections))
+        results = pool.map(self.checkpoint, self.replica_connections.items())  # Run CHECKPOINT on replicas in parallel
+        pool.close()
+        pool.join()
+
+        for name, status in results:
+            if not status:
+                self.replica_connections.pop(name)
+
+        return self.replica_connections
+
     def rsync_replicas(self, primary_ip):
         from patroni.utils import polling_loop
 
-        # XXX: CHECKPOINT
+        if not self.checkpoint_replicas():
+            return
 
         logger.info('Notifying replicas %s to start rsync', ','.join(self.replica_connections.keys()))
         ret = True
@@ -283,7 +328,7 @@ hosts deny = *
         for name in status.keys():
             self.replica_connections.pop(name)
 
-        logger.info('Waiting for replicas rsync complete')
+        logger.info('Waiting for replicas rsync to complete')
         status.clear()
         for _ in polling_loop(300):
             synced = True
@@ -292,7 +337,8 @@ hosts deny = *
                 if name not in status and os.path.exists(feedback):
                     with open(feedback) as f:
                         status[name] = f.read().strip()
-                else:
+
+                if name not in status:
                     synced = False
             if synced:
                 break
@@ -307,7 +353,104 @@ hosts deny = *
                 ret = False
         return ret
 
+    def wait_replica_restart(self, member):
+        from patroni.utils import polling_loop
+
+        for _ in polling_loop(10):
+            try:
+                response = self.request(member, timeout=2, retries=0)
+                if response.status == 200:
+                    data = json.loads(response.data.decode('utf-8'))
+                    database_system_identifier = data.get('database_system_identifier')
+                    if database_system_identifier and database_system_identifier != self._old_sysid:
+                        return member.name
+            except Exception:
+                pass
+        logger.error('Patroni on replica %s was not restarted in 10 seconds', member.name)
+
+    def wait_replicas_restart(self, cluster):
+        members = [member for member in cluster.members if member.name in self.replica_connections]
+        logger.info('Waiting for restart of patroni on replicas %s', ', '.join(m.name for m in members))
+        pool = ThreadPool(len(members))
+        results = pool.map(self.wait_replica_restart, members)
+        pool.close()
+        pool.join()
+        logger.info('  %s successfully restarted', results)
+        return all(results)
+
+    def reset_custom_statistics_target(self):
+        from patroni.postgresql.connection import get_connection_cursor
+
+        logger.info('Resetting non-default statistics target before analyze')
+        self._statistics = defaultdict(lambda: defaultdict(dict))
+
+        conn_kwargs = self.postgresql.local_conn_kwargs
+
+        for d in self.postgresql.query('SELECT datname FROM pg_catalog.pg_database WHERE datallowconn'):
+            conn_kwargs['database'] = d[0]
+            with get_connection_cursor(**conn_kwargs) as cur:
+                cur.execute('SELECT attrelid::regclass, quote_ident(attname), attstattarget '
+                            'FROM pg_catalog.pg_attribute WHERE attnum > 0 AND NOT attisdropped AND attstattarget > 0')
+                for table, column, target in cur.fetchall():
+                    query = 'ALTER TABLE {0} ALTER COLUMN {1} SET STATISTICS -1'.format(table, column)
+                    logger.info("Executing '%s' in the database=%s. Old value=%s", query, d[0], target)
+                    cur.execute(query)
+                    self._statistics[d[0]][table][column] = target
+
+    def restore_custom_statistics_target(self):
+        from patroni.postgresql.connection import get_connection_cursor
+
+        if not self._statistics:
+            return
+
+        conn_kwargs = self.postgresql.local_conn_kwargs
+
+        logger.info('Restoring default statistics targets after upgrade')
+        for db, val in self._statistics.items():
+            conn_kwargs['database'] = db
+            with get_connection_cursor(**conn_kwargs) as cur:
+                for table, val in val.items():
+                    for column, target in val.items():
+                        query = 'ALTER TABLE {0} ALTER COLUMN {1} SET STATISTICS {2}'.format(table, column, target)
+                        logger.info("Executing '%s' in the database=%s", query, db)
+                        try:
+                            cur.execute(query)
+                        except Exception:
+                            logger.error("Failed to execute '%s'", query)
+
+    def reanalyze(self):
+        from patroni.postgresql.connection import get_connection_cursor
+
+        if not self._statistics:
+            return
+
+        conn_kwargs = self.postgresql.local_conn_kwargs
+
+        for db, val in self._statistics.items():
+            conn_kwargs['database'] = db
+            with get_connection_cursor(**conn_kwargs) as cur:
+                for table in val.keys():
+                    query = 'ANALYZE {0}'.format(table)
+                    logger.info("Executing '%s' in the database=%s", query, db)
+                    try:
+                        cur.execute(query)
+                    except Exception:
+                        logger.error("Failed to execute '%s'", query)
+
+    def analyze(self):
+        try:
+            self.reset_custom_statistics_target()
+        except Exception as e:
+            logger.error('Failed to reset custom statistics targets: %r', e)
+        self.postgresql.analyze(True)
+        try:
+            self.restore_custom_statistics_target()
+        except Exception as e:
+            logger.error('Failed to restore custom statistics targets: %r', e)
+
     def do_upgrade(self):
+        from patroni.utils import polling_loop
+
         if not self.upgrade_required:
             logger.info('Current version=%s, desired version=%s. Upgrade is not required',
                         self.cluster_version, self.desired_version)
@@ -321,16 +464,19 @@ hosts deny = *
         if not self.sanity_checks(cluster):
             return False
 
+        self._old_sysid = self.postgresql.sysid  # remember old sysid
+
         logger.info('Cluster %s is ready to be upgraded', self.postgresql.scope)
         if not self.postgresql.prepare_new_pgdata(self.desired_version):
             return logger.error('initdb failed')
+
+        if not self.postgresql.pg_upgrade(check=True):
+            return logger.error('pg_upgrade --check failed, more details in the %s_upgrade', self.postgresql.data_dir)
 
         try:
             self.postgresql.drop_possibly_incompatible_objects()
         except Exception:
             return logger.error('Failed to drop possibly incompatible objects')
-
-        # XXX: memorize and reset custom statistics target!
 
         logging.info('Enabling maintenance mode')
         if not self.toggle_pause(True):
@@ -341,17 +487,18 @@ hosts deny = *
         if not self.postgresql.stop(block_callbacks=True):
             return logger.error('Failed to stop the cluster before pg_upgrade')
 
-        checkpoint_lsn = int(self.postgresql.latest_checkpoint_location())
-        logger.info('Latest checkpoint location: %s', checkpoint_lsn)
+        if self.replica_connections:
+            checkpoint_lsn = int(self.postgresql.latest_checkpoint_location())
+            logger.info('Latest checkpoint location: %s', checkpoint_lsn)
 
-        logger.info('Starting rsyncd')
-        self.start_rsyncd()
+            logger.info('Starting rsyncd')
+            self.start_rsyncd()
 
-        if not self.wait_for_replicas(checkpoint_lsn):
-            return False
+            if not self.wait_for_replicas(checkpoint_lsn):
+                return False
 
-        if not (self.rsyncd.pid and self.rsyncd.poll() is None):
-            return logger.error('Failed to start rsyncd')
+            if not (self.rsyncd.pid and self.rsyncd.poll() is None):
+                return logger.error('Failed to start rsyncd')
 
         if not self.postgresql.pg_upgrade():
             return logger.error('Failed to upgrade cluster from %s to %s', self.cluster_version, self.desired_version)
@@ -363,47 +510,71 @@ hosts deny = *
         update_configs(self.desired_version)
 
         member = cluster.get_member(self.postgresql.name)
-        primary_ip = member.conn_kwargs().get('host')
-        rsync_start = time.time()
-        try:
-            ret = self.rsync_replicas(primary_ip)
-        except Exception as e:
-            logger.error('rsync failed: %r', e)
-            ret = False
-        logger.info('Rsync took %s seconds', time.time() - rsync_start)
+        if self.replica_connections:
+            primary_ip = member.conn_kwargs().get('host')
+            rsync_start = time.time()
+            try:
+                ret = self.rsync_replicas(primary_ip)
+            except Exception as e:
+                logger.error('rsync failed: %r', e)
+                ret = False
+            logger.info('Rsync took %s seconds', time.time() - rsync_start)
 
-        self.stop_rsyncd()
+            self.stop_rsyncd()
+            time.sleep(2)  # Give replicas a bit of time to switch PGDATA
 
         self.remove_initialize_key()
         kill_patroni()
         self.remove_initialize_key()
 
-        time.sleep(2)  # XXX: check Patroni REST API is available
-        logger.info('Starting the local postgres up')
-        result = self.request(member, 'post', 'restart', {})
-        logger.info('   %s %s', result.status, result.data.decode('utf-8'))
-        logger.info('Downtime for upgrade: %s', time.time() - downtime_start)
+        time.sleep(1)
+        for _ in polling_loop(10):
+            if self.check_patroni_api(member):
+                break
+        else:
+            logger.error('Patroni REST API on primary is not accessible after 10 seconds')
 
-        if self.paused:
+        logger.info('Starting the primary postgres up')
+        for _ in polling_loop(10):
             try:
-                self.toggle_pause(False)
+                result = self.request(member, 'post', 'restart', {})
+                logger.info('   %s %s', result.status, result.data.decode('utf-8'))
+                if result.status < 300:
+                    break
             except Exception as e:
-                logger.error('Failed to resume cluster: %r', e)
+                logger.error('POST /restart failed: %r', e)
+        else:
+            logger.error('Failed to start primary after upgrade')
 
-        self.postgresql.analyze()
+        logger.info('Upgrade downtime: %s', time.time() - downtime_start)
+
+        try:
+            self.postgresql.update_extensions()
+        except Exception as e:
+            logger.error('Failed to update extensions: %r', e)
+
+        # start analyze early
+        analyze_thread = Thread(target=self.analyze)
+        analyze_thread.start()
+
+        self.wait_replicas_restart(cluster)
+
+        self.resume_cluster()
+
+        analyze_thread.join()
+
+        self.reanalyze()
+
         logger.info('Total upgrade time (with analyze): %s', time.time() - downtime_start)
         self.postgresql.bootstrap.call_post_bootstrap(self.config['bootstrap'])
         self.postgresql.cleanup_old_pgdata()
-
+        # XXX: triggered the backup?
         return ret
 
     def post_cleanup(self):
         self.stop_rsyncd()
-        if self.paused:
-            try:
-                self.toggle_pause(False)
-            except Exception as e:
-                logger.error('Failed to resume cluster: %r', e)
+        self.resume_cluster()
+
         if self.new_data_created:
             try:
                 self.postgresql.cleanup_new_pgdata()
@@ -453,8 +624,10 @@ def rsync_replica(config, desired_version, primary_ip, pid):
 
     env = os.environ.copy()
     env['RSYNC_PASSWORD'] = postgresql.config.replication['password']
-    if subprocess.call(['rsync', '--archive', '--delete', '--hard-links', '--size-only', '--no-inc-recursive',
-                        '--include=/data/***', '--include=/data_old/***', '--exclude=*',
+    if subprocess.call(['rsync', '--archive', '--delete', '--hard-links', '--size-only', '--omit-dir-times',
+                        '--no-inc-recursive', '--include=/data/***', '--include=/data_old/***',
+                        '--exclude=/data/pg_xlog/*', '--exclude=/data_old/pg_xlog/*',
+                        '--exclude=/data/pg_wal/*', '--exclude=/data_old/pg_wal/*', '--exclude=*',
                         'rsync://{0}@{1}:5432/pgroot'.format(postgresql.name, primary_ip),
                         os.path.dirname(postgresql.data_dir)], env=env) != 0:
         logger.error('Failed to rsync from %s', primary_ip)
@@ -466,6 +639,9 @@ def rsync_replica(config, desired_version, primary_ip, pid):
     if 'username' in conn_kwargs:
         conn_kwargs['user'] = conn_kwargs.pop('username')
 
+    # If restart Patroni right now there is a chance that it will exit due to the sysid mismatch.
+    # Due to cleaned environment we can't always use DCS on replicas in this script, therefore
+    # the good indicator of initialize key being deleted/updated is running primary after the upgrade.
     for _ in polling_loop(300):
         try:
             with postgresql.get_replication_connection_cursor(primary_ip, **conn_kwargs) as cur:
@@ -475,6 +651,10 @@ def rsync_replica(config, desired_version, primary_ip, pid):
         except Exception:
             pass
 
+    # If the cluster was unpaused earlier than we restarted Patroni, it might have created
+    # the recovery.conf file and tried (and failed) to start the cluster up using wrong binaries.
+    # In case of upgrade to 12+ presence of PGDATA/recovery.conf will not allow postgres to start.
+    # We remove the recovery.conf and restart Patroni in order to make sure it is using correct config.
     postgresql.config.remove_recovery_conf()
     kill_patroni()
     postgresql.config.remove_recovery_conf()
@@ -501,5 +681,5 @@ def main():
 
 
 if __name__ == '__main__':
-    logging.basicConfig(format='%(asctime)s upgrade_master %(levelname)s: %(message)s', level='INFO')
+    logging.basicConfig(format='%(asctime)s inplace_upgrade %(levelname)s: %(message)s', level='INFO')
     sys.exit(main())

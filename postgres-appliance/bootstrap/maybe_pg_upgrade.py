@@ -56,6 +56,12 @@ def main():
     logger.info('Starting the cluster with new postgres after upgrade')
     if not upgrade.start():
         raise Exception('Failed to start the cluster with new postgres')
+
+    try:
+        upgrade.update_extensions()
+    except Exception as e:
+        logger.error('Failed to update extensions: %r', e)
+
     upgrade.analyze()
 
 
