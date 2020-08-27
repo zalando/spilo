@@ -1,0 +1,37 @@
+version: "2"
+
+networks:
+    demo:
+
+services:
+    etcd:
+        image: spilo
+        networks: [ demo ]
+        container_name: demo-etcd
+        hostname: etcd
+        command: "sh -c 'exec etcd -name etcd1 -listen-client-urls http://0.0.0.0:2379 -advertise-client-urls http://$$(hostname --ip-address):2379'"
+
+    spilo1: &spilo
+        image: spilo
+        networks: [ demo ]
+        environment:
+            ETCDCTL_ENDPOINTS: http://etcd:2379
+            ETCD_HOST: "etcd:2379"
+            SCOPE: demo
+            SPILO_CONFIGURATION: |
+              bootstrap:
+                dcs:
+                  loop_wait: 2
+            PGVERSION: '9.6'
+        hostname: spilo1
+        container_name: demo-spilo1
+
+    spilo2:
+        <<: *spilo
+        hostname: spilo2
+        container_name: demo-spilo2
+
+    spilo3:
+        <<: *spilo
+        hostname: spilo3
+        container_name: demo-spilo3
