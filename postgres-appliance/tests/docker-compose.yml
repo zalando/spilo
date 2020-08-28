@@ -22,6 +22,9 @@ services:
               bootstrap:
                 dcs:
                   loop_wait: 2
+              postgresql:
+                parameters:
+                  shared_buffers: 32MB
             PGVERSION: '9.6'
         hostname: spilo1
         container_name: demo-spilo1
