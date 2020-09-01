@@ -116,7 +116,7 @@ def deep_update(a, b):
     """Updates data structures
 
     Dicts are merged, recursively
-    List b is appended to a (except duplicates)
+    If "a" and "b" are lists, list "a" is used
     For anything else, the value of a is returned"""
 
     if type(a) is dict and type(b) is dict:
@@ -127,7 +127,7 @@ def deep_update(a, b):
                 a[key] = b[key]
         return a
     if type(a) is list and type(b) is list:
-        return a + [i for i in b if i not in a]
+        return a
 
     return a if a is not None else b
 
