@@ -115,7 +115,7 @@ def deep_update(a, b):
     """Updates data structures
 
     Dicts are merged, recursively
-    List b is appended to a (except duplicates)
+    If "a" and "b" are lists, list "a" is used
     For anything else, the value of a is returned"""
 
     if type(a) is dict and type(b) is dict:
@@ -126,7 +126,7 @@ def deep_update(a, b):
                 a[key] = b[key]
         return a
     if type(a) is list and type(b) is list:
-        return a + [i for i in b if i not in a]
+        return a
 
     return a if a is not None else b
 
@@ -379,11 +379,20 @@ def get_instance_metadata(provider):
         mapping = {'zone': 'zone'}
         if not USE_KUBERNETES:
             mapping.update({'id': 'id'})
-    elif provider == PROVIDER_AWS or provider == PROVIDER_OPENSTACK:
+    elif provider == PROVIDER_AWS:
         url = 'http://169.254.169.254/latest/meta-data'
         mapping = {'zone': 'placement/availability-zone'}
         if not USE_KUBERNETES:
             mapping.update({'ip': 'local-ipv4', 'id': 'instance-id'})
+    elif provider == PROVIDER_OPENSTACK:
+        mapping = {}  # Disable multi-url fetch
+        url = 'http://169.254.169.254/openstack/latest/meta_data.json'
+        openstack_metadata = requests.get(url, timeout=5).json()
+        metadata['zone'] = openstack_metadata.availability_zone
+        if not USE_KUBERNETES:
+            # OpenStack does not support providing an IP through metadata so keep
+            # auto-discovered one.
+            metadata['id'] = openstack_metadata.uuid
     else:
         logging.info("No meta-data available for this provider")
         return metadata
