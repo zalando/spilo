@@ -1,6 +1,6 @@
 ARG PGVERSION=12
-ARG TIMESCALEDB=1.7.2
-ARG TIMESCALEDB_LEGACY=1.7.2
+ARG TIMESCALEDB=1.7.3
+ARG TIMESCALEDB_LEGACY=1.7.3
 ARG DEMO=false
 ARG COMPRESS=false
 
@@ -374,9 +374,9 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && find /var/log -type f -exec truncate --size 0 {} \;
 
 # Install patroni, wal-e and wal-g
-ENV PATRONIVERSION=1.6.5
-ENV WALE_VERSION=1.1.0
-ENV WALG_VERSION=v0.2.15
+ENV PATRONIVERSION=2.0.0
+ENV WALE_VERSION=1.1.1
+ENV WALG_VERSION=v0.2.17
 RUN export DEBIAN_FRONTEND=noninteractive \
     && set -ex \
     && BUILD_PACKAGES="python3-pip python3-wheel python3-dev git patchutils binutils" \
@@ -411,15 +411,9 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && pip3 uninstall -y attrs more_itertools pluggy pytest py \
 \
         # https://github.com/wal-e/wal-e/issues/318
-        && sed -i 's/^\(    for i in range(0,\) num_retries):.*/\1 100):/g' /usr/lib/python3/dist-packages/boto/utils.py \
-\
-        # https://github.com/wal-e/wal-e/pull/384
-        && curl -sL https://github.com/wal-e/wal-e/pull/384.diff | patch -p1 \
-\
-        # https://github.com/wal-e/wal-e/pull/392
-        && curl -sL https://github.com/wal-e/wal-e/pull/392.diff | patch -p1; \
+        && sed -i 's/^\(    for i in range(0,\) num_retries):.*/\1 100):/g' /usr/lib/python3/dist-packages/boto/utils.py; \
     fi \
-    && pip3 install "git+https://github.com/zalando/patroni.git@feature/no-kubernetes#egg=patroni[kubernetes$EXTRAS]" \
+    && pip3 install patroni[kubernetes$EXTRAS]==$PATRONIVERSION \
 \
     && for d in /usr/local/lib/python3.6 /usr/lib/python3; do \
         cd $d/dist-packages \
