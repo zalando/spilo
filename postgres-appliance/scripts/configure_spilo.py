@@ -691,7 +691,7 @@ def write_wale_environment(placeholders, prefix, overwrite):
                   'WALG_SENTINEL_USER_DATA', 'WALG_PREVENT_WAL_OVERWRITE']
 
     wale = defaultdict(lambda: '')
-    for name in ['WALE_ENV_DIR', 'SCOPE', 'WAL_BUCKET_SCOPE_PREFIX', 'WAL_BUCKET_SCOPE_SUFFIX',
+    for name in ['PGVERSION', 'WALE_ENV_DIR', 'SCOPE', 'WAL_BUCKET_SCOPE_PREFIX', 'WAL_BUCKET_SCOPE_SUFFIX',
                  'WAL_S3_BUCKET', 'WAL_GCS_BUCKET', 'WAL_GS_BUCKET', 'WAL_SWIFT_BUCKET', 'BACKUP_NUM_TO_RETAIN'] +\
             s3_names + swift_names + gs_names + walg_names:
         wale[name] = placeholders.get(prefix + name, '')
@@ -740,7 +740,7 @@ def write_wale_environment(placeholders, prefix, overwrite):
     prefix_env_name = write_envdir_names[0]
     store_type = prefix_env_name[5:].split('_')[0]
     if not wale.get(prefix_env_name):  # WALE_*_PREFIX is not defined in the environment
-        bucket_path = '/spilo/{WAL_BUCKET_SCOPE_PREFIX}{SCOPE}{WAL_BUCKET_SCOPE_SUFFIX}/wal/'.format(**wale)
+        bucket_path = '/spilo/{WAL_BUCKET_SCOPE_PREFIX}{SCOPE}{WAL_BUCKET_SCOPE_SUFFIX}/wal/{PGVERSION}'.format(**wale)
         prefix_template = '{0}://{{WAL_{1}_BUCKET}}{2}'.format(store_type.lower(), store_type, bucket_path)
         wale[prefix_env_name] = prefix_template.format(**wale)
     # Set WALG_*_PREFIX for future compatibility
@@ -920,7 +920,8 @@ def main():
     if not os.path.exists(version_file) or not config['postgresql'].get('bin_dir'):
         update_bin_dir(config, os.environ.get('PGVERSION', ''))
 
-    version = float(get_binary_version(config['postgresql'].get('bin_dir')))
+    config['PGVERSION'] = get_binary_version(config['postgresql'].get('bin_dir'))
+    version = float(config['PGVERSION'])
     if 'shared_preload_libraries' not in user_config.get('postgresql', {}).get('parameters', {}):
         config['postgresql']['parameters']['shared_preload_libraries'] =\
                 append_extentions(config['postgresql']['parameters']['shared_preload_libraries'], version)

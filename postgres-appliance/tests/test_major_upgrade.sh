@@ -48,13 +48,14 @@ function docker_exec() {
 }
 
 function find_leader() {
+    local container=$1
     declare -r timeout=60
     local attempts=0
 
     while true; do
-        leader=$(docker_exec ${PREFIX}spilo1 'patronictl list -f tsv' 2> /dev/null | awk '($4 == "Leader"){print $2}')
+        leader=$(docker_exec "$container" 'patronictl list -f tsv' 2> /dev/null | awk '($4 == "Leader"){print $2}')
         if [[ -n "$leader" ]]; then
-            echo "$PREFIX$leader"
+            echo "$leader"
             return
         fi
         ((attempts++))
@@ -152,6 +153,21 @@ function test_pg_upgrade_check_failed() {
     ! test_successful_upgrade_to_12 "$1"
 }
 
+function start_upgrade_with_clone_container() {
+    docker-compose run \
+        -e SCOPE=upgrade \
+        -e PGVERSION=10 \
+        -e CLONE_SCOPE=demo \
+        -e CLONE_METHOD=CLONE_WITH_WALE \
+        -e CLONE_TARGET_TIME="$(date -d '1 minute' -u +'%F %T UTC')" \
+        --name "${PREFIX}upgrade" \
+        -d spilo1
+}
+
+function verify_upgrade_with_clone() {
+    wait_query "$1" "SELECT current_setting('server_version_num')::int/10000" 10
+}
+
 function run_test() {
     "$@" || log_error "Test case $1 FAILED"
     echo -e "Test case $1 ${GREEN}PASSED${RESET}"
@@ -172,6 +188,11 @@ function test_upgrade() {
 
     wait_zero_lag "$container"
     wait_backup "$container"
+
+    local upgrade_container
+    upgrade_container=$(start_upgrade_with_clone_container)
+    log_info "Started $upgrade_container for testing major upgrade with clone"
+
     run_test test_successful_upgrade_to_10 "$container"
 
     wait_all_streaming "$container"
@@ -179,6 +200,11 @@ function test_upgrade() {
 
     drop_table_with_oids "$container"
     run_test test_successful_upgrade_to_12 "$container"
+
+    log_info "Waiting for upgrade with clone to complete..."
+    find_leader "$upgrade_container" > /dev/null
+    docker logs "$upgrade_container"
+    run_test verify_upgrade_with_clone "$upgrade_container"
 }
 
 function main() {
@@ -187,7 +213,7 @@ function main() {
 
     log_info "Waiting for leader..."
     local leader
-    leader=$(find_leader)
+    leader="$PREFIX$(find_leader "${PREFIX}spilo1")"
     test_upgrade "$leader"
 }
 

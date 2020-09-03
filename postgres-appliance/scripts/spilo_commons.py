@@ -7,6 +7,7 @@ logger = logging.getLogger('__name__')
 
 RW_DIR = os.environ.get('RW_DIR', '/run')
 PATRONI_CONFIG_FILE = os.path.join(RW_DIR, 'postgres.yml')
+LIB_DIR = '/usr/lib/postgresql'
 
 # (min_version, max_version, shared_preload_libraries, extwlist.extensions)
 extensions = {
@@ -54,7 +55,7 @@ def get_binary_version(bin_dir):
 
 
 def get_bin_dir(version):
-    return '/usr/lib/postgresql/{0}/bin'.format(version)
+    return '{0}/{1}/bin'.format(LIB_DIR, version)
 
 
 def write_file(config, filename, overwrite):
