@@ -4,6 +4,17 @@ networks:
     demo:
 
 services:
+    minio:
+        image: minio/minio
+        networks: [ demo ]
+        environment:
+            MINIO_ACCESS_KEY: &access_key Eeghei0uVej1Wea8mato
+            MINIO_SECRET_KEY: &secret_key lecheidohbah7aThohziezah3iev7ima4eeXu9gu
+        hostname: minio
+        container_name: demo-minio
+        entrypoint: sh
+        command: -c 'mkdir -p /export/testbucket && /usr/bin/minio server /export'
+
     etcd:
         image: spilo
         networks: [ demo ]
@@ -15,6 +26,13 @@ services:
         image: spilo
         networks: [ demo ]
         environment:
+            AWS_ACCESS_KEY_ID: *access_key
+            AWS_SECRET_ACCESS_KEY: *secret_key
+            AWS_ENDPOINT: 'http://minio:9000'
+            AWS_S3_FORCE_PATH_STYLE: 'true'
+            WAL_S3_BUCKET: testbucket
+            USE_WALG: 'true'
+            WALG_DISABLE_S3_SSE: 'true'
             ETCDCTL_ENDPOINTS: http://etcd:2379
             ETCD_HOST: "etcd:2379"
             SCOPE: demo

@@ -15,6 +15,15 @@ else
     readonly GREEN=""
 fi
 
+function log_info() {
+    echo -e "${GREEN}$*${RESET}"
+}
+
+function log_error() {
+    echo -e "${RED}$*${RESET}"
+    exit 1
+}
+
 function start_containers() {
     docker-compose up -d
 }
@@ -41,6 +50,7 @@ function docker_exec() {
 function find_leader() {
     declare -r timeout=60
     local attempts=0
+
     while true; do
         leader=$(docker_exec ${PREFIX}spilo1 'patronictl list -f tsv' 2> /dev/null | awk '($4 == "Leader"){print $2}')
         if [[ -n "$leader" ]]; then
@@ -49,8 +59,27 @@ function find_leader() {
         fi
         ((attempts++))
         if [[ $attempts -ge $timeout ]]; then
-            echo "Leader is not running after $timeout seconds"
-            exit 1
+            log_error "Leader is not running after $timeout seconds"
+        fi
+        sleep 1
+    done
+}
+
+function wait_backup() {
+    local container=$1
+
+    declare -r timeout=90
+    local attempts=0
+
+    log_info "Waiting for backup on S3..,"
+    while true; do
+        count=$(docker_exec "$container" "envdir /run/etc/wal-e.d/env wal-g backup-list" | grep -c ^base)
+        if [[ "$count" -gt 0 ]]; then
+            return
+        fi
+        ((attempts++))
+        if [[ $attempts -ge $timeout ]]; then
+            log_error "No backup produced after $timeout seconds"
         fi
         sleep 1
     done
@@ -71,18 +100,19 @@ function wait_query() {
         fi
         ((attempts++))
         if [[ $attempts -ge $timeout ]]; then
-            echo "Query \"$query\" didn't return expected result $result after $timeout seconds"
-            exit 1
+            log_error "Query \"$query\" didn't return expected result $result after $timeout seconds"
         fi
         sleep 1
     done
 }
 
 function wait_all_streaming() {
+    log_info "Waiting for all replicas to start streaming from the leader..."
     wait_query "$1" "SELECT COUNT(*) FROM pg_stat_replication WHERE application_name LIKE 'spilo_'" 2
 }
 
 function wait_zero_lag() {
+    log_info "Waiting for all replicas to catch up with WAL replay..."
     wait_query "$1" "SELECT COUNT(*) FROM pg_stat_replication WHERE application_name LIKE 'spilo_' AND pg_catalog.pg_xlog_location_diff(pg_catalog.pg_current_xlog_location(), COALESCE(replay_location, '0/0')) < 16*1024*1024" 2
 }
 
@@ -95,9 +125,7 @@ function drop_table_with_oids() {
 }
 
 function test_upgrade_wrong_container() {
-    local container
-    container=$(get_non_leader "$1")
-    ! docker_exec "$container" "PGVERSION=10 $UPGRADE_SCRIPT 4"
+    ! docker_exec "$(get_non_leader "$1")" "PGVERSION=10 $UPGRADE_SCRIPT 4"
 }
 
 function test_upgrade_wrong_version() {
@@ -125,10 +153,7 @@ function test_pg_upgrade_check_failed() {
 }
 
 function run_test() {
-    if ! "$@"; then
-        echo -e "${RED}Test case $1 FAILED${RESET}"
-        exit 1
-    fi
+    "$@" || log_error "Test case $1 FAILED"
     echo -e "Test case $1 ${GREEN}PASSED${RESET}"
 }
 
@@ -146,6 +171,7 @@ function test_upgrade() {
     run_test test_failed_upgrade_big_replication_lag "$container"
 
     wait_zero_lag "$container"
+    wait_backup "$container"
     run_test test_successful_upgrade_to_10 "$container"
 
     wait_all_streaming "$container"
@@ -159,6 +185,7 @@ function main() {
     stop_containers
     start_containers
 
+    log_info "Waiting for leader..."
     local leader
     leader=$(find_leader)
     test_upgrade "$leader"
