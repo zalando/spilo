@@ -15,13 +15,12 @@ from threading import Thread
 from multiprocessing.pool import ThreadPool
 
 logger = logging.getLogger(__name__)
-CONFIG_FILE = os.path.join('/run/postgres.yml')
 
 
 def update_configs(version):
-    from spilo_commons import append_extentions, get_bin_dir, write_file
+    from spilo_commons import PATRONI_CONFIG_FILE, append_extentions, get_bin_dir, write_file
 
-    with open(CONFIG_FILE) as f:
+    with open(PATRONI_CONFIG_FILE) as f:
         config = yaml.safe_load(f)
 
     config['postgresql']['bin_dir'] = get_bin_dir(version)
@@ -37,7 +36,7 @@ def update_configs(version):
         config['postgresql']['parameters']['extwlist.extensions'] =\
                 append_extentions(extwlist_extensions, version, True)
 
-    write_file(yaml.dump(config, default_flow_style=False, width=120), CONFIG_FILE, True)
+    write_file(yaml.dump(config, default_flow_style=False, width=120), PATRONI_CONFIG_FILE, True)
 
     # XXX: update wal-e env files
 
@@ -664,8 +663,9 @@ def rsync_replica(config, desired_version, primary_ip, pid):
 
 def main():
     from patroni.config import Config
+    from spilo_commons import PATRONI_CONFIG_FILE
 
-    config = Config(CONFIG_FILE)
+    config = Config(PATRONI_CONFIG_FILE)
 
     if len(sys.argv) == 4:
         desired_version = sys.argv[1]

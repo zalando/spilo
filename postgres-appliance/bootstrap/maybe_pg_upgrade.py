@@ -70,8 +70,10 @@ def call_maybe_pg_upgrade():
     import os
     import subprocess
 
+    from spilo_commons import PATRONI_CONFIG_FILE
+
     my_name = os.path.abspath(inspect.getfile(inspect.currentframe()))
-    ret = subprocess.call([sys.executable, my_name, os.path.join(os.getenv('PGHOME'), 'postgres.yml')])
+    ret = subprocess.call([sys.executable, my_name, PATRONI_CONFIG_FILE])
     if ret != 0:
         logger.error('%s script failed', my_name)
     return ret

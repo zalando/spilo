@@ -5,6 +5,9 @@ import re
 
 logger = logging.getLogger('__name__')
 
+RW_DIR = os.environ.get('RW_DIR', '/run')
+PATRONI_CONFIG_FILE = os.path.join(RW_DIR, 'postgres.yml')
+
 # (min_version, max_version, shared_preload_libraries, extwlist.extensions)
 extensions = {
     'timescaledb':    (9.6, 12, True,  True),

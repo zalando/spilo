@@ -19,7 +19,7 @@ import yaml
 import pystache
 import requests
 
-from spilo_commons import append_extentions, get_binary_version, get_bin_dir, write_file
+from spilo_commons import RW_DIR, PATRONI_CONFIG_FILE, append_extentions, get_binary_version, get_bin_dir, write_file
 
 
 PROVIDER_AWS = "aws"
@@ -476,7 +476,7 @@ def get_placeholders(provider):
     placeholders.setdefault('BGMON_LISTEN_IP', '0.0.0.0')
     placeholders.setdefault('PGPORT', '5432')
     placeholders.setdefault('SCOPE', 'dummy')
-    placeholders.setdefault('RW_DIR', '/run')
+    placeholders.setdefault('RW_DIR', RW_DIR)
     placeholders.setdefault('SSL_TEST_RELOAD', 'SSL_PRIVATE_KEY_FILE' in os.environ)
     placeholders.setdefault('SSL_CA_FILE', '')
     placeholders.setdefault('SSL_CRL_FILE', '')
@@ -934,13 +934,11 @@ def main():
             format(config['postgresql']['authentication']['replication']['username'])
         config['bootstrap']['pg_hba'].insert(0, rep_hba)
 
-    patroni_configfile = os.path.join(placeholders['RW_DIR'], 'postgres.yml')
-
     for section in args['sections']:
         logging.info('Configuring %s', section)
         if section == 'patroni':
-            write_file(yaml.dump(config, default_flow_style=False, width=120), patroni_configfile, args['force'])
-            adjust_owner(placeholders, patroni_configfile, gid=-1)
+            write_file(yaml.dump(config, default_flow_style=False, width=120), PATRONI_CONFIG_FILE, args['force'])
+            adjust_owner(placeholders, PATRONI_CONFIG_FILE, gid=-1)
             link_runit_service(placeholders, 'patroni')
             pg_socket_dir = '/run/postgresql'
             if not os.path.exists(pg_socket_dir):
