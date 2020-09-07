@@ -19,7 +19,7 @@ pipeline:
       sudo apt-get update
       sudo apt-get install -y python3-pip
       sudo pip3 install docker-compose==1.17.1
-      bash -x test_major_upgrade.sh
+      bash test_major_upgrade.sh
   - desc: Push spilo docker image
     cmd: |
       cd postgres-appliance
