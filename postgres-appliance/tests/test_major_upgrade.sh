@@ -153,19 +153,48 @@ function test_pg_upgrade_check_failed() {
     ! test_successful_upgrade_to_12 "$1"
 }
 
-function start_upgrade_with_clone_container() {
+function start_clone_with_wale_upgrade_container() {
     docker-compose run \
         -e SCOPE=upgrade \
         -e PGVERSION=10 \
         -e CLONE_SCOPE=demo \
         -e CLONE_METHOD=CLONE_WITH_WALE \
         -e CLONE_TARGET_TIME="$(date -d '1 minute' -u +'%F %T UTC')" \
-        --name "${PREFIX}upgrade" \
+        --name "${PREFIX}upgrade1" \
         -d spilo1
 }
 
-function verify_upgrade_with_clone() {
+function start_clone_with_wale_upgrade_replica_container() {
+    docker-compose run \
+        -e SCOPE=upgrade \
+        -e PGVERSION=10 \
+        -e CLONE_SCOPE=demo \
+        -e CLONE_METHOD=CLONE_WITH_WALE \
+        -e CLONE_TARGET_TIME="$(date -d '1 minute' -u +'%F %T UTC')" \
+        --name "${PREFIX}upgrade2" \
+        -d spilo2
+}
+function start_clone_with_basebackup_upgrade_container() {
+    local container=$1
+    docker-compose run \
+        -e SCOPE=upgrade2 \
+        -e PGVERSION=11 \
+        -e CLONE_SCOPE=upgrade \
+        -e CLONE_METHOD=CLONE_WITH_BASEBACKUP \
+        -e CLONE_HOST="$(docker_exec "$container" "hostname --ip-address")" \
+        -e CLONE_PORT=5432 \
+        -e CLONE_USER=standby \
+        -e CLONE_PASSWORD=standby \
+        --name "${PREFIX}upgrade3" \
+        -d spilo3
+}
+
+function verify_clone_with_wale_upgrade() {
     wait_query "$1" "SELECT current_setting('server_version_num')::int/10000" 10
+}
+
+function verify_clone_with_basebackup_upgrade() {
+    wait_query "$1" "SELECT current_setting('server_version_num')::int/10000" 11
 }
 
 function run_test() {
@@ -190,8 +219,8 @@ function test_upgrade() {
     wait_backup "$container"
 
     local upgrade_container
-    upgrade_container=$(start_upgrade_with_clone_container)
-    log_info "Started $upgrade_container for testing major upgrade with clone"
+    upgrade_container=$(start_clone_with_wale_upgrade_container)
+    log_info "Started $upgrade_container for testing major upgrade after clone with wal-e"
 
     run_test test_successful_upgrade_to_10 "$container"
 
@@ -201,10 +230,28 @@ function test_upgrade() {
     drop_table_with_oids "$container"
     run_test test_successful_upgrade_to_12 "$container"
 
-    log_info "Waiting for upgrade with clone to complete..."
+    log_info "Waiting for clone with wal-e and upgrade to complete..."
     find_leader "$upgrade_container" > /dev/null
     docker logs "$upgrade_container"
-    run_test verify_upgrade_with_clone "$upgrade_container"
+    run_test verify_clone_with_wale_upgrade "$upgrade_container"
+
+    wait_backup "$upgrade_container"
+
+    local upgrade_replica_container
+    upgrade_replica_container=$(start_clone_with_wale_upgrade_replica_container)
+    log_info "Started $upgrade_replica_container for testing replica bootstrap with wal-e"
+
+    local basebackup_container
+    basebackup_container=$(start_clone_with_basebackup_upgrade_container "$upgrade_container")
+    log_info "Started $basebackup_container for testing major upgrade after clone with basebackup"
+
+    log_info "Waiting for postgres to start in the $upgrade_replica_container..."
+    run_test verify_clone_with_wale_upgrade "$upgrade_replica_container"
+
+    log_info "Waiting for clone with basebackup and upgrade to complete..."
+    find_leader "$basebackup_container" > /dev/null
+    docker logs "$basebackup_container"
+    run_test verify_clone_with_basebackup_upgrade "$basebackup_container"
 }
 
 function main() {
