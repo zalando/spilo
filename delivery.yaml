@@ -6,7 +6,18 @@ pipeline:
     PGVERSION: 12
   type: script
   commands:
-  - desc: Build and push docker image
+  - desc: Build spilo docker image
+    cmd: |
+      cd postgres-appliance
+
+      docker build --build-arg PGVERSION=$PGVERSION -t spilo .
+
+      docker images
+  - desc: Test spilo docker image
+    cmd: |
+      cd postgres-appliance/tests
+      bash test_major_upgrade.sh
+  - desc: Push spilo docker image
     cmd: |
       cd postgres-appliance
 
