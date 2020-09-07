@@ -4,6 +4,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")" || exit 1
 
 readonly PREFIX="demo-"
 readonly UPGRADE_SCRIPT="python3 /scripts/inplace_upgrade.py"
+readonly TIMEOUT=120
 
 if [[ -t 2 ]]; then
     readonly RED="\033[1;31m"
@@ -49,7 +50,7 @@ function docker_exec() {
 
 function find_leader() {
     local container=$1
-    declare -r timeout=60
+    declare -r timeout=$TIMEOUT
     local attempts=0
 
     while true; do
@@ -69,7 +70,7 @@ function find_leader() {
 function wait_backup() {
     local container=$1
 
-    declare -r timeout=90
+    declare -r timeout=$TIMEOUT
     local attempts=0
 
     log_info "Waiting for backup on S3..,"
@@ -91,7 +92,7 @@ function wait_query() {
     local query=$2
     local result=$3
 
-    declare -r timeout=60
+    declare -r timeout=$TIMEOUT
     local attempts=0
 
     while true; do
