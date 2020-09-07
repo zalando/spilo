@@ -2,7 +2,7 @@
 
 set -ex
 
-cd $(dirname $(readlink -f "${BASH_SOURCE[0]}"))
+cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 
 readonly IMGTAG=spilo:dependencies
 
