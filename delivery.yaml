@@ -16,6 +16,8 @@ pipeline:
   - desc: Test spilo docker image
     cmd: |
       cd postgres-appliance/tests
+      sudo apt-get update
+      sudo apt-get install -y docker-compose
       bash test_major_upgrade.sh
   - desc: Push spilo docker image
     cmd: |
