@@ -35,6 +35,7 @@ def read_token():
 
 def api_patch(namespace, kind, name, entity_name, body):
     api_url = '/'.join([KUBE_API_URL, namespace, kind, name])
+    count = 0
     while True:
         try:
             token = read_token()
@@ -42,15 +43,19 @@ def api_patch(namespace, kind, name, entity_name, body):
                 r = requests.patch(api_url, data=body, verify=KUBE_CA_CERT,
                                    headers={'Content-Type': 'application/strategic-merge-patch+json',
                                             'Authorization': 'Bearer {0}'.format(token)})
-                if r.status_code >= 300:
-                    logger.warning('Unable to change %s: %s', entity_name, r.text)
-                else:
+                if r.status_code in range(200, 206):
+                    break
+                logger.warning('Unable to change %s: %s', entity_name, r.text)
+                if not (r.status_code in (500, 503, 504) or 'retry-after' in r.headers):
                     break
             else:
                 logger.warning('Unable to read Kubernetes authorization token')
         except requests.exceptions.RequestException as e:
             logger.warning('Exception when executing PATCH on %s: %s', api_url, e)
-        time.sleep(1)
+        if count >= 10:
+            raise Exception('PATCH {0} failed'.format(api_url))
+        time.sleep(2 ** count * 0.5)
+        count += 1
 
 
 def change_pod_role_label(namespace, new_role):
@@ -59,10 +64,14 @@ def change_pod_role_label(namespace, new_role):
 
 
 def change_endpoints(namespace, cluster):
-    ip = os.environ.get('POD_IP', socket.getaddrinfo(socket.gethostname(), 0, socket.AF_UNSPEC, socket.SOCK_STREAM, 0)[0][4][0])
+    ip = socket.getaddrinfo(socket.gethostname(), 0, socket.AF_UNSPEC, socket.SOCK_STREAM, 0)[0][4][0]
+    ip = os.environ.get('POD_IP', ip)
     body = json.dumps({'subsets': [{'addresses': [{'ip': ip}],
                                     'ports': [{'name': 'postgresql', 'port': 5432, 'protocol': 'TCP'}]}]})
-    api_patch(namespace, 'endpoints', cluster, 'service endpoints', body)
+    try:
+        api_patch(namespace, 'endpoints', cluster, 'service endpoints', body)
+    except Exception:
+        pass
 
 
 def record_role_change(action, new_role, cluster):
