@@ -6,23 +6,28 @@ pipeline:
     PGVERSION: 12
   type: script
   commands:
-  - desc: Build and push docker image
+  - desc: Build spilo docker image
     cmd: |
       cd postgres-appliance
-
-      MASTER=false
+      docker build --build-arg PGVERSION=$PGVERSION -t spilo .
+      docker images
+  - desc: Test spilo docker image
+    cmd: |
+      sudo apt-get update
+      sudo apt-get install -y python3-pip
+      sudo pip3 install docker-compose==1.17.1
+      bash postgres-appliance/tests/test_spilo.sh
+  - desc: Tag and push spilo-cdp docker image
+    cmd: |
       # push docker images only for commits to the master branch
       if [ "x${CDP_SOURCE_BRANCH}" == "x" ] && [ "x${CDP_TARGET_BRANCH}" == "xmaster" ]; then
-          MASTER=true
-          PATRONIVERSION=$(sed -n 's/^ENV PATRONIVERSION=\([1-9][0-9]*\.[1-9][0-9]*\).*$/\1/p' Dockerfile)
+          cd postgres-appliance
+          PATRONIVERSION=$(sed -n 's/^ENV PATRONIVERSION=\([1-9][0-9]*\.[0-9]*\).*$/\1/p' Dockerfile)
           IMAGE="$IMAGE-cdp-$PGVERSION:$PATRONIVERSION-p$CDP_TARGET_BRANCH_COUNTER"
+          docker build --build-arg PGVERSION=$PGVERSION -t $IMAGE .
+          docker images
+          docker push $IMAGE
       fi
-
-      docker build --build-arg PGVERSION=$PGVERSION -t $IMAGE .
-
-      docker images
-
-      if [ "$MASTER" == "true" ]; then docker push $IMAGE; fi
 - id: tag-spilo
   type: script
   requires_human_approval: true
