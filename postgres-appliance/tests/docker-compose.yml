@@ -1,0 +1,66 @@
+version: "2"
+
+networks:
+    demo:
+
+services:
+    minio:
+        image: minio/minio
+        networks: [ demo ]
+        environment:
+            MINIO_ACCESS_KEY: &access_key Eeghei0uVej1Wea8mato
+            MINIO_SECRET_KEY: &secret_key lecheidohbah7aThohziezah3iev7ima4eeXu9gu
+        hostname: minio
+        container_name: demo-minio
+        entrypoint: sh
+        command: -c 'mkdir -p /export/testbucket && /usr/bin/minio server /export'
+
+    etcd:
+        image: spilo
+        networks: [ demo ]
+        container_name: demo-etcd
+        hostname: etcd
+        command: "sh -c 'exec etcd -name etcd1 -listen-client-urls http://0.0.0.0:2379 -advertise-client-urls http://$$(hostname --ip-address):2379'"
+
+    spilo1: &spilo
+        image: spilo
+        networks: [ demo ]
+        environment:
+            SPILO_PROVIDER: 'local'
+            AWS_ACCESS_KEY_ID: *access_key
+            AWS_SECRET_ACCESS_KEY: *secret_key
+            AWS_ENDPOINT: &aws_endpoint 'http://minio:9000'
+            AWS_S3_FORCE_PATH_STYLE: &aws_s3_force_path_style 'true'
+            WAL_S3_BUCKET: &bucket testbucket
+            USE_WALG: 'true'
+            WALG_DISABLE_S3_SSE: &walg_disable_s3_sse 'true'
+            ETCDCTL_ENDPOINTS: http://etcd:2379
+            ETCD_HOST: "etcd:2379"
+            SCOPE: demo
+            SPILO_CONFIGURATION: |
+              bootstrap:
+                dcs:
+                  loop_wait: 2
+              postgresql:
+                parameters:
+                  shared_buffers: 32MB
+            PGVERSION: '9.6'
+            # Just to test upgrade with clone. Without CLONE_SCOPE they don't work
+            CLONE_WAL_S3_BUCKET: *bucket
+            CLONE_AWS_ACCESS_KEY_ID: *access_key
+            CLONE_AWS_SECRET_ACCESS_KEY: *secret_key
+            CLONE_AWS_ENDPOINT: *aws_endpoint
+            CLONE_AWS_S3_FORCE_PATH_STYLE: *aws_s3_force_path_style
+            CLONE_WALG_DISABLE_S3_SSE: *walg_disable_s3_sse
+        hostname: spilo1
+        container_name: demo-spilo1
+
+    spilo2:
+        <<: *spilo
+        hostname: spilo2
+        container_name: demo-spilo2
+
+    spilo3:
+        <<: *spilo
+        hostname: spilo3
+        container_name: demo-spilo3
