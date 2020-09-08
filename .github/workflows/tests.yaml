@@ -24,3 +24,5 @@ jobs:
       run: find postgres-appliance -name '*.sh' -print0 | xargs -0 shellcheck
     - name: Run flake8
       run: find postgres-appliance -name '*.py' -print0 | xargs -0 python -m flake8
+    - name: Build spilo docker image
+      run: cd postgres-appliance && docker build -t spilo .
