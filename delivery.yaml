@@ -15,11 +15,10 @@ pipeline:
       docker images
   - desc: Test spilo docker image
     cmd: |
-      cd postgres-appliance/tests
       sudo apt-get update
       sudo apt-get install -y python3-pip
       sudo pip3 install docker-compose==1.17.1
-      bash -x test_major_upgrade.sh
+      bash postgres-appliance/tests/test_spilo.sh
   - desc: Push spilo docker image
     cmd: |
       cd postgres-appliance
