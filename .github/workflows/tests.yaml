@@ -1,0 +1,20 @@
+name: ubuntu
+
+on: 
+  pull_request:
+  push:
+    branches:
+    - master
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v1
+    - name: Set up packages
+      run: sudo apt-get install -y shellcheck python3-pip && pip3 install flake8
+    - name: Run shellcheck
+      run: find postgres-appliance -name '*.sh' -print0 | xargs -0 shellcheck
+    - name: Run flake8
+      run: find postgres-appliance -name '*.py' -print0 | xargs -0 flake8
