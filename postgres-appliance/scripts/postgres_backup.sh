@@ -2,12 +2,12 @@
 
 function log
 {
-    echo "$(date "+%Y-%m-%d %H:%M:%S.%3N") - $0 - $@"
+    echo "$(date "+%Y-%m-%d %H:%M:%S.%3N") - $0 - $*"
 }
 
 [[ -z $1 ]] && echo "Usage: $0 PGDATA <DAYS_TO_RETAIN>" && exit 1
 
-log "I was called as: $0 $@"
+log "I was called as: $0 $*"
 
 
 readonly PGDATA=$1
@@ -34,15 +34,15 @@ else
 
     # Ensure we don't have more workes than CPU's
     POOL_SIZE=$(grep -c ^processor /proc/cpuinfo 2>/dev/null || 1)
-    [ $POOL_SIZE -gt 4 ] && POOL_SIZE=4
-    POOL_SIZE="--pool-size ${POOL_SIZE}"
+    [ "$POOL_SIZE" -gt 4 ] && POOL_SIZE=4
+    POOL_SIZE=(--pool-size "$POOL_SIZE")
 fi
 
 BEFORE=""
 LEFT=0
 
 readonly NOW=$(date +%s -u)
-while read name last_modified rest; do
+while read -r name last_modified rest; do
     last_modified=$(date +%s -ud "$last_modified")
     if [ $(((NOW-last_modified)/86400)) -ge $DAYS_TO_RETAIN ]; then
         if [ -z "$BEFORE" ] || [ "$last_modified" -gt "$BEFORE_TIME" ]; then
@@ -67,4 +67,4 @@ fi
 # push a new base backup
 log "producing a new backup"
 # We reduce the priority of the backup for CPU consumption
-exec nice -n 5 $WAL_E backup-push "${PGDATA}" $POOL_SIZE
+exec nice -n 5 $WAL_E backup-push "$PGDATA" "${POOL_SIZE[@]}"

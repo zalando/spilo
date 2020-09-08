@@ -569,10 +569,7 @@ def get_placeholders(provider):
 
     # Kubernetes requires a callback to change the labels in order to point to the new master
     if USE_KUBERNETES:
-        if placeholders.get('DCS_ENABLE_KUBERNETES_API'):
-            if placeholders.get('KUBERNETES_USE_CONFIGMAPS'):
-                placeholders['CALLBACK_SCRIPT'] = 'python3 /scripts/callback_endpoint.py'
-        else:
+        if not placeholders.get('DCS_ENABLE_KUBERNETES_API'):
             placeholders['CALLBACK_SCRIPT'] = 'python3 /scripts/callback_role.py'
 
     placeholders.setdefault('postgresql', {})

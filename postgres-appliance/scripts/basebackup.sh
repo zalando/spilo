@@ -27,13 +27,13 @@ else
     PG_BASEBACKUP_OPTS=""
 fi
 
-readonly WAL_FAST=$(dirname $DATA_DIR)/wal_fast
-mkdir -p $WAL_FAST
+readonly WAL_FAST=$(dirname "$DATA_DIR")/wal_fast
+mkdir -p "$WAL_FAST"
 
-rm -fr ${DATA_DIR} ${WAL_FAST}/*
+rm -fr "$DATA_DIR" "${WAL_FAST:?}"/*
 
 function sigterm_handler() {
-    kill -SIGTERM $receivewal_pid $basebackup_pid
+    kill -SIGTERM "$receivewal_pid" "$basebackup_pid"
     exit 143
 }
 
@@ -49,19 +49,19 @@ function start_receivewal() {
     done
 
     # get the first wal segment necessary for recovery from backup label
-    SEGMENT=$(sed -n 's/^START WAL LOCATION: .*file \([0-9A-F]\{24\}\).*$/\1/p' ${DATA_DIR}/backup_label)
+    SEGMENT=$(sed -n 's/^START WAL LOCATION: .*file \([0-9A-F]\{24\}\).*$/\1/p' "$DATA_DIR/backup_label")
 
-    [ -z $SEGMENT ] && exit 1
+    [ -z "$SEGMENT" ] && exit 1
 
     # run pg_receivewal until postgres will not start streaming
     (
-        while ! ps ax | grep -qE '[w]al {0,1}receiver( process){0,1}\s+streaming'; do
+        while ! pgrep -cf 'wal {0,1}receiver( process){0,1}\s+streaming' > /dev/null; do
             # exit if pg_receivewal is not running
             kill -0 $receivewal_pid && sleep 1 || exit
         done
 
         kill $receivewal_pid && sleep 1
-        rm -f ${WAL_FAST}/*
+        rm -f "${WAL_FAST:?}"/*
     )&
 
     # calculate the name of previous segment
@@ -75,23 +75,23 @@ function start_receivewal() {
         seg=$((seg-1))
     fi
 
-    SEGMENT=$(printf "%s%08X%08X\n" $timeline $log $seg)
+    SEGMENT=$(printf "%s%08X%08X\n" "$timeline" "$log" "$seg")
 
     # pg_receivewal doesn't have an argument to specify position to start stream from
     # therefore we will "precreate" previous file and pg_receivewal will start fetching the next one
-    dd if=/dev/zero of=${WAL_FAST}/${SEGMENT} bs=16k count=1k
+    dd if=/dev/zero of="$WAL_FAST/$SEGMENT" bs=16k count=1k
 
-    exec $PG_RECEIVEWAL --directory="${WAL_FAST}" --dbname="${CONNSTR}"
+    exec $PG_RECEIVEWAL --directory="$WAL_FAST" --dbname="$CONNSTR"
 }
 
 # make sure that there is only one receivewal running
-exec 9>$WAL_FAST/receivewal.lock
+exec 9>"$WAL_FAST/receivewal.lock"
 if flock -x -n 9; then
     start_receivewal &
     receivewal_pid=$!
-    echo $receivewal_pid > $WAL_FAST/receivewal.pid
+    echo $receivewal_pid > "$WAL_FAST/receivewal.pid"
 else
-    receivewal_pid=$(cat $WAL_FAST/receivewal.pid)
+    receivewal_pid=$(cat "$WAL_FAST/receivewal.pid")
 fi
 
 ATTEMPT=0
@@ -108,5 +108,5 @@ while [[ $((ATTEMPT++)) -le $RETRIES ]]; do
     fi
 done
 
-[[ $EXITCODE != 0 && ! -z $receivewal_pid ]] && kill $receivewal_pid
+[[ $EXITCODE != 0 && ! -z $receivewal_pid ]] && kill "$receivewal_pid"
 exit $EXITCODE

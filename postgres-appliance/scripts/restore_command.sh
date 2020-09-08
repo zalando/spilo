@@ -5,8 +5,8 @@ readonly wal_destination=$2
 
 [[ -z $wal_filename || -z $wal_destination ]] && exit 1
 
-readonly wal_dir=$(dirname $wal_destination)
-readonly wal_fast_source=$(dirname $(dirname $(realpath $wal_dir)))/wal_fast/$wal_filename
+readonly wal_dir=$(dirname "$wal_destination")
+readonly wal_fast_source=$(dirname "$(dirname "$(realpath "$wal_dir")")")/wal_fast/$wal_filename
 
 [[ -f $wal_fast_source ]] && exec mv "${wal_fast_source}" "${wal_destination}"
 

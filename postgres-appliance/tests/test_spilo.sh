@@ -126,32 +126,32 @@ function drop_table_with_oids() {
     docker_exec "$1" "psql -U postgres -d test_db -c 'DROP TABLE with_oids'"
 }
 
-function test_upgrade_wrong_container() {
+function test_inplace_upgrade_wrong_container() {
     ! docker_exec "$(get_non_leader "$1")" "PGVERSION=10 $UPGRADE_SCRIPT 4"
 }
 
-function test_upgrade_wrong_version() {
+function test_inplace_upgrade_wrong_version() {
     docker_exec "$1" "PGVERSION=9.5 $UPGRADE_SCRIPT 3" 2>&1 | grep 'Upgrade is not required'
 }
 
-function test_upgrade_wrong_capacity() {
+function test_inplace_upgrade_wrong_capacity() {
     docker_exec "$1" "PGVERSION=10 $UPGRADE_SCRIPT 4" 2>&1 | grep 'number of replicas does not match'
 }
 
-function test_successful_upgrade_to_10() {
+function test_successful_inplace_upgrade_to_10() {
     docker_exec "$1" "PGVERSION=10 $UPGRADE_SCRIPT 3"
 }
 
-function test_failed_upgrade_big_replication_lag() {
-    ! test_successful_upgrade_to_10 "$1"
+function test_failed_inplace_upgrade_big_replication_lag() {
+    ! test_successful_inplace_upgrade_to_10 "$1"
 }
 
-function test_successful_upgrade_to_12() {
+function test_successful_inplace_upgrade_to_12() {
     docker_exec "$1" "PGVERSION=12 $UPGRADE_SCRIPT 3"
 }
 
 function test_pg_upgrade_check_failed() {
-    ! test_successful_upgrade_to_12 "$1"
+    ! test_successful_inplace_upgrade_to_12 "$1"
 }
 
 function start_clone_with_wale_upgrade_container() {
@@ -175,6 +175,7 @@ function start_clone_with_wale_upgrade_replica_container() {
         --name "${PREFIX}upgrade2" \
         -d spilo2
 }
+
 function start_clone_with_basebackup_upgrade_container() {
     local container=$1
     docker-compose run \
@@ -203,18 +204,17 @@ function run_test() {
     echo -e "Test case $1 ${GREEN}PASSED${RESET}"
 }
 
-function test_upgrade() {
+function test_spilo() {
     local container=$1
 
-    run_test test_upgrade_wrong_version "$container"
-    run_test test_upgrade_wrong_capacity "$container"
+    run_test test_inplace_upgrade_wrong_version "$container"
+    run_test test_inplace_upgrade_wrong_capacity "$container"
 
     wait_all_streaming "$container"
 
-    run_test test_upgrade_wrong_container "$container"
-
     create_schema "$container" || exit 1
-#    run_test test_failed_upgrade_big_replication_lag "$container"
+
+    run_test test_failed_inplace_upgrade_big_replication_lag "$container"
 
     wait_zero_lag "$container"
     wait_backup "$container"
@@ -223,13 +223,13 @@ function test_upgrade() {
     upgrade_container=$(start_clone_with_wale_upgrade_container)
     log_info "Started $upgrade_container for testing major upgrade after clone with wal-e"
 
-    run_test test_successful_upgrade_to_10 "$container"
+    run_test test_successful_inplace_upgrade_to_10 "$container"
 
     wait_all_streaming "$container"
     run_test test_pg_upgrade_check_failed "$container"  # pg_upgrade --check complains about OID
 
     drop_table_with_oids "$container"
-    run_test test_successful_upgrade_to_12 "$container"
+    run_test test_successful_inplace_upgrade_to_12 "$container"
 
     log_info "Waiting for clone with wal-e and upgrade to complete..."
     find_leader "$upgrade_container" > /dev/null
@@ -262,7 +262,7 @@ function main() {
     log_info "Waiting for leader..."
     local leader
     leader="$PREFIX$(find_leader "${PREFIX}spilo1")"
-    test_upgrade "$leader"
+    test_spilo "$leader"
 }
 
 trap stop_containers QUIT TERM EXIT
