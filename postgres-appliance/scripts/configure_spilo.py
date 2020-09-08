@@ -569,10 +569,7 @@ def get_placeholders(provider):
 
     # Kubernetes requires a callback to change the labels in order to point to the new master
     if USE_KUBERNETES:
-        if placeholders.get('DCS_ENABLE_KUBERNETES_API'):
-            if placeholders.get('KUBERNETES_USE_CONFIGMAPS'):
-                placeholders['CALLBACK_SCRIPT'] = 'python3 /scripts/callback_endpoint.py'
-        else:
+        if not placeholders.get('DCS_ENABLE_KUBERNETES_API'):
             placeholders['CALLBACK_SCRIPT'] = 'python3 /scripts/callback_role.py'
 
     placeholders.setdefault('postgresql', {})
@@ -892,7 +889,7 @@ def write_pgbouncer_configuration(placeholders, overwrite):
 def get_binary_version(bin_dir):
     postgres = os.path.join(bin_dir or '', 'postgres')
     version = subprocess.check_output([postgres, '--version']).decode()
-    version = re.match('^[^\s]+ [^\s]+ (\d+)(\.(\d+))?', version)
+    version = re.match(r'^[^\s]+ [^\s]+ (\d+)(\.(\d+))?', version)
     return '.'.join([version.group(1), version.group(3)]) if int(version.group(1)) < 10 else version.group(1)
 
 
