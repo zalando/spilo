@@ -2,6 +2,7 @@ import logging
 import os
 import subprocess
 import re
+import yaml
 
 logger = logging.getLogger('__name__')
 
@@ -58,6 +59,13 @@ def get_bin_dir(version):
     return '{0}/{1}/bin'.format(LIB_DIR, version)
 
 
+def is_valid_pg_version(version):
+    bin_dir = get_bin_dir(version)
+    postgres = os.path.join(bin_dir, 'postgres')
+    # check that there is postgres binary inside
+    return os.path.isfile(postgres) and os.access(postgres, os.X_OK)
+
+
 def write_file(config, filename, overwrite):
     if not overwrite and os.path.exists(filename):
         logger.warning('File %s already exists, not overwriting. (Use option --force if necessary)', filename)
@@ -65,3 +73,12 @@ def write_file(config, filename, overwrite):
         with open(filename, 'w') as f:
             logger.info('Writing to file %s', filename)
             f.write(config)
+
+
+def get_patroni_config():
+    with open(PATRONI_CONFIG_FILE) as f:
+        return yaml.safe_load(f)
+
+
+def write_patroni_config(config, force):
+    write_file(yaml.dump(config, default_flow_style=False, width=120), PATRONI_CONFIG_FILE, force)

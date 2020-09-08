@@ -8,7 +8,6 @@ import re
 import shlex
 import subprocess
 import sys
-import yaml
 
 from maybe_pg_upgrade import call_maybe_pg_upgrade
 
@@ -84,14 +83,9 @@ def list_backups(env):
     return list(reader)
 
 
-def get_patroni_config():
-    from spilo_commons import PATRONI_CONFIG_FILE
-
-    with open(PATRONI_CONFIG_FILE) as f:
-        return yaml.safe_load(f)
-
-
 def get_clone_envdir():
+    from spilo_commons import get_patroni_config
+
     config = get_patroni_config()
     restore_command = shlex.split(config['bootstrap']['clone_with_wale']['recovery_conf']['restore_command'])
     if len(restore_command) > 4 and restore_command[0] == 'envdir':
@@ -100,7 +94,7 @@ def get_clone_envdir():
 
 
 def get_possible_versions():
-    from spilo_commons import LIB_DIR, get_binary_version, get_bin_dir
+    from spilo_commons import LIB_DIR, get_binary_version, get_bin_dir, get_patroni_config
 
     config = get_patroni_config()
 
@@ -164,8 +158,6 @@ def run_clone_from_s3(options):
     env = os.environ.copy()
 
     backup_name, update_envdir = find_backup(options.recovery_target_time, env)
-    if update_envdir:
-        envdir = get_clone_envdir()
 
     backup_fetch_cmd = build_wale_command('backup-fetch', options.datadir, backup_name)
     logger.info("cloning cluster %s using %s", options.name, ' '.join(backup_fetch_cmd))
@@ -175,6 +167,7 @@ def run_clone_from_s3(options):
             raise Exception("wal-e backup-fetch exited with exit code {0}".format(ret))
 
         if update_envdir:  # We need to update file in the clone envdir or restore_command will fail!
+            envdir = get_clone_envdir()
             with open(os.path.join(envdir, update_envdir), 'w') as f:
                 f.write(env[update_envdir])
     return 0

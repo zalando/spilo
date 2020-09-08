@@ -19,7 +19,8 @@ import yaml
 import pystache
 import requests
 
-from spilo_commons import RW_DIR, PATRONI_CONFIG_FILE, append_extentions, get_binary_version, get_bin_dir, write_file
+from spilo_commons import RW_DIR, PATRONI_CONFIG_FILE, append_extentions,\
+        get_binary_version, get_bin_dir, is_valid_pg_version, write_file, write_patroni_config
 
 
 PROVIDER_AWS = "aws"
@@ -874,10 +875,8 @@ def write_pgbouncer_configuration(placeholders, overwrite):
 
 
 def update_bin_dir(placeholders, version):
-    bin_dir = get_bin_dir(version)
-    postgres = os.path.join(bin_dir, 'postgres')
-    if os.path.isfile(postgres) and os.access(postgres, os.X_OK):  # check that there is postgres binary inside
-        placeholders['postgresql']['bin_dir'] = bin_dir
+    if is_valid_pg_version(version):
+        placeholders['postgresql']['bin_dir'] = get_bin_dir(version)
 
 
 def main():
@@ -935,7 +934,7 @@ def main():
     for section in args['sections']:
         logging.info('Configuring %s', section)
         if section == 'patroni':
-            write_file(yaml.dump(config, default_flow_style=False, width=120), PATRONI_CONFIG_FILE, args['force'])
+            write_patroni_config(config, args['force'])
             adjust_owner(placeholders, PATRONI_CONFIG_FILE, gid=-1)
             link_runit_service(placeholders, 'patroni')
             pg_socket_dir = '/run/postgresql'

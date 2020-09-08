@@ -4,6 +4,7 @@ import logging
 import os
 import psutil
 import psycopg2
+import shlex
 import shutil
 import subprocess
 import sys
@@ -17,15 +18,24 @@ from multiprocessing.pool import ThreadPool
 logger = logging.getLogger(__name__)
 
 
-def update_configs(version):
-    from spilo_commons import PATRONI_CONFIG_FILE, append_extentions, get_bin_dir, write_file
+def patch_wale_prefix(value, new_version):
+    from spilo_commons import is_valid_pg_version
 
-    with open(PATRONI_CONFIG_FILE) as f:
-        config = yaml.safe_load(f)
+    if '/spilo/' in value and '/wal/' in value:  # path crafted in the configure_spilo.py?
+        basename, old_version = os.path.split(value.rstrip('/'))
+        if is_valid_pg_version(old_version) and old_version != new_version:
+            return os.path.join(basename, new_version)
+    return value
 
-    config['postgresql']['bin_dir'] = get_bin_dir(version)
 
-    version = float(version)
+def update_configs(new_version):
+    from spilo_commons import append_extentions, get_bin_dir, get_patroni_config, write_file, write_patroni_config
+
+    config = get_patroni_config()
+
+    config['postgresql']['bin_dir'] = get_bin_dir(new_version)
+
+    version = float(new_version)
     shared_preload_libraries = config['postgresql'].get('parameters', {}).get('shared_preload_libraries')
     if shared_preload_libraries is not None:
         config['postgresql']['parameters']['shared_preload_libraries'] =\
@@ -36,9 +46,29 @@ def update_configs(version):
         config['postgresql']['parameters']['extwlist.extensions'] =\
                 append_extentions(extwlist_extensions, version, True)
 
-    write_file(yaml.dump(config, default_flow_style=False, width=120), PATRONI_CONFIG_FILE, True)
+    write_patroni_config(config, True)
 
-    # XXX: update wal-e env files
+    # update wal-e/wal-g envdir files
+    restore_command = shlex.split(config['postgresql'].get('recovery_conf', {}).get('restore_command', ''))
+    if len(restore_command) > 4 and restore_command[0] == 'envdir':
+        envdir = restore_command[1]
+
+        try:
+            for name in os.listdir(envdir):
+                if len(name) > 12 and name.endswith('_PREFIX') and name[:5] in ('WALE_', 'WALG_'):
+                    name = os.path.join(envdir, name)
+                    try:
+                        with open(name) as f:
+                            value = f.read().strip()
+                        new_value = patch_wale_prefix(value, new_version)
+                        if new_value != value:
+                            write_file(new_value, name, True)
+                    except Exception as e:
+                        logger.error('Failed to process %s: %r', name, e)
+        except Exception:
+            pass
+        else:
+            return envdir
 
 
 def kill_patroni():
@@ -506,7 +536,7 @@ hosts deny = *
         self.upgrade_complete = True
 
         logger.info('Updating configuration files')
-        update_configs(self.desired_version)
+        envdir = update_configs(self.desired_version)
 
         member = cluster.get_member(self.postgresql.name)
         if self.replica_connections:
@@ -567,7 +597,9 @@ hosts deny = *
         logger.info('Total upgrade time (with analyze): %s', time.time() - downtime_start)
         self.postgresql.bootstrap.call_post_bootstrap(self.config['bootstrap'])
         self.postgresql.cleanup_old_pgdata()
-        # XXX: triggered the backup?
+
+        self.start_backup(envdir)
+
         return ret
 
     def post_cleanup(self):
@@ -587,11 +619,21 @@ hosts deny = *
         finally:
             self.post_cleanup()
 
+    def start_backup(self, envdir):
+        if not os.fork():
+            subprocess.call(['nohup', 'envdir', envdir, '/scripts/postgres_backup.sh', self.postgresql.data_dir])
+
 
 # this function will be running in a clean environment, therefore we can't rely on DCS connection
 def rsync_replica(config, desired_version, primary_ip, pid):
     from pg_upgrade import PostgresqlUpgrade
     from patroni.utils import polling_loop
+
+    me = psutil.Process()
+
+    # check that we are the child of postgres backend
+    if me.parent().pid != pid and me.parent().parent().pid != pid:
+        return 1
 
     backend = psutil.Process(pid)
     if 'postgres' not in backend.name():
@@ -631,7 +673,7 @@ def rsync_replica(config, desired_version, primary_ip, pid):
                         os.path.dirname(postgresql.data_dir)], env=env) != 0:
         logger.error('Failed to rsync from %s', primary_ip)
         postgresql.switch_back_pgdata()
-        # XXX: rollback config?
+        # XXX: rollback configs?
         return 1
 
     conn_kwargs = {k: v for k, v in postgresql.config.replication.items() if v is not None}
