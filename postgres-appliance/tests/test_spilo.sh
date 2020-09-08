@@ -214,7 +214,7 @@ function test_spilo() {
 
     create_schema "$container" || exit 1
 
-    run_test test_failed_inplace_upgrade_big_replication_lag "$container"
+    # run_test test_failed_inplace_upgrade_big_replication_lag "$container"
 
     wait_zero_lag "$container"
     wait_backup "$container"
