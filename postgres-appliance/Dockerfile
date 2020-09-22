@@ -123,6 +123,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && curl -sL https://github.com/RafiaSabih/pg_auth_mon/archive/$PG_AUTH_MON_COMMIT.tar.gz | tar xz \
     && git clone -b $SET_USER https://github.com/pgaudit/set_user.git \
     && git clone -b $TIMESCALEDB_LEGACY https://github.com/timescale/timescaledb.git \
+    && git clone https://github.com/cybertec-postgresql/pg_permission.git \
 \
     && apt-get install -y postgresql-common libevent-2.1 libevent-pthreads-2.1 sysstat brotli libbrotli1 python3.6 python3-psycopg2 \
 \
@@ -193,7 +194,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 EXTRA_EXTENSIONS=""; \
             fi \
 \
-            && for n in bg_mon-${BG_MON_COMMIT} pg_auth_mon-${PG_AUTH_MON_COMMIT} set_user $EXTRA_EXTENSIONS; do \
+            && for n in bg_mon-${BG_MON_COMMIT} pg_auth_mon-${PG_AUTH_MON_COMMIT} set_user pg_permission $EXTRA_EXTENSIONS; do \
                 make -C $n USE_PGXS=1 clean install-strip; \
             done \
 \
