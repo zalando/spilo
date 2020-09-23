@@ -21,13 +21,14 @@ How to Build This Docker Image
 
     $ cd postgres-appliance
 
-    $ ./build.sh --build-arg COMPRESS=true --tag $YOUR_TAG .
+    $ docker build --tag $YOUR_TAG .
 
-Other build arguments and their default values:
+
+There are a few build arguments defined in the Dockerfile and it is possible to change them by specifying ``--build-arg`` arguments:
 
 - WITH_PERL=false # set to true if you want to install perl and plperl packages into image
-- PGVERSION="11"
-- PGOLDVERSIONS="9.3 9.4 9.5 9.6 10"
+- PGVERSION="12"
+- PGOLDVERSIONS="9.5 9.6 10 11"
 - DEMO=false # set to true to build the smallest possible image which will work only on Kubernetes
 - TIMESCALEDB_APACHE_ONLY=true # set to false to build timescaledb community version (Timescale License)
 
