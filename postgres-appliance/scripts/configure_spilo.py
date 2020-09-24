@@ -29,6 +29,7 @@ PROVIDER_UNSUPPORTED = "unsupported"
 USE_KUBERNETES = os.environ.get('KUBERNETES_SERVICE_HOST') is not None
 KUBERNETES_DEFAULT_LABELS = '{"application": "spilo"}'
 MEMORY_LIMIT_IN_BYTES_PATH = '/sys/fs/cgroup/memory/memory.limit_in_bytes'
+PATRONI_DCS = ('zookeeper', 'exhibitor', 'consul', 'etcd3', 'etcd')
 
 
 # (min_version, max_version, shared_preload_libraries, extwlist.extensions)
@@ -117,7 +118,7 @@ def deep_update(a, b):
     """Updates data structures
 
     Dicts are merged, recursively
-    List b is appended to a (except duplicates)
+    If "a" and "b" are lists, list "a" is used
     For anything else, the value of a is returned"""
 
     if type(a) is dict and type(b) is dict:
@@ -128,7 +129,7 @@ def deep_update(a, b):
                 a[key] = b[key]
         return a
     if type(a) is list and type(b) is list:
-        return a + [i for i in b if i not in a]
+        return a
 
     return a if a is not None else b
 
@@ -380,11 +381,20 @@ def get_instance_metadata(provider):
         mapping = {'zone': 'zone'}
         if not USE_KUBERNETES:
             mapping.update({'id': 'id'})
-    elif provider == PROVIDER_AWS or provider == PROVIDER_OPENSTACK:
+    elif provider == PROVIDER_AWS:
         url = 'http://169.254.169.254/latest/meta-data'
         mapping = {'zone': 'placement/availability-zone'}
         if not USE_KUBERNETES:
             mapping.update({'ip': 'local-ipv4', 'id': 'instance-id'})
+    elif provider == PROVIDER_OPENSTACK:
+        mapping = {}  # Disable multi-url fetch
+        url = 'http://169.254.169.254/openstack/latest/meta_data.json'
+        openstack_metadata = requests.get(url, timeout=5).json()
+        metadata['zone'] = openstack_metadata.availability_zone
+        if not USE_KUBERNETES:
+            # OpenStack does not support providing an IP through metadata so keep
+            # auto-discovered one.
+            metadata['id'] = openstack_metadata.uuid
     else:
         logging.info("No meta-data available for this provider")
         return metadata
@@ -561,10 +571,7 @@ def get_placeholders(provider):
 
     # Kubernetes requires a callback to change the labels in order to point to the new master
     if USE_KUBERNETES:
-        if placeholders.get('DCS_ENABLE_KUBERNETES_API'):
-            if placeholders.get('KUBERNETES_USE_CONFIGMAPS'):
-                placeholders['CALLBACK_SCRIPT'] = 'python3 /scripts/callback_endpoint.py'
-        else:
+        if not placeholders.get('DCS_ENABLE_KUBERNETES_API'):
             placeholders['CALLBACK_SCRIPT'] = 'python3 /scripts/callback_role.py'
 
     placeholders.setdefault('postgresql', {})
@@ -625,27 +632,25 @@ def get_dcs_config(config, placeholders):
                                          'ports': [{'port': 5432, 'name': 'postgresql'}]})
         if str(placeholders.get('KUBERNETES_BYPASS_API_SERVICE')).lower() == 'true':
             config['kubernetes']['bypass_api_service'] = True
-    elif 'ZOOKEEPER_HOSTS' in placeholders:
-        config = {'zookeeper': {'hosts': yaml.load(placeholders['ZOOKEEPER_HOSTS'])}}
-    elif 'EXHIBITOR_HOSTS' in placeholders and 'EXHIBITOR_PORT' in placeholders:
-        config = {'exhibitor': {'hosts': yaml.load(placeholders['EXHIBITOR_HOSTS']),
-                                'port': placeholders['EXHIBITOR_PORT']}}
-    elif 'ETCD_HOST' in placeholders:
-        config = {'etcd': {'host': placeholders['ETCD_HOST']}}
-    elif 'ETCD_HOSTS' in placeholders:
-        config = {'etcd': {'hosts': placeholders['ETCD_HOSTS']}}
-    elif 'ETCD_DISCOVERY_DOMAIN' in placeholders:
-        config = {'etcd': {'discovery_srv': placeholders['ETCD_DISCOVERY_DOMAIN']}}
-    elif 'ETCD_URL' in placeholders:
-        config = {'etcd': {'url': placeholders['ETCD_URL']}}
-    elif 'ETCD_PROXY' in placeholders:
-        config = {'etcd': {'proxy': placeholders['ETCD_PROXY']}}
     else:
-        config = {}  # Configuration can also be specified using either SPILO_CONFIGURATION or PATRONI_CONFIGURATION
-
-    if 'etcd' in config:
-        config['etcd'].update({n.lower(): placeholders['ETCD_' + n]
-                               for n in ('CACERT', 'KEY', 'CERT') if placeholders.get('ETCD_' + n)})
+        # (ZOOKEEPER|EXHIBITOR|CONSUL|ETCD3|ETCD)_(HOSTS|HOST|PORT|...)
+        dcs_configs = defaultdict(dict)
+        for name, value in placeholders.items():
+            if '_' not in name:
+                continue
+            dcs, param = name.lower().split('_', 1)
+            if dcs in PATRONI_DCS:
+                if param == 'hosts':
+                    if not (value.strip().startswith('-') or '[' in value):
+                        value = '[{0}]'.format(value)
+                    value = yaml.safe_load(value)
+                dcs_configs[dcs][param] = value
+        for dcs in PATRONI_DCS:
+            if dcs in dcs_configs:
+                config = {dcs: dcs_configs[dcs]}
+                break
+        else:
+            config = {}  # Configuration can also be specified using either SPILO_CONFIGURATION or PATRONI_CONFIGURATION
 
     if placeholders['NAMESPACE'] not in ('default', ''):
         config['namespace'] = placeholders['NAMESPACE']
@@ -845,11 +850,6 @@ def write_crontab(placeholders, overwrite):
             setup_crontab('postgres', lines)
 
 
-def write_etcd_configuration(placeholders, overwrite=False):
-    placeholders.setdefault('ETCD_HOST', '127.0.0.1:2379')
-    link_runit_service(placeholders, 'etcd')
-
-
 def write_pam_oauth2_configuration(placeholders, overwrite):
     pam_oauth2_args = placeholders.get('PAM_OAUTH2') or ''
     t = pam_oauth2_args.split()
@@ -901,15 +901,6 @@ def main():
     placeholders = get_placeholders(provider)
     logging.info('Looks like your running %s', provider)
 
-    if (provider == PROVIDER_LOCAL and
-            not USE_KUBERNETES and
-            'ETCD_HOST' not in placeholders and
-            'ETCD_HOSTS' not in placeholders and
-            'ETCD_URL' not in placeholders and
-            'ETCD_PROXY' not in placeholders and
-            'ETCD_DISCOVERY_DOMAIN' not in placeholders):
-        write_etcd_configuration(placeholders)
-
     config = yaml.load(pystache_render(TEMPLATE, placeholders))
     config.update(get_dcs_config(config, placeholders))
 
@@ -920,6 +911,10 @@ def main():
 
     user_config_copy = deepcopy(user_config)
     config = deep_update(user_config_copy, config)
+
+    if provider == PROVIDER_LOCAL and not any(1 for key in config.keys() if key == 'kubernetes' or key in PATRONI_DCS):
+        link_runit_service(placeholders, 'etcd')
+        config['etcd'] = {'host': '127.0.0.1:2379'}
 
     # try to build bin_dir from PGVERSION environment variable if postgresql.bin_dir wasn't set in SPILO_CONFIGURATION
     if 'bin_dir' not in config['postgresql']:

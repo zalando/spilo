@@ -1,6 +1,6 @@
 ARG PGVERSION=13
-ARG TIMESCALEDB=1.7.2
-ARG TIMESCALEDB_LEGACY=1.7.2
+ARG TIMESCALEDB=1.7.4
+ARG TIMESCALEDB_LEGACY=1.7.4
 ARG DEMO=false
 ARG COMPRESS=false
 
@@ -72,7 +72,7 @@ ENV POSTGIS_VERSION=3.0 \
     PG_AUTH_MON_COMMIT=a0c086ad9865c9a0f468f12d09b77353acd2de28 \
     PG_MON_COMMIT=a5eca615014c2478eba51d37bcf297bd13cb1bfb \
     DECODERBUFS=v1.2.1.Final \
-    SET_USER=REL1_6_2 \
+    SET_USER=REL2_0_0 \
     PLPROFILER=REL4_1 \
     PAM_OAUTH2=v1.0.1 \
     PLANTUNER_COMMIT=800d81bc85da64ff3ef66e12aed1d4e1e54fc006
@@ -124,7 +124,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && curl -sL https://github.com/CyberDem0n/bg_mon/archive/$BG_MON_COMMIT.tar.gz | tar xz \
     && curl -sL https://github.com/CyberDem0n/pg_auth_mon/archive/$PG_AUTH_MON_COMMIT.tar.gz | tar xz \
     && git clone -b $SET_USER https://github.com/pgaudit/set_user.git \
-    && patch -d set_user -p1 < set_user.patch \
     && git clone -b $TIMESCALEDB_LEGACY https://github.com/timescale/timescaledb.git \
 \
     && apt-get install -y postgresql-common libevent-2.1 libevent-pthreads-2.1 sysstat brotli libbrotli1 python3.6 python3-psycopg2 \
@@ -389,8 +388,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && find /var/log -type f -exec truncate --size 0 {} \;
 
 # Install patroni, wal-e and wal-g
-ENV PATRONIVERSION=1.6.5
-ENV WALE_VERSION=1.1.0
+ENV PATRONIVERSION=2.0.0
+ENV WALE_VERSION=1.1.1
 ENV WALG_VERSION=v0.2.15
 RUN export DEBIAN_FRONTEND=noninteractive \
     && set -ex \
@@ -426,15 +425,9 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && pip3 uninstall -y attrs more_itertools pluggy pytest py \
 \
         # https://github.com/wal-e/wal-e/issues/318
-        && sed -i 's/^\(    for i in range(0,\) num_retries):.*/\1 100):/g' /usr/lib/python3/dist-packages/boto/utils.py \
-\
-        # https://github.com/wal-e/wal-e/pull/384
-        && curl -sL https://github.com/wal-e/wal-e/pull/384.diff | patch -p1 \
-\
-        # https://github.com/wal-e/wal-e/pull/392
-        && curl -sL https://github.com/wal-e/wal-e/pull/392.diff | patch -p1; \
+        && sed -i 's/^\(    for i in range(0,\) num_retries):.*/\1 100):/g' /usr/lib/python3/dist-packages/boto/utils.py; \
     fi \
-    && pip3 install "git+https://github.com/zalando/patroni.git@feature/bypass-k8s-service#egg=patroni[kubernetes$EXTRAS]" \
+    && pip3 install "git+https://github.com/zalando/patroni.git@2.0/bugfixes#egg=patroni[kubernetes$EXTRAS]" \
 \
     && for d in /usr/local/lib/python3.6 /usr/lib/python3; do \
         cd $d/dist-packages \

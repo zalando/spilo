@@ -80,23 +80,23 @@ if [[ $server_version != "-1" ]]; then
 
     [[ $diff_in_bytes -gt $((THRESHOLD_MEGABYTES*1048576)) ]] && echo "not restoring from backup because of amount of generated wals exceeds ${THRESHOLD_MEGABYTES}MB" && exit 1
 
-    readonly threshold_bytes=$(($cluster_size*$THRESHOLD_PERCENTAGE/100))
+    readonly threshold_bytes=$((cluster_size*THRESHOLD_PERCENTAGE/100))
     [[ $threshold_bytes -lt $diff_in_bytes ]] && echo "not restoring from backup because of amount of generated wals exceeds $THRESHOLD_PERCENTAGE% of cluster_size" && exit 1
 fi
 
 ATTEMPT=0
 while true; do
-    if $WAL_E backup-fetch $DATA_DIR LATEST; then
-        version=$(<$DATA_DIR/PG_VERSION)
-        [[ "$version" =~ "." ]] && wal_name=xlog || wal_name=wal
+    if $WAL_E backup-fetch "$DATA_DIR" LATEST; then
+        version=$(<"$DATA_DIR/PG_VERSION")
+        [[ "$version" =~ \. ]] && wal_name=xlog || wal_name=wal
         readonly wal_dir=$DATA_DIR/pg_$wal_name
-        [[ ! -d $wal_dir ]] && rm -f $wal_dir && mkdir $wal_dir
+        [[ ! -d $wal_dir ]] && rm -f "$wal_dir" && mkdir "$wal_dir"
         # remove broken symlinks from PGDATA
-        find $DATA_DIR -xtype l -delete
+        find "$DATA_DIR" -xtype l -delete
         exit 0
     fi
     [[ $((ATTEMPT++)) -ge $RETRIES ]] && break
-    rm -fr $DATA_DIR
+    rm -fr "$DATA_DIR"
     sleep 1
 done
 

@@ -7,12 +7,15 @@ prefetch=8
 
 function load_aws_instance_profile() {
     local CREDENTIALS_URL=http://169.254.169.254/latest/meta-data/iam/security-credentials/
-    local INSTANCE_PROFILE=$(curl -s $CREDENTIALS_URL)
-    source <(curl -s $CREDENTIALS_URL$INSTANCE_PROFILE | jq -r '"AWS_SECURITY_TOKEN=\"" + .Token + "\"\nAWS_SECRET_ACCESS_KEY=\"" + .SecretAccessKey + "\"\nAWS_ACCESS_KEY_ID=\"" + .AccessKeyId + "\""')
+    local INSTANCE_PROFILE
+    INSTANCE_PROFILE=$(curl -s "$CREDENTIALS_URL")
+    # shellcheck source=/dev/null
+    source <(curl -s "$CREDENTIALS_URL$INSTANCE_PROFILE" | jq -r '"AWS_SECURITY_TOKEN=\"" + .Token + "\"\nAWS_SECRET_ACCESS_KEY=\"" + .SecretAccessKey + "\"\nAWS_ACCESS_KEY_ID=\"" + .AccessKeyId + "\""')
 }
 
 function load_region_from_aws_instance_profile() {
-    local AZ=$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone)
+    local AZ
+    AZ=$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone)
     AWS_REGION=${AZ:0:-1}
 }
 
@@ -102,10 +105,10 @@ function hmac_sha256() {
 }
 
 # Four-step signing key calculation
-readonly DATE_KEY=$(hmac_sha256 key:"AWS4$AWS_SECRET_ACCESS_KEY" $DATE)
-readonly DATE_REGION_KEY=$(hmac_sha256 hexkey:$DATE_KEY $AWS_REGION)
-readonly DATE_REGION_SERVICE_KEY=$(hmac_sha256 hexkey:$DATE_REGION_KEY $SERVICE)
-readonly SIGNING_KEY=$(hmac_sha256 hexkey:$DATE_REGION_SERVICE_KEY $REQUEST)
+readonly DATE_KEY=$(hmac_sha256 key:"AWS4$AWS_SECRET_ACCESS_KEY" "$DATE")
+readonly DATE_REGION_KEY=$(hmac_sha256 "hexkey:$DATE_KEY" "$AWS_REGION")
+readonly DATE_REGION_SERVICE_KEY=$(hmac_sha256 "hexkey:$DATE_REGION_KEY" "$SERVICE")
+readonly SIGNING_KEY=$(hmac_sha256 "hexkey:$DATE_REGION_SERVICE_KEY" "$REQUEST")
 
 if [[ -z $AWS_INSTANCE_PROFILE ]]; then
     readonly SIGNED_HEADERS="host;x-amz-content-sha256;x-amz-date"
@@ -122,16 +125,18 @@ function s3_get() {
     local destination=$2
     local FILE=$BUCKET_PATH/wal_005/$segment.lzo
     local CANONICAL_REQUEST="GET\n$FILE\n\nhost:$HOST\nx-amz-content-sha256:$EMPTYHASH\nx-amz-date:$TIME\n$REQUEST_TOKEN\n$SIGNED_HEADERS\n$EMPTYHASH"
-    local CANONICAL_REQUEST_HASH=$(echo -en $CANONICAL_REQUEST | openssl dgst -sha256 | sed 's/^.* //')
+    local CANONICAL_REQUEST_HASH
+    CANONICAL_REQUEST_HASH=$(echo -en "$CANONICAL_REQUEST" | openssl dgst -sha256 | sed 's/^.* //')
     local STRING_TO_SIGN="AWS4-HMAC-SHA256\n$TIME\n$DRSR\n$CANONICAL_REQUEST_HASH"
-    local SIGNATURE=$(hmac_sha256 hexkey:$SIGNING_KEY $STRING_TO_SIGN)
+    local SIGNATURE
+    SIGNATURE=$(hmac_sha256 "hexkey:$SIGNING_KEY" "$STRING_TO_SIGN")
 
-    if curl -s https://$HOST$FILE "${TOKEN_HEADER[@]}" -H "x-amz-content-sha256: $EMPTYHASH" -H "x-amz-date: $TIME" \
+    if curl -s "https://$HOST$FILE" "${TOKEN_HEADER[@]}" -H "x-amz-content-sha256: $EMPTYHASH" -H "x-amz-date: $TIME" \
         -H "Authorization: AWS4-HMAC-SHA256 Credential=$AWS_ACCESS_KEY_ID/$DRSR, SignedHeaders=$SIGNED_HEADERS, Signature=$SIGNATURE" \
-        | lzop -dc > $destination 2> /dev/null && [[ ${PIPESTATUS[0]} == 0 ]]; then
+        | lzop -dc > "$destination" 2> /dev/null && [[ ${PIPESTATUS[0]} == 0 ]]; then
         [[ -s $destination ]] && echo "$$ success $FILE" && return 0
     fi
-    rm -f $destination
+    rm -f "$destination"
     echo "$$ failed $FILE"
     return 1
 }
@@ -145,23 +150,23 @@ function generate_next_segments() {
 
     while [[ $((num--)) -gt 0 ]]; do
         seg=$((seg+1))
-        printf "%s%08X%08X\n" $timeline $((log+seg/256)) $((seg%256))
+        printf "%s%08X%08X\n" "$timeline" $((log+seg/256)) $((seg%256))
     done
 }
 
 function clear_except() {
     set +e
     for dir in $PREFETCHDIR/running/0*; do
-        item=$(basename $dir)
+        item=$(basename "$dir")
         if [[ $item =~ ^[0-9A-F]{24}$ ]]; then
-            [[ " ${PREFETCHES[@]} " =~ " $item " ]] || rm -fr $dir
+            [[ " ${PREFETCHES[*]} " =~ \ $item\  ]] || rm -fr "$dir"
         fi
     done
 
     for file in $PREFETCHDIR/0*; do
-        item=$(basename $file)
+        item=$(basename "$file")
         if [[ $item =~ ^[0-9A-F]{24}$ ]]; then
-            [[ " ${PREFETCHES[@]} " =~ " $item " ]] || rm -f $file
+            [[ " ${PREFETCHES[*]} " =~ \ $item\  ]] || rm -f "$file"
         fi
     done
     set -e
@@ -172,30 +177,30 @@ function try_to_promote_prefetched() {
     local prefetched=$PREFETCHDIR/$SEGMENT
     [[ -f $prefetched ]] || return 1
     echo "$$ promoting $prefetched"
-    mv $prefetched $DESTINATION && clear_except && exit 0
+    mv "$prefetched" "$DESTINATION" && clear_except && exit 0
 }
 
 echo "$$ $SEGMENT"
 
-readonly PREFETCHDIR=$(dirname $DESTINATION)/.wal-e/prefetch
-if [[ $prefetch > 0 && $SEGMENT =~ ^[0-9A-F]{24}$ ]]; then
-    readonly PREFETCHES=($(generate_next_segments $prefetch))
-    for segment in ${PREFETCHES[@]}; do
+readonly PREFETCHDIR=$(dirname "$DESTINATION")/.wal-e/prefetch
+if [[ $prefetch -gt 0 && $SEGMENT =~ ^[0-9A-F]{24}$ ]]; then
+    readonly PREFETCHES=($(generate_next_segments "$prefetch"))
+    for segment in "${PREFETCHES[@]}"; do
         running="$PREFETCHDIR/running/$segment"
         [[ -d $running || -f $PREFETCHDIR/$segment ]] && continue
 
-        mkdir -p $running
+        mkdir -p "$running"
         (
-            trap "rm -fr $running" QUIT TERM EXIT
-            TMPFILE=$(mktemp -p $running)
+            trap 'rm -fr $running' QUIT TERM EXIT
+            TMPFILE=$(mktemp -p "$running")
             echo "$$ prefetching $segment"
-            s3_get $segment $TMPFILE && mv $TMPFILE $PREFETCHDIR/$segment
+            s3_get "$segment" "$TMPFILE" && mv "$TMPFILE" "$PREFETCHDIR/$segment"
         ) &
     done
 
     last_size=0
     while ! try_to_promote_prefetched; do
-        size=$(du -bs $PREFETCHDIR/running/$SEGMENT 2> /dev/null | cut -f1)
+        size=$(du -bs "$PREFETCHDIR/running/$SEGMENT" 2> /dev/null | cut -f1)
         if [[ -z $size ]]; then
             try_to_promote_prefetched || break
         elif [[ $size > $last_size ]]; then
@@ -210,4 +215,4 @@ if [[ $prefetch > 0 && $SEGMENT =~ ^[0-9A-F]{24}$ ]]; then
     clear_except
 fi
 
-s3_get $SEGMENT $DESTINATION
+s3_get "$SEGMENT" "$DESTINATION"

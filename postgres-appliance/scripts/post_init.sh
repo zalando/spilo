@@ -1,6 +1,9 @@
 #!/bin/bash
 
-cd "$(dirname "${BASH_SOURCE[0]}")"
+cd "$(dirname "${BASH_SOURCE[0]}")" || exit 1
+
+PGVER=$(psql -d "$2" -XtAc "SELECT pg_catalog.current_setting('server_version_num')::int/10000")
+if [ "$PGVER" -ge 12 ]; then RESET_ARGS="oid, oid, bigint"; fi
 
 (echo "DO \$\$
 BEGIN
@@ -104,8 +107,9 @@ CREATE TABLE IF NOT EXISTS public.postgres_log (
     query text,
     query_pos integer,
     location text,
-    application_name text,
-    CONSTRAINT postgres_log_check CHECK (false) NO INHERIT
+    application_name text,"
+if [ "$PGVER" -ge 13 ]; then echo "    backend_type text,"; fi
+echo "    CONSTRAINT postgres_log_check CHECK (false) NO INHERIT
 );
 GRANT SELECT ON public.postgres_log TO admin;"
 
@@ -128,7 +132,7 @@ done
 cat _zmon_schema.dump
 
 PGVER=$(psql -d "$2" -XtAc "SELECT pg_catalog.current_setting('server_version_num')::int/10000")
-if [ $PGVER -ge 12 ]; then RESET_ARGS="oid, oid, bigint"; fi
+if [ "$PGVER" -ge 12 ]; then RESET_ARGS="oid, oid, bigint"; fi
 
 while IFS= read -r db_name; do
     echo "\c ${db_name}"
@@ -136,7 +140,7 @@ while IFS= read -r db_name; do
     # ERROR:  could not access file "$libdir/timescaledb-$OLD_VERSION": No such file or directory
     TIMESCALEDB_VERSION=$(echo -e "SELECT NULL;\nSELECT extversion FROM pg_catalog.pg_extension WHERE extname = 'timescaledb'" | psql -tAX -d "${db_name}" 2> /dev/null | tail -n 1)
     if [ "x$TIMESCALEDB_VERSION" != "x" ] && [ "x$TIMESCALEDB_VERSION" != "x$TIMESCALEDB" ] \
-            && [ $PGVER -gt 11 -o "x$TIMESCALEDB_VERSION" != "x$TIMESCALEDB_LEGACY" ]; then
+            && { [ "$PGVER" -gt 11 ] || [ "x$TIMESCALEDB_VERSION" != "x$TIMESCALEDB_LEGACY" ]; }; then
         echo "ALTER EXTENSION timescaledb UPDATE;"
     fi
     UPGRADE_POSTGIS=$(echo -e "SELECT COUNT(*) FROM pg_catalog.pg_extension WHERE extname = 'postgis'" | psql -tAX -d "${db_name}" 2> /dev/null | tail -n 1)
