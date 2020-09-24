@@ -71,7 +71,7 @@ ENV POSTGIS_VERSION=3.0 \
     PG_AUTH_MON_COMMIT=902c670c9f2071b30e1d4437e7a38e2e136f9be6 \
     PG_MON_COMMIT=cc028fdae8542ec3f5df3bf4c66f0895d87c127d \
     DECODERBUFS=v1.2.1.Final \
-    SET_USER=REL1_6_2 \
+    SET_USER=REL2_0_0 \
     PLPROFILER=REL4_1 \
     PAM_OAUTH2=v1.0.1 \
     PLANTUNER_COMMIT=800d81bc85da64ff3ef66e12aed1d4e1e54fc006
@@ -376,7 +376,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 # Install patroni, wal-e and wal-g
 ENV PATRONIVERSION=2.0.0
 ENV WALE_VERSION=1.1.1
-ENV WALG_VERSION=v0.2.17
+ENV WALG_VERSION=v0.2.15
 RUN export DEBIAN_FRONTEND=noninteractive \
     && set -ex \
     && BUILD_PACKAGES="python3-pip python3-wheel python3-dev git patchutils binutils" \
@@ -414,6 +414,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && sed -i 's/^\(    for i in range(0,\) num_retries):.*/\1 100):/g' /usr/lib/python3/dist-packages/boto/utils.py; \
     fi \
     && pip3 install patroni[kubernetes$EXTRAS]==$PATRONIVERSION \
+    && pip3 install "git+https://github.com/zalando/patroni.git@2.0/bugfixes#egg=patroni[kubernetes$EXTRAS]" \
 \
     && for d in /usr/local/lib/python3.6 /usr/lib/python3; do \
         cd $d/dist-packages \
