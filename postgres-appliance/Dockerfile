@@ -167,8 +167,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 \
             # Install PostgreSQL binaries, contrib, plproxy and multiple pl's
             && apt-get install --allow-downgrades -y postgresql-contrib-${version} \
-                        postgresql-plpython3-${version} libpq5=$version* $EXTRAS \
-                        libpq-dev=$version* postgresql-server-dev-${version} \
+                    postgresql-plpython3-${version} postgresql-server-dev-${version} $EXTRAS \
 \
             # Install 3rd party stuff
             && if [ "$version" != "9.5" ] && [ "$version" != "13" ]; then \
@@ -200,9 +199,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 \
             && for n in bg_mon-${BG_MON_COMMIT} pg_auth_mon-${PG_AUTH_MON_COMMIT} set_user $EXTRA_EXTENSIONS; do \
                 make -C $n USE_PGXS=1 clean install-strip; \
-            done \
-\
-            && apt-get purge -y libpq-dev=$version*; \
+            done; \
     done \
 \
     && apt-get install -y skytools3-ticker \
@@ -261,7 +258,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     done \
 \
     # Remove unnecessary packages
-    && apt-get purge -y ${BUILD_PACKAGES} postgresql postgresql-server-dev-* libpq-dev=$PGVERSION* libmagic1 bsdmainutils \
+    && apt-get purge -y ${BUILD_PACKAGES} postgresql postgresql-server-dev-* libpq-dev=* libmagic1 bsdmainutils \
     && apt-get autoremove -y \
     && apt-get clean \
     && dpkg -l | grep '^rc' | awk '{print $2}' | xargs apt-get purge -y \
