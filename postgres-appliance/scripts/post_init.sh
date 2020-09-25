@@ -131,9 +131,6 @@ done
 
 cat _zmon_schema.dump
 
-PGVER=$(psql -d "$2" -XtAc "SELECT pg_catalog.current_setting('server_version_num')::int/10000")
-if [ "$PGVER" -ge 12 ]; then RESET_ARGS="oid, oid, bigint"; fi
-
 while IFS= read -r db_name; do
     echo "\c ${db_name}"
     # In case if timescaledb binary is missing the first query fails with the error
