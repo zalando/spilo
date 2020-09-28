@@ -404,13 +404,9 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 'git+https://github.com/zalando/pg_view.git@master#egg=pg-view' \
 \
         && cd /usr/local/lib/python3.6/dist-packages \
-\
-        # pg_view installs useless pytest
-        && sed -i '/^pytest/d' pg_view-*/requires.txt \
-        && pip3 uninstall -y attrs more_itertools pluggy pytest py \
-\
         # https://github.com/wal-e/wal-e/issues/318
-        && sed -i 's/^\(    for i in range(0,\) num_retries):.*/\1 100):/g' /usr/lib/python3/dist-packages/boto/utils.py; \
+        && sed -i 's/^\(    for i in range(0,\) num_retries):.*/\1 100):/g' \
+                    /usr/lib/python3/dist-packages/boto/utils.py; \
     fi \
     && pip3 install "git+https://github.com/zalando/patroni.git@2.0/bugfixes#egg=patroni[kubernetes$EXTRAS]" \
 \
