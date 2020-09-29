@@ -620,8 +620,10 @@ hosts deny = *
             self.post_cleanup()
 
     def start_backup(self, envdir):
+        logger.info('Initiating a new backup...')
         if not os.fork():
-            subprocess.call(['nohup', 'envdir', envdir, '/scripts/postgres_backup.sh', self.postgresql.data_dir])
+            subprocess.call(['nohup', 'envdir', envdir, '/scripts/postgres_backup.sh', self.postgresql.data_dir],
+                            stdout=open(os.devnull, 'w'), stderr=subprocess.STDOUT)
 
 
 # this function will be running in a clean environment, therefore we can't rely on DCS connection
