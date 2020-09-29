@@ -122,8 +122,16 @@ function create_schema() {
     docker_exec -i "$1" "psql -U postgres" < schema.sql
 }
 
+function create_schema2() {
+    docker_exec -i "$1" "psql -U postgres" < schema2.sql
+}
+
 function drop_table_with_oids() {
     docker_exec "$1" "psql -U postgres -d test_db -c 'DROP TABLE with_oids'"
+}
+
+function drop_timescaledb() {
+    docker_exec "$1" "psql -U postgres -d test_db -c 'DROP EXTENSION timescaledb CASCADE'"
 }
 
 function test_inplace_upgrade_wrong_container() {
@@ -138,8 +146,8 @@ function test_inplace_upgrade_wrong_capacity() {
     docker_exec "$1" "PGVERSION=10 $UPGRADE_SCRIPT 4" 2>&1 | grep 'number of replicas does not match'
 }
 
-function test_successful_inplace_upgrade_to_10() {
-    docker_exec "$1" "PGVERSION=10 $UPGRADE_SCRIPT 3"
+function test_successful_inplace_upgrade_to_9_6() {
+    docker_exec "$1" "PGVERSION=9.6 $UPGRADE_SCRIPT 3"
 }
 
 function test_envdir_suffix() {
@@ -154,15 +162,23 @@ function test_envdir_updated_to_x() {
 }
 
 function test_failed_inplace_upgrade_big_replication_lag() {
-    ! test_successful_inplace_upgrade_to_10 "$1"
+    ! test_successful_inplace_upgrade_to_9_6 "$1"
 }
 
 function test_successful_inplace_upgrade_to_12() {
     docker_exec "$1" "PGVERSION=12 $UPGRADE_SCRIPT 3"
 }
 
-function test_pg_upgrade_check_failed() {
+function test_pg_upgrade_to_12_check_failed() {
     ! test_successful_inplace_upgrade_to_12 "$1"
+}
+
+function test_successful_inplace_upgrade_to_13() {
+    docker_exec "$1" "PGVERSION=13 $UPGRADE_SCRIPT 3"
+}
+
+function test_pg_upgrade_to_13_check_failed() {
+    ! test_successful_inplace_upgrade_to_13 "$1"
 }
 
 function start_clone_with_wale_upgrade_container() {
@@ -198,11 +214,11 @@ function start_clone_with_basebackup_upgrade_container() {
 }
 
 function verify_clone_with_wale_upgrade() {
-    wait_query "$1" "SELECT current_setting('server_version_num')::int/10000" 10
+    wait_query "$1" "SELECT current_setting('server_version_num')::int/10000" 10 2> /dev/null
 }
 
 function verify_clone_with_basebackup_upgrade() {
-    wait_query "$1" "SELECT current_setting('server_version_num')::int/10000" 11
+    wait_query "$1" "SELECT current_setting('server_version_num')::int/10000" 11 2> /dev/null
 }
 
 function run_test() {
@@ -213,7 +229,7 @@ function run_test() {
 function test_spilo() {
     local container=$1
 
-    run_test test_envdir_suffix "$container" 9.6
+    run_test test_envdir_suffix "$container" 9.5
 
     run_test test_inplace_upgrade_wrong_version "$container"
     run_test test_inplace_upgrade_wrong_capacity "$container"
@@ -227,32 +243,47 @@ function test_spilo() {
     wait_zero_lag "$container"
     wait_backup "$container"
 
-    local upgrade_container
-    upgrade_container=$(start_clone_with_wale_upgrade_container)
-    log_info "Started $upgrade_container for testing major upgrade after clone with wal-e"
-
-    log_info "Testing in-place major upgrade to 10"
-    run_test test_successful_inplace_upgrade_to_10 "$container"
+    log_info "Testing in-place major upgrade 9.5->9.6"
+    run_test test_successful_inplace_upgrade_to_9_6 "$container"
 
     wait_all_streaming "$container"
 
-    run_test test_envdir_updated_to_x 10
+    run_test test_envdir_updated_to_x 9.6
 
-    run_test test_pg_upgrade_check_failed "$container"  # pg_upgrade --check complains about OID
+    run_test test_pg_upgrade_to_12_check_failed "$container"  # pg_upgrade --check complains about OID
+
+    create_schema2 "$container" || exit 1
 
     wait_backup "$container"
+    wait_zero_lag "$container"
+
+    local upgrade_container
+    upgrade_container=$(start_clone_with_wale_upgrade_container)
+    log_info "Started $upgrade_container for testing major upgrade 9.6->10 after clone with wal-e"
 
     drop_table_with_oids "$container"
-    log_info "Testing in-place major upgrade to 11"
+    log_info "Testing in-place major upgrade 9.6->12"
     run_test test_successful_inplace_upgrade_to_12 "$container"
 
     wait_all_streaming "$container"
 
     run_test test_envdir_updated_to_x 12
 
+    run_test test_pg_upgrade_to_13_check_failed "$container"  # pg_upgrade --check complains about timescaledb
+
     wait_backup "$container"
 
-    log_info "Waiting for clone with wal-e and upgrade to complete..."
+    drop_timescaledb "$container"
+    log_info "Testing in-place major upgrade to 12->13"
+    run_test test_successful_inplace_upgrade_to_13 "$container"
+
+    wait_all_streaming "$container"
+
+    run_test test_envdir_updated_to_x 13
+
+    wait_backup "$container"
+
+    log_info "Waiting for clone with wal-e and upgrade 9.6->10 to complete..."
     find_leader "$upgrade_container" > /dev/null
     docker logs "$upgrade_container"
     run_test verify_clone_with_wale_upgrade "$upgrade_container"
@@ -265,12 +296,13 @@ function test_spilo() {
 
     local basebackup_container
     basebackup_container=$(start_clone_with_basebackup_upgrade_container "$upgrade_container")
-    log_info "Started $basebackup_container for testing major upgrade after clone with basebackup"
+    log_info "Started $basebackup_container for testing major upgrade 10->11 after clone with basebackup"
+
 
     log_info "Waiting for postgres to start in the $upgrade_replica_container..."
     run_test verify_clone_with_wale_upgrade "$upgrade_replica_container"
 
-    log_info "Waiting for clone with basebackup and upgrade to complete..."
+    log_info "Waiting for clone with basebackup and upgrade 10->11 to complete..."
     find_leader "$basebackup_container" > /dev/null
     docker logs "$basebackup_container"
     run_test verify_clone_with_basebackup_upgrade "$basebackup_container"
