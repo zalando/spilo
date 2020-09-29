@@ -3,6 +3,7 @@
 cd "$(dirname "${BASH_SOURCE[0]}")" || exit 1
 
 readonly PREFIX="demo-"
+readonly UPGRADE_SCRIPT="python3 /scripts/inplace_upgrade.py"
 readonly TIMEOUT=120
 
 if [[ -t 2 ]]; then
@@ -30,6 +31,16 @@ function start_containers() {
 
 function stop_containers() {
     docker-compose rm -fs
+}
+
+function get_non_leader() {
+    declare -r container=$1
+
+    if [[ "$container" == "${PREFIX}spilo1" ]]; then
+        echo "${PREFIX}spilo2"
+    else
+        echo "${PREFIX}spilo1"
+    fi
 }
 
 function docker_exec() {
@@ -115,26 +126,60 @@ function drop_table_with_oids() {
     docker_exec "$1" "psql -U postgres -d test_db -c 'DROP TABLE with_oids'"
 }
 
+function test_inplace_upgrade_wrong_container() {
+    ! docker_exec "$(get_non_leader "$1")" "PGVERSION=10 $UPGRADE_SCRIPT 4"
+}
+
+function test_inplace_upgrade_wrong_version() {
+    docker_exec "$1" "PGVERSION=9.5 $UPGRADE_SCRIPT 3" 2>&1 | grep 'Upgrade is not required'
+}
+
+function test_inplace_upgrade_wrong_capacity() {
+    docker_exec "$1" "PGVERSION=10 $UPGRADE_SCRIPT 4" 2>&1 | grep 'number of replicas does not match'
+}
+
+function test_successful_inplace_upgrade_to_10() {
+    docker_exec "$1" "PGVERSION=10 $UPGRADE_SCRIPT 3"
+}
+
+function test_envdir_suffix() {
+    docker_exec "$1" "cat /run/etc/wal-e.d/env/WALG_S3_PREFIX" | grep -q "$2$" \
+        && docker_exec "$1" "cat /run/etc/wal-e.d/env/WALE_S3_PREFIX" | grep -q "$2$"
+}
+
+function test_envdir_updated_to_x() {
+    for c in {1..3}; do
+        test_envdir_suffix "${PREFIX}spilo$c" "$1" || return 1
+    done
+}
+
+function test_failed_inplace_upgrade_big_replication_lag() {
+    ! test_successful_inplace_upgrade_to_10 "$1"
+}
+
+function test_successful_inplace_upgrade_to_12() {
+    docker_exec "$1" "PGVERSION=12 $UPGRADE_SCRIPT 3"
+}
+
+function test_pg_upgrade_check_failed() {
+    ! test_successful_inplace_upgrade_to_12 "$1"
+}
+
 function start_clone_with_wale_upgrade_container() {
+    local ID=${1:-1}
+
     docker-compose run \
         -e SCOPE=upgrade \
         -e PGVERSION=10 \
         -e CLONE_SCOPE=demo \
         -e CLONE_METHOD=CLONE_WITH_WALE \
         -e CLONE_TARGET_TIME="$(date -d '1 minute' -u +'%F %T UTC')" \
-        --name "${PREFIX}upgrade1" \
-        -d spilo1
+        --name "${PREFIX}upgrade$ID" \
+        -d "spilo$ID"
 }
 
 function start_clone_with_wale_upgrade_replica_container() {
-    docker-compose run \
-        -e SCOPE=upgrade \
-        -e PGVERSION=10 \
-        -e CLONE_SCOPE=demo \
-        -e CLONE_METHOD=CLONE_WITH_WALE \
-        -e CLONE_TARGET_TIME="$(date -d '1 minute' -u +'%F %T UTC')" \
-        --name "${PREFIX}upgrade2" \
-        -d spilo2
+    start_clone_with_wale_upgrade_container 2
 }
 
 function start_clone_with_basebackup_upgrade_container() {
@@ -168,9 +213,16 @@ function run_test() {
 function test_spilo() {
     local container=$1
 
+    run_test test_envdir_suffix "$container" 9.6
+
+    run_test test_inplace_upgrade_wrong_version "$container"
+    run_test test_inplace_upgrade_wrong_capacity "$container"
+
     wait_all_streaming "$container"
 
     create_schema "$container" || exit 1
+
+    # run_test test_failed_inplace_upgrade_big_replication_lag "$container"
 
     wait_zero_lag "$container"
     wait_backup "$container"
@@ -178,6 +230,27 @@ function test_spilo() {
     local upgrade_container
     upgrade_container=$(start_clone_with_wale_upgrade_container)
     log_info "Started $upgrade_container for testing major upgrade after clone with wal-e"
+
+    log_info "Testing in-place major upgrade to 10"
+    run_test test_successful_inplace_upgrade_to_10 "$container"
+
+    wait_all_streaming "$container"
+
+    run_test test_envdir_updated_to_x 10
+
+    run_test test_pg_upgrade_check_failed "$container"  # pg_upgrade --check complains about OID
+
+    wait_backup "$container"
+
+    drop_table_with_oids "$container"
+    log_info "Testing in-place major upgrade to 11"
+    run_test test_successful_inplace_upgrade_to_12 "$container"
+
+    wait_all_streaming "$container"
+
+    run_test test_envdir_updated_to_x 12
+
+    wait_backup "$container"
 
     log_info "Waiting for clone with wal-e and upgrade to complete..."
     find_leader "$upgrade_container" > /dev/null

@@ -1,5 +1,25 @@
 #!/bin/bash
 
+if [[ "$ENABLE_WAL_PATH_COMPAT" = "true" ]]; then
+    unset ENABLE_WAL_PATH_COMPAT
+    bash "$(readlink -f "${BASH_SOURCE[0]}")" "$@"
+    exitcode=$?
+    [[ $exitcode = 0 ]] && exit 0
+    for wale_env in $(printenv -0 | tr '\n' ' ' | sed 's/\x00/\n/g' | sed -n 's/^\(WAL[EG]_[^=][^=]*_PREFIX\)=.*$/\1/p'); do
+        suffix=$(basename "${!wale_env}")
+        if [[ -x "/usr/lib/postgresql/$suffix/bin/postgres" ]]; then
+            prefix=$(dirname "${!wale_env}")
+            if [[ $prefix =~ /spilo/ ]] && [[ $prefix =~ /wal$ ]]; then
+                printf -v "$wale_env" "%s" "$prefix"
+                # shellcheck disable=SC2163
+                export "$wale_env"
+                changed_env=true
+            fi
+        fi
+    done
+    [[ "$changed_env" == "true" ]] || exit $exitcode
+fi
+
 readonly wal_filename=$1
 readonly wal_destination=$2
 
