@@ -17,6 +17,8 @@ from multiprocessing.pool import ThreadPool
 
 logger = logging.getLogger(__name__)
 
+RSYNC_PORT = 5432
+
 
 def patch_wale_prefix(value, new_version):
     from spilo_commons import is_valid_pg_version
@@ -269,19 +271,20 @@ class InplaceUpgrade(object):
         replica_ips = ','.join(str(v[0]) for v in self.replica_connections.values())
 
         with open(self.rsyncd_conf, 'w') as f:
-            f.write("""port = 5432
+            f.write("""port = {0}
 use chroot = false
 
 [pgroot]
-path = {0}
+path = {1}
 read only = true
 timeout = 300
-post-xfer exec = echo $RSYNC_EXIT_STATUS > {1}/$RSYNC_USER_NAME
-auth users = {2}
-secrets file = {3}
-hosts allow = {4}
+post-xfer exec = echo $RSYNC_EXIT_STATUS > {2}/$RSYNC_USER_NAME
+auth users = {3}
+secrets file = {4}
+hosts allow = {5}
 hosts deny = *
-""".format(os.path.dirname(self.postgresql.data_dir), self.rsyncd_feedback_dir, auth_users, secrets_file, replica_ips))
+""".format(RSYNC_PORT, os.path.dirname(self.postgresql.data_dir),
+                self.rsyncd_feedback_dir, auth_users, secrets_file, replica_ips))
 
         with open(secrets_file, 'w') as f:
             for name in self.replica_connections.keys():
@@ -671,7 +674,7 @@ def rsync_replica(config, desired_version, primary_ip, pid):
                         '--no-inc-recursive', '--include=/data/***', '--include=/data_old/***',
                         '--exclude=/data/pg_xlog/*', '--exclude=/data_old/pg_xlog/*',
                         '--exclude=/data/pg_wal/*', '--exclude=/data_old/pg_wal/*', '--exclude=*',
-                        'rsync://{0}@{1}:5432/pgroot'.format(postgresql.name, primary_ip),
+                        'rsync://{0}@{1}:{2}/pgroot'.format(postgresql.name, primary_ip, RSYNC_PORT),
                         os.path.dirname(postgresql.data_dir)], env=env) != 0:
         logger.error('Failed to rsync from %s', primary_ip)
         postgresql.switch_back_pgdata()
