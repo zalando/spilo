@@ -7,7 +7,7 @@ DO $$
 BEGIN
     PERFORM * FROM pg_catalog.pg_language WHERE lanname = 'plpython3u' AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_extension WHERE extname = 'plpython3u');
     IF FOUND THEN
-        CREATE EXTENSION plpython3u FROM UNPACKAGED;
+        EXECUTE 'CREATE EXTENSION plpython3u FROM UNPACKAGED';
     ELSE
         CREATE EXTENSION IF NOT EXISTS plpython3u;
     END IF;

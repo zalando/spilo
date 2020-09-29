@@ -506,7 +506,7 @@ def get_placeholders(provider):
     placeholders.setdefault('KUBERNETES_SCOPE_LABEL', 'version')
     placeholders.setdefault('KUBERNETES_LABELS', KUBERNETES_DEFAULT_LABELS)
     placeholders.setdefault('KUBERNETES_USE_CONFIGMAPS', '')
-    placeholders.setdefault('KUBERNETES_BYPASS_API_SERVICE', '')
+    placeholders.setdefault('KUBERNETES_BYPASS_API_SERVICE', 'true')
     placeholders.setdefault('USE_PAUSE_AT_RECOVERY_TARGET', False)
     placeholders.setdefault('CLONE_METHOD', '')
     placeholders.setdefault('CLONE_WITH_WALE', '')
@@ -880,7 +880,7 @@ def update_bin_dir(placeholders, version):
 
 
 def main():
-    debug = os.environ.get('DEBUG', '') in ['1', 'true', 'on', 'ON']
+    debug = os.environ.get('DEBUG', '') in ['1', 'true', 'TRUE', 'on', 'ON']
     args = parse_args()
 
     logging.basicConfig(format='%(asctime)s - bootstrapping - %(levelname)s - %(message)s', level=('DEBUG'

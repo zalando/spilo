@@ -15,9 +15,10 @@ extensions = {
     'timescaledb':    (9.6, 12, True,  True),
     'pg_cron':        (9.5, 13, True,  False),
     'pg_stat_kcache': (9.4, 13, True,  False),
-    'pg_partman':     (9.4, 13, False, True),
-    'pg_mon':         (11,  13, True,  False)
+    'pg_partman':     (9.4, 13, False, True)
 }
+if os.environ.get('ENABLE_PG_MON') == 'true':
+    extensions['pg_mon'] = (11,  13, True,  False)
 
 
 def adjust_extensions(old, version, extwlist=False):
