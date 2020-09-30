@@ -57,6 +57,7 @@ def update_configs(new_version):
 
         try:
             for name in os.listdir(envdir):
+                # len('WALE__PREFIX') = 12
                 if len(name) > 12 and name.endswith('_PREFIX') and name[:5] in ('WALE_', 'WALG_'):
                     name = os.path.join(envdir, name)
                     try:
@@ -163,6 +164,10 @@ class InplaceUpgrade(object):
                 logger.error('Failed to resume cluster: %r', e)
 
     def ensure_replicas_state(self, cluster):
+        """
+        This method checks the satatus of all replicas and also tries to open connections
+        to all of them and puts into the `self.replica_connections` dict for a future usage.
+        """
         self.replica_connections = {}
         streaming = {a: l for a, l in self.postgresql.query(
             ("SELECT client_addr, pg_catalog.pg_{0}_{1}_diff(pg_catalog.pg_current_{0}_{1}(),"
@@ -197,7 +202,7 @@ class InplaceUpgrade(object):
 
     def sanity_checks(self, cluster):
         if not cluster.initialize:
-            return logger.error('Upgrade can not be triggered because the cluster is no initialized')
+            return logger.error('Upgrade can not be triggered because the cluster is not initialized')
 
         if len(cluster.members) != self.replica_count:
             return logger.error('Upgrade can not be triggered because the number of replicas does not match (%s != %s)',
@@ -347,6 +352,15 @@ hosts deny = *
             try:
                 cur.execute("SELECT pg_catalog.pg_backend_pid()")
                 pid = cur.fetchone()[0]
+                # We use the COPY TO PROGRAM "hack" to start the rsync on replicas.
+                # There are a few important moments:
+                # 1. The script is started as a child process of postgres backend, which
+                #    is running with the clean environment. I.e., the script will not see
+                #    values of PGVERSION, SPILO_CONFIGURATION, KUBERNETES_SERVICE_HOST
+                # 2. Since access to the DCS might not be possible with pass the primary_ip
+                # 3. The desired_version passed explicitly to guaranty 100% match with the master
+                # 4. In order to protect from the accidental "rsync" we pass the pid of postgres backend.
+                #    The script will check that it is the child of the very specific postgres process.
                 cur.execute("COPY (SELECT) TO PROGRAM 'nohup {0} /scripts/inplace_upgrade.py {1} {2} {3}'"
                             .format(sys.executable, self.desired_version, primary_ip, pid))
                 conn = cur.connection
@@ -652,6 +666,7 @@ def rsync_replica(config, desired_version, primary_ip, pid):
     if os.fork():
         return 0
 
+    # Wait until the remote side will close the connection and backend process exits
     for _ in polling_loop(10):
         if not backend.is_running():
             break

@@ -118,6 +118,7 @@ def get_possible_versions():
 def get_wale_environments(env):
     use_walg = env.get('USE_WALG_RESTORE') == 'true'
     prefix = 'WALG_' if use_walg else 'WALE_'
+    # len('WALE__PREFIX') = 12
     names = [name for name in env.keys() if name.endswith('_PREFIX') and name.startswith(prefix) and len(name) > 12]
     if len(names) != 1:
         raise Exception('Found find {0} {1}*_PREFIX environment variables, expected 1'
