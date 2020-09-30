@@ -125,7 +125,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && curl -sL https://github.com/cybertec-postgresql/pg_permission/archive/$PG_PERMISSIONS_COMMIT.tar.gz | tar xz \
     && git clone -b $SET_USER https://github.com/pgaudit/set_user.git \
     && git clone -b $TIMESCALEDB_LEGACY https://github.com/timescale/timescaledb.git \
-    && git clone https://github.com/cybertec-postgresql/pg_permission.git \
 \
     && apt-get install -y postgresql-common libevent-2.1 libevent-pthreads-2.1 sysstat brotli libbrotli1 python3.6 python3-psycopg2 \
 \
