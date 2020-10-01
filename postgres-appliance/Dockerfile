@@ -194,7 +194,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 EXTRA_EXTENSIONS=""; \
             fi \
 \
-            && for n in bg_mon-${BG_MON_COMMIT} pg_auth_mon-${PG_AUTH_MON_COMMIT} set_user pg_permission $EXTRA_EXTENSIONS; do \
+            && for n in bg_mon-${BG_MON_COMMIT} pg_auth_mon-${PG_AUTH_MON_COMMIT} set_user pg_permission-${PG_PERMISSIONS_COMMIT} $EXTRA_EXTENSIONS; do \
                 make -C $n USE_PGXS=1 clean install-strip; \
             done; \
     done \
