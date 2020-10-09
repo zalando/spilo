@@ -68,7 +68,7 @@ ARG DEB_PG_SUPPORTED_VERSIONS="$PGOLDVERSIONS $PGVERSION"
 
 # Install PostgreSQL, extensions and contribs
 ENV POSTGIS_VERSION=3.0 \
-    BG_MON_COMMIT=1418440bb6eb9466199c037d005560b5bf06aafc \
+    BG_MON_COMMIT=2dbc0376d5382e5fc3c68fe490ccbe082c67dbe8 \
     PG_AUTH_MON_COMMIT=a0c086ad9865c9a0f468f12d09b77353acd2de28 \
     PG_MON_COMMIT=12bdfa8d93294fb596c9066bc7e6f73bfead35da \
     DECODERBUFS=v1.2.1.Final \
@@ -146,6 +146,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                         postgresql-${version}-plpgsql-check \
                         postgresql-${version}-postgis-${POSTGIS_VERSION%.0} \
                         postgresql-${version}-postgis-${POSTGIS_VERSION%.0}-scripts \
+                        postgresql-${version}-repack \
                         postgresql-${version}-wal2json" \
                 && if [ $version != "13" ]; then \
                     EXTRAS="$EXTRAS \
@@ -156,8 +157,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                             postgresql-${version}-pgl-ddl-deploy \
                             postgresql-${version}-pglogical \
                             postgresql-${version}-pglogical-ticker \
-                            postgresql-${version}-plproxy \
-                            postgresql-${version}-repack"; \
+                            postgresql-${version}-plproxy"; \
                 fi \
                 && if [ "$WITH_PERL" = "true" ]; then \
                     EXTRAS="$EXTRAS postgresql-plperl-${version}"; \
@@ -232,7 +232,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && DEB_BUILD_OPTIONS=nocheck debuild -b -uc -us \
         && cd .. \
         && dpkg -i pgbouncer_*.deb \
-        && PACKAGES="plproxy partman repack"; \
+        && PACKAGES="plproxy partman"; \
     fi \
 \
     # build and install missing packages
