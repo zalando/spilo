@@ -146,6 +146,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                         postgresql-${version}-plpgsql-check \
                         postgresql-${version}-postgis-${POSTGIS_VERSION%.0} \
                         postgresql-${version}-postgis-${POSTGIS_VERSION%.0}-scripts \
+                        postgresql-${version}-repack \
                         postgresql-${version}-wal2json" \
                 && if [ $version != "13" ]; then \
                     EXTRAS="$EXTRAS \
@@ -156,8 +157,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                             postgresql-${version}-pgl-ddl-deploy \
                             postgresql-${version}-pglogical \
                             postgresql-${version}-pglogical-ticker \
-                            postgresql-${version}-plproxy \
-                            postgresql-${version}-repack"; \
+                            postgresql-${version}-plproxy"; \
                 fi \
                 && if [ "$WITH_PERL" = "true" ]; then \
                     EXTRAS="$EXTRAS postgresql-plperl-${version}"; \
@@ -232,7 +232,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && DEB_BUILD_OPTIONS=nocheck debuild -b -uc -us \
         && cd .. \
         && dpkg -i pgbouncer_*.deb \
-        && PACKAGES="plproxy partman repack"; \
+        && PACKAGES="plproxy partman"; \
     fi \
 \
     # build and install missing packages
