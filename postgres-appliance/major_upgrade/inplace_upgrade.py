@@ -615,7 +615,8 @@ hosts deny = *
         self.postgresql.bootstrap.call_post_bootstrap(self.config['bootstrap'])
         self.postgresql.cleanup_old_pgdata()
 
-        self.start_backup(envdir)
+        if envdir:
+            self.start_backup(envdir)
 
         return ret
 
