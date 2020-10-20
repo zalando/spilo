@@ -1,4 +1,5 @@
 #!/bin/bash
+set -Eeo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")" || exit 1
 
@@ -160,3 +161,55 @@ GRANT EXECUTE ON FUNCTION public.pg_stat_statements_reset($RESET_ARGS) TO admin;
     cat metric_helpers.sql
 done < <(psql -d "$2" -tAc 'select pg_catalog.quote_ident(datname) from pg_catalog.pg_database where datallowconn')
 ) | PGOPTIONS="-c synchronous_commit=local" psql -Xd "$2"
+
+
+#The folloving code is taken from https://github.com/docker-library/postgres/blob/master/docker-entrypoint.sh
+
+# usage: docker_process_init_files [file [file [...]]]
+#    ie: docker_process_init_files /always-initdb.d/*
+# process initializer files, based on file extensions and permissions
+docker_process_init_files() {
+	echo
+	local f
+	for f; do
+		case "$f" in
+			*.sh)
+				# https://github.com/docker-library/postgres/issues/450#issuecomment-393167936
+				# https://github.com/docker-library/postgres/pull/452
+				if [ -x "$f" ]; then
+					echo "$0: running $f"
+					"$f"
+				else
+					echo "$0: sourcing $f"
+					. "$f"
+				fi
+				;;
+			*.sql)    echo "$0: running $f"; docker_process_sql -f "$f"; echo ;;
+			*.sql.gz) echo "$0: running $f"; gunzip -c "$f" | docker_process_sql; echo ;;
+			*.sql.xz) echo "$0: running $f"; xzcat "$f" | docker_process_sql; echo ;;
+			*)        echo "$0: ignoring $f" ;;
+		esac
+		echo
+	done
+}
+
+# Execute sql script, passed via stdin (or -f flag of pqsl)
+# usage: docker_process_sql [psql-cli-args]
+#    ie: docker_process_sql --dbname=mydb <<<'INSERT ...'
+#    ie: docker_process_sql -f my-file.sql
+#    ie: docker_process_sql <my-file.sql
+docker_process_sql() {
+	local query_runner=( psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --no-password )
+	if [ -n "$POSTGRES_DB" ]; then
+		query_runner+=( --dbname "$POSTGRES_DB" )
+	fi
+
+	"${query_runner[@]}" "$@"
+}
+
+
+
+# check dir permissions to reduce likelihood of half-initialized database
+ls /docker-entrypoint-initdb.d/ > /dev/null
+
+docker_process_init_files /docker-entrypoint-initdb.d/*
