@@ -181,7 +181,8 @@ docker_process_init_files() {
 					"$f"
 				else
 					echo "$0: sourcing $f"
-					. "$f"
+					# shellcheck disable=SC1090
+					source "$f"
 				fi
 				;;
 			*.sql)    echo "$0: running $f"; docker_process_sql -f "$f"; echo ;;
@@ -199,7 +200,7 @@ docker_process_init_files() {
 #    ie: docker_process_sql -f my-file.sql
 #    ie: docker_process_sql <my-file.sql
 docker_process_sql() {
-	local query_runner=( psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --no-password )
+	local query_runner=( psql -v "ON_ERROR_STOP=1" --username "$POSTGRES_USER" --no-password )
 	if [ -n "$POSTGRES_DB" ]; then
 		query_runner+=( --dbname "$POSTGRES_DB" )
 	fi
