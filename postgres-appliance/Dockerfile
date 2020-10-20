@@ -467,6 +467,7 @@ ENV WALE_ENV_DIR=$RW_DIR/etc/wal-e.d/env \
 ENV PGDATA=$PGROOT/data \
     PGLOG=$PGROOT/pg_log
 
+WORKDIR /docker-entrypoint-initdb.d
 WORKDIR $PGHOME
 
 COPY motd /etc/
