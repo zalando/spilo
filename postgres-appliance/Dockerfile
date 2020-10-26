@@ -139,25 +139,25 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 \
             && if [ "$DEMO" != "true" ]; then \
                 EXTRAS="postgresql-pltcl-${version} \
+                        postgresql-${version}-cron \
+                        postgresql-${version}-pg-checksums \
+                        postgresql-${version}-pglogical \
+                        postgresql-${version}-pglogical-ticker \
                         postgresql-${version}-pgq3 \
                         postgresql-${version}-pg-stat-kcache \
                         postgresql-${version}-pldebugger \
                         postgresql-${version}-pllua \
                         postgresql-${version}-plpgsql-check \
+                        postgresql-${version}-plproxy \
                         postgresql-${version}-postgis-${POSTGIS_VERSION%.0} \
                         postgresql-${version}-postgis-${POSTGIS_VERSION%.0}-scripts \
                         postgresql-${version}-repack \
                         postgresql-${version}-wal2json" \
                 && if [ $version != "13" ]; then \
                     EXTRAS="$EXTRAS \
-                            postgresql-${version}-cron \
                             postgresql-${version}-hypopg \
                             postgresql-${version}-pgaudit \
-                            postgresql-${version}-pg-checksums \
-                            postgresql-${version}-pgl-ddl-deploy \
-                            postgresql-${version}-pglogical \
-                            postgresql-${version}-pglogical-ticker \
-                            postgresql-${version}-plproxy"; \
+                            postgresql-${version}-pgl-ddl-deploy"; \
                 fi \
                 && if [ "$WITH_PERL" = "true" ]; then \
                     EXTRAS="$EXTRAS postgresql-plperl-${version}"; \
@@ -215,10 +215,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 \
     && if [ "$DEMO" != "true" ]; then \
         for version in $DEB_PG_SUPPORTED_VERSIONS; do \
-            if [ $version != 13 ]; then \
-                # due to dependency issues partman has to be installed separately
-                apt-get install -y postgresql-${version}-partman; \
-            fi \
+            # due to dependency issues partman has to be installed separately
+            apt-get install -y postgresql-${version}-partman \
             # create postgis symlinks to make it possible to perform update
             && ln -s postgis-${POSTGIS_VERSION%.0}.so \
                 /usr/lib/postgresql/${version}/lib/postgis-2.5.so; \
@@ -231,15 +229,13 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && sed -i 's/\(SEND_wrap(\)512\(, pktbuf_write_PasswordMessage, res, sk, psw)\)/\11024\2/' include/pktbuf.h \
         && DEB_BUILD_OPTIONS=nocheck debuild -b -uc -us \
         && cd .. \
-        && dpkg -i pgbouncer_*.deb \
-        && PACKAGES="plproxy partman"; \
+        && dpkg -i pgbouncer_*.deb; \
     fi \
 \
     # build and install missing packages
-    && for pkg in pgextwlist cron $PACKAGES; do \
-        apt-get source postgresql-12-${pkg} \
+    && for pkg in pgextwlist; do \
+        apt-get source postgresql-${PGVERSION}-${pkg} \
         && cd $(ls -d *${pkg%?}*-*/) \
-        && if [ -f ../$pkg.patch ]; then patch -p1 < ../$pkg.patch; fi \
         && if [ "$pkg" = "pgextwlist" ]; then \
             sed -i '/postgresql-all/d' debian/control.in \
             # make it possible to use it from shared_preload_libraries
@@ -247,11 +243,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             && egrep -v '(PG_END_TRY|EmitWarningsOnPlaceholders)' pgextwlist.c.f > pgextwlist.c; \
         fi \
         && pg_buildext updatecontrol \
-        && if [ "$pkg" = "pgextwlist" ]; then \
-            DEB_BUILD_OPTIONS=nocheck debuild -b -uc -us; \
-        else \
-            DEB_PG_SUPPORTED_VERSIONS=$PGVERSION debuild -b -uc -us; \
-        fi \
+        && DEB_BUILD_OPTIONS=nocheck debuild -b -uc -us \
         && cd .. \
         && for version in $DEB_PG_SUPPORTED_VERSIONS; do \
             for deb in postgresql-${version}-${pkg}_*.deb; do \
