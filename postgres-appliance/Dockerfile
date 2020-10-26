@@ -53,7 +53,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && find /var/log -type f -exec truncate --size 0 {} \;
 
 COPY dependencies/debs dependencies/src /builddeps/
-COPY patches/*.patch /builddeps/
 
 ARG PGVERSION
 ARG TIMESCALEDB
@@ -91,10 +90,9 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && rm -f *.deb \
         && apt-get install -y $BUILD_PACKAGES; \
     else \
-        BUILD_PACKAGES="$BUILD_PACKAGES pgxnclient zlib1g-dev libprotobuf-c-dev libpam0g-dev libcurl4-openssl-dev libicu-dev python libc-ares-dev pandoc pkg-config flex bison asciidoc" \
+        BUILD_PACKAGES="$BUILD_PACKAGES pgxnclient zlib1g-dev libprotobuf-c-dev libpam0g-dev libcurl4-openssl-dev libicu-dev python libc-ares-dev pandoc pkg-config" \
 # debezium-decoderbufs: libprotobuf-c-dev
 # pgbouncer: libc-ares-dev pandoc pkg-config
-# plproxy: flex bison asciidoc
         && apt-get install -y $BUILD_PACKAGES libprotobuf-c1 libcurl4 \
 \
         # install pam_oauth2.so
@@ -206,8 +204,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 \
     && apt-get install -y skytools3-ticker \
 \
-#    && sed -i "s/ main.*$/ main/g" /etc/apt/sources.list.d/pgdg.list \
-#    && apt-get update \
+    && sed -i "s/ main.*$/ main/g" /etc/apt/sources.list.d/pgdg.list \
+    && apt-get update \
     && apt-get install -y postgresql postgresql-server-dev-all libpq-dev \
     && for version in $DEB_PG_SUPPORTED_VERSIONS; do \
         apt-get install -y postgresql-server-dev-${version}; \
@@ -234,7 +232,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 \
     # build and install missing packages
     && for pkg in pgextwlist; do \
-        apt-get source postgresql-${PGVERSION}-${pkg} \
+        apt-get source postgresql-$PGVERSION-${pkg} \
         && cd $(ls -d *${pkg%?}*-*/) \
         && if [ "$pkg" = "pgextwlist" ]; then \
             sed -i '/postgresql-all/d' debian/control.in \
