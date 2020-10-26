@@ -241,13 +241,14 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && cd $(ls -d *${pkg%?}*-*/) \
         && if [ -f ../$pkg.patch ]; then patch -p1 < ../$pkg.patch; fi \
         && if [ "$pkg" = "pgextwlist" ]; then \
+            sed -i '/postgresql-all/d' debian/control.in \
             # make it possible to use it from shared_preload_libraries
-            perl -ne 'print unless /PG_TRY/ .. /PG_CATCH/' pgextwlist.c > pgextwlist.c.f \
+            && perl -ne 'print unless /PG_TRY/ .. /PG_CATCH/' pgextwlist.c > pgextwlist.c.f \
             && egrep -v '(PG_END_TRY|EmitWarningsOnPlaceholders)' pgextwlist.c.f > pgextwlist.c; \
         fi \
         && pg_buildext updatecontrol \
         && if [ "$pkg" = "pgextwlist" ]; then \
-            debuild -b -uc -us; \
+            DEB_BUILD_OPTIONS=nocheck debuild -b -uc -us; \
         else \
             DEB_PG_SUPPORTED_VERSIONS=$PGVERSION debuild -b -uc -us; \
         fi \
