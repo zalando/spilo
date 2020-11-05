@@ -892,7 +892,7 @@ def get_binary_version(bin_dir):
 
 
 def update_bin_dir(placeholders, version):
-    bin_dir = get_bin_dir(version)
+    bin_dir = '/usr/lib/postgresql/{0}/bin'.format(version)
     postgres = os.path.join(bin_dir, 'postgres')
     if os.path.isfile(postgres) and os.access(postgres, os.X_OK):  # check that there is postgres binary inside
         placeholders['postgresql']['bin_dir'] = bin_dir
