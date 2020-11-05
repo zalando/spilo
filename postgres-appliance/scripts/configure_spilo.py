@@ -891,6 +891,13 @@ def get_binary_version(bin_dir):
     return '.'.join([version.group(1), version.group(3)]) if int(version.group(1)) < 10 else version.group(1)
 
 
+def update_bin_dir(placeholders, version):
+    bin_dir = get_bin_dir(version)
+    postgres = os.path.join(bin_dir, 'postgres')
+    if os.path.isfile(postgres) and os.access(postgres, os.X_OK):  # check that there is postgres binary inside
+        placeholders['postgresql']['bin_dir'] = bin_dir
+
+
 def main():
     debug = os.environ.get('DEBUG', '') in ['1', 'true', 'TRUE', 'on', 'ON']
     args = parse_args()
@@ -917,12 +924,16 @@ def main():
         link_runit_service(placeholders, 'etcd')
         config['etcd'] = {'host': '127.0.0.1:2379'}
 
-    # try to build bin_dir from PGVERSION environment variable if postgresql.bin_dir wasn't set in SPILO_CONFIGURATION
-    if 'bin_dir' not in config['postgresql']:
-        bin_dir = os.path.join('/usr/lib/postgresql', os.environ.get('PGVERSION', ''), 'bin')
-        postgres = os.path.join(bin_dir, 'postgres')
-        if os.path.isfile(postgres) and os.access(postgres, os.X_OK):  # check that there is postgres binary inside
-            config['postgresql']['bin_dir'] = bin_dir
+    pgdata = config['postgresql']['data_dir']
+    version_file = os.path.join(pgdata, 'PG_VERSION')
+    # if PG_VERSION file exists stick to it and build respective bin_dir
+    if os.path.exists(version_file):
+        with open(version_file) as f:
+            update_bin_dir(config, f.read().strip())
+
+    # try to build bin_dir from PGVERSION if bin_dir is not set in SPILO_CONFIGURATION and PGDATA is empty
+    if not os.path.exists(version_file) or not config['postgresql'].get('bin_dir'):
+        update_bin_dir(config, os.environ.get('PGVERSION', ''))
 
     version = float(get_binary_version(config['postgresql'].get('bin_dir')))
     if 'shared_preload_libraries' not in user_config.get('postgresql', {}).get('parameters', {}):
