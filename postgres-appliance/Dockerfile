@@ -3,8 +3,11 @@ ARG TIMESCALEDB=1.7.4
 ARG TIMESCALEDB_LEGACY=1.7.4
 ARG DEMO=false
 ARG COMPRESS=false
+ARG ADDITIONAL_LOCALES=
 
 FROM ubuntu:18.04 as builder-false
+
+ARG ADDITIONAL_LOCALES
 
 RUN export DEBIAN_FRONTEND=noninteractive \
     && echo 'APT::Install-Recommends "0";\nAPT::Install-Suggests "0";' > /etc/apt/apt.conf.d/01norecommend \
@@ -25,13 +28,23 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 | tar xz -C /bin --strip=1 --wildcards --no-anchored etcdctl etcd; \
     fi \
 \
-    # Cleanup all locales but en_US.UTF-8
+    # Prepare find expression for ADDITIONAL_LOCALES
+    && for ADDITIONAL_LOCALE in $(echo $ADDITIONAL_LOCALES | sed "s/,/ /g"); do \
+        ADDITIONAL_LOCALE_FIND_EXPR="${ADDITIONAL_LOCALE_FIND_EXPR} ! -name ${ADDITIONAL_LOCALE}"; \
+    done \
+    # Cleanup all locales but en_US.UTF-8 and optionally specified in ADDITIONAL_LOCALES arg
     && find /usr/share/i18n/charmaps/ -type f ! -name UTF-8.gz -delete \
-    && find /usr/share/i18n/locales/ -type f ! -name en_US ! -name en_GB ! -name i18n* ! -name iso14651_t1 ! -name iso14651_t1_common ! -name 'translit_*' -delete \
+    && find /usr/share/i18n/locales/ -type f ! -name en_US ! -name en_GB ${ADDITIONAL_LOCALE_FIND_EXPR} ! -name i18n* ! -name iso14651_t1 ! -name iso14651_t1_common ! -name 'translit_*' -delete \
     && echo 'en_US.UTF-8 UTF-8' > /usr/share/i18n/SUPPORTED \
 \
-    ## Make sure we have a en_US.UTF-8 locale available
+    # Make sure we have a en_US.UTF-8 locale available
     && localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8 \
+\
+    # Make sure we have all additional locales available
+    && for ADDITIONAL_LOCALE in $(echo $ADDITIONAL_LOCALES | sed "s/,/ /g"); do \
+        echo "${ADDITIONAL_LOCALE}.UTF-8 UTF-8" >> /usr/share/i18n/SUPPORTED; \
+        localedef -i ${ADDITIONAL_LOCALE} -c -f UTF-8 -A /usr/share/locale/locale.alias ${ADDITIONAL_LOCALE}.UTF-8; \
+    done \
 \
     # Add PGDG repositories
     && DISTRIB_CODENAME=$(sed -n 's/DISTRIB_CODENAME=//p' /etc/lsb-release) \
