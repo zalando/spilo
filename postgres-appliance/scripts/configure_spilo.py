@@ -40,7 +40,7 @@ extensions = {
     'pg_partman':     (9.4, 12, False, True)
 }
 
-AUTO_ENABLE_WALG_RESTORE = ('WAL_S3_BUCKET', 'WALE_S3_PREFIX', 'WALG_S3_PREFIX','WALG_AZ_PREFIX')
+AUTO_ENABLE_WALG_RESTORE = ('WAL_S3_BUCKET', 'WALE_S3_PREFIX', 'WALG_S3_PREFIX', 'WALG_AZ_PREFIX')
 
 
 def parse_args():
@@ -405,7 +405,7 @@ def get_instance_metadata(provider):
 
 
 def set_extended_wale_placeholders(placeholders, prefix):
-    """ checks that enough parameters are provided to configure cloning or standby with WAL-E """    
+    """ checks that enough parameters are provided to configure cloning or standby with WAL-E """
     for name in ('S3', 'GS', 'GCS', 'SWIFT', 'AZ'):
         if placeholders.get('{0}WALE_{1}_PREFIX'.format(prefix, name)) or\
                 name in ('S3', 'GS') and placeholders.get('{0}WALG_{1}_PREFIX'.format(prefix, name)) or\
@@ -422,7 +422,7 @@ def set_extended_wale_placeholders(placeholders, prefix):
 
 def set_walg_placeholders(placeholders, prefix=''):
     walg_supported = any(placeholders.get(prefix + n) for n in AUTO_ENABLE_WALG_RESTORE +
-                         ('WAL_GS_BUCKET', 'WALE_GS_PREFIX', 'WALG_GS_PREFIX','WALG_AZ_PREFIX'))
+                         ('WAL_GS_BUCKET', 'WALE_GS_PREFIX', 'WALG_GS_PREFIX', 'WALG_AZ_PREFIX'))
     default = placeholders.get('USE_WALG', False)
     placeholders.setdefault(prefix + 'USE_WALG', default)
     for name in ('USE_WALG_BACKUP', 'USE_WALG_RESTORE'):
@@ -562,7 +562,7 @@ def get_placeholders(provider):
 
     placeholders['USE_WALE'] = any(placeholders.get(n) for n in AUTO_ENABLE_WALG_RESTORE +
                                    ('WAL_SWIFT_BUCKET', 'WALE_SWIFT_PREFIX', 'WAL_GCS_BUCKET',
-                                    'WAL_GS_BUCKET', 'WALE_GS_PREFIX', 'WALG_GS_PREFIX','WALG_AZ_PREFIX'))
+                                    'WAL_GS_BUCKET', 'WALE_GS_PREFIX', 'WALG_GS_PREFIX', 'WALG_AZ_PREFIX'))
 
     if placeholders.get('WALG_BACKUP_FROM_REPLICA'):
         placeholders['WALG_BACKUP_FROM_REPLICA'] = str(placeholders['WALG_BACKUP_FROM_REPLICA']).lower()
@@ -684,7 +684,7 @@ def write_wale_environment(placeholders, prefix, overwrite):
     s3_names = ['WALE_S3_PREFIX', 'WALG_S3_PREFIX', 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY',
                 'WALE_S3_ENDPOINT', 'AWS_ENDPOINT', 'AWS_REGION', 'AWS_INSTANCE_PROFILE',
                 'WALG_S3_SSE_KMS_ID', 'WALG_S3_SSE', 'WALG_DISABLE_S3_SSE', 'AWS_S3_FORCE_PATH_STYLE']
-    azure_names = ['WALG_AZ_PREFIX','AZURE_STORAGE_ACCOUNT','AZURE_STORAGE_ACCESS_KEY']
+    azure_names = ['WALG_AZ_PREFIX', 'AZURE_STORAGE_ACCOUNT', 'AZURE_STORAGE_ACCESS_KEY']
     gs_names = ['WALE_GS_PREFIX', 'WALG_GS_PREFIX', 'GOOGLE_APPLICATION_CREDENTIALS']
     swift_names = ['WALE_SWIFT_PREFIX', 'SWIFT_AUTHURL', 'SWIFT_TENANT', 'SWIFT_TENANT_ID', 'SWIFT_USER',
                    'SWIFT_USER_ID', 'SWIFT_USER_DOMAIN_NAME', 'SWIFT_USER_DOMAIN_ID', 'SWIFT_PASSWORD',
@@ -699,7 +699,8 @@ def write_wale_environment(placeholders, prefix, overwrite):
 
     wale = defaultdict(lambda: '')
     for name in ['WALE_ENV_DIR', 'SCOPE', 'WAL_BUCKET_SCOPE_PREFIX', 'WAL_BUCKET_SCOPE_SUFFIX',
-                 'WAL_S3_BUCKET', 'WAL_GCS_BUCKET', 'WAL_GS_BUCKET', 'WAL_SWIFT_BUCKET', 'BACKUP_NUM_TO_RETAIN','WALG_AZ_PREFIX'] +\
+                 'WAL_S3_BUCKET', 'WAL_GCS_BUCKET', 'WAL_GS_BUCKET', 'WAL_SWIFT_BUCKET', 'BACKUP_NUM_TO_RETAIN',
+                 'WALG_AZ_PREFIX'] +\
             s3_names + swift_names + gs_names + walg_names + azure_names:
         wale[name] = placeholders.get(prefix + name, '')
 
@@ -742,7 +743,7 @@ def write_wale_environment(placeholders, prefix, overwrite):
     elif wale.get('WAL_SWIFT_BUCKET') or wale.get('WALE_SWIFT_PREFIX'):
         write_envdir_names = swift_names
     elif wale.get("WALG_AZ_PREFIX"):
-         write_envdir_names = azure_names + walg_names
+        write_envdir_names = azure_names + walg_names
     else:
         return
 
