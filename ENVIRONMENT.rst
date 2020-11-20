@@ -67,7 +67,7 @@ Environment Configuration Settings
 - **WALE_SWIFT_PREFIX**: (optional) the full path to the backup location on the Swift Storage in the format swift://bucket-name/very/long/path. If not specified Spilo will generate it from WAL_SWIFT_BUCKET.
 - **WALG_AZ_PREFIX**: (optional) the azure prefix to store WAL backups at in the format azure://test-container/walg-folder.
 - **AZURE_STORAGE_ACCOUNT**:(optional) the azure storage account to use for WAL backups.
-- **AZURE_STORAGE_ACCONT_ACCESS_KEY**:(optional) the access key for the azure storage account used for WAL backups.
+- **AZURE_STORAGE_ACCOUNT_ACCESS_KEY**:(optional) the access key for the azure storage account used for WAL backups.
 - **CALLBACK_SCRIPT**: the callback script to run on various cluster actions (on start, on stop, on restart, on role change). The script will receive the cluster name, connection string and the current action. See `Patroni <http://patroni.readthedocs.io/en/latest/SETTINGS.html?highlight=callback#postgresql>`__ documentation for details.
 - **LOG_S3_BUCKET**: path to the S3 bucket used for PostgreSQL daily log files (i.e. s3://foobar). Spilo will add /spilo/scope/pg_daily_logs to that path. Logs are shipped if this variable is set.
 - **LOG_SHIP_SCHEDULE**: cron schedule for shipping compressed logs from ``pg_log`` (if this feature is enabled, '00 02 * * *' by default)
