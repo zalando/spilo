@@ -422,7 +422,7 @@ def set_extended_wale_placeholders(placeholders, prefix):
 
 def set_walg_placeholders(placeholders, prefix=''):
     walg_supported = any(placeholders.get(prefix + n) for n in AUTO_ENABLE_WALG_RESTORE +
-                         ('WAL_GS_BUCKET', 'WALE_GS_PREFIX', 'WALG_GS_PREFIX', 'WALG_AZ_PREFIX'))
+                         ('WAL_GS_BUCKET', 'WALE_GS_PREFIX', 'WALG_GS_PREFIX'))
     default = placeholders.get('USE_WALG', False)
     placeholders.setdefault(prefix + 'USE_WALG', default)
     for name in ('USE_WALG_BACKUP', 'USE_WALG_RESTORE'):
@@ -562,7 +562,7 @@ def get_placeholders(provider):
 
     placeholders['USE_WALE'] = any(placeholders.get(n) for n in AUTO_ENABLE_WALG_RESTORE +
                                    ('WAL_SWIFT_BUCKET', 'WALE_SWIFT_PREFIX', 'WAL_GCS_BUCKET',
-                                    'WAL_GS_BUCKET', 'WALE_GS_PREFIX', 'WALG_GS_PREFIX', 'WALG_AZ_PREFIX'))
+                                    'WAL_GS_BUCKET', 'WALE_GS_PREFIX', 'WALG_GS_PREFIX'))
 
     if placeholders.get('WALG_BACKUP_FROM_REPLICA'):
         placeholders['WALG_BACKUP_FROM_REPLICA'] = str(placeholders['WALG_BACKUP_FROM_REPLICA']).lower()
