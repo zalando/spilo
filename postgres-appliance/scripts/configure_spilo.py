@@ -755,6 +755,7 @@ def write_wale_environment(placeholders, prefix, overwrite):
     # Set WALG_*_PREFIX for future compatibility
     if store_type in ('S3', 'GS') and not wale.get(write_envdir_names[1]):
         wale[write_envdir_names[1]] = wale[prefix_env_name]
+
     if not os.path.exists(wale['WALE_ENV_DIR']):
         os.makedirs(wale['WALE_ENV_DIR'])
 
