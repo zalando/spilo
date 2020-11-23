@@ -67,7 +67,7 @@ ARG DEB_PG_SUPPORTED_VERSIONS="$PGOLDVERSIONS $PGVERSION"
 
 # Install PostgreSQL, extensions and contribs
 ENV POSTGIS_VERSION=3.0 \
-    BG_MON_COMMIT=2dbc0376d5382e5fc3c68fe490ccbe082c67dbe8 \
+    BG_MON_COMMIT=8a21dc39c9fdb20cbd37327d8e0f531755f5dd80 \
     PG_AUTH_MON_COMMIT=a0c086ad9865c9a0f468f12d09b77353acd2de28 \
     PG_MON_COMMIT=12bdfa8d93294fb596c9066bc7e6f73bfead35da \
     DECODERBUFS=v1.2.1.Final \
@@ -138,6 +138,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             && if [ "$DEMO" != "true" ]; then \
                 EXTRAS="postgresql-pltcl-${version} \
                         postgresql-${version}-cron \
+                        postgresql-${version}-hypopg \
                         postgresql-${version}-pg-checksums \
                         postgresql-${version}-pglogical \
                         postgresql-${version}-pglogical-ticker \
@@ -153,7 +154,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                         postgresql-${version}-wal2json" \
                 && if [ $version != "13" ]; then \
                     EXTRAS="$EXTRAS \
-                            postgresql-${version}-hypopg \
                             postgresql-${version}-pgaudit \
                             postgresql-${version}-pgl-ddl-deploy"; \
                 fi \
@@ -408,6 +408,10 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && pip3 install filechunkio wal-e[aws,google,swift]==$WALE_VERSION \
                 'git+https://github.com/zalando/pg_view.git@master#egg=pg-view' \
 \
+        # Don't monkey patch thread, it causing performance issues with S3
+        # https://github.com/wal-e/wal-e/commit/485d834a18c9b0d97115d95f89e16bdc564e9a18#commitcomment-34529978
+        && sed -i 's/^ *gevent.monkey.patch_thread/#&/' \
+                    /usr/local/lib/python3.6/dist-packages/wal_e/cmd.py \
         # https://github.com/wal-e/wal-e/issues/318
         && sed -i 's/^\(    for i in range(0,\) num_retries):.*/\1 100):/g' \
                     /usr/lib/python3/dist-packages/boto/utils.py; \
