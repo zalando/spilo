@@ -558,6 +558,8 @@ def get_placeholders(provider):
 
     if any(placeholders.get(n) for n in AUTO_ENABLE_WALG_RESTORE):
         placeholders.setdefault('USE_WALG_RESTORE', 'true')
+    if placeholders.get('WALG_AZ_PREFIX'):
+        placeholders.setdefault('USE_WALG_BACKUP', 'true')
     set_walg_placeholders(placeholders)
 
     placeholders['USE_WALE'] = any(placeholders.get(n) for n in AUTO_ENABLE_WALG_RESTORE +
