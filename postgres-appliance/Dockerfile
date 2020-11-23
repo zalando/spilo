@@ -404,7 +404,10 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && pip3 install filechunkio wal-e[aws,google,swift]==$WALE_VERSION \
                 'git+https://github.com/zalando/pg_view.git@master#egg=pg-view' \
 \
-        && cd /usr/local/lib/python3.6/dist-packages \
+        # Don't monkey patch thread, it causing performance issues with S3
+        # https://github.com/wal-e/wal-e/commit/485d834a18c9b0d97115d95f89e16bdc564e9a18#commitcomment-34529978
+        && sed -i 's/^ *gevent.monkey.patch_thread/#&/' \
+                    /usr/local/lib/python3.6/dist-packages/wal_e/cmd.py \
         # https://github.com/wal-e/wal-e/issues/318
         && sed -i 's/^\(    for i in range(0,\) num_retries):.*/\1 100):/g' \
                     /usr/lib/python3/dist-packages/boto/utils.py; \
