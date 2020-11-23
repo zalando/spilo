@@ -409,8 +409,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         # https://github.com/wal-e/wal-e/commit/485d834a18c9b0d97115d95f89e16bdc564e9a18#commitcomment-34529978
         && sed -i 's/^ *gevent.monkey.patch_thread/#&/' wal_e/cmd.py \
         # https://github.com/wal-e/wal-e/issues/318
-        && sed -i 's/^\(    for i in range(0,\) num_retries):.*/\1 100):/g' \
-                    /usr/lib/python3/dist-packages/boto/utils.py; \
+        && sed -i 's/^\(    for i in range(0,\) num_retries):.*/\1 100):/g' boto/utils.py; \
     fi \
     && pip3 install "git+https://github.com/zalando/patroni.git@2.0/bugfixes#egg=patroni[kubernetes$EXTRAS]" \
 \
