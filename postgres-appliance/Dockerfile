@@ -3,11 +3,10 @@ ARG TIMESCALEDB=1.7.4
 ARG TIMESCALEDB_LEGACY=1.7.4
 ARG DEMO=false
 ARG COMPRESS=false
-ARG ADDITIONAL_LOCALES=
 
 FROM ubuntu:18.04 as builder-false
 
-ARG ADDITIONAL_LOCALES
+ARG ADDITIONAL_LOCALES=
 
 RUN export DEBIAN_FRONTEND=noninteractive \
     && echo 'APT::Install-Recommends "0";\nAPT::Install-Suggests "0";' > /etc/apt/apt.conf.d/01norecommend \
@@ -29,8 +28,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     fi \
 \
     # Prepare find expression for ADDITIONAL_LOCALES
-    && for ADDITIONAL_LOCALE in $(echo $ADDITIONAL_LOCALES | sed "s/,/ /g"); do \
-        ADDITIONAL_LOCALE_FIND_EXPR="${ADDITIONAL_LOCALE_FIND_EXPR} ! -name ${ADDITIONAL_LOCALE}"; \
+    && for loc in $ADDITIONAL_LOCALES; do \
+        ADDITIONAL_LOCALE_FIND_EXPR="${ADDITIONAL_LOCALE_FIND_EXPR} ! -name ${loc}"; \
     done \
     # Cleanup all locales but en_US.UTF-8 and optionally specified in ADDITIONAL_LOCALES arg
     && find /usr/share/i18n/charmaps/ -type f ! -name UTF-8.gz -delete \
@@ -41,9 +40,9 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8 \
 \
     # Make sure we have all additional locales available
-    && for ADDITIONAL_LOCALE in $(echo $ADDITIONAL_LOCALES | sed "s/,/ /g"); do \
-        echo "${ADDITIONAL_LOCALE}.UTF-8 UTF-8" >> /usr/share/i18n/SUPPORTED; \
-        localedef -i ${ADDITIONAL_LOCALE} -c -f UTF-8 -A /usr/share/locale/locale.alias ${ADDITIONAL_LOCALE}.UTF-8; \
+    && for loc in $ADDITIONAL_LOCALES; do \
+        echo "${loc}.UTF-8 UTF-8" >> /usr/share/i18n/SUPPORTED; \
+        localedef -i ${loc} -c -f UTF-8 -A /usr/share/locale/locale.alias ${loc}.UTF-8; \
     done \
 \
     # Add PGDG repositories

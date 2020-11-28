@@ -75,4 +75,4 @@ Environment Configuration Settings
 - **KUBERNETES_ROLE_LABEL**: name of the label containing Postgres role when running on Kubernetens. Default is 'spilo-role'.
 - **KUBERNETES_SCOPE_LABEL**: name of the label containing cluster name. Default is 'version'.
 - **KUBERNETES_LABELS**: a JSON describing names and values of other labels used by Patroni on Kubernetes to locate its metadata. Default is '{"application": "spilo"}'.
-- **INITDB_LOCALE**: database cluster's default locale (en_US by default)
+- **INITDB_LOCALE**: database cluster's default UTF-8 locale (en_US by default)
