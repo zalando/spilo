@@ -125,7 +125,8 @@ def get_wale_environments(env):
                         .format(len(names), prefix))
 
     name = names[0]
-    value = env[name].rstrip('/')
+    orig_value = env[name]
+    value = orig_value.rstrip('/')
 
     if '/spilo/' in value and value.endswith('/wal'):  # path crafted in the configure_spilo.py?
         # Try all versions descending if we don't know the version of the source cluster
@@ -133,7 +134,7 @@ def get_wale_environments(env):
             yield name, '{0}/{1}/'.format(value, version)
 
     # Last, try the original value
-    yield name, env[name]
+    yield name, orig_value
 
 
 def find_backup(recovery_target_time, env):
