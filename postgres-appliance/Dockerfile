@@ -139,6 +139,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 EXTRAS="postgresql-pltcl-${version} \
                         postgresql-${version}-cron \
                         postgresql-${version}-hypopg \
+                        postgresql-${version}-pgaudit \
                         postgresql-${version}-pg-checksums \
                         postgresql-${version}-pglogical \
                         postgresql-${version}-pglogical-ticker \
@@ -153,14 +154,12 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                         postgresql-${version}-repack \
                         postgresql-${version}-wal2json" \
                 && if [ $version != "13" ]; then \
-                    EXTRAS="$EXTRAS \
-                            postgresql-${version}-pgaudit \
-                            postgresql-${version}-pgl-ddl-deploy"; \
+                    EXTRAS="$EXTRAS postgresql-${version}-pgl-ddl-deploy"; \
                 fi \
                 && if [ "$WITH_PERL" = "true" ]; then \
                     EXTRAS="$EXTRAS postgresql-plperl-${version}"; \
                 fi \
-                && if [ $version != "11" ] && [ $version != "12" ] && [ $version != "13" ]; then \
+                && if [ ${version%.*} -lt 11 ]; then \
                     EXTRAS="$EXTRAS postgresql-${version}-amcheck"; \
                 fi; \
             fi \
@@ -173,16 +172,16 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             && if [ "$version" != "9.5" ] && [ "$version" != "13" ]; then \
                 cd timescaledb \
                 && if [ "$version" = "11" ]; then git checkout $TIMESCALEDB; fi \
-                && rm -fr build \
-                && ./bootstrap -DAPACHE_ONLY=$TIMESCALEDB_APACHE_ONLY -DSEND_TELEMETRY_DEFAULT=NO \
-                    -DREGRESS_CHECKS=OFF -DPG_CONFIG=/usr/lib/postgresql/$version/bin/pg_config \
+                && BUILD_FORCE_REMOVE=true ./bootstrap -DREGRESS_CHECKS=OFF \
+                    -DPG_CONFIG=/usr/lib/postgresql/$version/bin/pg_config \
+                    -DAPACHE_ONLY=$TIMESCALEDB_APACHE_ONLY -DSEND_TELEMETRY_DEFAULT=NO \
                 && make -C build install \
                 && strip /usr/lib/postgresql/$version/lib/timescaledb*.so \
                 && cd ..; \
             fi \
 \
             && if [ "$DEMO" != "true" ]; then \
-                if [ "$version" != "11" ] && [ $version != 12 ] && [ $version != 13 ]; then \
+                if [ ${version%.*} -lt 11 ]; then \
                     for extension in quantile trimmed_aggregates; do \
                         pgxn install $extension \
                         && strip /usr/lib/postgresql/$version/lib/$extension.so; \
@@ -190,7 +189,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 fi \
 \
                 && EXTRA_EXTENSIONS="plantuner-${PLANTUNER_COMMIT} plprofiler postgres-decoderbufs" \
-                && if [ "$version" != "9.5" ] && [ "$version" != "9.6" ]; then \
+                && if [ ${version%.*} -ge 10 ]; then \
                      EXTRA_EXTENSIONS="$EXTRA_EXTENSIONS pg_mon-${PG_MON_COMMIT}"; \
                 fi; \
             else \
