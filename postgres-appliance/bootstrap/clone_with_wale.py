@@ -139,6 +139,7 @@ def get_wale_environments(env):
 def find_backup(recovery_target_time, env):
     old_value = None
     for name, value in get_wale_environments(env):
+        logger.info('Trying %s for clone', value)
         if not old_value:
             old_value = env[name]
         env[name] = value
