@@ -878,11 +878,6 @@ def write_pgbouncer_configuration(placeholders, overwrite):
     link_runit_service(placeholders, 'pgbouncer')
 
 
-def update_bin_dir(placeholders, version):
-    if is_valid_pg_version(version):
-        placeholders['postgresql']['bin_dir'] = get_bin_dir(version)
-
-
 def main():
     debug = os.environ.get('DEBUG', '') in ['1', 'true', 'TRUE', 'on', 'ON']
     args = parse_args()
@@ -914,14 +909,19 @@ def main():
     # if PG_VERSION file exists stick to it and build respective bin_dir
     if os.path.exists(version_file):
         with open(version_file) as f:
-            update_bin_dir(config, f.read().strip())
+            version = f.read().strip()
+            if is_valid_pg_version(version):
+                config['postgresql']['bin_dir'] = get_bin_dir(version)
 
     # try to build bin_dir from PGVERSION if bin_dir is not set in SPILO_CONFIGURATION and PGDATA is empty
     if not os.path.exists(version_file) or not config['postgresql'].get('bin_dir'):
-        update_bin_dir(config, os.environ.get('PGVERSION', ''))
+        version = os.environ.get('PGVERSION', '')
+        if not is_valid_pg_version(version):
+            version = get_binary_version('')
+        config['postgresql']['bin_dir'] = get_bin_dir(version)
 
-    config['PGVERSION'] = get_binary_version(config['postgresql'].get('bin_dir'))
-    version = float(config['PGVERSION'])
+    placeholders['PGVERSION'] = get_binary_version(config['postgresql'].get('bin_dir'))
+    version = float(placeholders['PGVERSION'])
     if 'shared_preload_libraries' not in user_config.get('postgresql', {}).get('parameters', {}):
         config['postgresql']['parameters']['shared_preload_libraries'] =\
                 append_extentions(config['postgresql']['parameters']['shared_preload_libraries'], version)
