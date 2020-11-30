@@ -9,7 +9,7 @@ FROM ubuntu:18.04 as builder-false
 RUN export DEBIAN_FRONTEND=noninteractive \
     && echo 'APT::Install-Recommends "0";\nAPT::Install-Suggests "0";' > /etc/apt/apt.conf.d/01norecommend \
     && apt-get update \
-    && apt-get install -y curl ca-certificates less locales jq vim-tiny gnupg1 cron runit dumb-init libcap2-bin \
+    && apt-get install -y curl ca-certificates less locales jq vim-tiny gnupg1 cron runit dumb-init libcap2-bin rsync \
     && ln -s chpst /usr/bin/envdir \
     # Make it possible to use the following utilities without root
     && setcap 'cap_sys_nice+ep' /usr/bin/chrt \
@@ -528,7 +528,7 @@ RUN sed -i "s|/var/lib/postgresql.*|$PGHOME:/bin/bash|" /etc/passwd \
            && usermod -a -G root postgres; \
         fi
 
-COPY scripts bootstrap /scripts/
+COPY scripts bootstrap major_upgrade /scripts/
 COPY launch.sh /
 
 CMD ["/bin/sh", "/launch.sh", "init"]
