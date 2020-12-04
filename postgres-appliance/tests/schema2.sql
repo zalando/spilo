@@ -1,5 +1,7 @@
 \c test_db
 
+CREATE TABLE with_oids() WITH OIDS;
+
 CREATE EXTENSION timescaledb;
 
 CREATE TABLE "fOo" (id bigint NOT NULL PRIMARY KEY);
