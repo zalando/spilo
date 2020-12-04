@@ -45,6 +45,7 @@ services:
               postgresql:
                 parameters:
                   shared_buffers: 32MB
+                  wal_keep_segments: 8
             PGVERSION: '9.5'
             # Just to test upgrade with clone. Without CLONE_SCOPE they don't work
             CLONE_WAL_S3_BUCKET: *bucket

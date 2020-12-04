@@ -198,6 +198,18 @@ function start_clone_with_wale_upgrade_replica_container() {
     start_clone_with_wale_upgrade_container 2
 }
 
+function start_clone_with_wale_upgrade_to_13_container() {
+    docker-compose run \
+        -e SCOPE=upgrade3 \
+        -e PGVERSION=13 \
+        -e CLONE_SCOPE=demo \
+        -e CLONE_PGVERSION=9.5 \
+        -e CLONE_METHOD=CLONE_WITH_WALE \
+        -e CLONE_TARGET_TIME="$(date -d '1 minute' -u +'%F %T UTC')" \
+        --name "${PREFIX}upgrade4" \
+        -d "spilo3"
+}
+
 function start_clone_with_basebackup_upgrade_container() {
     local container=$1
     docker-compose run \
@@ -219,6 +231,10 @@ function verify_clone_with_wale_upgrade() {
 
 function verify_clone_with_basebackup_upgrade() {
     wait_query "$1" "SELECT current_setting('server_version_num')::int/10000" 11 2> /dev/null
+}
+
+function verify_clone_with_wale_upgrade_to_13() {
+    wait_query "$1" "SELECT current_setting('server_version_num')::int/10000" 13 2> /dev/null
 }
 
 function run_test() {
@@ -243,6 +259,10 @@ function test_spilo() {
     wait_zero_lag "$container"
     wait_backup "$container"
 
+    local upgrade_container
+    upgrade_container=$(start_clone_with_wale_upgrade_to_13_container)
+    log_info "Started $upgrade_container for testing major upgrade 9.5->13 after clone with wal-e"
+
     log_info "Testing in-place major upgrade 9.5->9.6"
     run_test test_successful_inplace_upgrade_to_9_6 "$container"
 
@@ -250,14 +270,20 @@ function test_spilo() {
 
     run_test test_envdir_updated_to_x 9.6
 
-    run_test test_pg_upgrade_to_12_check_failed "$container"  # pg_upgrade --check complains about OID
-
     create_schema2 "$container" || exit 1
+
+    run_test test_pg_upgrade_to_12_check_failed "$container"  # pg_upgrade --check complains about OID
 
     wait_backup "$container"
     wait_zero_lag "$container"
 
-    local upgrade_container
+    log_info "Waiting for clone with wal-e and upgrade 9.5->13 to complete..."
+    find_leader "$upgrade_container" > /dev/null
+    docker logs "$upgrade_container"
+    run_test verify_clone_with_wale_upgrade_to_13 "$upgrade_container"
+
+    docker rm -f "$upgrade_container"
+
     upgrade_container=$(start_clone_with_wale_upgrade_container)
     log_info "Started $upgrade_container for testing major upgrade 9.6->10 after clone with wal-e"
 

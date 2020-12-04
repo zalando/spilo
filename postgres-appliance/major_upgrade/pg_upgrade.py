@@ -123,6 +123,7 @@ class _PostgresqlUpgrade(Postgresql):
         os.rename(self._data_dir, self._old_data_dir)
         if getattr(self, '_new_data_dir', None):
             os.rename(self._new_data_dir, self._data_dir)
+        self.configure_server_parameters()
         return True
 
     def switch_back_pgdata(self):

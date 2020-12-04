@@ -914,7 +914,7 @@ def main():
                 config['postgresql']['bin_dir'] = get_bin_dir(version)
 
     # try to build bin_dir from PGVERSION if bin_dir is not set in SPILO_CONFIGURATION and PGDATA is empty
-    if not os.path.exists(version_file) or not config['postgresql'].get('bin_dir'):
+    if not config['postgresql'].get('bin_dir'):
         version = os.environ.get('PGVERSION', '')
         if not is_valid_pg_version(version):
             version = get_binary_version('')
