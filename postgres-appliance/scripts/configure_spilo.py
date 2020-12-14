@@ -10,7 +10,6 @@ import psutil
 import socket
 import subprocess
 import sys
-import pwd
 
 from copy import deepcopy
 from six.moves.urllib_parse import urlparse
@@ -19,6 +18,9 @@ from collections import defaultdict
 import yaml
 import pystache
 import requests
+
+from spilo_commons import RW_DIR, PATRONI_CONFIG_FILE, append_extentions,\
+        get_binary_version, get_bin_dir, is_valid_pg_version, write_file, write_patroni_config
 
 
 PROVIDER_AWS = "aws"
@@ -30,16 +32,6 @@ USE_KUBERNETES = os.environ.get('KUBERNETES_SERVICE_HOST') is not None
 KUBERNETES_DEFAULT_LABELS = '{"application": "spilo"}'
 MEMORY_LIMIT_IN_BYTES_PATH = '/sys/fs/cgroup/memory/memory.limit_in_bytes'
 PATRONI_DCS = ('zookeeper', 'exhibitor', 'consul', 'etcd3', 'etcd')
-
-
-# (min_version, max_version, shared_preload_libraries, extwlist.extensions)
-extensions = {
-    'timescaledb':    (9.6, 12, True,  True),
-    'pg_cron':        (9.5, 12, True,  False),
-    'pg_stat_kcache': (9.4, 12, True,  False),
-    'pg_partman':     (9.4, 12, False, True)
-}
-
 AUTO_ENABLE_WALG_RESTORE = ('WAL_S3_BUCKET', 'WALE_S3_PREFIX', 'WALG_S3_PREFIX', 'WALG_AZ_PREFIX')
 
 
@@ -63,6 +55,15 @@ def parse_args():
     args['sections'] = set(args['sections'])
 
     return args
+
+
+def adjust_owner(placeholders, resource, uid=None, gid=None):
+    st = os.stat(placeholders['PGHOME'])
+    if uid is None:
+        uid = st.st_uid
+    if gid is None:
+        gid = st.st_gid
+    os.chown(resource, uid, gid)
 
 
 def link_runit_service(placeholders, name):
@@ -108,9 +109,8 @@ def write_certificates(environment, overwrite):
         output, _ = p.communicate()
         logging.debug(output)
 
-    uid = pwd.getpwnam('postgres').pw_uid
     os.chmod(environment['SSL_PRIVATE_KEY_FILE'], 0o600)
-    os.chown(environment['SSL_PRIVATE_KEY_FILE'], uid, -1)
+    adjust_owner(environment, environment['SSL_PRIVATE_KEY_FILE'], gid=-1)
 
 
 def deep_update(a, b):
@@ -476,7 +476,7 @@ def get_placeholders(provider):
     placeholders.setdefault('BGMON_LISTEN_IP', '0.0.0.0')
     placeholders.setdefault('PGPORT', '5432')
     placeholders.setdefault('SCOPE', 'dummy')
-    placeholders.setdefault('RW_DIR', '/run')
+    placeholders.setdefault('RW_DIR', RW_DIR)
     placeholders.setdefault('SSL_TEST_RELOAD', 'SSL_PRIVATE_KEY_FILE' in os.environ)
     placeholders.setdefault('SSL_CA_FILE', '')
     placeholders.setdefault('SSL_CRL_FILE', '')
@@ -506,7 +506,7 @@ def get_placeholders(provider):
     placeholders.setdefault('KUBERNETES_SCOPE_LABEL', 'version')
     placeholders.setdefault('KUBERNETES_LABELS', KUBERNETES_DEFAULT_LABELS)
     placeholders.setdefault('KUBERNETES_USE_CONFIGMAPS', '')
-    placeholders.setdefault('KUBERNETES_BYPASS_API_SERVICE', '')
+    placeholders.setdefault('KUBERNETES_BYPASS_API_SERVICE', 'true')
     placeholders.setdefault('USE_PAUSE_AT_RECOVERY_TARGET', False)
     placeholders.setdefault('CLONE_METHOD', '')
     placeholders.setdefault('CLONE_WITH_WALE', '')
@@ -602,15 +602,6 @@ def get_placeholders(provider):
     return placeholders
 
 
-def write_file(config, filename, overwrite):
-    if not overwrite and os.path.exists(filename):
-        logging.warning('File %s already exists, not overwriting. (Use option --force if necessary)', filename)
-    else:
-        with open(filename, 'w') as f:
-            logging.info('Writing to file %s', filename)
-            f.write(config)
-
-
 def pystache_render(*args, **kwargs):
     render = pystache.Renderer(missing_tags='strict')
     return render.render(*args, **kwargs)
@@ -701,9 +692,9 @@ def write_wale_environment(placeholders, prefix, overwrite):
                   'WALG_SENTINEL_USER_DATA', 'WALG_PREVENT_WAL_OVERWRITE']
 
     wale = defaultdict(lambda: '')
-    for name in ['WALE_ENV_DIR', 'SCOPE', 'WAL_BUCKET_SCOPE_PREFIX', 'WAL_BUCKET_SCOPE_SUFFIX',
+    for name in ['PGVERSION', 'WALE_ENV_DIR', 'SCOPE', 'WAL_BUCKET_SCOPE_PREFIX', 'WAL_BUCKET_SCOPE_SUFFIX',
                  'WAL_S3_BUCKET', 'WAL_GCS_BUCKET', 'WAL_GS_BUCKET', 'WAL_SWIFT_BUCKET', 'BACKUP_NUM_TO_RETAIN',
-                 'WALG_AZ_PREFIX'] + s3_names + swift_names + gs_names + walg_names + azure_names:
+                 'ENABLE_WAL_PATH_COMPAT'] + s3_names + swift_names + gs_names + walg_names + azure_names:
         wale[name] = placeholders.get(prefix + name, '')
 
     if wale.get('WAL_S3_BUCKET') or wale.get('WALE_S3_PREFIX') or wale.get('WALG_S3_PREFIX'):
@@ -752,7 +743,7 @@ def write_wale_environment(placeholders, prefix, overwrite):
     prefix_env_name = write_envdir_names[0]
     store_type = prefix_env_name[5:].split('_')[0]
     if not wale.get(prefix_env_name):  # WALE_*_PREFIX is not defined in the environment
-        bucket_path = '/spilo/{WAL_BUCKET_SCOPE_PREFIX}{SCOPE}{WAL_BUCKET_SCOPE_SUFFIX}/wal/'.format(**wale)
+        bucket_path = '/spilo/{WAL_BUCKET_SCOPE_PREFIX}{SCOPE}{WAL_BUCKET_SCOPE_SUFFIX}/wal/{PGVERSION}'.format(**wale)
         prefix_template = '{0}://{{WAL_{1}_BUCKET}}{2}'.format(store_type.lower(), store_type, bucket_path)
         wale[prefix_env_name] = prefix_template.format(**wale)
     # Set WALG_*_PREFIX for future compatibility
@@ -765,7 +756,9 @@ def write_wale_environment(placeholders, prefix, overwrite):
     wale['WALE_LOG_DESTINATION'] = 'stderr'
     for name in write_envdir_names + ['WALE_LOG_DESTINATION'] + ([] if prefix else ['BACKUP_NUM_TO_RETAIN']):
         if wale.get(name):
-            write_file(wale[name], os.path.join(wale['WALE_ENV_DIR'], name), overwrite)
+            path = os.path.join(wale['WALE_ENV_DIR'], name)
+            write_file(wale[name], path, overwrite)
+            adjust_owner(placeholders, path, gid=-1)
 
     if not os.path.exists(placeholders['WALE_TMPDIR']):
         os.makedirs(placeholders['WALE_TMPDIR'])
@@ -789,9 +782,8 @@ def write_clone_pgpass(placeholders, overwrite):
          'password': escape_pgpass_value(placeholders['CLONE_PASSWORD'])}
     pgpass_string = "{host}:{port}:{database}:{user}:{password}".format(**r)
     write_file(pgpass_string, pgpassfile, overwrite)
-    uid = os.stat(placeholders['PGHOME']).st_uid
     os.chmod(pgpassfile, 0o600)
-    os.chown(pgpassfile, uid, -1)
+    adjust_owner(placeholders, pgpassfile, gid=-1)
 
 
 def check_crontab(user):
@@ -887,15 +879,8 @@ def write_pgbouncer_configuration(placeholders, overwrite):
     link_runit_service(placeholders, 'pgbouncer')
 
 
-def get_binary_version(bin_dir):
-    postgres = os.path.join(bin_dir or '', 'postgres')
-    version = subprocess.check_output([postgres, '--version']).decode()
-    version = re.match(r'^[^\s]+ [^\s]+ (\d+)(\.(\d+))?', version)
-    return '.'.join([version.group(1), version.group(3)]) if int(version.group(1)) < 10 else version.group(1)
-
-
 def main():
-    debug = os.environ.get('DEBUG', '') in ['1', 'true', 'on', 'ON']
+    debug = os.environ.get('DEBUG', '') in ['1', 'true', 'TRUE', 'on', 'ON']
     args = parse_args()
 
     logging.basicConfig(format='%(asctime)s - bootstrapping - %(levelname)s - %(message)s', level=('DEBUG'
@@ -920,20 +905,30 @@ def main():
         link_runit_service(placeholders, 'etcd')
         config['etcd'] = {'host': '127.0.0.1:2379'}
 
-    # try to build bin_dir from PGVERSION environment variable if postgresql.bin_dir wasn't set in SPILO_CONFIGURATION
-    if 'bin_dir' not in config['postgresql']:
-        bin_dir = os.path.join('/usr/lib/postgresql', os.environ.get('PGVERSION', ''), 'bin')
-        postgres = os.path.join(bin_dir, 'postgres')
-        if os.path.isfile(postgres) and os.access(postgres, os.X_OK):  # check that there is postgres binary inside
-            config['postgresql']['bin_dir'] = bin_dir
+    pgdata = config['postgresql']['data_dir']
+    version_file = os.path.join(pgdata, 'PG_VERSION')
+    # if PG_VERSION file exists stick to it and build respective bin_dir
+    if os.path.exists(version_file):
+        with open(version_file) as f:
+            version = f.read().strip()
+            if is_valid_pg_version(version):
+                config['postgresql']['bin_dir'] = get_bin_dir(version)
 
-    version = float(get_binary_version(config['postgresql'].get('bin_dir')))
+    # try to build bin_dir from PGVERSION if bin_dir is not set in SPILO_CONFIGURATION and PGDATA is empty
+    if not config['postgresql'].get('bin_dir'):
+        version = os.environ.get('PGVERSION', '')
+        if not is_valid_pg_version(version):
+            version = get_binary_version('')
+        config['postgresql']['bin_dir'] = get_bin_dir(version)
+
+    placeholders['PGVERSION'] = get_binary_version(config['postgresql'].get('bin_dir'))
+    version = float(placeholders['PGVERSION'])
     if 'shared_preload_libraries' not in user_config.get('postgresql', {}).get('parameters', {}):
-        libraries = [',' + n for n, v in extensions.items() if version >= v[0] and version <= v[1] and v[2]]
-        config['postgresql']['parameters']['shared_preload_libraries'] += ''.join(libraries)
+        config['postgresql']['parameters']['shared_preload_libraries'] =\
+                append_extentions(config['postgresql']['parameters']['shared_preload_libraries'], version)
     if 'extwlist.extensions' not in user_config.get('postgresql', {}).get('parameters', {}):
-        extwlist = [',' + n for n, v in extensions.items() if version >= v[0] and version <= v[1] and v[3]]
-        config['postgresql']['parameters']['extwlist.extensions'] += ''.join(extwlist)
+        config['postgresql']['parameters']['extwlist.extensions'] =\
+                append_extentions(config['postgresql']['parameters']['extwlist.extensions'], version, True)
 
     # Ensure replication is available
     if 'pg_hba' in config['bootstrap'] and not any(['replication' in i for i in config['bootstrap']['pg_hba']]):
@@ -941,19 +936,17 @@ def main():
             format(config['postgresql']['authentication']['replication']['username'])
         config['bootstrap']['pg_hba'].insert(0, rep_hba)
 
-    patroni_configfile = os.path.join(placeholders['PGHOME'], 'postgres.yml')
-
     for section in args['sections']:
         logging.info('Configuring %s', section)
         if section == 'patroni':
-            write_file(yaml.dump(config, default_flow_style=False, width=120), patroni_configfile, args['force'])
+            write_patroni_config(config, args['force'])
+            adjust_owner(placeholders, PATRONI_CONFIG_FILE, gid=-1)
             link_runit_service(placeholders, 'patroni')
             pg_socket_dir = '/run/postgresql'
             if not os.path.exists(pg_socket_dir):
                 os.makedirs(pg_socket_dir)
-                st = os.stat(placeholders['PGHOME'])
-                os.chown(pg_socket_dir, st.st_uid, st.st_gid)
                 os.chmod(pg_socket_dir, 0o2775)
+                adjust_owner(placeholders, pg_socket_dir)
 
             # It is a recurring and very annoying problem with crashes (host/pod/container)
             # while the backup is taken in the exclusive mode which leaves the backup_label
@@ -971,7 +964,6 @@ def main():
             # We are not doing such trick in the Patroni (removing backup_label) because
             # we have absolutely no idea what software people use for backup/recovery.
             # In case of some home-grown solution they might end up in copying postmaster.pid...
-            pgdata = config['postgresql']['data_dir']
             postmaster_pid = os.path.join(pgdata, 'postmaster.pid')
             backup_label = os.path.join(pgdata, 'backup_label')
             if os.path.isfile(postmaster_pid) and os.path.isfile(backup_label):

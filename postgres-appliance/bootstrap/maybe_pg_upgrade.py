@@ -9,12 +9,12 @@ def main():
     from pg_upgrade import PostgresqlUpgrade
     from patroni.config import Config
     from patroni.utils import polling_loop
+    from spilo_commons import get_binary_version
 
     config = Config(sys.argv[1])
-    config['postgresql'].update({'callbacks': {}, 'pg_ctl_timeout': 3600*24*7})
-    upgrade = PostgresqlUpgrade(config['postgresql'])
+    upgrade = PostgresqlUpgrade(config)
 
-    bin_version = upgrade.get_binary_version()
+    bin_version = get_binary_version(upgrade.pgcommand(''))
     cluster_version = upgrade.get_cluster_version()
 
     if cluster_version == bin_version:
@@ -37,13 +37,9 @@ def main():
         upgrade.stop(block_callbacks=True, checkpoint=False)
         raise Exception('Failed to run bootstrap.post_init')
 
-    locale = upgrade.query('SHOW lc_collate').fetchone()[0]
-    encoding = upgrade.query('SHOW server_encoding').fetchone()[0]
-    initdb_config = [{'locale': locale}, {'encoding': encoding}]
-    if upgrade.query("SELECT current_setting('data_checksums')::bool").fetchone()[0]:
-        initdb_config.append('data-checksums')
+    if not upgrade.prepare_new_pgdata(bin_version):
+        raise Exception('initdb failed')
 
-    logger.info('Dropping objects from the cluster which could be incompatible')
     try:
         upgrade.drop_possibly_incompatible_objects()
     except Exception:
@@ -54,15 +50,18 @@ def main():
     if not upgrade.stop(block_callbacks=True, checkpoint=False):
         raise Exception('Failed to stop the cluster with old postgres')
 
-    logger.info('initdb config: %s', initdb_config)
-
-    logger.info('Executing pg_upgrade')
-    if not upgrade.do_upgrade(bin_version, initdb_config):
+    if not upgrade.do_upgrade():
         raise Exception('Failed to upgrade cluster from {0} to {1}'.format(cluster_version, bin_version))
 
     logger.info('Starting the cluster with new postgres after upgrade')
     if not upgrade.start():
         raise Exception('Failed to start the cluster with new postgres')
+
+    try:
+        upgrade.update_extensions()
+    except Exception as e:
+        logger.error('Failed to update extensions: %r', e)
+
     upgrade.analyze()
 
 
@@ -71,8 +70,10 @@ def call_maybe_pg_upgrade():
     import os
     import subprocess
 
+    from spilo_commons import PATRONI_CONFIG_FILE
+
     my_name = os.path.abspath(inspect.getfile(inspect.currentframe()))
-    ret = subprocess.call([sys.executable, my_name, os.path.join(os.getenv('PGHOME'), 'postgres.yml')])
+    ret = subprocess.call([sys.executable, my_name, PATRONI_CONFIG_FILE])
     if ret != 0:
         logger.error('%s script failed', my_name)
     return ret

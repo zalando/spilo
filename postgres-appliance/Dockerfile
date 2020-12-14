@@ -1,4 +1,4 @@
-ARG PGVERSION=12
+ARG PGVERSION=13
 ARG TIMESCALEDB=1.7.4
 ARG TIMESCALEDB_LEGACY=1.7.4
 ARG DEMO=false
@@ -11,7 +11,7 @@ ARG ADDITIONAL_LOCALES=
 RUN export DEBIAN_FRONTEND=noninteractive \
     && echo 'APT::Install-Recommends "0";\nAPT::Install-Suggests "0";' > /etc/apt/apt.conf.d/01norecommend \
     && apt-get update \
-    && apt-get install -y curl ca-certificates less locales jq vim-tiny gnupg1 cron runit dumb-init libcap2-bin \
+    && apt-get install -y curl ca-certificates less locales jq vim-tiny gnupg1 cron runit dumb-init libcap2-bin rsync \
     && ln -s chpst /usr/bin/envdir \
     # Make it possible to use the following utilities without root
     && setcap 'cap_sys_nice+ep' /usr/bin/chrt \
@@ -72,16 +72,16 @@ ARG TIMESCALEDB_LEGACY
 ARG TIMESCALEDB_APACHE_ONLY=true
 ARG DEMO
 ARG COMPRESS
-ARG PGOLDVERSIONS="9.5 9.6 10 11"
+ARG PGOLDVERSIONS="9.5 9.6 10 11 12"
 ARG WITH_PERL=false
 
 ARG DEB_PG_SUPPORTED_VERSIONS="$PGOLDVERSIONS $PGVERSION"
 
 # Install PostgreSQL, extensions and contribs
 ENV POSTGIS_VERSION=3.0 \
-    BG_MON_COMMIT=1418440bb6eb9466199c037d005560b5bf06aafc \
-    PG_AUTH_MON_COMMIT=902c670c9f2071b30e1d4437e7a38e2e136f9be6 \
-    PG_MON_COMMIT=cc028fdae8542ec3f5df3bf4c66f0895d87c127d \
+    BG_MON_COMMIT=8a21dc39c9fdb20cbd37327d8e0f531755f5dd80 \
+    PG_AUTH_MON_COMMIT=a0c086ad9865c9a0f468f12d09b77353acd2de28 \
+    PG_MON_COMMIT=12bdfa8d93294fb596c9066bc7e6f73bfead35da \
     DECODERBUFS=v1.2.1.Final \
     SET_USER=REL2_0_0 \
     PLPROFILER=REL4_1 \
@@ -133,7 +133,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && if [ "$WITH_PERL" != "true" ] || [ "$DEMO" != "true" ]; then dpkg -i *.deb || apt-get -y -f install; fi \
 \
     && curl -sL https://github.com/CyberDem0n/bg_mon/archive/$BG_MON_COMMIT.tar.gz | tar xz \
-    && curl -sL https://github.com/RafiaSabih/pg_auth_mon/archive/$PG_AUTH_MON_COMMIT.tar.gz | tar xz \
+    && curl -sL https://github.com/CyberDem0n/pg_auth_mon/archive/$PG_AUTH_MON_COMMIT.tar.gz | tar xz \
     && curl -sL https://github.com/cybertec-postgresql/pg_permission/archive/$PG_PERMISSIONS_COMMIT.tar.gz | tar xz \
     && git clone -b $SET_USER https://github.com/pgaudit/set_user.git \
     && git clone -b $TIMESCALEDB_LEGACY https://github.com/timescale/timescaledb.git \
@@ -169,7 +169,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 && if [ "$WITH_PERL" = "true" ]; then \
                     EXTRAS="$EXTRAS postgresql-plperl-${version}"; \
                 fi \
-                && if [ $version != "12" ] && [ $version != "11" ]; then \
+                && if [ ${version%.*} -lt 11 ]; then \
                     EXTRAS="$EXTRAS postgresql-${version}-amcheck"; \
                 fi; \
             fi \
@@ -179,19 +179,19 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                     postgresql-plpython3-${version} postgresql-server-dev-${version} $EXTRAS \
 \
             # Install 3rd party stuff
-            && if [ "$version" != "9.5" ]; then \
+            && if [ "$version" != "9.5" ] && [ "$version" != "13" ]; then \
                 cd timescaledb \
                 && if [ "$version" = "11" ]; then git checkout $TIMESCALEDB; fi \
-                && rm -fr build \
-                && ./bootstrap -DAPACHE_ONLY=$TIMESCALEDB_APACHE_ONLY -DSEND_TELEMETRY_DEFAULT=NO \
-                    -DREGRESS_CHECKS=OFF -DPG_CONFIG=/usr/lib/postgresql/$version/bin/pg_config \
+                && BUILD_FORCE_REMOVE=true ./bootstrap -DREGRESS_CHECKS=OFF \
+                    -DPG_CONFIG=/usr/lib/postgresql/$version/bin/pg_config \
+                    -DAPACHE_ONLY=$TIMESCALEDB_APACHE_ONLY -DSEND_TELEMETRY_DEFAULT=NO \
                 && make -C build install \
                 && strip /usr/lib/postgresql/$version/lib/timescaledb*.so \
                 && cd ..; \
             fi \
 \
             && if [ "$DEMO" != "true" ]; then \
-                if [ "$version" != "11" ] && [ $version != 12 ]; then \
+                if [ ${version%.*} -lt 11 ]; then \
                     for extension in quantile trimmed_aggregates; do \
                         pgxn install $extension \
                         && strip /usr/lib/postgresql/$version/lib/$extension.so; \
@@ -199,7 +199,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 fi \
 \
                 && EXTRA_EXTENSIONS="plantuner-${PLANTUNER_COMMIT} plprofiler postgres-decoderbufs" \
-                && if [ "$version" != "9.5" ] && [ "$version" != "9.6" ]; then \
+                && if [ ${version%.*} -ge 10 ]; then \
                      EXTRA_EXTENSIONS="$EXTRA_EXTENSIONS pg_mon-${PG_MON_COMMIT}"; \
                 fi; \
             else \
@@ -277,6 +277,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             done; \
         done \
 \
+        && PGVERSION=12 \
         && cd /usr/share/postgresql/$PGVERSION/contrib/postgis-$POSTGIS_VERSION \
         && for f in *.sql *.pl; do \
             for v in /usr/share/postgresql/*; do \
@@ -408,8 +409,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 | tar -C /usr/local/bin -xz \
         && strip /usr/local/bin/wal-g \
         && apt-get install -y python3-etcd python3-consul python3-kazoo python3-meld3 \
-                        python3-boto python3-gevent python3-greenlet python3-protobuf \
-                        python3-cachetools python3-rsa python3-pyasn1-modules python3-swiftclient \
+                        python3-boto python3-gevent python3-greenlet python3-cachetools \
+                        python3-rsa python3-pyasn1-modules python3-swiftclient \
 \
         && find /usr/share/python-babel-localedata/locale-data -type f ! -name 'en_US*.dat' -delete \
 \
@@ -537,7 +538,7 @@ RUN sed -i "s|/var/lib/postgresql.*|$PGHOME:/bin/bash|" /etc/passwd \
            && usermod -a -G root postgres; \
         fi
 
-COPY scripts bootstrap /scripts/
+COPY scripts bootstrap major_upgrade /scripts/
 COPY launch.sh /
 
 CMD ["/bin/sh", "/launch.sh", "init"]

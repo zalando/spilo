@@ -3,7 +3,7 @@ pipeline:
 - id: build-spilo-cdp
   env: &ENV
     IMAGE: registry-write.opensource.zalan.do/acid/spilo
-    PGVERSION: 12
+    PGVERSION: 13
   type: script
   commands:
   - desc: Build spilo docker image
@@ -41,18 +41,14 @@ pipeline:
     cmd: |
       sudo apt-get update
       sudo apt-get install -y jq
-
       PATRONIVERSION=$(sed -n 's/^ENV PATRONIVERSION=\([1-9][0-9]*\.[0-9]*\).*$/\1/p' postgres-appliance/Dockerfile)
       CDP_IMAGE="$IMAGE-cdp-$PGVERSION:$PATRONIVERSION-p$CDP_TARGET_BRANCH_COUNTER"
       docker pull $CDP_IMAGE
-
       PIERONE_TAGS=$(curl -sL https://$(echo $IMAGE | sed 's|/|/v1/repositories/|')-$PGVERSION/tags)
       COUNTER=$((git tag && echo "$PIERONE_TAGS" | jq -r 'keys | .[]') | sed -n "s/^$PATRONIVERSION-p//p" | sort -un | tail -n1)
       TAG="$PATRONIVERSION-p$((COUNTER+1))"
       PROD_IMAGE="$IMAGE-$PGVERSION:$TAG"
-
       docker tag $CDP_IMAGE $PROD_IMAGE
       docker images
       docker push $PROD_IMAGE
-
       git gh-tag -m $(echo $PROD_IMAGE | sed 's/-write//') $TAG
