@@ -216,7 +216,7 @@ bootstrap:
   {{/CLONE_WITH_BASEBACKUP}}
   initdb:
     - encoding: UTF8
-    - locale: en_US.UTF-8
+    - locale: {{INITDB_LOCALE}}.UTF-8
     - data-checksums
   {{#USE_ADMIN}}
   users:
@@ -484,6 +484,7 @@ def get_placeholders(provider):
     placeholders.setdefault('SSL_PRIVATE_KEY_FILE', os.path.join(placeholders['RW_DIR'], 'certs', 'server.key'))
     placeholders.setdefault('WALE_BACKUP_THRESHOLD_MEGABYTES', 102400)
     placeholders.setdefault('WALE_BACKUP_THRESHOLD_PERCENTAGE', 30)
+    placeholders.setdefault('INITDB_LOCALE', 'en_US')
     # if Kubernetes is defined as a DCS, derive the namespace from the POD_NAMESPACE, if not set explicitely.
     # We only do this for Kubernetes DCS, as we don't want to suddently change, i.e. DCS base path when running
     # in Kubernetes with Etcd in a non-default namespace
