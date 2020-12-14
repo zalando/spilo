@@ -141,6 +141,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                         postgresql-${version}-hypopg \
                         postgresql-${version}-pgaudit \
                         postgresql-${version}-pg-checksums \
+                        postgresql-${version}-pgl-ddl-deploy \
                         postgresql-${version}-pglogical \
                         postgresql-${version}-pglogical-ticker \
                         postgresql-${version}-pgq3 \
@@ -153,9 +154,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                         postgresql-${version}-postgis-${POSTGIS_VERSION%.0}-scripts \
                         postgresql-${version}-repack \
                         postgresql-${version}-wal2json" \
-                && if [ $version != "13" ]; then \
-                    EXTRAS="$EXTRAS postgresql-${version}-pgl-ddl-deploy"; \
-                fi \
                 && if [ "$WITH_PERL" = "true" ]; then \
                     EXTRAS="$EXTRAS postgresql-plperl-${version}"; \
                 fi \
