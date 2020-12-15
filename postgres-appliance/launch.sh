@@ -53,7 +53,7 @@ sv_stop() {
     sv -w 86400 stop /etc/service/*
 }
 
-[ ! -d /etc/service ] && exit 1 # /etc/service has not been created due to an error, the container is no-op
+[ ! -d /etc/service ] && exit 1  # /etc/service has not been created due to an error, the container is no-op
 
 trap sv_stop TERM QUIT INT
 
