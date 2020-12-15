@@ -376,7 +376,7 @@ def get_instance_metadata(provider):
     headers = {}
     if provider == PROVIDER_GOOGLE:
         headers['Metadata-Flavor'] = 'Google'
-        url = 'http://metadata.google.internal/computeMetadata/v1/instance'
+        url = 'http://169.254.169.254/computeMetadata/v1/instance' # metadata.google.internal
         mapping = {'zone': 'zone'}
         if not USE_KUBERNETES:
             mapping.update({'id': 'id'})
