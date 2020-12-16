@@ -408,7 +408,7 @@ def set_extended_wale_placeholders(placeholders, prefix):
     """ checks that enough parameters are provided to configure cloning or standby with WAL-E """
     for name in ('S3', 'GS', 'GCS', 'SWIFT', 'AZ'):
         if placeholders.get('{0}WALE_{1}_PREFIX'.format(prefix, name)) or\
-                name in ('S3', 'GS') and placeholders.get('{0}WALG_{1}_PREFIX'.format(prefix, name)) or\
+                name in ('S3', 'GS', 'AZ') and placeholders.get('{0}WALG_{1}_PREFIX'.format(prefix, name)) or\
                 placeholders.get('{0}WAL_{1}_BUCKET'.format(prefix, name)) and placeholders.get(prefix + 'SCOPE'):
             break
     else:
