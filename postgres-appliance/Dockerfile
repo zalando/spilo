@@ -6,6 +6,7 @@ ARG COMPRESS=false
 
 FROM ubuntu:18.04 as builder-false
 
+ARG DEMO
 ARG ADDITIONAL_LOCALES=
 
 RUN export DEBIAN_FRONTEND=noninteractive \
@@ -148,16 +149,13 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             && apt-get update \
 \
             && if [ "$DEMO" != "true" ]; then \
-                EXTRAS="postgresql-pltcl-${version} \
-                        postgresql-${version}-cron \
+                EXTRAS="EXTRAS postgresql-pltcl-${version} \
                         postgresql-${version}-hypopg \
                         postgresql-${version}-pgaudit \
                         postgresql-${version}-pg-checksums \
                         postgresql-${version}-pgl-ddl-deploy \
                         postgresql-${version}-pglogical \
                         postgresql-${version}-pglogical-ticker \
-                        postgresql-${version}-pgq3 \
-                        postgresql-${version}-pg-stat-kcache \
                         postgresql-${version}-pldebugger \
                         postgresql-${version}-pllua \
                         postgresql-${version}-plpgsql-check \
@@ -176,7 +174,9 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 \
             # Install PostgreSQL binaries, contrib, plproxy and multiple pl's
             && apt-get install --allow-downgrades -y postgresql-contrib-${version} \
-                    postgresql-plpython3-${version} postgresql-server-dev-${version} $EXTRAS \
+                    postgresql-plpython3-${version} postgresql-server-dev-${version} \
+                    postgresql-${version}-cron postgresql-${version}-pgq3 \
+                    postgresql-${version}-pg-stat-kcache $EXTRAS \
 \
             # Install 3rd party stuff
             && if [ "$version" != "9.5" ] && [ "$version" != "13" ]; then \
@@ -268,7 +268,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     # Try to minimize size by creating symlinks instead of duplicate files
     && if [ "$DEMO" != "true" ]; then \
         cd /usr/lib/postgresql/$PGVERSION/bin \
-        && for u in clusterdb pg_archivecleanup pg_basebackup pg_isready pg_test_fsync pg_test_timing pgbench psql reindexdb vacuumdb vacuumlo *.py; do \
+        && for u in clusterdb pg_archivecleanup pg_basebackup pg_isready pg_recvlogical pg_test_fsync pg_test_timing pgbench psql reindexdb vacuumdb vacuumlo *.py; do \
             for v in /usr/lib/postgresql/*; do \
                 if [ "$v" != "/usr/lib/postgresql/$PGVERSION" ] && [ -f "$v/bin/$u" ]; then \
                     rm $v/bin/$u \
@@ -381,7 +381,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             /usr/lib/postgresql/*/bin/dropdb \
             /usr/lib/postgresql/*/bin/droplang \
             /usr/lib/postgresql/*/bin/dropuser \
-            /usr/lib/postgresql/*/bin/pg_recvlogical \
             /usr/lib/postgresql/*/bin/pg_standby \
             /usr/lib/postgresql/*/bin/pltcl_* \
     && find /var/log -type f -exec truncate --size 0 {} \;
@@ -399,7 +398,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && apt-cache depends patroni \
             | sed -n -e 's/.* Depends: \(python3-.\+\)$/\1/p' \
             | grep -Ev '^python3-(sphinx|etcd|consul|kazoo|kubernetes)' \
-            | xargs apt-get install -y ${BUILD_PACKAGES} python3-pystache \
+            | xargs apt-get install -y ${BUILD_PACKAGES} \
+                        python3-pystache python3-requests \
 \
     && pip3 install setuptools \
 \
