@@ -636,6 +636,8 @@ def get_dcs_config(config, placeholders):
                     if not (value.strip().startswith('-') or '[' in value):
                         value = '[{0}]'.format(value)
                     value = yaml.safe_load(value)
+                elif param == 'discovery_domain':
+                    param = 'discovery_srv'
                 dcs_configs[dcs][param] = value
         for dcs in PATRONI_DCS:
             if dcs in dcs_configs:
