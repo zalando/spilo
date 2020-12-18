@@ -196,6 +196,7 @@ class _PostgresqlUpgrade(Postgresql):
 
         if not self.bootstrap._initdb(initdb_config):
             return False
+        self.bootstrap._running_custom_bootstrap = False
 
         # Copy old configs. XXX: some parameters might be incompatible!
         for f in os.listdir(self._new_data_dir):
