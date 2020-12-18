@@ -149,7 +149,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             && apt-get update \
 \
             && if [ "$DEMO" != "true" ]; then \
-                EXTRAS="EXTRAS postgresql-pltcl-${version} \
+                EXTRAS="postgresql-pltcl-${version} \
                         postgresql-${version}-hypopg \
                         postgresql-${version}-pgaudit \
                         postgresql-${version}-pg-checksums \
