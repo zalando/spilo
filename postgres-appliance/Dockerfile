@@ -79,7 +79,7 @@ ARG WITH_PERL=false
 ARG DEB_PG_SUPPORTED_VERSIONS="$PGOLDVERSIONS $PGVERSION"
 
 # Install PostgreSQL, extensions and contribs
-ENV POSTGIS_VERSION=3.0 \
+ENV POSTGIS_VERSION=3.1 \
     BG_MON_COMMIT=8a21dc39c9fdb20cbd37327d8e0f531755f5dd80 \
     PG_AUTH_MON_COMMIT=a0c086ad9865c9a0f468f12d09b77353acd2de28 \
     PG_MON_COMMIT=12bdfa8d93294fb596c9066bc7e6f73bfead35da \
@@ -160,8 +160,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                         postgresql-${version}-pllua \
                         postgresql-${version}-plpgsql-check \
                         postgresql-${version}-plproxy \
-                        postgresql-${version}-postgis-${POSTGIS_VERSION%.0} \
-                        postgresql-${version}-postgis-${POSTGIS_VERSION%.0}-scripts \
+                        postgresql-${version}-postgis-${POSTGIS_VERSION%.1} \
+                        postgresql-${version}-postgis-${POSTGIS_VERSION%.1}-scripts \
                         postgresql-${version}-repack \
                         postgresql-${version}-wal2json" \
                 && if [ "$WITH_PERL" = "true" ]; then \
@@ -225,7 +225,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             # due to dependency issues partman has to be installed separately
             apt-get install -y postgresql-${version}-partman \
             # create postgis symlinks to make it possible to perform update
-            && ln -s postgis-${POSTGIS_VERSION%.0}.so \
+            && ln -s postgis-${POSTGIS_VERSION%.1}.so \
                 /usr/lib/postgresql/${version}/lib/postgis-2.5.so; \
         done \
         # patch, build and install pgbouncer
