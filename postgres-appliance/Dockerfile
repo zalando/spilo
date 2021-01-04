@@ -79,7 +79,8 @@ ARG WITH_PERL=false
 ARG DEB_PG_SUPPORTED_VERSIONS="$PGOLDVERSIONS $PGVERSION"
 
 # Install PostgreSQL, extensions and contribs
-ENV POSTGIS_VERSION=3.0 \
+ENV POSTGIS_VERSION=3.1 \
+    POSTGIS_LEGACY=3.0 \
     BG_MON_COMMIT=8a21dc39c9fdb20cbd37327d8e0f531755f5dd80 \
     PG_AUTH_MON_COMMIT=a0c086ad9865c9a0f468f12d09b77353acd2de28 \
     PG_MON_COMMIT=12bdfa8d93294fb596c9066bc7e6f73bfead35da \
@@ -160,8 +161,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                         postgresql-${version}-pllua \
                         postgresql-${version}-plpgsql-check \
                         postgresql-${version}-plproxy \
-                        postgresql-${version}-postgis-${POSTGIS_VERSION%.0} \
-                        postgresql-${version}-postgis-${POSTGIS_VERSION%.0}-scripts \
+                        postgresql-${version}-postgis-${POSTGIS_VERSION%.*} \
+                        postgresql-${version}-postgis-${POSTGIS_VERSION%.*}-scripts \
                         postgresql-${version}-repack \
                         postgresql-${version}-wal2json" \
                 && if [ "$WITH_PERL" = "true" ]; then \
@@ -225,7 +226,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             # due to dependency issues partman has to be installed separately
             apt-get install -y postgresql-${version}-partman \
             # create postgis symlinks to make it possible to perform update
-            && ln -s postgis-${POSTGIS_VERSION%.0}.so \
+            && ln -s postgis-${POSTGIS_VERSION%.*}.so \
                 /usr/lib/postgresql/${version}/lib/postgis-2.5.so; \
         done \
         # patch, build and install pgbouncer
@@ -276,92 +277,55 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 fi; \
             done; \
         done \
-\
-        && PGVERSION=12 \
-        && cd /usr/share/postgresql/$PGVERSION/contrib/postgis-$POSTGIS_VERSION \
-        && for f in *.sql *.pl; do \
-            for v in /usr/share/postgresql/*; do \
-                if [ "$v" != "/usr/share/postgresql/$PGVERSION" ] && diff $v/contrib/postgis-$POSTGIS_VERSION/$f $f > /dev/null; then \
-                    rm $v/contrib/postgis-$POSTGIS_VERSION/$f \
-                    && ln -s ../../../$PGVERSION/contrib/postgis-$POSTGIS_VERSION/$f $v/contrib/postgis-$POSTGIS_VERSION/$f; \
-                fi; \
-            done; \
-        done \
-\
-        && if [ -d /usr/share/postgresql/9.5/contrib/postgis-$POSTGIS_VERSION ]; then \
-            cd /usr/share/postgresql/9.5/contrib/postgis-$POSTGIS_VERSION \
-            && for f in *.sql *.pl; do \
-                if [ -L $f ]; then continue; fi \
-                && for v in /usr/share/postgresql/*; do \
-                    if [ "$v" != "/usr/share/postgresql/9.5" ] && [ -f $v/contrib/postgis-$POSTGIS_VERSION/$f ] \
-                            && [ ! -L $v/contrib/postgis-$POSTGIS_VERSION/$f ] \
-                            && diff $v/contrib/postgis-$POSTGIS_VERSION/$f $f > /dev/null; then \
-                        rm $v/contrib/postgis-$POSTGIS_VERSION/$f \
-                        && ln -s ../../../9.5/contrib/postgis-$POSTGIS_VERSION/$f \
-                                $v/contrib/postgis-$POSTGIS_VERSION/$f; \
+        && set +x \
+        && for v1 in $(ls -1d /usr/share/postgresql/* | sort -Vr); do \
+            # relink files with the same content
+            cd $v1/extension \
+            && for orig in $(ls -1 *.sql | grep -v -- '--'); do \
+                for f in ${orig%.sql}--*.sql; do \
+                    if [ ! -L $f ] && diff $orig $f > /dev/null; then \
+                        echo "creating symlink $f -> $orig" \
+                        && rm $f && ln -s $orig $f; \
                     fi; \
                 done; \
-            done; \
-        fi \
-\
-        && cd /usr/share/postgresql/$PGVERSION/extension \
-        && for orig in $(ls -1 *.sql | grep -v -- '--'); do \
-            for f in ${orig%.sql}--*.sql; do \
-                if diff $orig $f > /dev/null; then \
-                    rm $f \
-                    && ln -s $orig $f; \
+            done \
+            && for e in pgq plproxy address_standardizer address_standardizer_data_us; do \
+                orig=$(ls -1 $e--*--*.sql 2> /dev/null | head -n1) \
+                && if [ "x$orig" != "x" ]; then \
+                    for f in $e--*--*.sql; do \
+                        if [ "$f" != "$orig" ] && [ ! -L $f ] && diff $f $orig > /dev/null; then \
+                            echo "creating symlink $f -> $orig" \
+                            && rm $f && ln -s $orig $f; \
+                        fi; \
+                    done; \
+                fi; \
+            done \
+            # relink files with the same name and content across different major versions
+            && started=0 \
+            && for v2 in $(ls -1d /usr/share/postgresql/* | sort -Vr); do \
+                if [ $v1 = $v2 ]; then \
+                    started=1; \
+                elif [ $started = 1 ]; then \
+                    for d1 in extension contrib contrib/postgis-$POSTGIS_VERSION; do \
+                        cd $v1/$d1 \
+                        && d2="$d1" \
+                        && d1="../../${v1##*/}/$d1" \
+                        && if [ "${d2%-*}" = "contrib/postgis" ]; then \
+                            if  [ "${v2##*/}" = "9.5" ]; then d2="${d2%-*}-$POSTGIS_LEGACY"; fi \
+                            && d1="../$d1"; \
+                        fi \
+                        && d2="$v2/$d2" \
+                        && for f in *.html *.sql *.control *.pl; do \
+                            if [ -f $d2/$f ] && [ ! -L $d2/$f ] && diff $d2/$f $f > /dev/null; then \
+                                echo "creating symlink $d2/$f -> $d1/$f" \
+                                && rm $d2/$f && ln -s $d1/$f $d2/$f; \
+                            fi; \
+                        done; \
+                    done; \
                 fi; \
             done; \
         done \
-\
-        && for e in pgq plproxy address_standardizer address_standardizer_data_us; do \
-            orig=$(ls -1 $e--*--*.sql 2> /dev/null | head -n1) \
-            && if [ "x$orig" != "x" ]; then \
-                for f in $e--*--*.sql; do \
-                    if [ "$f" != "$orig" ] && diff $f $orig > /dev/null; then \
-                        rm $f \
-                        && ln -s $orig $f; \
-                    fi; \
-                done; \
-            fi; \
-        done \
-\
-        && for f in *.sql *.control; do \
-            for v in /usr/share/postgresql/*; do \
-                if [ "$v" != "/usr/share/postgresql/$PGVERSION" ] \
-                        && [ -f $v/extension/$f ] \
-                        && [ ! -L $v/extension/$f ] \
-                        && diff $v/extension/$f $f > /dev/null; then \
-                    rm $v/extension/$f \
-                    && ln -s ../../$PGVERSION/extension/$f $v/extension/$f; \
-                fi; \
-            done; \
-        done \
-\
-        && if [ -d /usr/share/postgresql/9.5/extension ]; then \
-            cd /usr/share/postgresql/9.5/extension \
-            && for f in *.sql *.control; do \
-                if [ -L $f ]; then continue; fi \
-                && for v in /usr/share/postgresql/*; do \
-                    if [ "$v" != "/usr/share/postgresql/9.5" ] && [ -f $v/extension/$f ] \
-                            && [ ! -L $v/extension/$f ] \
-                            && diff $v/extension/$f $f > /dev/null; then \
-                        rm $v/extension/$f \
-                        && ln -s ../../9.5/extension/$f $v/extension/$f; \
-                   fi; \
-                done; \
-            done; \
-        fi \
-\
-        && cd /usr/share/postgresql/$PGVERSION/contrib \
-        && for f in *.sql *.html; do \
-            for v in /usr/share/postgresql/*; do \
-                if [ "$v" != "/usr/share/postgresql/$PGVERSION" ] && diff $v/contrib/$f $f > /dev/null; then \
-                    rm $v/contrib/$f \
-                    && ln -s ../../$PGVERSION/contrib/$f $v/contrib/$f; \
-                fi; \
-            done; \
-        done; \
+        && set -x; \
     fi \
 \
     # Clean up
