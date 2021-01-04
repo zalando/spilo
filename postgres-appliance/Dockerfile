@@ -136,7 +136,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && curl -sL https://github.com/CyberDem0n/pg_auth_mon/archive/$PG_AUTH_MON_COMMIT.tar.gz | tar xz \
     && curl -sL https://github.com/cybertec-postgresql/pg_permission/archive/$PG_PERMISSIONS_COMMIT.tar.gz | tar xz \
     && git clone -b $SET_USER https://github.com/pgaudit/set_user.git \
-    && git clone -b $TIMESCALEDB_LEGACY https://github.com/timescale/timescaledb.git \
+    && git clone https://github.com/timescale/timescaledb.git \
 \
     && apt-get install -y postgresql-common libevent-2.1 libevent-pthreads-2.1 sysstat brotli libbrotli1 python3.6 python3-psycopg2 \
 \
@@ -180,14 +180,17 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             # Install 3rd party stuff
             && if [ "$version" != "9.5" ] && [ "$version" != "13" ]; then \
                 cd timescaledb \
-                && if [ "$version" = "11" ]; then \
-                    git checkout $TIMESCALEDB \
-                    && sed -i "s/3.11/3.10/" CMakeLists.txt; \
-                fi \
-                && BUILD_FORCE_REMOVE=true ./bootstrap -DREGRESS_CHECKS=OFF -DWARNINGS_AS_ERRORS=OFF \
-                    -DPG_CONFIG=/usr/lib/postgresql/$version/bin/pg_config \
-                    -DAPACHE_ONLY=$TIMESCALEDB_APACHE_ONLY -DSEND_TELEMETRY_DEFAULT=NO \
-                && make -C build install \
+                && for v in $TIMESCALEDB_LEGACY $TIMESCALEDB; do \
+                    if [ "$v" = "$TIMESCALEDB_LEGACY" ] || [ ${version%.*} -ge 11 ]; then \
+                        git checkout $v \
+                        && sed -i "s/VERSION 3.11/VERSION 3.10/" CMakeLists.txt \
+                        && BUILD_FORCE_REMOVE=true ./bootstrap -DREGRESS_CHECKS=OFF -DWARNINGS_AS_ERRORS=OFF \
+                            -DPG_CONFIG=/usr/lib/postgresql/$version/bin/pg_config \
+                            -DAPACHE_ONLY=$TIMESCALEDB_APACHE_ONLY -DSEND_TELEMETRY_DEFAULT=NO \
+                        && make -C build install \
+                        && git reset --hard; \
+                    fi; \
+                done \
                 && strip /usr/lib/postgresql/$version/lib/timescaledb*.so \
                 && cd ..; \
             fi \
