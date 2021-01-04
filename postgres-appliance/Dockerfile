@@ -1,5 +1,5 @@
 ARG PGVERSION=13
-ARG TIMESCALEDB=1.7.4
+ARG TIMESCALEDB=2.0.0
 ARG TIMESCALEDB_LEGACY=1.7.4
 ARG DEMO=false
 ARG COMPRESS=false
@@ -182,8 +182,11 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             # Install 3rd party stuff
             && if [ "$version" != "9.5" ] && [ "$version" != "13" ]; then \
                 cd timescaledb \
-                && if [ "$version" = "11" ]; then git checkout $TIMESCALEDB; fi \
-                && BUILD_FORCE_REMOVE=true ./bootstrap -DREGRESS_CHECKS=OFF \
+                && if [ "$version" = "11" ]; then \
+                    git checkout $TIMESCALEDB \
+                    && sed -i "s/3.11/3.10/" CMakeLists.txt; \
+                fi \
+                && BUILD_FORCE_REMOVE=true ./bootstrap -DREGRESS_CHECKS=OFF -DWARNINGS_AS_ERRORS=OFF \
                     -DPG_CONFIG=/usr/lib/postgresql/$version/bin/pg_config \
                     -DAPACHE_ONLY=$TIMESCALEDB_APACHE_ONLY -DSEND_TELEMETRY_DEFAULT=NO \
                 && make -C build install \
