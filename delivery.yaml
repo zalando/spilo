@@ -4,6 +4,7 @@ pipeline:
   env: &ENV
     IMAGE: registry-write.opensource.zalan.do/acid/spilo
     PGVERSION: 13
+    TIMESCALEDB_APACHE_ONLY: "true"
   type: script
   commands:
   - desc: Build spilo docker image
@@ -24,7 +25,7 @@ pipeline:
           cd postgres-appliance
           PATRONIVERSION=$(sed -n 's/^ENV PATRONIVERSION=\([1-9][0-9]*\.[0-9]*\).*$/\1/p' Dockerfile)
           IMAGE="$IMAGE-cdp-$PGVERSION:$PATRONIVERSION-p$CDP_TARGET_BRANCH_COUNTER"
-          docker build --build-arg PGVERSION=$PGVERSION -t $IMAGE .
+          docker build --build-arg TIMESCALEDB_APACHE_ONLY=$TIMESCALEDB_APACHE_ONLY --build-arg PGVERSION=$PGVERSION -t $IMAGE .
           docker images
           docker push $IMAGE
       fi
