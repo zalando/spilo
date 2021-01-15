@@ -6,6 +6,8 @@ import json
 import logging
 import re
 import os
+from json.decoder import JSONDecodeError
+
 import psutil
 import socket
 import subprocess
@@ -355,6 +357,9 @@ def get_provider():
             # accessible on Openstack, will fail on AWS
             r = requests.get('http://169.254.169.254/openstack/latest/meta_data.json')
             if r.ok:
+                # make sure the response is parsable - https://github.com/Azure/aad-pod-identity/issues/943 and
+                # https://github.com/zalando/spilo/issues/542
+                r.json()
                 return PROVIDER_OPENSTACK
 
             # is accessible from both AWS and Openstack, Possiblity of misidentification if previous try fails
@@ -362,6 +367,9 @@ def get_provider():
             return PROVIDER_AWS if r.ok else PROVIDER_UNSUPPORTED
     except (requests.exceptions.ConnectTimeout, requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout):
         logging.info("Could not connect to 169.254.169.254, assuming local Docker setup")
+        return PROVIDER_LOCAL
+    except JSONDecodeError:
+        logging.info("Could not parse response from 169.254.169.254, assuming local Docker setup")
         return PROVIDER_LOCAL
 
 
