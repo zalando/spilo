@@ -719,6 +719,8 @@ def write_wale_environment(placeholders, prefix, overwrite):
             elif not wale_endpoint:
                 wale_endpoint = aws_endpoint.replace('://', '+path://')
             wale.update(WALE_S3_ENDPOINT=wale_endpoint, AWS_ENDPOINT=aws_endpoint, WALG_DISABLE_S3_SSE='true')
+            if aws_region and wale.get('USE_WALG_BACKUP') == 'true':
+                wale['AWS_REGION'] = aws_region
         elif not aws_region:
             # try to determine region from the endpoint or bucket name
             name = wale.get('WAL_S3_BUCKET') or wale.get('WALE_S3_PREFIX')
