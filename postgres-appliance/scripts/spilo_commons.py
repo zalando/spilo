@@ -37,7 +37,7 @@ def append_extentions(old, version, extwlist=False):
 
     def maybe_append(name):
         value = extensions.get(name)
-        if name not in ret and value is None or value[0] <= version <= value[1] and value[extwlist]:
+        if name not in ret and (value is None or value[0] <= version <= value[1] and value[extwlist]):
             ret.append(name)
 
     for name in old.split(','):

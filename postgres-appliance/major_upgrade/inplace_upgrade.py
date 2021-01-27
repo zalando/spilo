@@ -326,24 +326,8 @@ hosts deny = *
             logger.error('CHECKPOINT on % failed: %r', name, e)
             return name, False
 
-    def checkpoint_replicas(self):
-        logger.info('Executing CHECKPOINT on replicas %s', ','.join(self.replica_connections.keys()))
-        pool = ThreadPool(len(self.replica_connections))
-        results = pool.map(self.checkpoint, self.replica_connections.items())  # Run CHECKPOINT on replicas in parallel
-        pool.close()
-        pool.join()
-
-        for name, status in results:
-            if not status:
-                self.replica_connections.pop(name)
-
-        return self.replica_connections
-
     def rsync_replicas(self, primary_ip):
         from patroni.utils import polling_loop
-
-        if not self.checkpoint_replicas():
-            return
 
         logger.info('Notifying replicas %s to start rsync', ','.join(self.replica_connections.keys()))
         ret = True
@@ -546,6 +530,14 @@ hosts deny = *
             if not (self.rsyncd.pid and self.rsyncd.poll() is None):
                 return logger.error('Failed to start rsyncd')
 
+        if self.replica_connections:
+            logger.info('Executing CHECKPOINT on replicas %s', ','.join(self.replica_connections.keys()))
+            pool = ThreadPool(len(self.replica_connections))
+            # Do CHECKPOINT on replicas in parallel with pg_upgrade.
+            # It will reduce the time for shutdown and so downtime.
+            results = pool.map_async(self.checkpoint, self.replica_connections.items())
+            pool.close()
+
         if not self.postgresql.pg_upgrade():
             return logger.error('Failed to upgrade cluster from %s to %s', self.cluster_version, self.desired_version)
 
@@ -555,12 +547,23 @@ hosts deny = *
         logger.info('Updating configuration files')
         envdir = update_configs(self.desired_version)
 
+        ret = True
+        if self.replica_connections:
+            # Check status of replicas CHECKPOINT and remove connections that are failed.
+            pool.join()
+            if results.ready():
+                for name, status in results.get():
+                    if not status:
+                        ret = False
+                        self.replica_connections.pop(name)
+
         member = cluster.get_member(self.postgresql.name)
         if self.replica_connections:
             primary_ip = member.conn_kwargs().get('host')
             rsync_start = time.time()
             try:
-                ret = self.rsync_replicas(primary_ip)
+                if not self.rsync_replicas(primary_ip):
+                    ret = False
             except Exception as e:
                 logger.error('rsync failed: %r', e)
                 ret = False
@@ -603,7 +606,8 @@ hosts deny = *
         analyze_thread = Thread(target=self.analyze)
         analyze_thread.start()
 
-        self.wait_replicas_restart(cluster)
+        if self.replica_connections:
+            self.wait_replicas_restart(cluster)
 
         self.resume_cluster()
 
