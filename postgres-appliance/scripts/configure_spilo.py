@@ -753,7 +753,7 @@ def write_wale_environment(placeholders, prefix, overwrite):
     elif wale.get("WALG_AZ_PREFIX"):
         write_envdir_names = azure_names + walg_names
     elif wale.get("WALG_SSH_PREFIX"):
-        wale_envdir_names = ssh_names + walg_names
+        write_envdir_names = ssh_names + walg_names
     else:
         return
 
