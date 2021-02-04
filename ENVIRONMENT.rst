@@ -66,6 +66,9 @@ Environment Configuration Settings
 - **SWIFT_PROJECT_DOMAIN_ID**:
 - **WALE_SWIFT_PREFIX**: (optional) the full path to the backup location on the Swift Storage in the format swift://bucket-name/very/long/path. If not specified Spilo will generate it from WAL_SWIFT_BUCKET.
 - **WALG_AZ_PREFIX**: (optional) the azure prefix to store WAL backups at in the format azure://test-container/walg-folder.
+- **WALG_SSH_PREFIX**: (optional) the ssh prefix to store WAL backups at in the format ssh://host.example.com/path/to/backups/ See `Wal-g <https://github.com/wal-g/wal-g#configuration>`__ documentation for details.
+- **SSH_USERNAME**: (optional) the username for WAL backups.
+- **SSH_PRIVATE_KEY_PATH**: (optional) the path to the private key used for WAL backups.
 - **AZURE_STORAGE_ACCOUNT**:(optional) the azure storage account to use for WAL backups.
 - **AZURE_STORAGE_ACCOUNT_ACCESS_KEY**:(optional) the access key for the azure storage account used for WAL backups.
 - **CALLBACK_SCRIPT**: the callback script to run on various cluster actions (on start, on stop, on restart, on role change). The script will receive the cluster name, connection string and the current action. See `Patroni <http://patroni.readthedocs.io/en/latest/SETTINGS.html?highlight=callback#postgresql>`__ documentation for details.

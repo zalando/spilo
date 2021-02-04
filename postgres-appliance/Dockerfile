@@ -357,7 +357,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 # Install patroni, wal-e and wal-g
 ENV PATRONIVERSION=2.0.0
 ENV WALE_VERSION=1.1.1
-ENV WALG_VERSION=v0.2.15
+ENV WALG_VERSION=v0.2.19
 RUN export DEBIAN_FRONTEND=noninteractive \
     && set -ex \
     && BUILD_PACKAGES="python3-pip python3-wheel python3-dev git patchutils binutils" \
