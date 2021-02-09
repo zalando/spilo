@@ -11,6 +11,8 @@ logger = logging.getLogger(__name__)
 
 class _PostgresqlUpgrade(Postgresql):
 
+    _INCOMPATIBLE_EXTENSIONS = ('amcheck_next',)
+
     def adjust_shared_preload_libraries(self, version):
         from spilo_commons import adjust_extensions
 
@@ -57,23 +59,37 @@ class _PostgresqlUpgrade(Postgresql):
         conn_kwargs.pop('connect_timeout', None)
         return conn_kwargs
 
+    def _get_all_databases(self):
+        return [d[0] for d in self.query('SELECT datname FROM pg_catalog.pg_database WHERE datallowconn')]
+
+    def drop_possibly_incompatible_extensions(self):
+        from patroni.postgresql.connection import get_connection_cursor
+
+        logger.info('Dropping extensions from the cluster which could be incompatible')
+        conn_kwargs = self.local_conn_kwargs
+
+        for d in self._get_all_databases():
+            conn_kwargs['database'] = d
+            with get_connection_cursor(**conn_kwargs) as cur:
+                for ext in self._INCOMPATIBLE_EXTENSIONS:
+                    logger.info('Executing "DROP EXTENSION IF EXISTS %s" in the database="%s"', ext, d)
+                    cur.execute("DROP EXTENSION IF EXISTS {0}".format(ext))
+
     def drop_possibly_incompatible_objects(self):
         from patroni.postgresql.connection import get_connection_cursor
 
         logger.info('Dropping objects from the cluster which could be incompatible')
         conn_kwargs = self.local_conn_kwargs
 
-        for d in self.query('SELECT datname FROM pg_catalog.pg_database WHERE datallowconn'):
-            conn_kwargs['database'] = d[0]
+        for d in self._get_all_databases():
+            conn_kwargs['database'] = d
             with get_connection_cursor(**conn_kwargs) as cur:
-                logger.info('Executing "DROP FUNCTION metric_helpers.pg_stat_statements" in the database="%s"', d[0])
+                logger.info('Executing "DROP FUNCTION metric_helpers.pg_stat_statements" in the database="%s"', d)
                 cur.execute("DROP FUNCTION IF EXISTS metric_helpers.pg_stat_statements(boolean) CASCADE")
-                logger.info('Executing "DROP EXTENSION pg_stat_kcache"')
-                cur.execute("DROP EXTENSION IF EXISTS pg_stat_kcache")
-                logger.info('Executing "DROP EXTENSION pg_stat_statements"')
-                cur.execute("DROP EXTENSION IF EXISTS pg_stat_statements")
-                logger.info('Executing "DROP EXTENSION IF EXISTS amcheck_next" in the database="%s"', d[0])
-                cur.execute("DROP EXTENSION IF EXISTS amcheck_next")
+
+                for ext in ('pg_stat_kcache', 'pg_stat_statements') + self._INCOMPATIBLE_EXTENSIONS:
+                    logger.info('Executing "DROP EXTENSION IF EXISTS %s" in the database="%s"', ext, d)
+                    cur.execute("DROP EXTENSION IF EXISTS {0}".format(ext))
                 if d[0] == 'postgres':
                     logger.info('Executing "DROP TABLE postgres_log CASCADE" in the database=postgres')
                     cur.execute('DROP TABLE IF EXISTS public.postgres_log CASCADE')
@@ -90,13 +106,13 @@ class _PostgresqlUpgrade(Postgresql):
 
         conn_kwargs = self.local_conn_kwargs
 
-        for d in self.query('SELECT datname FROM pg_catalog.pg_database WHERE datallowconn'):
-            conn_kwargs['database'] = d[0]
+        for d in self._get_all_databases():
+            conn_kwargs['database'] = d
             with get_connection_cursor(**conn_kwargs) as cur:
                 cur.execute('SELECT quote_ident(extname) FROM pg_catalog.pg_extension')
                 for extname in cur.fetchall():
                     query = 'ALTER EXTENSION {0} UPDATE'.format(extname[0])
-                    logger.info("Executing '%s' in the database=%s", query, d[0])
+                    logger.info("Executing '%s' in the database=%s", query, d)
                     try:
                         cur.execute(query)
                     except Exception as e:
