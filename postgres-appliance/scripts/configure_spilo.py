@@ -831,6 +831,7 @@ def setup_runit_cron(placeholders):
 
 def write_crontab(placeholders, overwrite):
     lines = ['PATH={PATH}'.format(**placeholders)]
+    root_lines = []
 
     with open('/proc/self/status') as f:
         for line in f:
@@ -838,6 +839,9 @@ def write_crontab(placeholders, overwrite):
                 sys_nice = 0x800000
                 if int(line[8:], 16) & sys_nice == sys_nice:
                     lines += ['*/5 * * * * bash /scripts/renice.sh']
+                    if os.getuid() == 0:
+                        root_lines = lines[:]
+                        lines.pop(1)
                 else:
                     logging.info('Skipping creation of renice cron job due to lack of SYS_NICE capability')
                 break
@@ -857,10 +861,14 @@ def write_crontab(placeholders, overwrite):
 
     lines += yaml.load(placeholders['CRONTAB'])
 
-    if len(lines) > 1:
+    if len(lines) > 1 or root_lines:
         setup_runit_cron(placeholders)
-        if overwrite or check_crontab('postgres'):
-            setup_crontab('postgres', lines)
+
+    if len(lines) > 1 and (overwrite or check_crontab('postgres')):
+        setup_crontab('postgres', lines)
+
+    if root_lines and (overwrite or check_crontab('root')):
+        setup_crontab('root', root_lines)
 
 
 def write_pam_oauth2_configuration(placeholders, overwrite):
