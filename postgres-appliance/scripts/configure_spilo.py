@@ -101,7 +101,7 @@ def write_certificates(environment, overwrite):
             '-new',
             '-x509',
             '-subj',
-            '/CN=spilo.dummy.org',
+            '/CN=spilo.example.org',
             '-keyout',
             environment['SSL_PRIVATE_KEY_FILE'],
             '-out',
