@@ -23,6 +23,17 @@ class _PostgresqlUpgrade(Postgresql):
             self.config.get('parameters')['shared_preload_libraries'] =\
                     adjust_extensions(shared_preload_libraries, version)
 
+    def no_bg_mon(self):
+        shared_preload_libraries = self.config.get('parameters').get('shared_preload_libraries')
+        if shared_preload_libraries:
+            tmp = filter(lambda a: a != "bg_mon", map(lambda a: a.strip(), shared_preload_libraries.split(",")))
+            self.config.get('parameters')['shared_preload_libraries'] = ",".join(tmp)
+
+    def restore_shared_preload_libraries(self):
+        if getattr(self, '_old_shared_preload_libraries'):
+            self.config.get('parameters')['shared_preload_libraries'] = self._old_shared_preload_libraries
+        return True
+
     def start_old_cluster(self, config, version):
         self.set_bin_dir(version)
 
@@ -168,6 +179,8 @@ class _PostgresqlUpgrade(Postgresql):
 
         if check:
             pg_upgrade_args += ['--check']
+        else:
+            self.config.write_postgresql_conf()
 
         logger.info('Executing pg_upgrade%s', (' --check' if check else ''))
         if subprocess.call([self.pgcommand('pg_upgrade')] + pg_upgrade_args) == 0:
@@ -207,8 +220,9 @@ class _PostgresqlUpgrade(Postgresql):
 
         shared_preload_libraries = self.config.get('parameters').get('shared_preload_libraries')
         if shared_preload_libraries:
-            self.config.get('parameters')['shared_preload_libraries'] =\
-                    append_extentions(shared_preload_libraries, float(version))
+            self._old_shared_preload_libraries = self.config.get('parameters')['shared_preload_libraries'] =\
+                append_extentions(shared_preload_libraries, float(version))
+            self.no_bg_mon()
 
         if not self.bootstrap._initdb(initdb_config):
             return False
@@ -223,11 +237,16 @@ class _PostgresqlUpgrade(Postgresql):
         self._new_data_dir, self._data_dir = self._data_dir, self._new_data_dir
         self.config._postgresql_conf = old_postgresql_conf
         self._version_file = old_version_file
+
+        if shared_preload_libraries:
+            self.config.get('parameters')['shared_preload_libraries'] = shared_preload_libraries
+            self.no_bg_mon()
         self.configure_server_parameters()
         return True
 
     def do_upgrade(self):
-        return self.pg_upgrade() and self.switch_pgdata() and self.cleanup_old_pgdata()
+        return self.pg_upgrade() and self.restore_shared_preload_libraries()\
+                 and self.switch_pgdata() and self.cleanup_old_pgdata()
 
     def analyze(self, in_stages=False):
         vacuumdb_args = ['--analyze-in-stages'] if in_stages else []
