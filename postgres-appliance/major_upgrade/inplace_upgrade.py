@@ -726,9 +726,15 @@ def rsync_replica(config, desired_version, primary_ip, pid):
     # the recovery.conf file and tried (and failed) to start the cluster up using wrong binaries.
     # In case of upgrade to 12+ presence of PGDATA/recovery.conf will not allow postgres to start.
     # We remove the recovery.conf and restart Patroni in order to make sure it is using correct config.
-    postgresql.config.remove_recovery_conf()
+    try:
+        postgresql.config.remove_recovery_conf()
+    except Exception:
+        pass
     kill_patroni()
-    postgresql.config.remove_recovery_conf()
+    try:
+        postgresql.config.remove_recovery_conf()
+    except Exception:
+        pass
 
     return postgresql.cleanup_old_pgdata()
 
