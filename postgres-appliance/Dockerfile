@@ -1,6 +1,6 @@
 ARG BASE_IMAGE=ubuntu:18.04
 ARG PGVERSION=13
-ARG TIMESCALEDB=2.0.0
+ARG TIMESCALEDB=2.0.1
 ARG TIMESCALEDB_LEGACY=1.7.4
 ARG DEMO=false
 ARG COMPRESS=false
@@ -80,7 +80,7 @@ ARG DEB_PG_SUPPORTED_VERSIONS="$PGOLDVERSIONS $PGVERSION"
 # Install PostgreSQL, extensions and contribs
 ENV POSTGIS_VERSION=3.1 \
     POSTGIS_LEGACY=3.0 \
-    BG_MON_COMMIT=8a21dc39c9fdb20cbd37327d8e0f531755f5dd80 \
+    BG_MON_COMMIT=ce4db98cd5d34ac2b47091dacfb5155583a64c2f \
     PG_AUTH_MON_COMMIT=a0c086ad9865c9a0f468f12d09b77353acd2de28 \
     PG_MON_COMMIT=12bdfa8d93294fb596c9066bc7e6f73bfead35da \
     DECODERBUFS=v1.2.1.Final \
@@ -137,6 +137,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && curl -sL https://github.com/CyberDem0n/pg_auth_mon/archive/$PG_AUTH_MON_COMMIT.tar.gz | tar xz \
     && curl -sL https://github.com/cybertec-postgresql/pg_permission/archive/$PG_PERMISSIONS_COMMIT.tar.gz | tar xz \
     && git clone -b $SET_USER https://github.com/pgaudit/set_user.git \
+    # Silence annoying NOTICE messages about deprecated GUCs
+    && sed -i 's/^\(bool  show_.* =\) true;/\1 false;/' set_user/compatibility.h \
     && git clone https://github.com/timescale/timescaledb.git \
 \
     && apt-get install -y postgresql-common libevent-2.1 libevent-pthreads-2.1 sysstat brotli libbrotli1 python3.6 python3-psycopg2 \
@@ -355,7 +357,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && find /var/log -type f -exec truncate --size 0 {} \;
 
 # Install patroni, wal-e and wal-g
-ENV PATRONIVERSION=2.0.0
+ENV PATRONIVERSION=2.0.1
 ENV WALE_VERSION=1.1.1
 ENV WALG_VERSION=v0.2.19
 RUN export DEBIAN_FRONTEND=noninteractive \
@@ -386,10 +388,9 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && pip3 install filechunkio wal-e[aws,google,swift]==$WALE_VERSION \
                 'git+https://github.com/zalando/pg_view.git@master#egg=pg-view' \
 \
-        # Don't monkey patch thread, it causing performance issues with S3
-        # https://github.com/wal-e/wal-e/commit/485d834a18c9b0d97115d95f89e16bdc564e9a18#commitcomment-34529978
-        && sed -i 's/^ *gevent.monkey.patch_thread/#&/' \
-                    /usr/local/lib/python3.6/dist-packages/wal_e/cmd.py \
+        # Revert https://github.com/wal-e/wal-e/commit/485d834a18c9b0d97115d95f89e16bdc564e9a18, it affects S3 performance
+        && curl -sL https://github.com/wal-e/wal-e/commit/485d834a18c9b0d97115d95f89e16bdc564e9a18.diff \
+                | patch -d /usr/local/lib/python3.6/dist-packages/wal_e -Rp2 \
         # https://github.com/wal-e/wal-e/issues/318
         && sed -i 's/^\(    for i in range(0,\) num_retries):.*/\1 100):/g' \
                     /usr/lib/python3/dist-packages/boto/utils.py; \

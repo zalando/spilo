@@ -500,6 +500,11 @@ hosts deny = *
         if not self.postgresql.prepare_new_pgdata(self.desired_version):
             return logger.error('initdb failed')
 
+        try:
+            self.postgresql.drop_possibly_incompatible_extensions()
+        except Exception:
+            return logger.error('Failed to drop possibly incompatible extensions')
+
         if not self.postgresql.pg_upgrade(check=True):
             return logger.error('pg_upgrade --check failed, more details in the %s_upgrade', self.postgresql.data_dir)
 
@@ -721,9 +726,15 @@ def rsync_replica(config, desired_version, primary_ip, pid):
     # the recovery.conf file and tried (and failed) to start the cluster up using wrong binaries.
     # In case of upgrade to 12+ presence of PGDATA/recovery.conf will not allow postgres to start.
     # We remove the recovery.conf and restart Patroni in order to make sure it is using correct config.
-    postgresql.config.remove_recovery_conf()
+    try:
+        postgresql.config.remove_recovery_conf()
+    except Exception:
+        pass
     kill_patroni()
-    postgresql.config.remove_recovery_conf()
+    try:
+        postgresql.config.remove_recovery_conf()
+    except Exception:
+        pass
 
     return postgresql.cleanup_old_pgdata()
 
