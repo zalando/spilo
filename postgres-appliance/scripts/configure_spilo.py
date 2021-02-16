@@ -12,6 +12,7 @@ import psutil
 import socket
 import subprocess
 import sys
+import pwd
 
 from copy import deepcopy
 from six.moves.urllib_parse import urlparse
@@ -60,12 +61,11 @@ def parse_args():
     return args
 
 
-def adjust_owner(placeholders, resource, uid=None, gid=None):
-    st = os.stat(placeholders['PGHOME'])
+def adjust_owner(resource, uid=None, gid=None):
     if uid is None:
-        uid = st.st_uid
+        uid = pwd.getpwnam('postgres').pw_uid
     if gid is None:
-        gid = st.st_gid
+        gid = pwd.getpwnam('postgres').pw_gid
     os.chown(resource, uid, gid)
 
 
@@ -113,7 +113,7 @@ def write_certificates(environment, overwrite):
         logging.debug(output)
 
     os.chmod(environment['SSL_PRIVATE_KEY_FILE'], 0o600)
-    adjust_owner(environment, environment['SSL_PRIVATE_KEY_FILE'], gid=-1)
+    adjust_owner(environment['SSL_PRIVATE_KEY_FILE'], gid=-1)
 
 
 def deep_update(a, b):
@@ -775,7 +775,7 @@ def write_wale_environment(placeholders, prefix, overwrite):
         if wale.get(name):
             path = os.path.join(wale['WALE_ENV_DIR'], name)
             write_file(wale[name], path, overwrite)
-            adjust_owner(placeholders, path, gid=-1)
+            adjust_owner(path, gid=-1)
 
     if not os.path.exists(placeholders['WALE_TMPDIR']):
         os.makedirs(placeholders['WALE_TMPDIR'])
@@ -800,7 +800,7 @@ def write_clone_pgpass(placeholders, overwrite):
     pgpass_string = "{host}:{port}:{database}:{user}:{password}".format(**r)
     write_file(pgpass_string, pgpassfile, overwrite)
     os.chmod(pgpassfile, 0o600)
-    adjust_owner(placeholders, pgpassfile, gid=-1)
+    adjust_owner(pgpassfile, gid=-1)
 
 
 def check_crontab(user):
@@ -957,13 +957,13 @@ def main():
         logging.info('Configuring %s', section)
         if section == 'patroni':
             write_patroni_config(config, args['force'])
-            adjust_owner(placeholders, PATRONI_CONFIG_FILE, gid=-1)
+            adjust_owner(PATRONI_CONFIG_FILE, gid=-1)
             link_runit_service(placeholders, 'patroni')
             pg_socket_dir = '/run/postgresql'
             if not os.path.exists(pg_socket_dir):
                 os.makedirs(pg_socket_dir)
                 os.chmod(pg_socket_dir, 0o2775)
-                adjust_owner(placeholders, pg_socket_dir)
+                adjust_owner(pg_socket_dir)
 
             # It is a recurring and very annoying problem with crashes (host/pod/container)
             # while the backup is taken in the exclusive mode which leaves the backup_label
