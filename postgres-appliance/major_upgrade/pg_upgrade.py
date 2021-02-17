@@ -210,6 +210,9 @@ class _PostgresqlUpgrade(Postgresql):
 
         self.set_bin_dir(version)
 
+        # shared_preload_libraries for the old cluster, cleaned from incompatible/missing libs
+        old_shared_preload_libraries = self.config.get('parameters').get('shared_preload_libraries')
+
         # restore original values of archive_mode and shared_preload_libraries
         if getattr(self, '_old_config_values', None):
             for name, value in self._old_config_values.items():
@@ -218,6 +221,7 @@ class _PostgresqlUpgrade(Postgresql):
                 else:
                     self.config.get('parameters')[name] = value
 
+        # for the new version we maybe need to add some libs to the shared_preload_libraries
         shared_preload_libraries = self.config.get('parameters').get('shared_preload_libraries')
         if shared_preload_libraries:
             self._old_shared_preload_libraries = self.config.get('parameters')['shared_preload_libraries'] =\
@@ -238,8 +242,8 @@ class _PostgresqlUpgrade(Postgresql):
         self.config._postgresql_conf = old_postgresql_conf
         self._version_file = old_version_file
 
-        if shared_preload_libraries:
-            self.config.get('parameters')['shared_preload_libraries'] = shared_preload_libraries
+        if old_shared_preload_libraries:
+            self.config.get('parameters')['shared_preload_libraries'] = old_shared_preload_libraries
             self.no_bg_mon()
         self.configure_server_parameters()
         return True

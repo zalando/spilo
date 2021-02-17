@@ -38,6 +38,7 @@ services:
             ETCDCTL_ENDPOINTS: http://etcd:2379
             ETCD_HOST: "etcd:2379"
             SCOPE: demo
+            ENABLE_PG_MON: 'true'
             SPILO_CONFIGURATION: |
               bootstrap:
                 dcs:
