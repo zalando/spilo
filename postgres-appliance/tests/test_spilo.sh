@@ -50,17 +50,19 @@ function docker_exec() {
 
 function find_leader() {
     local container=$1
+    local silent=$2
     declare -r timeout=$TIMEOUT
     local attempts=0
 
     while true; do
         leader=$(docker_exec "$container" 'patronictl list -f tsv' 2> /dev/null | awk '($4 == "Leader"){print $2}')
         if [[ -n "$leader" ]]; then
-            echo "$leader"
+            [ -z "$silent" ] && echo "$leader"
             return
         fi
         ((attempts++))
         if [[ $attempts -ge $timeout ]]; then
+            docker logs "$container"
             log_error "Leader is not running after $timeout seconds"
         fi
         sleep 1
@@ -230,10 +232,14 @@ function verify_clone_with_wale_upgrade() {
 }
 
 function verify_clone_with_basebackup_upgrade() {
+    log_info "Waiting for clone with basebackup and upgrade 10->11 to complete..."
+    find_leader "$1" 1
     wait_query "$1" "SELECT current_setting('server_version_num')::int/10000" 11 2> /dev/null
 }
 
 function verify_clone_with_wale_upgrade_to_13() {
+    log_info "Waiting for clone with wal-e and upgrade 9.5->13 to complete..."
+    find_leader "$1" 1
     wait_query "$1" "SELECT current_setting('server_version_num')::int/10000" 13 2> /dev/null
 }
 
@@ -274,15 +280,12 @@ function test_spilo() {
 
     run_test test_pg_upgrade_to_12_check_failed "$container"  # pg_upgrade --check complains about OID
 
-    wait_backup "$container"
-    wait_zero_lag "$container"
-
-    log_info "Waiting for clone with wal-e and upgrade 9.5->13 to complete..."
-    find_leader "$upgrade_container" > /dev/null
-    docker logs "$upgrade_container"
     run_test verify_clone_with_wale_upgrade_to_13 "$upgrade_container"
 
     docker rm -f "$upgrade_container"
+
+    wait_backup "$container"
+    wait_zero_lag "$container"
 
     upgrade_container=$(start_clone_with_wale_upgrade_container)
     log_info "Started $upgrade_container for testing major upgrade 9.6->10 after clone with wal-e"
@@ -310,8 +313,7 @@ function test_spilo() {
     wait_backup "$container"
 
     log_info "Waiting for clone with wal-e and upgrade 9.6->10 to complete..."
-    find_leader "$upgrade_container" > /dev/null
-    docker logs "$upgrade_container"
+    find_leader "$upgrade_container" 1
     run_test verify_clone_with_wale_upgrade "$upgrade_container"
 
     wait_backup "$upgrade_container"
@@ -328,9 +330,6 @@ function test_spilo() {
     log_info "Waiting for postgres to start in the $upgrade_replica_container..."
     run_test verify_clone_with_wale_upgrade "$upgrade_replica_container"
 
-    log_info "Waiting for clone with basebackup and upgrade 10->11 to complete..."
-    find_leader "$basebackup_container" > /dev/null
-    docker logs "$basebackup_container"
     run_test verify_clone_with_basebackup_upgrade "$basebackup_container"
 }
 
