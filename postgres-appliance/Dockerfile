@@ -357,7 +357,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && find /var/log -type f -exec truncate --size 0 {} \;
 
 # Install patroni, wal-e and wal-g
-ENV PATRONIVERSION=2.0.1
+ENV PATRONIVERSION=2.0.2
 ENV WALE_VERSION=1.1.1
 ENV WALG_VERSION=v0.2.19
 RUN export DEBIAN_FRONTEND=noninteractive \
