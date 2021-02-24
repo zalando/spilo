@@ -1,7 +1,7 @@
 ARG BASE_IMAGE=ubuntu:18.04
 ARG PGVERSION=13
-ARG TIMESCALEDB=2.0.1
-ARG TIMESCALEDB_LEGACY=1.7.4
+ARG TIMESCALEDB=2.1.0
+ARG TIMESCALEDB_LEGACY=1.7.5
 ARG DEMO=false
 ARG COMPRESS=false
 
@@ -181,7 +181,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                     postgresql-${version}-pg-stat-kcache $EXTRAS \
 \
             # Install 3rd party stuff
-            && if [ "$version" != "9.5" ] && [ "$version" != "13" ]; then \
+            && if [ "$version" != "9.5" ]; then \
                 cd timescaledb \
                 && for v in $TIMESCALEDB_LEGACY $TIMESCALEDB; do \
                     if [ "$v" = "$TIMESCALEDB_LEGACY" ] || [ ${version%.*} -ge 11 ]; then \
