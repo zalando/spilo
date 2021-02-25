@@ -255,10 +255,29 @@ class _PostgresqlUpgrade(Postgresql):
     def analyze(self, in_stages=False):
         vacuumdb_args = ['--analyze-in-stages'] if in_stages else []
         logger.info('Rebuilding statistics (vacuumdb%s)', (' ' + vacuumdb_args[0] if in_stages else ''))
-        vacuumdb_args += ['-a', '-Z', '-j', str(psutil.cpu_count())]
         if 'username' in self.config.superuser:
             vacuumdb_args += ['-U', self.config.superuser['username']]
-        subprocess.call([self.pgcommand('vacuumdb')] + vacuumdb_args)
+        vacuumdb_args += ['-Z', '-j']
+
+        # vacuumdb is processing databases sequantially, while we better do them in parallel,
+        # because it will help with the case when there are multiple databases in the same cluster.
+        single_worker_dbs = ('postgres', 'template1')
+        databases = self._get_all_databases()
+        db_count = len([d for d in databases if d not in single_worker_dbs])
+        # calculate concurrency per database, except always existing "single_worker_dbs" (they'll get always 1 worker)
+        concurrency = str(max(1, int(psutil.cpu_count()/db_count)))
+        procs = []
+        for d in databases:
+            j = '1' if d in single_worker_dbs else concurrency
+            try:
+                procs.append(subprocess.Popen([self.pgcommand('vacuumdb')] + vacuumdb_args + [j, '-d', d]))
+            except Exception:
+                pass
+        for proc in procs:
+            try:
+                proc.wait()
+            except Exception:
+                pass
 
 
 def PostgresqlUpgrade(config):

@@ -132,10 +132,6 @@ function drop_table_with_oids() {
     docker_exec "$1" "psql -U postgres -d test_db -c 'DROP TABLE with_oids'"
 }
 
-function drop_timescaledb() {
-    docker_exec "$1" "psql -U postgres -d test_db -c 'DROP EXTENSION timescaledb CASCADE'"
-}
-
 function test_inplace_upgrade_wrong_container() {
     ! docker_exec "$(get_non_leader "$1")" "PGVERSION=10 $UPGRADE_SCRIPT 4"
 }
@@ -298,11 +294,8 @@ function test_spilo() {
 
     run_test test_envdir_updated_to_x 12
 
-    run_test test_pg_upgrade_to_13_check_failed "$container"  # pg_upgrade --check complains about timescaledb
-
     wait_backup "$container"
 
-    drop_timescaledb "$container"
     log_info "Testing in-place major upgrade to 12->13"
     run_test test_successful_inplace_upgrade_to_13 "$container"
 

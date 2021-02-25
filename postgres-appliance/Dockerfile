@@ -1,7 +1,7 @@
 ARG BASE_IMAGE=ubuntu:18.04
 ARG PGVERSION=13
-ARG TIMESCALEDB=2.0.1
-ARG TIMESCALEDB_LEGACY=1.7.4
+ARG TIMESCALEDB=2.1.0
+ARG TIMESCALEDB_LEGACY=1.7.5
 ARG DEMO=false
 ARG COMPRESS=false
 
@@ -83,7 +83,7 @@ ENV POSTGIS_VERSION=3.1 \
     BG_MON_COMMIT=ce4db98cd5d34ac2b47091dacfb5155583a64c2f \
     PG_AUTH_MON_COMMIT=a0c086ad9865c9a0f468f12d09b77353acd2de28 \
     PG_MON_COMMIT=12bdfa8d93294fb596c9066bc7e6f73bfead35da \
-    DECODERBUFS=v1.2.1.Final \
+    DECODERBUFS=v.1.3.1.Final \
     SET_USER=REL2_0_0 \
     PLPROFILER=REL4_1 \
     PAM_OAUTH2=v1.0.1 \
@@ -181,7 +181,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                     postgresql-${version}-pg-stat-kcache $EXTRAS \
 \
             # Install 3rd party stuff
-            && if [ "$version" != "9.5" ] && [ "$version" != "13" ]; then \
+            && if [ "$version" != "9.5" ]; then \
                 cd timescaledb \
                 && for v in $TIMESCALEDB_LEGACY $TIMESCALEDB; do \
                     if [ "$v" = "$TIMESCALEDB_LEGACY" ] || [ ${version%.*} -ge 11 ]; then \
@@ -357,7 +357,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && find /var/log -type f -exec truncate --size 0 {} \;
 
 # Install patroni, wal-e and wal-g
-ENV PATRONIVERSION=2.0.1
+ENV PATRONIVERSION=2.0.2
 ENV WALE_VERSION=1.1.1
 ENV WALG_VERSION=v0.2.19
 RUN export DEBIAN_FRONTEND=noninteractive \
