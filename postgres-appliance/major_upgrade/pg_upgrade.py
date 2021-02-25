@@ -265,7 +265,7 @@ class _PostgresqlUpgrade(Postgresql):
         databases = self._get_all_databases()
         db_count = len([d for d in databases if d not in single_worker_dbs])
         # calculate concurrency per database, except always existing "single_worker_dbs" (they'll get always 1 worker)
-        concurrency = str(max(1, int(psutil.cpu_count()/db_count)))
+        concurrency = str(max(1, int(psutil.cpu_count()/max(1, db_count))))
         procs = []
         for d in databases:
             j = '1' if d in single_worker_dbs else concurrency
