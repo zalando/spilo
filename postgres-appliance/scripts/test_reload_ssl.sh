@@ -28,7 +28,7 @@ has_changed() {
         return 1
     fi
     local mtime now elapsed_sec
-    mtime=$(stat -c '%Y' "$path")
+    mtime=$(stat -Lc '%Y' "$path")
     now=$(date +%s)
     elapsed_sec=$(( now - 1 - mtime ))
     if [[ $elapsed_sec -gt $test_interval_sec ]]; then
