@@ -101,9 +101,7 @@ class _PostgresqlUpgrade(Postgresql):
                 for ext in ('pg_stat_kcache', 'pg_stat_statements') + self._INCOMPATIBLE_EXTENSIONS:
                     logger.info('Executing "DROP EXTENSION IF EXISTS %s" in the database="%s"', ext, d)
                     cur.execute("DROP EXTENSION IF EXISTS {0}".format(ext))
-                if d[0] == 'postgres':
-                    logger.info('Executing "DROP TABLE postgres_log CASCADE" in the database=postgres')
-                    cur.execute('DROP TABLE IF EXISTS public.postgres_log CASCADE')
+
                 cur.execute("SELECT oid::regclass FROM pg_catalog.pg_class WHERE relpersistence = 'u'")
                 for unlogged in cur.fetchall():
                     logger.info('Truncating unlogged table %s', unlogged[0])
