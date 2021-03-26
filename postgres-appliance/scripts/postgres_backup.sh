@@ -5,7 +5,7 @@ function log
     echo "$(date "+%Y-%m-%d %H:%M:%S.%3N") - $0 - $*"
 }
 
-[[ -z $1 ]] && echo "Usage: $0 PGDATA <DAYS_TO_RETAIN>" && exit 1
+[[ -z $1 ]] && echo "Usage: $0 PGDATA" && exit 1
 
 log "I was called as: $0 $*"
 
