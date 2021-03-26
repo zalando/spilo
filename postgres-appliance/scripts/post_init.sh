@@ -107,11 +107,13 @@ CREATE TABLE IF NOT EXISTS public.postgres_log (
     query text,
     query_pos integer,
     location text,
-    application_name text,"
-if [ "$PGVER" -ge 13 ]; then echo "    backend_type text,"; fi
-echo "    CONSTRAINT postgres_log_check CHECK (false) NO INHERIT
+    application_name text,
+    CONSTRAINT postgres_log_check CHECK (false) NO INHERIT
 );
 GRANT SELECT ON public.postgres_log TO admin;"
+if [ "$PGVER" -ge 13 ]; then
+    echo "ALTER TABLE public.postgres_log ADD COLUMN IF NOT EXISTS backend_type text;"
+fi
 
 # Sunday could be 0 or 7 depending on the format, we just create both
 for i in $(seq 0 7); do
