@@ -1,4 +1,8 @@
 #!/bin/sh -e
 
+if [ "$(id -u)" -ne 0 ]; then
+    LD_PRELOAD=/usr/local/lib/cron_unprivileged.so
+fi
+
 exec 2>&1
-exec env -i /usr/sbin/cron -f
+exec env -i LD_PRELOAD=$LD_PRELOAD /usr/sbin/cron -f
