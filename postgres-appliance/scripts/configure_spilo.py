@@ -833,16 +833,16 @@ def write_crontab(placeholders, overwrite):
     lines = ['PATH={PATH}'.format(**placeholders)]
     root_lines = []
 
-    sys_nice_set = no_new_privs = None
+    sys_nice_is_set = no_new_privs = None
     with open('/proc/self/status') as f:
         for line in f:
             if line.startswith('NoNewPrivs:'):
                 no_new_privs = bool(int(line[12:]))
             elif line.startswith('CapBnd:'):
                 sys_nice = 0x800000
-                sys_nice_set = int(line[8:], 16) & sys_nice == sys_nice
+                sys_nice_is_set = int(line[8:], 16) & sys_nice == sys_nice
 
-    if sys_nice_set:
+    if sys_nice_is_set:
         renice = '*/5 * * * * bash /scripts/renice.sh'
         if not no_new_privs:
             lines += [renice]
