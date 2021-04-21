@@ -90,6 +90,6 @@ In case of S3, `wal-e` is used for backups and `wal-g` for restore.
 - **USE_WALG_BACKUP**: (optional) Enforce using `wal-g` instead of `wal-e` for backups (Boolean)
 - **USE_WALG_RESTORE**: (optional) Enforce using `wal-g` instead of `wal-e` for restores (Boolean)
 - **WALG_AZ_PREFIX**: (optional) the azure prefix to store WAL backups at in the format azure://test-container/walg-folder.
-- **WALG_DELTA_MAX_STEPS**, **WALG_DELTA_ORIGIN**, **WALG_DOWNLOAD_CONCURRENCY**, **WALG_UPLOAD_CONCURRENCY**, **WALG_UPLOAD_DISK_CONCURRENCY**: (optional) configuration options for wal-g. If at least of the options is specified, wal-g will be used instead of wal-e.
+- **WALG_DELTA_MAX_STEPS**, **WALG_DELTA_ORIGIN**, **WALG_DOWNLOAD_CONCURRENCY**, **WALG_UPLOAD_CONCURRENCY**, **WALG_UPLOAD_DISK_CONCURRENCY**: (optional) configuration options for wal-g.
 - **WALG_S3_CA_CERT_FILE**: (optional) TLS CA certificate for wal-g (see [wal-g configuration](https://github.com/wal-g/wal-g#configuration))
 - **WALG_SSH_PREFIX**: (optional) the ssh prefix to store WAL backups at in the format ssh://host.example.com/path/to/backups/ See `Wal-g <https://github.com/wal-g/wal-g#configuration>`__ documentation for details.
