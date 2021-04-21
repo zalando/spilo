@@ -42,7 +42,6 @@ Environment Configuration Settings
 - **AWS_ENDPOINT**: (optional) in format 'https://s3.AWS_REGION.amazonaws.com:443', if not specified will be calculated from AWS_REGION
 - **WALE_S3_ENDPOINT**: (optional) in format 'https+path://s3.AWS_REGION.amazonaws.com:443', if not specified will be calculated from AWS_ENDPOINT or AWS_REGION
 - **WALE_S3_PREFIX**: (optional) the full path to the backup location on S3 in the format s3://bucket-name/very/long/path. If not specified Spilo will generate it from WAL_S3_BUCKET.
-specified, wal-g will be used instead of wal-e.
 - **WAL_GS_BUCKET**: ditto for the Google Cloud Storage (WAL-E supports both S3 and GCS).
 - **WALE_GS_PREFIX**: (optional) the full path to the backup location on the Google Cloud Storage in the format gs://bucket-name/very/long/path. If not specified Spilo will generate it from WAL_GS_BUCKET.
 - **GOOGLE_APPLICATION_CREDENTIALS**: credentials for WAL-E when running in Google Cloud.
@@ -85,7 +84,12 @@ specified, wal-g will be used instead of wal-e.
 wal-g
 -----
 
+`wal-g` is used by default for Azure and SSH backups and restore.
+In case of S3, `wal-e` is used for backups and `wal-g` for restore.
+
+- **USE_WALG_BACKUP**: (optional) Enforce using `wal-g` instead of `wal-e` for backups (Boolean)
+- **USE_WALG_RESTORE**: (optional) Enforce using `wal-g` instead of `wal-e` for restores (Boolean)
 - **WALG_AZ_PREFIX**: (optional) the azure prefix to store WAL backups at in the format azure://test-container/walg-folder.
-- **WALG_DELTA_MAX_STEPS**, **WALG_DELTA_ORIGIN**, **WALG_DOWNLOAD_CONCURRENCY**, **WALG_UPLOAD_CONCURRENCY**, **WALG_UPLOAD_DISK_CONCURRENCY**: (optional) configuration options for wal-g. If at least of the options is
+- **WALG_DELTA_MAX_STEPS**, **WALG_DELTA_ORIGIN**, **WALG_DOWNLOAD_CONCURRENCY**, **WALG_UPLOAD_CONCURRENCY**, **WALG_UPLOAD_DISK_CONCURRENCY**: (optional) configuration options for wal-g. If at least of the options is specified, wal-g will be used instead of wal-e.
 - **WALG_S3_CA_CERT_FILE**: (optional) TLS CA certificate for wal-g (see [wal-g configuration](https://github.com/wal-g/wal-g#configuration))
 - **WALG_SSH_PREFIX**: (optional) the ssh prefix to store WAL backups at in the format ssh://host.example.com/path/to/backups/ See `Wal-g <https://github.com/wal-g/wal-g#configuration>`__ documentation for details.
