@@ -833,18 +833,26 @@ def write_crontab(placeholders, overwrite):
     lines = ['PATH={PATH}'.format(**placeholders)]
     root_lines = []
 
+    sys_nice_is_set = no_new_privs = None
     with open('/proc/self/status') as f:
         for line in f:
-            if line.startswith('CapBnd:'):
+            if line.startswith('NoNewPrivs:'):
+                no_new_privs = bool(int(line[12:]))
+            elif line.startswith('CapBnd:'):
                 sys_nice = 0x800000
-                if int(line[8:], 16) & sys_nice == sys_nice:
-                    lines += ['*/5 * * * * bash /scripts/renice.sh']
-                    if os.getuid() == 0:
-                        root_lines = lines[:]
-                        lines.pop(1)
-                else:
-                    logging.info('Skipping creation of renice cron job due to lack of SYS_NICE capability')
-                break
+                sys_nice_is_set = int(line[8:], 16) & sys_nice == sys_nice
+
+    if sys_nice_is_set:
+        renice = '*/5 * * * * bash /scripts/renice.sh'
+        if not no_new_privs:
+            lines += [renice]
+        elif os.getuid() == 0:
+            root_lines = [lines[0], renice]
+        else:
+            logging.info('Skipping creation of renice cron job due to running as not root '
+                         'and with "no-new-privileges:true" (allowPrivilegeEscalation=false on K8s)')
+    else:
+        logging.info('Skipping creation of renice cron job due to lack of SYS_NICE capability')
 
     if placeholders.get('SSL_TEST_RELOAD'):
         env = ' '.join('{0}="{1}"'.format(n, placeholders[n]) for n in ('SSL_CA_FILE', 'SSL_CRL_FILE',

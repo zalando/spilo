@@ -13,12 +13,14 @@ ARG ADDITIONAL_LOCALES=
 RUN export DEBIAN_FRONTEND=noninteractive \
     && echo 'APT::Install-Recommends "0";\nAPT::Install-Suggests "0";' > /etc/apt/apt.conf.d/01norecommend \
     && apt-get update \
-    && apt-get install -y curl ca-certificates less locales jq vim-tiny gnupg1 cron runit dumb-init libcap2-bin rsync \
+    && apt-get install -y curl ca-certificates less locales jq vim-tiny gnupg1 cron runit dumb-init libcap2-bin rsync sysstat \
     && ln -s chpst /usr/bin/envdir \
-    # Make it possible to use the following utilities without root
+    # Make it possible to use the following utilities without root (if container runs without "no-new-privileges:true")
     && setcap 'cap_sys_nice+ep' /usr/bin/chrt \
     && setcap 'cap_sys_nice+ep' /usr/bin/renice \
-    && chmod u+s /usr/sbin/cron \
+    # Disable unwanted cron jobs
+    && rm -fr /etc/cron.??* \
+    && truncate --size 0 /etc/crontab \
 \
     && if [ "$DEMO" != "true" ]; then \
         # Required for wal-e
@@ -64,7 +66,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             /usr/share/locale/??_?? \
     && find /var/log -type f -exec truncate --size 0 {} \;
 
-COPY dependencies/debs dependencies/src /builddeps/
+COPY cron_unprivileged.c dependencies/debs dependencies/src /builddeps/
 
 ARG PGVERSION
 ARG TIMESCALEDB
@@ -141,7 +143,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && sed -i 's/^\(bool  show_.* =\) true;/\1 false;/' set_user/compatibility.h \
     && git clone https://github.com/timescale/timescaledb.git \
 \
-    && apt-get install -y postgresql-common libevent-2.1 libevent-pthreads-2.1 sysstat brotli libbrotli1 python3.6 python3-psycopg2 \
+    && apt-get install -y postgresql-common libevent-2.1 libevent-pthreads-2.1 brotli libbrotli1 python3.6 python3-psycopg2 \
 \
     # forbid creation of a main cluster when package is installed
     && sed -ri 's/#(create_main_cluster) .*$/\1 = false/' /etc/postgresql-common/createcluster.conf \
@@ -267,6 +269,9 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             done; \
         done; \
     done \
+\
+    # make it possible for cron to work without root
+    && gcc -s -shared -fPIC -o /usr/local/lib/cron_unprivileged.so cron_unprivileged.c \
 \
     # Remove unnecessary packages
     && apt-get purge -y ${BUILD_PACKAGES} postgresql postgresql-server-dev-* libpq-dev=* libmagic1 bsdmainutils \
