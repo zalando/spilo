@@ -1,6 +1,6 @@
 ARG BASE_IMAGE=ubuntu:18.04
 ARG PGVERSION=13
-ARG TIMESCALEDB=2.1.0
+ARG TIMESCALEDB=2.2.0
 ARG TIMESCALEDB_LEGACY=1.7.5
 ARG DEMO=false
 ARG COMPRESS=false
@@ -80,7 +80,7 @@ ARG DEB_PG_SUPPORTED_VERSIONS="$PGOLDVERSIONS $PGVERSION"
 # Install PostgreSQL, extensions and contribs
 ENV POSTGIS_VERSION=3.1 \
     POSTGIS_LEGACY=3.0 \
-    BG_MON_COMMIT=74347c7804272a1ddbab083c927ce13618ebdf6e \
+    BG_MON_COMMIT=fcc3a7b2f325f93f3cab2b9a5a4ff41c80177898 \
     PG_AUTH_MON_COMMIT=a0c086ad9865c9a0f468f12d09b77353acd2de28 \
     PG_MON_COMMIT=12bdfa8d93294fb596c9066bc7e6f73bfead35da \
     DECODERBUFS=v.1.3.1.Final \
@@ -187,14 +187,15 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                     if [ "$v" = "$TIMESCALEDB_LEGACY" ] || [ ${version%.*} -ge 11 ]; then \
                         git checkout $v \
                         && sed -i "s/VERSION 3.11/VERSION 3.10/" CMakeLists.txt \
-                        && BUILD_FORCE_REMOVE=true ./bootstrap -DREGRESS_CHECKS=OFF -DWARNINGS_AS_ERRORS=OFF \
+                        && if BUILD_FORCE_REMOVE=true ./bootstrap -DREGRESS_CHECKS=OFF -DWARNINGS_AS_ERRORS=OFF \
                             -DPG_CONFIG=/usr/lib/postgresql/$version/bin/pg_config \
-                            -DAPACHE_ONLY=$TIMESCALEDB_APACHE_ONLY -DSEND_TELEMETRY_DEFAULT=NO \
-                        && make -C build install \
-                        && git reset --hard; \
-                    fi; \
+                            -DAPACHE_ONLY=$TIMESCALEDB_APACHE_ONLY -DSEND_TELEMETRY_DEFAULT=NO; then \
+                                make -C build install \
+                                && strip /usr/lib/postgresql/$version/lib/timescaledb*.so; \
+                        fi; \
+                    fi \
+                    && git reset --hard; \
                 done \
-                && strip /usr/lib/postgresql/$version/lib/timescaledb*.so \
                 && cd ..; \
             fi \
 \
