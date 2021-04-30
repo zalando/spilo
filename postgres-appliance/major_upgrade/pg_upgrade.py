@@ -40,9 +40,6 @@ class _PostgresqlUpgrade(Postgresql):
         version = float(version)
 
         config[config['method']]['command'] = 'true'
-        if version < 9.5:  # 9.4 and older don't have recovery_target_action
-            action = config[config['method']].get('recovery_target_action')
-            config[config['method']]['pause_at_recovery_target'] = str(action == 'pause').lower()
 
         # make sure we don't archive wals from the old version
         self._old_config_values = {'archive_mode': self.config.get('parameters').get('archive_mode')}

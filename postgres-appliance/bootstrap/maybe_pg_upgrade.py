@@ -1,14 +1,73 @@
 #!/usr/bin/env python
+import datetime
 import logging
+import os
+import subprocess
 import sys
 
 logger = logging.getLogger(__name__)
 
 
+def tail_postgres_log(weekday):
+    logdir = os.environ.get('PGLOG', '/home/postgres/pgdata/pgroot/pg_log')
+    logfile = os.path.join(logdir, 'postgresql-{0}.csv'.format(weekday))
+    return subprocess.check_output(['tail', '-n5', logfile]).decode('utf-8')
+
+
+def tail_postgres_logs():
+    weekday = datetime.datetime.today().isoweekday()
+    try:
+        ret = tail_postgres_log(weekday)
+    except Exception:
+        ret = ''
+    if not ret:
+        weekday += 6
+        if weekday > 7:
+            weekday %= 7
+        try:
+            ret = tail_postgres_log(weekday)  # maybe log just switched? try yesterday
+        except Exception:
+            ret = ''
+    return ret
+
+
+def wait_end_of_recovery(postgresql):
+    from patroni.utils import polling_loop
+
+    for _ in polling_loop(postgresql.config.get('pg_ctl_timeout'), 10):
+        postgresql.reset_cluster_info_state()
+        if postgresql.is_leader():
+            break
+        logger.info('waiting for end of recovery of the old cluster')
+
+
+def perform_pitr(postgresql, cluster_version, config):
+    logger.info('Trying to perform point-in-time recovery')
+    try:
+        if not postgresql.start_old_cluster(config, cluster_version):
+            raise Exception('Failed to start the cluster with old postgres')
+        return wait_end_of_recovery(postgresql)
+    except Exception:
+        logs = tail_postgres_logs()
+        # Spilo has no other locales except en_EN.UTF-8, therefore we are safe here.
+        if int(cluster_version) >= 13 and 'recovery ended before configured recovery target was reached' in logs:
+            # Starting from version 13 Postgres stopped promoting when recovery target wasn't reached.
+            # In order to improve the user experience we reset all possible recovery targets and retry.
+            recovery_conf = config[config['method']].get('recovery_conf', {})
+            if recovery_conf:
+                for target in ('name', 'time', 'xid', 'lsn'):
+                    recovery_conf['recovery_target_' + target] = ''
+            logger.info('Retrying point-in-time recovery without target')
+            if not postgresql.bootstrap.bootstrap(config):
+                raise Exception('Point-in-time recovery failed.\nLOGS:\n--\n' + tail_postgres_logs())
+            return wait_end_of_recovery(postgresql)
+        else:
+            raise Exception('Point-in-time recovery failed.\nLOGS:\n--\n' + logs)
+
+
 def main():
     from pg_upgrade import PostgresqlUpgrade
     from patroni.config import Config
-    from patroni.utils import polling_loop
     from spilo_commons import get_binary_version
 
     config = Config(sys.argv[1])
@@ -17,21 +76,13 @@ def main():
     bin_version = get_binary_version(upgrade.pgcommand(''))
     cluster_version = upgrade.get_cluster_version()
 
+    logger.info('Cluster version: %s, bin version: %s', cluster_version, bin_version)
+    assert float(cluster_version) <= float(bin_version)
+
+    perform_pitr(upgrade, cluster_version, config['bootstrap'])
+
     if cluster_version == bin_version:
         return 0
-
-    logger.info('Cluster version: %s, bin version: %s', cluster_version, bin_version)
-    assert float(cluster_version) < float(bin_version)
-
-    logger.info('Trying to start the cluster with old postgres')
-    if not upgrade.start_old_cluster(config['bootstrap'], cluster_version):
-        raise Exception('Failed to start the cluster with old postgres')
-
-    for _ in polling_loop(upgrade.config.get('pg_ctl_timeout'), 10):
-        upgrade.reset_cluster_info_state()
-        if upgrade.is_leader():
-            break
-        logger.info('waiting for end of recovery of the old cluster')
 
     if not upgrade.bootstrap.call_post_bootstrap(config['bootstrap']):
         upgrade.stop(block_callbacks=True, checkpoint=False)
