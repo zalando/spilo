@@ -78,9 +78,16 @@ function wait_backup() {
     # speed up backup creation
     local backup_starter_pid
     backup_starter_pid=$(docker exec "$container" pgrep -f '/bin/bash /scripts/patroni_wait.sh -t 3600 -- envdir /run/etc/wal-e.d/env /scripts/postgres_backup.sh')
-    docker exec "$container" pkill -P "$backup_starter_pid" -f 'sleep 60'
+    if [ -n "$backup_starter_pid" ]; then
+        docker exec "$container" pkill -P "$backup_starter_pid" -f 'sleep 60'
+    fi
 
     log_info "Waiting for backup on S3..,"
+
+    sleep 1
+
+    docker_exec -i "$1" "psql -U postgres -c CHECKPOINT" > /dev/null 2>&1
+
     while true; do
         count=$(docker_exec "$container" "envdir /run/etc/wal-e.d/env wal-g backup-list" | grep -c ^base)
         if [[ "$count" -gt 0 ]]; then
