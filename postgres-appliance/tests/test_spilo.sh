@@ -75,7 +75,19 @@ function wait_backup() {
     declare -r timeout=$TIMEOUT
     local attempts=0
 
+    # speed up backup creation
+    local backup_starter_pid
+    backup_starter_pid=$(docker exec "$container" pgrep -f '/bin/bash /scripts/patroni_wait.sh -t 3600 -- envdir /run/etc/wal-e.d/env /scripts/postgres_backup.sh')
+    if [ -n "$backup_starter_pid" ]; then
+        docker exec "$container" pkill -P "$backup_starter_pid" -f 'sleep 60'
+    fi
+
     log_info "Waiting for backup on S3..,"
+
+    sleep 1
+
+    docker_exec -i "$1" "psql -U postgres -c CHECKPOINT" > /dev/null 2>&1
+
     while true; do
         count=$(docker_exec "$container" "envdir /run/etc/wal-e.d/env wal-g backup-list" | grep -c ^base)
         if [[ "$count" -gt 0 ]]; then
@@ -208,6 +220,18 @@ function start_clone_with_wale_upgrade_to_13_container() {
         -d "spilo3"
 }
 
+function start_clone_with_wale_13_container() {
+    docker-compose run \
+        -e SCOPE=clone13 \
+        -e PGVERSION=13 \
+        -e CLONE_SCOPE=upgrade3 \
+        -e CLONE_PGVERSION=13 \
+        -e CLONE_METHOD=CLONE_WITH_WALE \
+        -e CLONE_TARGET_TIME="$(date -d '1 hour' -u +'%F %T UTC')" \
+        --name "${PREFIX}clone13" \
+        -d "spilo3"
+}
+
 function start_clone_with_basebackup_upgrade_container() {
     local container=$1
     docker-compose run \
@@ -278,7 +302,12 @@ function test_spilo() {
 
     run_test verify_clone_with_wale_upgrade_to_13 "$upgrade_container"
 
+    wait_backup "$upgrade_container"
     docker rm -f "$upgrade_container"
+
+    local clone13_container
+    clone13_container=$(start_clone_with_wale_13_container)
+    log_info "Started $clone13_container for testing point-in-time recovery (clone with wal-e) with unreachable target on 13+"
 
     wait_backup "$container"
     wait_zero_lag "$container"
@@ -293,6 +322,8 @@ function test_spilo() {
     wait_all_streaming "$container"
 
     run_test test_envdir_updated_to_x 12
+
+    find_leader "$clone13_container"
 
     wait_backup "$container"
 
