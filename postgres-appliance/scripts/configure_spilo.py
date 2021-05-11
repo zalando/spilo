@@ -705,7 +705,7 @@ def write_wale_environment(placeholders, prefix, overwrite):
                   'WALG_SENTINEL_USER_DATA', 'WALG_PREVENT_WAL_OVERWRITE', 'WALG_S3_CA_CERT_FILE']
 
     wale = defaultdict(lambda: '')
-    for name in ['PGVERSION', 'WALE_ENV_DIR', 'SCOPE', 'WAL_BUCKET_SCOPE_PREFIX', 'WAL_BUCKET_SCOPE_SUFFIX',
+    for name in ['PGVERSION', 'PGPORT', 'WALE_ENV_DIR', 'SCOPE', 'WAL_BUCKET_SCOPE_PREFIX', 'WAL_BUCKET_SCOPE_SUFFIX',
                  'WAL_S3_BUCKET', 'WAL_GCS_BUCKET', 'WAL_GS_BUCKET', 'WAL_SWIFT_BUCKET', 'BACKUP_NUM_TO_RETAIN',
                  'ENABLE_WAL_PATH_COMPAT'] + s3_names + swift_names + gs_names + walg_names + azure_names + ssh_names:
         wale[name] = placeholders.get(prefix + name, '')
@@ -771,7 +771,7 @@ def write_wale_environment(placeholders, prefix, overwrite):
         os.makedirs(wale['WALE_ENV_DIR'])
 
     wale['WALE_LOG_DESTINATION'] = 'stderr'
-    for name in write_envdir_names + ['WALE_LOG_DESTINATION'] + ([] if prefix else ['BACKUP_NUM_TO_RETAIN']):
+    for name in write_envdir_names + ['WALE_LOG_DESTINATION', 'PGPORT'] + ([] if prefix else ['BACKUP_NUM_TO_RETAIN']):
         if wale.get(name):
             path = os.path.join(wale['WALE_ENV_DIR'], name)
             write_file(wale[name], path, overwrite)
