@@ -1,4 +1,4 @@
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: &cluster_name zalandodemo01
@@ -6,6 +6,10 @@ metadata:
     application: spilo
     spilo-cluster: *cluster_name
 spec:
+  selector:
+    matchLabels:
+      application: spilo
+      spilo-cluster: *cluster_name
   replicas: 3
   serviceName: *cluster_name
   template:
@@ -24,24 +28,24 @@ spec:
         iam.amazonaws.com/role: app-spilo
         # forces the scheduler not to put pods on the same node.
         scheduler.alpha.kubernetes.io/affinity: >
-            {
-                "podAntiAffinity": {
-                  "requiredDuringSchedulingIgnoredDuringExecution": [
-                    {
-                        "labelSelector": {
-                          "matchExpressions": [
-                            {
-                              "key": "spilo-cluster",
-                              "operator": "In",
-                              "values": ["zalandodemo01"]
-                            }
-                          ]
-                         },
-                         "topologyKey": "kubernetes.io/hostname"
-                    }
-                  ]
-                 }
+          {
+            "podAntiAffinity": {
+              "requiredDuringSchedulingIgnoredDuringExecution": [
+                {
+                  "labelSelector": {
+                    "matchExpressions": [
+                      {
+                        "key": "spilo-cluster",
+                        "operator": "In",
+                        "values": ["zalandodemo01"]
+                      }
+                    ]
+                  },
+                  "topologyKey": "kubernetes.io/hostname"
+                }
+              ]
             }
+          }
     spec:
       # service account that allows changing endpoints and assigning pod labels
       # in the given namespace: https://kubernetes.io/docs/user-guide/service-accounts/
