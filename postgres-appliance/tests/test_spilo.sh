@@ -263,6 +263,11 @@ function verify_clone_with_wale_upgrade_to_13() {
     wait_query "$1" "SELECT current_setting('server_version_num')::int/10000" 13 2> /dev/null
 }
 
+function verify_archive_mode_is_on() {
+    archive_mode=$(docker_exec "$1" "psql -U postgres -tAc \"SHOW archive_mode\"")
+    [ "$archive_mode" = "on" ]
+}
+
 function run_test() {
     "$@" || log_error "Test case $1 FAILED"
     echo -e "Test case $1 ${GREEN}PASSED${RESET}"
@@ -283,6 +288,7 @@ function test_spilo() {
     # run_test test_failed_inplace_upgrade_big_replication_lag "$container"
 
     wait_zero_lag "$container"
+    run_test verify_archive_mode_is_on "$container"
     wait_backup "$container"
 
     local upgrade_container
@@ -302,6 +308,7 @@ function test_spilo() {
 
     run_test verify_clone_with_wale_upgrade_to_13 "$upgrade_container"
 
+    run_test verify_archive_mode_is_on "$upgrade_container"
     wait_backup "$upgrade_container"
     docker rm -f "$upgrade_container"
 
@@ -324,6 +331,7 @@ function test_spilo() {
     run_test test_envdir_updated_to_x 12
 
     find_leader "$clone13_container"
+    run_test verify_archive_mode_is_on "$clone13_container"
 
     wait_backup "$container"
 
@@ -355,6 +363,7 @@ function test_spilo() {
     run_test verify_clone_with_wale_upgrade "$upgrade_replica_container"
 
     run_test verify_clone_with_basebackup_upgrade "$basebackup_container"
+    run_test verify_archive_mode_is_on "$basebackup_container"
 }
 
 function main() {

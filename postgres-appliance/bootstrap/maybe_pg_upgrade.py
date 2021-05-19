@@ -41,10 +41,15 @@ def wait_end_of_recovery(postgresql):
         logger.info('waiting for end of recovery of the old cluster')
 
 
-def perform_pitr(postgresql, cluster_version, config):
+def perform_pitr(postgresql, cluster_version, bin_version, config):
     logger.info('Trying to perform point-in-time recovery')
+
+    config[config['method']]['command'] = 'true'
     try:
-        if not postgresql.start_old_cluster(config, cluster_version):
+        if bin_version == cluster_version:
+            if not postgresql.bootstrap.bootstrap(config):
+                raise Exception('Point-in-time recovery failed')
+        elif not postgresql.start_old_cluster(config, cluster_version):
             raise Exception('Failed to start the cluster with old postgres')
         return wait_end_of_recovery(postgresql)
     except Exception:
@@ -79,7 +84,7 @@ def main():
     logger.info('Cluster version: %s, bin version: %s', cluster_version, bin_version)
     assert float(cluster_version) <= float(bin_version)
 
-    perform_pitr(upgrade, cluster_version, config['bootstrap'])
+    perform_pitr(upgrade, cluster_version, bin_version, config['bootstrap'])
 
     if cluster_version == bin_version:
         return 0

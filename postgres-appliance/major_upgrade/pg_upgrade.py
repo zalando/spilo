@@ -37,16 +37,12 @@ class _PostgresqlUpgrade(Postgresql):
     def start_old_cluster(self, config, version):
         self.set_bin_dir(version)
 
-        version = float(version)
-
-        config[config['method']]['command'] = 'true'
-
         # make sure we don't archive wals from the old version
         self._old_config_values = {'archive_mode': self.config.get('parameters').get('archive_mode')}
         self.config.get('parameters')['archive_mode'] = 'off'
 
         # and don't load shared_preload_libraries which don't exist in the old version
-        self.adjust_shared_preload_libraries(version)
+        self.adjust_shared_preload_libraries(float(version))
 
         return self.bootstrap.bootstrap(config)
 
