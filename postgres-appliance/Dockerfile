@@ -418,6 +418,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                     /usr/lib/python3/dist-packages/boto/utils.py; \
     fi \
     && pip3 install "git+https://github.com/zalando/patroni.git@feature/postgresql-14-compat#egg=patroni[kubernetes$EXTRAS]" \
+    && echo "__version__ = '2.1.0'" > /usr/local/lib/python3.6/dist-packages/patroni/version.py \
 \
     && for d in /usr/local/lib/python3.6 /usr/lib/python3; do \
         cd $d/dist-packages \
