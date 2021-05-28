@@ -1,6 +1,6 @@
 ARG BASE_IMAGE=ubuntu:18.04
-ARG PGVERSION=13
-ARG TIMESCALEDB=2.2.1
+ARG PGVERSION=14
+ARG TIMESCALEDB=2.3.0
 ARG TIMESCALEDB_LEGACY=1.7.5
 ARG DEMO=false
 ARG COMPRESS=false
@@ -67,6 +67,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && find /var/log -type f -exec truncate --size 0 {} \;
 
 COPY cron_unprivileged.c dependencies/debs dependencies/src /builddeps/
+COPY patches/*.patch /builddeps/
 
 ARG PGVERSION
 ARG TIMESCALEDB
@@ -74,7 +75,7 @@ ARG TIMESCALEDB_LEGACY
 ARG TIMESCALEDB_APACHE_ONLY=true
 ARG DEMO
 ARG COMPRESS
-ARG PGOLDVERSIONS="9.5 9.6 10 11 12"
+ARG PGOLDVERSIONS="9.5 9.6 10 11 12 13"
 ARG WITH_PERL=false
 
 ARG DEB_PG_SUPPORTED_VERSIONS="$PGOLDVERSIONS $PGVERSION"
@@ -82,9 +83,9 @@ ARG DEB_PG_SUPPORTED_VERSIONS="$PGOLDVERSIONS $PGVERSION"
 # Install PostgreSQL, extensions and contribs
 ENV POSTGIS_VERSION=3.1 \
     POSTGIS_LEGACY=3.0 \
-    BG_MON_COMMIT=fcc3a7b2f325f93f3cab2b9a5a4ff41c80177898 \
+    BG_MON_COMMIT=504af68d63c328033fc76ebb5cd4e3709b823c19 \
     PG_AUTH_MON_COMMIT=a0c086ad9865c9a0f468f12d09b77353acd2de28 \
-    PG_MON_COMMIT=12bdfa8d93294fb596c9066bc7e6f73bfead35da \
+    PG_MON_COMMIT=f5364c1ca55d2d4a6a5ef0da921e3f538f89eaf5 \
     DECODERBUFS=v.1.3.1.Final \
     SET_USER=REL2_0_0 \
     PLPROFILER=REL4_1 \
@@ -105,9 +106,12 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && rm -f *.deb \
         && apt-get install -y $BUILD_PACKAGES; \
     else \
-        BUILD_PACKAGES="$BUILD_PACKAGES pgxnclient zlib1g-dev libprotobuf-c-dev libpam0g-dev libcurl4-openssl-dev libicu-dev python libc-ares-dev pandoc pkg-config" \
+        BUILD_PACKAGES="$BUILD_PACKAGES pgxnclient zlib1g-dev libprotobuf-c-dev libpam0g-dev libcurl4-openssl-dev libicu-dev python libc-ares-dev pandoc pkg-config naturaldocs docbook-xsl xsltproc flex bison asciidoc newpid" \
 # debezium-decoderbufs: libprotobuf-c-dev
 # pgbouncer: libc-ares-dev pandoc pkg-config
+# pgq3: naturaldocs
+# pg-checksums: docbook-xsl xsltproc
+# plproxy: flex bison asciidoc newpid
         && apt-get install -y $BUILD_PACKAGES libprotobuf-c1 libcurl4 \
 \
         # install pam_oauth2.so
@@ -155,19 +159,23 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             && if [ "$DEMO" != "true" ]; then \
                 EXTRAS="postgresql-pltcl-${version} \
                         postgresql-${version}-hypopg \
+                        postgresql-${version}-plpgsql-check \
+                        postgresql-${version}-wal2json" \
+                && if [ $version != "14" ]; then \
+                    EXTRAS="$EXTRAS \
                         postgresql-${version}-pgaudit \
                         postgresql-${version}-pg-checksums \
                         postgresql-${version}-pgl-ddl-deploy \
                         postgresql-${version}-pglogical \
                         postgresql-${version}-pglogical-ticker \
+                        postgresql-${version}-pgq3 \
                         postgresql-${version}-pldebugger \
                         postgresql-${version}-pllua \
-                        postgresql-${version}-plpgsql-check \
                         postgresql-${version}-plproxy \
                         postgresql-${version}-postgis-${POSTGIS_VERSION%.*} \
                         postgresql-${version}-postgis-${POSTGIS_VERSION%.*}-scripts \
-                        postgresql-${version}-repack \
-                        postgresql-${version}-wal2json" \
+                        postgresql-${version}-repack"; \
+                fi \
                 && if [ "$WITH_PERL" = "true" ]; then \
                     EXTRAS="$EXTRAS postgresql-plperl-${version}"; \
                 fi \
@@ -179,11 +187,11 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             # Install PostgreSQL binaries, contrib, plproxy and multiple pl's
             && apt-get install --allow-downgrades -y postgresql-contrib-${version} \
                     postgresql-plpython3-${version} postgresql-server-dev-${version} \
-                    postgresql-${version}-cron postgresql-${version}-pgq3 \
-                    postgresql-${version}-pg-stat-kcache $EXTRAS \
+                    postgresql-${version}-cron postgresql-${version}-pg-stat-kcache \
+                    $EXTRAS \
 \
             # Install 3rd party stuff
-            && if [ "$version" != "9.5" ]; then \
+            && if [ "$version" != "9.5" ] && [ "$version" != "14" ]; then \
                 cd timescaledb \
                 && for v in $TIMESCALEDB_LEGACY $TIMESCALEDB; do \
                     if [ "$v" = "$TIMESCALEDB_LEGACY" ] || [ ${version%.*} -ge 11 ]; then \
@@ -224,20 +232,22 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 \
     && apt-get install -y skytools3-ticker \
 \
-    && sed -i "s/ main.*$/ main/g" /etc/apt/sources.list.d/pgdg.list \
+    && sed -i "s/-testing.*$/ main/g" /etc/apt/sources.list.d/pgdg.list \
     && apt-get update \
-    && apt-get install -y postgresql postgresql-server-dev-all libpq-dev \
+    && apt-get install -y postgresql postgresql-server-dev-all postgresql-all libpq-dev \
     && for version in $DEB_PG_SUPPORTED_VERSIONS; do \
         apt-get install -y postgresql-server-dev-${version}; \
     done \
 \
     && if [ "$DEMO" != "true" ]; then \
         for version in $DEB_PG_SUPPORTED_VERSIONS; do \
-            # due to dependency issues partman has to be installed separately
-            apt-get install -y postgresql-${version}-partman \
-            # create postgis symlinks to make it possible to perform update
-            && ln -s postgis-${POSTGIS_VERSION%.*}.so \
-                /usr/lib/postgresql/${version}/lib/postgis-2.5.so; \
+            if [ "$version" != "14" ]; then \
+                # due to dependency issues partman has to be installed separately
+                apt-get install -y postgresql-${version}-partman \
+                # create postgis symlinks to make it possible to perform update
+                && ln -s postgis-${POSTGIS_VERSION%.*}.so \
+                    /usr/lib/postgresql/${version}/lib/postgis-2.5.so; \
+            fi; \
         done \
         # patch, build and install pgbouncer
         && apt-get source pgbouncer \
@@ -247,13 +257,15 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && sed -i 's/\(SEND_wrap(\)512\(, pktbuf_write_PasswordMessage, res, sk, psw)\)/\11024\2/' include/pktbuf.h \
         && DEB_BUILD_OPTIONS=nocheck debuild -b -uc -us \
         && cd .. \
-        && dpkg -i pgbouncer_*.deb; \
+        && dpkg -i pgbouncer_*.deb \
+        && PACKAGES="partman pgaudit pg-checksums plproxy repack"; \
     fi \
 \
     # build and install missing packages
-    && for pkg in pgextwlist; do \
-        apt-get source postgresql-$PGVERSION-${pkg} \
+    && for pkg in pgextwlist pgq3 $PACKAGES; do \
+        apt-get source postgresql-13-${pkg} \
         && cd $(ls -d *${pkg%?}*-*/) \
+        && if [ -f ../$pkg.patch ]; then patch -p1 < ../$pkg.patch; fi \
         && if [ "$pkg" = "pgextwlist" ]; then \
             sed -i '/postgresql-all/d' debian/control.in \
             # make it possible to use it from shared_preload_libraries
@@ -261,7 +273,11 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             && egrep -v '(PG_END_TRY|EmitWarningsOnPlaceholders)' pgextwlist.c.f > pgextwlist.c; \
         fi \
         && pg_buildext updatecontrol \
-        && DEB_BUILD_OPTIONS=nocheck debuild -b -uc -us \
+        && if [ "$pkg" = "pgextwlist" ]; then \
+            DEB_BUILD_OPTIONS=nocheck debuild -b -uc -us; \
+        else \
+            DEB_BUILD_OPTIONS=nocheck DEB_PG_SUPPORTED_VERSIONS=$PGVERSION debuild -b -uc -us; \
+        fi \
         && cd .. \
         && for version in $DEB_PG_SUPPORTED_VERSIONS; do \
             for deb in postgresql-${version}-${pkg}_*.deb; do \
@@ -274,7 +290,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && gcc -s -shared -fPIC -o /usr/local/lib/cron_unprivileged.so cron_unprivileged.c \
 \
     # Remove unnecessary packages
-    && apt-get purge -y ${BUILD_PACKAGES} postgresql postgresql-server-dev-* libpq-dev=* libmagic1 bsdmainutils \
+    && apt-get purge -y ${BUILD_PACKAGES} postgresql postgresql-all postgresql-server-dev-* libpq-dev=* libmagic1 bsdmainutils \
     && apt-get autoremove -y \
     && apt-get clean \
     && dpkg -l | grep '^rc' | awk '{print $2}' | xargs apt-get purge -y \
@@ -401,7 +417,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && sed -i 's/^\(    for i in range(0,\) num_retries):.*/\1 100):/g' \
                     /usr/lib/python3/dist-packages/boto/utils.py; \
     fi \
-    && pip3 install "git+https://github.com/zalando/patroni.git@2.0/bugfixes#egg=patroni[kubernetes$EXTRAS]" \
+    && pip3 install "git+https://github.com/zalando/patroni.git@feature/postgresql-14-compat#egg=patroni[kubernetes$EXTRAS]" \
 \
     && for d in /usr/local/lib/python3.6 /usr/lib/python3; do \
         cd $d/dist-packages \

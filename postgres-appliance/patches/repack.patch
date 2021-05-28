@@ -1,0 +1,40 @@
+diff -urN pg-repack-1.4.6/bin/pgut/pgut.c pg-repack-1.4.6.old/bin/pgut/pgut.c
+--- pg-repack-1.4.6/bin/pgut/pgut.c	2020-09-30 21:51:11.000000000 +0200
++++ pg-repack-1.4.6.old/bin/pgut/pgut.c	2021-05-13 18:01:40.221398576 +0200
+@@ -450,7 +450,7 @@
+ 		passwdbuf = pgut_malloc(BUFSIZE);
+ 		memcpy(passwdbuf, buf, sizeof(char)*BUFSIZE);
+ 	}
+-#else
++#elif PG_VERSION_NUM < 140000
+ 	buf = pgut_malloc(BUFSIZE);
+ 	if (have_passwd) {
+ 		memcpy(buf, passwdbuf, sizeof(char)*BUFSIZE);
+@@ -461,6 +461,13 @@
+ 		passwdbuf = pgut_malloc(BUFSIZE);
+ 		memcpy(passwdbuf, buf, sizeof(char)*BUFSIZE);
+ 	}
++#else
++	if (!have_passwd) {
++		passwdbuf = simple_prompt("Password: ", false);
++		have_passwd = true;
++	}
++	buf = pgut_malloc(strlen(passwdbuf) + 1);
++	memcpy(buf, passwdbuf, strlen(passwdbuf) + 1);
+ #endif
+ 
+ 	if (buf == NULL)
+Binary files pg-repack-1.4.6/bin/pgut/.pgut.c.swp and pg-repack-1.4.6.old/bin/pgut/.pgut.c.swp differ
+diff -urN pg-repack-1.4.6/bin/pgut/pgut.h pg-repack-1.4.6.old/bin/pgut/pgut.h
+--- pg-repack-1.4.6/bin/pgut/pgut.h	2020-09-30 21:51:11.000000000 +0200
++++ pg-repack-1.4.6.old/bin/pgut/pgut.h	2021-05-13 17:53:15.985002132 +0200
+@@ -21,6 +21,9 @@
+ #include "libpq-fe.h"
+ #include "pqexpbuffer.h"
+ #include "utils/elog.h"
++#if PG_VERSION_NUM >= 140000
++#include "common/string.h"
++#endif
+ 
+ #define INFINITE_STR		"INFINITE"
+ 
