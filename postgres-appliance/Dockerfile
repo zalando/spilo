@@ -382,9 +382,10 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 \
     && if [ "$DEMO" != "true" ]; then \
         EXTRAS=",etcd,consul,zookeeper,aws" \
-        && curl -sL https://github.com/wal-g/wal-g/releases/download/$WALG_VERSION/wal-g-pg-ubuntu-18.04-amd64.tar.gz \
+        && DISTRIB_RELEASE=$(sed -n 's/DISTRIB_RELEASE=//p' /etc/lsb-release) \
+        && curl -sL https://github.com/wal-g/wal-g/releases/download/$WALG_VERSION/wal-g-pg-ubuntu-$DISTRIB_RELEASE-amd64.tar.gz \
                 | tar -C /usr/local/bin -xz \
-        && mv /usr/local/bin/wal-g-pg-ubuntu-18.04-amd64 /usr/local/bin/wal-g \
+        && mv /usr/local/bin/wal-g-pg-ubuntu-$DISTRIB_RELEASE-amd64 /usr/local/bin/wal-g \
         && strip /usr/local/bin/wal-g \
         && apt-get install -y python3-etcd python3-consul python3-kazoo python3-meld3 \
                         python3-boto python3-gevent python3-greenlet python3-cachetools \
