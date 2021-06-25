@@ -1,7 +1,238 @@
-diff -urN pg-repack-1.4.6/bin/pgut/pgut.c pg-repack-1.4.6.old/bin/pgut/pgut.c
---- pg-repack-1.4.6/bin/pgut/pgut.c	2020-09-30 21:51:11.000000000 +0200
-+++ pg-repack-1.4.6.old/bin/pgut/pgut.c	2021-05-13 18:01:40.221398576 +0200
-@@ -450,7 +450,7 @@
+diff --git a/.travis.yml b/.travis.yml
+index fcd27df..06b3861 100644
+--- a/.travis.yml
++++ b/.travis.yml
+@@ -1,16 +1,17 @@
+ # Travis CI configuration file for psycopg2
+ 
+-dist: xenial
++dist: focal
+ sudo: required
+ 
+ env:
++  - PGVER=14
+   - PGVER=13
+   - PGVER=12
+   - PGVER=11
+   - PGVER=10
+   # Disabled because packages broken at least on xenial
+   # https://www.postgresql.org/message-id/CA%2Bmi_8a1oEnCzkt0CvqysgY4MQ6jEefjmS%3Dq_K-AvOx%3DF7m2%2BQ%40mail.gmail.com
+-  # - PGVER=9.6
++  - PGVER=9.6
+   - PGVER=9.5
+   - PGVER=9.4
+ 
+diff --git a/META.json b/META.json
+index d12358b..40341cb 100644
+--- a/META.json
++++ b/META.json
+@@ -2,7 +2,7 @@
+    "name": "pg_repack",
+    "abstract": "PostgreSQL module for data reorganization",
+    "description": "Reorganize tables in PostgreSQL databases with minimal locks",
+-   "version": "1.4.6",
++   "version": "1.4.7",
+    "maintainer": [
+        "Beena Emerson <memissemerson@gmail.com>",
+        "Josh Kupershmidt <schmiddy@gmail.com>",
+@@ -15,7 +15,7 @@
+    "provides": {
+       "pg_repack": {
+          "file": "lib/pg_repack.sql",
+-         "version": "1.4.6",
++         "version": "1.4.7",
+          "abstract": "Reorganize tables in PostgreSQL databases with minimal locks"
+       }
+    },
+diff --git a/bin/pg_repack.c b/bin/pg_repack.c
+index 38d40e2..1bdceb5 100644
+--- a/bin/pg_repack.c
++++ b/bin/pg_repack.c
+@@ -75,7 +75,7 @@ const char *PROGRAM_VERSION = "unknown";
+  * pg_regress.
+  */
+ #define SQL_XID_SNAPSHOT_90200 \
+-	"SELECT repack.array_accum(l.virtualtransaction) " \
++	"SELECT coalesce(array_agg(l.virtualtransaction), '{}') " \
+ 	"  FROM pg_locks AS l " \
+ 	"  LEFT JOIN pg_stat_activity AS a " \
+ 	"    ON l.pid = a.pid " \
+@@ -90,7 +90,7 @@ const char *PROGRAM_VERSION = "unknown";
+ 	"  AND ((d.datname IS NULL OR d.datname = current_database()) OR l.database = 0)"
+ 
+ #define SQL_XID_SNAPSHOT_90000 \
+-	"SELECT repack.array_accum(l.virtualtransaction) " \
++	"SELECT coalesce(array_agg(l.virtualtransaction), '{}') " \
+ 	"  FROM pg_locks AS l " \
+ 	"  LEFT JOIN pg_stat_activity AS a " \
+ 	"    ON l.pid = a.procpid " \
+@@ -108,7 +108,7 @@ const char *PROGRAM_VERSION = "unknown";
+  * the WHERE clause is just to eat the $2 parameter (application name).
+  */
+ #define SQL_XID_SNAPSHOT_80300 \
+-	"SELECT repack.array_accum(l.virtualtransaction) " \
++	"SELECT coalesce(array_agg(l.virtualtransaction), '{}') " \
+ 	"  FROM pg_locks AS l" \
+ 	"  LEFT JOIN pg_stat_activity AS a " \
+ 	"    ON l.pid = a.procpid " \
+@@ -212,6 +212,7 @@ typedef struct repack_table
+ static bool is_superuser(void);
+ static void check_tablespace(void);
+ static bool preliminary_checks(char *errbuf, size_t errsize);
++static bool is_requested_relation_exists(char *errbuf, size_t errsize);
+ static void repack_all_databases(const char *order_by);
+ static bool repack_one_database(const char *order_by, char *errbuf, size_t errsize);
+ static void repack_one_table(repack_table *table, const char *order_by);
+@@ -558,6 +559,113 @@ preliminary_checks(char *errbuf, size_t errsize){
+ 	return ret;
+ }
+ 
++/*
++ * Check the presence of tables specified by --parent-table and --table
++ * otherwise format user-friendly message
++ */
++static bool
++is_requested_relation_exists(char *errbuf, size_t errsize){
++	bool			ret = false;
++	PGresult		*res = NULL;
++	const char	    **params = NULL;
++	int				iparam = 0;
++	StringInfoData	sql;
++	int				num_relations;
++	SimpleStringListCell   *cell;
++
++	num_relations = simple_string_list_size(parent_table_list) +
++					simple_string_list_size(table_list);
++
++	/* nothing was implicitly requested, so nothing to do here */
++	if (num_relations == 0)
++		return true;
++
++	/* has no suitable to_regclass(text) */
++	if (PQserverVersion(connection)<90600)
++		return true;
++
++	params = pgut_malloc(num_relations * sizeof(char *));
++	initStringInfo(&sql);
++	appendStringInfoString(&sql, "SELECT r FROM (VALUES ");
++
++	for (cell = table_list.head; cell; cell = cell->next)
++	{
++		appendStringInfo(&sql, "($%d)", iparam + 1);
++		params[iparam++] = cell->val;
++		if (iparam < num_relations)
++			appendStringInfoChar(&sql, ',');
++	}
++	for (cell = parent_table_list.head; cell; cell = cell->next)
++	{
++		appendStringInfo(&sql, "($%d)", iparam + 1);
++		params[iparam++] = cell->val;
++		if (iparam < num_relations)
++			appendStringInfoChar(&sql, ',');
++	}
++	appendStringInfoString(&sql,
++		") AS given_t(r)"
++		" WHERE NOT EXISTS("
++		"  SELECT FROM repack.tables WHERE relid=to_regclass(given_t.r) )"
++	);
++
++	/* double check the parameters array is sane */
++	if (iparam != num_relations)
++	{
++		if (errbuf)
++			snprintf(errbuf, errsize,
++				"internal error: bad parameters count: %i instead of %i",
++				 iparam, num_relations);
++		goto cleanup;
++	}
++
++	res = execute_elevel(sql.data, iparam, params, DEBUG2);
++	if (PQresultStatus(res) == PGRES_TUPLES_OK)
++	{
++		int 	num;
++
++		num = PQntuples(res);
++
++		if (num != 0)
++		{
++			int i;
++			StringInfoData	rel_names;
++			initStringInfo(&rel_names);
++
++			for (i = 0; i < num; i++)
++			{
++				appendStringInfo(&rel_names, "\"%s\"", getstr(res, i, 0));
++				if ((i + 1) != num)
++					appendStringInfoString(&rel_names, ", ");
++			}
++
++			if (errbuf)
++			{
++				if (num > 1)
++					snprintf(errbuf, errsize,
++							"relations do not exist: %s", rel_names.data);
++				else
++					snprintf(errbuf, errsize,
++							"ERROR:  relation %s does not exist", rel_names.data);
++			}
++			termStringInfo(&rel_names);
++		}
++		else
++			ret = true;
++	}
++	else
++	{
++		if (errbuf)
++			snprintf(errbuf, errsize, "%s", PQerrorMessage(connection));
++	}
++	CLEARPGRES(res);
++
++cleanup:
++	CLEARPGRES(res);
++	termStringInfo(&sql);
++	free(params);
++	return ret;
++}
++
+ /*
+  * Call repack_one_database for each database.
+  */
+@@ -657,6 +765,9 @@ repack_one_database(const char *orderby, char *errbuf, size_t errsize)
+ 	if (!preliminary_checks(errbuf, errsize))
+ 		goto cleanup;
+ 
++	if (!is_requested_relation_exists(errbuf, errsize))
++		goto cleanup;
++
+ 	/* acquire target tables */
+ 	appendStringInfoString(&sql,
+ 		"SELECT t.*,"
+@@ -2115,6 +2226,9 @@ repack_all_indexes(char *errbuf, size_t errsize)
+ 	if (!preliminary_checks(errbuf, errsize))
+ 		goto cleanup;
+ 
++	if (!is_requested_relation_exists(errbuf, errsize))
++		goto cleanup;
++
+ 	if (r_index.head)
+ 	{
+ 		appendStringInfoString(&sql,
+diff --git a/bin/pgut/pgut.c b/bin/pgut/pgut.c
+index 8804195..a020a3e 100644
+--- a/bin/pgut/pgut.c
++++ b/bin/pgut/pgut.c
+@@ -10,6 +10,10 @@
+ #include "postgres_fe.h"
+ #include "libpq/pqsignal.h"
+ 
++#if PG_VERSION_NUM >= 140000
++#include "common/string.h" /* for simple_prompt */
++#endif
++
+ #include <limits.h>
+ #include <sys/stat.h>
+ #include <time.h>
+@@ -450,7 +454,7 @@ prompt_for_password(void)
  		passwdbuf = pgut_malloc(BUFSIZE);
  		memcpy(passwdbuf, buf, sizeof(char)*BUFSIZE);
  	}
@@ -10,31 +241,207 @@ diff -urN pg-repack-1.4.6/bin/pgut/pgut.c pg-repack-1.4.6.old/bin/pgut/pgut.c
  	buf = pgut_malloc(BUFSIZE);
  	if (have_passwd) {
  		memcpy(buf, passwdbuf, sizeof(char)*BUFSIZE);
-@@ -461,6 +461,13 @@
+@@ -461,6 +465,16 @@ prompt_for_password(void)
  		passwdbuf = pgut_malloc(BUFSIZE);
  		memcpy(passwdbuf, buf, sizeof(char)*BUFSIZE);
  	}
 +#else
-+	if (!have_passwd) {
-+		passwdbuf = simple_prompt("Password: ", false);
++	if (have_passwd) {
++		buf = pgut_malloc(BUFSIZE);
++		memcpy(buf, passwdbuf, sizeof(char)*BUFSIZE);
++	} else {
++		buf = simple_prompt("Password: ", false);
 +		have_passwd = true;
++		passwdbuf = pgut_malloc(BUFSIZE);
++		memcpy(passwdbuf, buf, sizeof(char)*BUFSIZE);
 +	}
-+	buf = pgut_malloc(strlen(passwdbuf) + 1);
-+	memcpy(buf, passwdbuf, strlen(passwdbuf) + 1);
  #endif
  
  	if (buf == NULL)
-Binary files pg-repack-1.4.6/bin/pgut/.pgut.c.swp and pg-repack-1.4.6.old/bin/pgut/.pgut.c.swp differ
-diff -urN pg-repack-1.4.6/bin/pgut/pgut.h pg-repack-1.4.6.old/bin/pgut/pgut.h
---- pg-repack-1.4.6/bin/pgut/pgut.h	2020-09-30 21:51:11.000000000 +0200
-+++ pg-repack-1.4.6.old/bin/pgut/pgut.h	2021-05-13 17:53:15.985002132 +0200
-@@ -21,6 +21,9 @@
- #include "libpq-fe.h"
- #include "pqexpbuffer.h"
- #include "utils/elog.h"
-+#if PG_VERSION_NUM >= 140000
-+#include "common/string.h"
-+#endif
+diff --git a/doc/pg_repack.rst b/doc/pg_repack.rst
+index 7d2ff17..90834b9 100644
+--- a/doc/pg_repack.rst
++++ b/doc/pg_repack.rst
+@@ -40,7 +40,7 @@ Requirements
+ ------------
  
- #define INFINITE_STR		"INFINITE"
+ PostgreSQL versions
+-    PostgreSQL 9.4, 9.5, 9.6, 10, 11, 12, 13
++    PostgreSQL 9.4, 9.5, 9.6, 10, 11, 12, 13, 14
  
+ Disks
+     Performing a full-table repack requires free disk space about twice as
+@@ -466,6 +466,10 @@ Creating indexes concurrently comes with a few caveats, please see `the document
+ Releases
+ --------
+ 
++* pg_repack 1.4.7
++
++  * Added support for PostgreSQL 14
++
+ * pg_repack 1.4.6
+ 
+   * Added support for PostgreSQL 13
+diff --git a/lib/pg_repack.sql.in b/lib/pg_repack.sql.in
+index ebbf9f2..23305db 100644
+--- a/lib/pg_repack.sql.in
++++ b/lib/pg_repack.sql.in
+@@ -16,13 +16,6 @@ CREATE FUNCTION repack.version_sql() RETURNS text AS
+ $$SELECT 'pg_repack REPACK_VERSION'::text$$
+ LANGUAGE SQL IMMUTABLE STRICT;
+ 
+-CREATE AGGREGATE repack.array_accum (
+-    sfunc = array_append,
+-    basetype = anyelement,
+-    stype = anyarray,
+-    initcond = '{}'
+-);
+-
+ -- Always specify search_path to 'pg_catalog' so that we
+ -- always can get schema-qualified relation name
+ CREATE FUNCTION repack.oid2text(oid) RETURNS text AS
+@@ -33,7 +26,7 @@ LANGUAGE sql STABLE STRICT SET search_path to 'pg_catalog';
+ 
+ CREATE FUNCTION repack.get_index_columns(oid, text) RETURNS text AS
+ $$
+-  SELECT array_to_string(repack.array_accum(quote_ident(attname)), $2)
++  SELECT coalesce(string_agg(quote_ident(attname), $2), '')
+     FROM pg_attribute,
+          (SELECT indrelid,
+                  indkey,
+@@ -53,8 +46,8 @@ LANGUAGE C STABLE STRICT;
+ CREATE FUNCTION repack.get_create_index_type(oid, name) RETURNS text AS
+ $$
+   SELECT 'CREATE TYPE ' || $2 || ' AS (' ||
+-         array_to_string(repack.array_accum(quote_ident(attname) || ' ' ||
+-           pg_catalog.format_type(atttypid, atttypmod)), ', ') || ')'
++         coalesce(string_agg(quote_ident(attname) || ' ' ||
++           pg_catalog.format_type(atttypid, atttypmod), ', '), '') || ')'
+     FROM pg_attribute,
+          (SELECT indrelid,
+                  indkey,
+@@ -90,9 +83,9 @@ LANGUAGE sql STABLE STRICT;
+ 
+ CREATE FUNCTION repack.get_assign(oid, text) RETURNS text AS
+ $$
+-  SELECT '(' || array_to_string(repack.array_accum(quote_ident(attname)), ', ') ||
++  SELECT '(' || coalesce(string_agg(quote_ident(attname), ', '), '') ||
+          ') = (' || $2 || '.' ||
+-         array_to_string(repack.array_accum(quote_ident(attname)), ', ' || $2 || '.') || ')'
++         coalesce(string_agg(quote_ident(attname), ', ' || $2 || '.'), '') || ')'
+     FROM (SELECT attname FROM pg_attribute
+            WHERE attrelid = $1 AND attnum > 0 AND NOT attisdropped
+            ORDER BY attnum) tmp;
+@@ -102,9 +95,9 @@ LANGUAGE sql STABLE STRICT;
+ CREATE FUNCTION repack.get_compare_pkey(oid, text)
+   RETURNS text AS
+ $$
+-  SELECT '(' || array_to_string(repack.array_accum(quote_ident(attname)), ', ') ||
++  SELECT '(' || coalesce(string_agg(quote_ident(attname), ', '), '') ||
+          ') = (' || $2 || '.' ||
+-         array_to_string(repack.array_accum(quote_ident(attname)), ', ' || $2 || '.') || ')'
++         coalesce(string_agg(quote_ident(attname), ', ' || $2 || '.'), '') || ')'
+     FROM pg_attribute,
+          (SELECT indrelid,
+                  indkey,
+@@ -122,7 +115,7 @@ LANGUAGE sql STABLE STRICT;
+ CREATE FUNCTION repack.get_columns_for_create_as(oid)
+   RETURNS text AS
+ $$
+-SELECT array_to_string(repack.array_accum(c), ',') FROM (SELECT
++SELECT coalesce(string_agg(c, ','), '') FROM (SELECT
+ 	CASE WHEN attisdropped
+ 		THEN 'NULL::integer AS ' || quote_ident(attname)
+ 		ELSE quote_ident(attname)
+@@ -142,7 +135,7 @@ SELECT
+ 	'ALTER TABLE ' || $2 || ' ' || array_to_string(dropped_columns, ', ')
+ FROM (
+ 	SELECT
+-		repack.array_accum('DROP COLUMN ' || quote_ident(attname)) AS dropped_columns
++		array_agg('DROP COLUMN ' || quote_ident(attname)) AS dropped_columns
+ 	FROM (
+ 		SELECT * FROM pg_attribute
+ 		WHERE attrelid = $1 AND attnum > 0 AND attisdropped
+@@ -161,7 +154,7 @@ LANGUAGE sql STABLE STRICT;
+ CREATE FUNCTION repack.get_storage_param(oid)
+   RETURNS TEXT AS
+ $$
+-SELECT array_to_string(array_agg(param), ', ')
++SELECT string_agg(param, ', ')
+ FROM (
+     -- table storage parameter
+     SELECT unnest(reloptions) as param
+@@ -196,7 +189,7 @@ $$
+  SELECT 'ALTER TABLE repack.table_' || $1 || array_to_string(column_storage, ',')
+  FROM (
+        SELECT
+-         repack.array_accum(' ALTER ' || quote_ident(attname) ||
++         array_agg(' ALTER ' || quote_ident(attname) ||
+           CASE attstorage
+                WHEN 'p' THEN ' SET STORAGE PLAIN'
+                WHEN 'm' THEN ' SET STORAGE MAIN'
+@@ -222,7 +215,7 @@ LANGUAGE sql STABLE STRICT;
+ 
+ -- includes not only PRIMARY KEYS but also UNIQUE NOT NULL keys
+ CREATE VIEW repack.primary_keys AS
+-  SELECT indrelid, (repack.array_accum(indexrelid))[1] AS indexrelid
++  SELECT indrelid, min(indexrelid) AS indexrelid
+     FROM (SELECT indrelid, indexrelid FROM pg_index
+    WHERE indisunique
+      AND indisvalid
+diff --git a/lib/repack.c b/lib/repack.c
+index 2690a9c..96660c0 100644
+--- a/lib/repack.c
++++ b/lib/repack.c
+@@ -1167,16 +1167,12 @@ swap_heap_or_index_files(Oid r1, Oid r2)
+ 	relRelation = heap_open(RelationRelationId, RowExclusiveLock);
+ #endif
+ 
+-	reltup1 = SearchSysCacheCopy(RELOID,
+-								 ObjectIdGetDatum(r1),
+-								 0, 0, 0);
++	reltup1 = SearchSysCacheCopy1(RELOID, ObjectIdGetDatum(r1));
+ 	if (!HeapTupleIsValid(reltup1))
+ 		elog(ERROR, "cache lookup failed for relation %u", r1);
+ 	relform1 = (Form_pg_class) GETSTRUCT(reltup1);
+ 
+-	reltup2 = SearchSysCacheCopy(RELOID,
+-								 ObjectIdGetDatum(r2),
+-								 0, 0, 0);
++	reltup2 = SearchSysCacheCopy1(RELOID, ObjectIdGetDatum(r2));
+ 	if (!HeapTupleIsValid(reltup2))
+ 		elog(ERROR, "cache lookup failed for relation %u", r2);
+ 	relform2 = (Form_pg_class) GETSTRUCT(reltup2);
+diff --git a/regress/travis_prepare.sh b/regress/travis_prepare.sh
+index 8e105a4..cee73cc 100755
+--- a/regress/travis_prepare.sh
++++ b/regress/travis_prepare.sh
+@@ -14,13 +14,10 @@ sudo apt-get remove -y libpq5
+ 
+ # Match libpq and server-dev packages
+ # See https://github.com/reorg/pg_repack/issues/63
+-sudo sed -i "s/main[[:space:]]*$/main ${PGVER}/" \
+-    /etc/apt/sources.list.d/pgdg.list
++sudo sh -c 'echo "deb [arch=amd64] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main ${PGVER}" > /etc/apt/sources.list.d/pgdg.list'
+ 
+-if [ "$PGTESTING" != "" ]; then
+-    sudo sed -i "s/xenial-pgdg/xenial-pgdg-testing/" \
+-        /etc/apt/sources.list.d/pgdg.list
+-fi
++# Import the repository signing key:
++wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
+ 
+ sudo apt-get update
+ 
+@@ -32,6 +29,11 @@ if [[ "$PGVER" = "9.4" ]]; then
+     sudo apt-mark hold libpq5
+ fi
+ 
++# missing build dependency by postgresql-server-dev
++if [[ "$PGVER" -ge "14" ]]; then
++    sudo apt-get install -y liblz4-dev
++fi
++
+ if ! sudo apt-get install -y \
+     postgresql-$PGVER \
+     postgresql-client-$PGVER \
