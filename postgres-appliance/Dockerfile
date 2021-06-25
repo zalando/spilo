@@ -85,7 +85,7 @@ ENV POSTGIS_VERSION=3.1 \
     POSTGIS_LEGACY=3.0 \
     BG_MON_COMMIT=504af68d63c328033fc76ebb5cd4e3709b823c19 \
     PG_AUTH_MON_COMMIT=a0c086ad9865c9a0f468f12d09b77353acd2de28 \
-    PG_MON_COMMIT=f5364c1ca55d2d4a6a5ef0da921e3f538f89eaf5 \
+    PG_MON_COMMIT=54fbdcc3cfe7e2a626bd96dda644d9a0c6866b58 \
     DECODERBUFS=v.1.3.1.Final \
     SET_USER=REL2_0_0 \
     PLPROFILER=REL4_1 \
@@ -106,11 +106,9 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && rm -f *.deb \
         && apt-get install -y $BUILD_PACKAGES; \
     else \
-        BUILD_PACKAGES="$BUILD_PACKAGES pgxnclient zlib1g-dev libprotobuf-c-dev libpam0g-dev libcurl4-openssl-dev libicu-dev python libc-ares-dev pandoc pkg-config naturaldocs docbook-xsl xsltproc flex bison asciidoc newpid" \
+        BUILD_PACKAGES="$BUILD_PACKAGES pgxnclient zlib1g-dev libprotobuf-c-dev libpam0g-dev libcurl4-openssl-dev libicu-dev python libc-ares-dev pandoc pkg-config flex bison asciidoc newpid" \
 # debezium-decoderbufs: libprotobuf-c-dev
 # pgbouncer: libc-ares-dev pandoc pkg-config
-# pgq3: naturaldocs
-# pg-checksums: docbook-xsl xsltproc
 # plproxy: flex bison asciidoc newpid
         && apt-get install -y $BUILD_PACKAGES libprotobuf-c1 libcurl4 \
 \
@@ -159,21 +157,21 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             && if [ "$DEMO" != "true" ]; then \
                 EXTRAS="postgresql-pltcl-${version} \
                         postgresql-${version}-hypopg \
+                        postgresql-${version}-pg-checksums \
+                        postgresql-${version}-pgq3 \
                         postgresql-${version}-plpgsql-check \
+                        postgresql-${version}-postgis-${POSTGIS_VERSION%.*} \
+                        postgresql-${version}-postgis-${POSTGIS_VERSION%.*}-scripts \
                         postgresql-${version}-wal2json" \
                 && if [ $version != "14" ]; then \
                     EXTRAS="$EXTRAS \
                         postgresql-${version}-pgaudit \
-                        postgresql-${version}-pg-checksums \
                         postgresql-${version}-pgl-ddl-deploy \
                         postgresql-${version}-pglogical \
                         postgresql-${version}-pglogical-ticker \
-                        postgresql-${version}-pgq3 \
                         postgresql-${version}-pldebugger \
                         postgresql-${version}-pllua \
                         postgresql-${version}-plproxy \
-                        postgresql-${version}-postgis-${POSTGIS_VERSION%.*} \
-                        postgresql-${version}-postgis-${POSTGIS_VERSION%.*}-scripts \
                         postgresql-${version}-repack"; \
                 fi \
                 && if [ "$WITH_PERL" = "true" ]; then \
@@ -243,11 +241,11 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         for version in $DEB_PG_SUPPORTED_VERSIONS; do \
             if [ "$version" != "14" ]; then \
                 # due to dependency issues partman has to be installed separately
-                apt-get install -y postgresql-${version}-partman \
-                # create postgis symlinks to make it possible to perform update
-                && ln -s postgis-${POSTGIS_VERSION%.*}.so \
-                    /usr/lib/postgresql/${version}/lib/postgis-2.5.so; \
-            fi; \
+                apt-get install -y postgresql-${version}-partman; \
+            fi \
+            # create postgis symlinks to make it possible to perform update
+            && ln -s postgis-${POSTGIS_VERSION%.*}.so \
+                /usr/lib/postgresql/${version}/lib/postgis-2.5.so; \
         done \
         # patch, build and install pgbouncer
         && apt-get source pgbouncer \
@@ -258,11 +256,11 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && DEB_BUILD_OPTIONS=nocheck debuild -b -uc -us \
         && cd .. \
         && dpkg -i pgbouncer_*.deb \
-        && PACKAGES="partman pgaudit pg-checksums plproxy repack"; \
+        && PACKAGES="partman pgaudit plproxy repack"; \
     fi \
 \
     # build and install missing packages
-    && for pkg in pgextwlist pgq3 $PACKAGES; do \
+    && for pkg in pgextwlist $PACKAGES; do \
         apt-get source postgresql-13-${pkg} \
         && cd $(ls -d *${pkg%?}*-*/) \
         && if [ -f ../$pkg.patch ]; then patch -p1 < ../$pkg.patch; fi \
@@ -418,6 +416,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                     /usr/lib/python3/dist-packages/boto/utils.py; \
     fi \
     && pip3 install "git+https://github.com/zalando/patroni.git@feature/postgresql-14-compat#egg=patroni[kubernetes$EXTRAS]" \
+    && echo "__version__ = '2.1.0'" > /usr/local/lib/python3.6/dist-packages/patroni/version.py \
 \
     && for d in /usr/local/lib/python3.6 /usr/lib/python3; do \
         cd $d/dist-packages \

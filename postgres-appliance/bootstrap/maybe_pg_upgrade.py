@@ -35,7 +35,7 @@ def wait_end_of_recovery(postgresql):
     from patroni.utils import polling_loop
 
     for _ in polling_loop(postgresql.config.get('pg_ctl_timeout'), 10):
-        postgresql.reset_cluster_info_state()
+        postgresql.reset_cluster_info_state(None)
         if postgresql.is_leader():
             break
         logger.info('waiting for end of recovery of the old cluster')
