@@ -66,7 +66,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             /usr/share/locale/??_?? \
     && find /var/log -type f -exec truncate --size 0 {} \;
 
-COPY cron_unprivileged.c dependencies/debs dependencies/src /builddeps/
+COPY cron_unprivileged.c set_user.patch dependencies/debs dependencies/src /builddeps/
 COPY patches/*.patch /builddeps/
 
 ARG PGVERSION
@@ -143,6 +143,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && git clone -b $SET_USER https://github.com/pgaudit/set_user.git \
     # Silence annoying NOTICE messages about deprecated GUCs
     && sed -i 's/^\(bool  show_.* =\) true;/\1 false;/' set_user/compatibility.h \
+    && patch -d set_user -p1 < set_user.patch \
     && git clone https://github.com/timescale/timescaledb.git \
 \
     && apt-get install -y postgresql-common libevent-2.1 libevent-pthreads-2.1 brotli libbrotli1 python3.6 python3-psycopg2 \
@@ -256,7 +257,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && DEB_BUILD_OPTIONS=nocheck debuild -b -uc -us \
         && cd .. \
         && dpkg -i pgbouncer_*.deb \
-        && PACKAGES="partman pgaudit plproxy repack"; \
+        && PACKAGES="partman plproxy repack"; \
     fi \
 \
     # build and install missing packages
