@@ -11,11 +11,11 @@ jobs:
     runs-on: ubuntu-18.04
 
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v2
     - name: Set up packages
       run: sudo apt-get install -y shellcheck
     - name: Set up Python
-      uses: actions/setup-python@v1
+      uses: actions/setup-python@v2
       with:
         python-version: 3.7
     - name: Install flake8
@@ -23,7 +23,7 @@ jobs:
     - name: Run shellcheck
       run: find postgres-appliance -name '*.sh' -print0 | xargs -0 shellcheck
     - name: Run flake8
-      run: find postgres-appliance -name '*.py' -print0 | xargs -0 python -m flake8
+      run: flake8 . --count --show-source --statistics
     - name: Build spilo docker image
       run: cd postgres-appliance && docker build -t spilo .
     - name: Test spilo docker image
