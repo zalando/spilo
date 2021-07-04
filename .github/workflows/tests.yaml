@@ -22,7 +22,7 @@ jobs:
       run: python -m pip install flake8 docker-compose==1.17.1
     - name: Run shellcheck
       run: find postgres-appliance -name '*.sh' -print0 | xargs -0 shellcheck
-    - name: Run flake8
+    - name: Run flake8 
       run: flake8 . --count --show-source --statistics
     - name: Build spilo docker image
       run: cd postgres-appliance && docker build -t spilo .
