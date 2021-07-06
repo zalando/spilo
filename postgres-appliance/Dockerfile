@@ -1,6 +1,6 @@
 ARG BASE_IMAGE=ubuntu:18.04
 ARG PGVERSION=13
-ARG TIMESCALEDB=2.2.1
+ARG TIMESCALEDB=2.3.1
 ARG TIMESCALEDB_LEGACY=1.7.5
 ARG DEMO=false
 ARG COMPRESS=false
@@ -82,9 +82,9 @@ ARG DEB_PG_SUPPORTED_VERSIONS="$PGOLDVERSIONS $PGVERSION"
 # Install PostgreSQL, extensions and contribs
 ENV POSTGIS_VERSION=3.1 \
     POSTGIS_LEGACY=3.0 \
-    BG_MON_COMMIT=fcc3a7b2f325f93f3cab2b9a5a4ff41c80177898 \
+    BG_MON_COMMIT=504af68d63c328033fc76ebb5cd4e3709b823c19 \
     PG_AUTH_MON_COMMIT=a0c086ad9865c9a0f468f12d09b77353acd2de28 \
-    PG_MON_COMMIT=12bdfa8d93294fb596c9066bc7e6f73bfead35da \
+    PG_MON_COMMIT=54fbdcc3cfe7e2a626bd96dda644d9a0c6866b58 \
     DECODERBUFS=v.1.3.1.Final \
     SET_USER=REL2_0_0 \
     PLPROFILER=REL4_1 \
@@ -363,7 +363,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && find /var/log -type f -exec truncate --size 0 {} \;
 
 # Install patroni, wal-e and wal-g
-ENV PATRONIVERSION=2.0.2
+ENV PATRONIVERSION=2.1.0
 ENV WALE_VERSION=1.1.1
 ENV WALG_VERSION=v0.2.19
 RUN export DEBIAN_FRONTEND=noninteractive \
@@ -401,7 +401,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && sed -i 's/^\(    for i in range(0,\) num_retries):.*/\1 100):/g' \
                     /usr/lib/python3/dist-packages/boto/utils.py; \
     fi \
-    && pip3 install "git+https://github.com/zalando/patroni.git@2.0/bugfixes#egg=patroni[kubernetes$EXTRAS]" \
+    && pip3 install patroni[kubernetes$EXTRAS]==$PATRONIVERSION \
 \
     && for d in /usr/local/lib/python3.6 /usr/lib/python3; do \
         cd $d/dist-packages \
