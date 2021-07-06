@@ -1,6 +1,6 @@
 ARG BASE_IMAGE=ubuntu:18.04
 ARG PGVERSION=14
-ARG TIMESCALEDB=2.3.0
+ARG TIMESCALEDB=2.3.1
 ARG TIMESCALEDB_LEGACY=1.7.5
 ARG DEMO=false
 ARG COMPRESS=false
@@ -378,7 +378,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && find /var/log -type f -exec truncate --size 0 {} \;
 
 # Install patroni, wal-e and wal-g
-ENV PATRONIVERSION=2.0.2
+ENV PATRONIVERSION=2.1.0
 ENV WALE_VERSION=1.1.1
 ENV WALG_VERSION=v0.2.19
 RUN export DEBIAN_FRONTEND=noninteractive \
@@ -416,8 +416,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && sed -i 's/^\(    for i in range(0,\) num_retries):.*/\1 100):/g' \
                     /usr/lib/python3/dist-packages/boto/utils.py; \
     fi \
-    && pip3 install "git+https://github.com/zalando/patroni.git@feature/postgresql-14-compat#egg=patroni[kubernetes$EXTRAS]" \
-    && echo "__version__ = '2.1.0'" > /usr/local/lib/python3.6/dist-packages/patroni/version.py \
+    && pip3 install patroni[kubernetes$EXTRAS]==$PATRONIVERSION \
 \
     && for d in /usr/local/lib/python3.6 /usr/lib/python3; do \
         cd $d/dist-packages \
