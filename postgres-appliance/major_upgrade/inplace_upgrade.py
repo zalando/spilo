@@ -525,7 +525,11 @@ hosts deny = *
         if self.replica_connections:
             from patroni.postgresql.misc import parse_lsn
 
+            # Make sure we use the pg_controldata from the correct major version
+            self.postgresql.set_bin_dir(self.cluster_version)
             controldata = self.postgresql.controldata()
+            self.postgresql.set_bin_dir(self.desired_version)
+
             checkpoint_lsn = controldata.get('Latest checkpoint location')
             if controldata.get('Database cluster state') != 'shut down' or not checkpoint_lsn:
                 return logger.error("Cluster wasn't shut down cleanly")
