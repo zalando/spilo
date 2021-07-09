@@ -106,10 +106,9 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && rm -f *.deb \
         && apt-get install -y $BUILD_PACKAGES; \
     else \
-        BUILD_PACKAGES="$BUILD_PACKAGES pgxnclient zlib1g-dev libprotobuf-c-dev libpam0g-dev libcurl4-openssl-dev libicu-dev python libc-ares-dev pandoc pkg-config flex bison asciidoc newpid" \
+        BUILD_PACKAGES="$BUILD_PACKAGES pgxnclient zlib1g-dev libprotobuf-c-dev libpam0g-dev libcurl4-openssl-dev libicu-dev python libc-ares-dev pandoc pkg-config" \
 # debezium-decoderbufs: libprotobuf-c-dev
 # pgbouncer: libc-ares-dev pandoc pkg-config
-# plproxy: flex bison asciidoc newpid
         && apt-get install -y $BUILD_PACKAGES libprotobuf-c1 libcurl4 \
 \
         # install pam_oauth2.so
@@ -160,7 +159,9 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                         postgresql-${version}-hypopg \
                         postgresql-${version}-pg-checksums \
                         postgresql-${version}-pgq3 \
+                        postgresql-${version}-pllua \
                         postgresql-${version}-plpgsql-check \
+                        postgresql-${version}-plproxy \
                         postgresql-${version}-postgis-${POSTGIS_VERSION%.*} \
                         postgresql-${version}-postgis-${POSTGIS_VERSION%.*}-scripts \
                         postgresql-${version}-wal2json" \
@@ -171,8 +172,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                         postgresql-${version}-pglogical \
                         postgresql-${version}-pglogical-ticker \
                         postgresql-${version}-pldebugger \
-                        postgresql-${version}-pllua \
-                        postgresql-${version}-plproxy \
                         postgresql-${version}-repack"; \
                 fi \
                 && if [ "$WITH_PERL" = "true" ]; then \
@@ -257,7 +256,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && DEB_BUILD_OPTIONS=nocheck debuild -b -uc -us \
         && cd .. \
         && dpkg -i pgbouncer_*.deb \
-        && PACKAGES="partman plproxy repack"; \
+        && PACKAGES="partman repack"; \
     fi \
 \
     # build and install missing packages
