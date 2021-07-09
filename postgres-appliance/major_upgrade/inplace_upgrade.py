@@ -523,7 +523,18 @@ hosts deny = *
             return logger.error('Failed to stop the cluster before pg_upgrade')
 
         if self.replica_connections:
-            checkpoint_lsn = int(self.postgresql.latest_checkpoint_location())
+            from patroni.postgresql.misc import parse_lsn
+
+            # Make sure we use the pg_controldata from the correct major version
+            self.postgresql.set_bin_dir(self.cluster_version)
+            controldata = self.postgresql.controldata()
+            self.postgresql.set_bin_dir(self.desired_version)
+
+            checkpoint_lsn = controldata.get('Latest checkpoint location')
+            if controldata.get('Database cluster state') != 'shut down' or not checkpoint_lsn:
+                return logger.error("Cluster wasn't shut down cleanly")
+
+            checkpoint_lsn = parse_lsn(checkpoint_lsn)
             logger.info('Latest checkpoint location: %s', checkpoint_lsn)
 
             logger.info('Starting rsyncd')
