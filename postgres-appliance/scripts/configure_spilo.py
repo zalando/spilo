@@ -855,9 +855,9 @@ def write_crontab(placeholders, overwrite):
         logging.info('Skipping creation of renice cron job due to lack of SYS_NICE capability')
 
     if placeholders.get('SSL_TEST_RELOAD'):
-        env = ' '.join('{0}="{1}"'.format(n, placeholders[n]) for n in ('SSL_CA_FILE', 'SSL_CRL_FILE',
+        env = ' '.join('{0}="{1}"'.format(n, placeholders[n]) for n in ('PGDATA', 'SSL_CA_FILE', 'SSL_CRL_FILE',
                        'SSL_CERTIFICATE_FILE', 'SSL_PRIVATE_KEY_FILE') if placeholders.get(n))
-        lines += ['*/5 * * * * {0} /scripts/test_reload_ssl.sh 5'.format(env)]
+        lines += ['*/5 * * * * {0} /scripts/test_reload_ssl.sh /tmp'.format(env)]
 
     if bool(placeholders.get('USE_WALE')):
         lines += [('{BACKUP_SCHEDULE} envdir "{WALE_ENV_DIR}" /scripts/postgres_backup.sh' +
