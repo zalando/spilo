@@ -28,6 +28,8 @@ has_changed() {
     local env=$1
     local src_path=${!1:-}
     local hash_path="$last_hash_dir/${env}.hash"
+    local live_hash
+    local last_hash
 
     if [[ -z "$src_path" ]]; then
         log "env=$env: environment is not set"
@@ -42,9 +44,10 @@ has_changed() {
         return 0
     fi
 
-    local live_hash=$($hash_cmd "$src_path")
-    local last_hash=$(cat "$hash_path")
-    if [[ $live_hash = $last_hash ]]; then
+    live_hash=$($hash_cmd "$src_path")
+    last_hash=$(cat "$hash_path")
+
+    if [[ $live_hash = "$last_hash" ]]; then
         log "env=$env path=$src_path live_hash=$live_hash: no changes detected"
         return 1
     fi
