@@ -857,7 +857,8 @@ def write_crontab(placeholders, overwrite):
     if placeholders.get('SSL_TEST_RELOAD'):
         env = ' '.join('{0}="{1}"'.format(n, placeholders[n]) for n in ('PGDATA', 'SSL_CA_FILE', 'SSL_CRL_FILE',
                        'SSL_CERTIFICATE_FILE', 'SSL_PRIVATE_KEY_FILE') if placeholders.get(n))
-        lines += ['*/5 * * * * {0} /scripts/test_reload_ssl.sh /tmp'.format(env)]
+        hash_dir = os.path.join(placeholders['RW_DIR'], 'tmp')
+        lines += ['*/5 * * * * {0} /scripts/test_reload_ssl.sh {1}'.format(env, hash_dir)]
 
     if bool(placeholders.get('USE_WALE')):
         lines += [('{BACKUP_SCHEDULE} envdir "{WALE_ENV_DIR}" /scripts/postgres_backup.sh' +
