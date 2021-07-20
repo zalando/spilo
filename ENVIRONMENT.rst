@@ -2,7 +2,7 @@ Environment Configuration Settings
 ==================================
 
 - **ETCD_HOST**: the DNS A record pointing to Etcd hosts.
-- **ETCD_HOSTS**: list of Etcd hosts in format host1:port1,host2:port2,etc.
+- **ETCD_HOSTS**: list of Etcd hosts in format '"host1:port1","host2:port2",...,"hostN:portN"'.
 - **ETCD_DISCOVERY_DOMAIN**: the DNS SRV record pointing to Etcd hosts.
 - **ETCD_URL**: url for Etcd host in format http(s)://host1:port
 - **ETCD_PROXY**: url for Etcd Proxy format http(s)://host1:port
