@@ -137,9 +137,8 @@ while IFS= read -r db_name; do
     echo "\c ${db_name}"
     # In case if timescaledb binary is missing the first query fails with the error
     # ERROR:  could not access file "$libdir/timescaledb-$OLD_VERSION": No such file or directory
-    TIMESCALEDB_VERSION=$(echo -e "SELECT NULL;\nSELECT extversion FROM pg_catalog.pg_extension WHERE extname = 'timescaledb'" | psql -tAX -d "${db_name}" 2> /dev/null | tail -n 1)
-    if [ "x$TIMESCALEDB_VERSION" != "x" ] && [ "x$TIMESCALEDB_VERSION" != "x$TIMESCALEDB" ] \
-            && { [ "$PGVER" -ge 11 ] || [ "x$TIMESCALEDB_VERSION" != "x$TIMESCALEDB_LEGACY" ]; }; then
+    UPGRADE_TIMESCALEDB=$(echo -e "SELECT NULL;\nSELECT default_version != installed_version FROM pg_catalog.pg_available_extensions WHERE name = 'timescaledb'" | psql -tAX -d "${db_name}" 2> /dev/null | tail -n 1)
+    if [ "x$UPGRADE_TIMESCALEDB" = "xt" ]; then
         echo "ALTER EXTENSION timescaledb UPDATE;"
     fi
     UPGRADE_POSTGIS=$(echo -e "SELECT COUNT(*) FROM pg_catalog.pg_extension WHERE extname = 'postgis'" | psql -tAX -d "${db_name}" 2> /dev/null | tail -n 1)
