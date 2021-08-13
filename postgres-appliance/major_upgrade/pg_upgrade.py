@@ -79,7 +79,6 @@ class _PostgresqlUpgrade(Postgresql):
                     logger.info('Executing "DROP EXTENSION IF EXISTS %s" in the database="%s"', ext, d)
                     cur.execute("DROP EXTENSION IF EXISTS {0}".format(ext))
 
-
     def revoke_possibly_incompatible_permissions(self):
         from patroni.postgresql.connection import get_connection_cursor
 
@@ -95,7 +94,6 @@ class _PostgresqlUpgrade(Postgresql):
         with get_connection_cursor(**conn_kwargs) as cur:
             logger.info('Executing "%s"', cmd)
             cur.execute(cmd)
-
 
     def drop_possibly_incompatible_objects(self):
         from patroni.postgresql.connection import get_connection_cursor
