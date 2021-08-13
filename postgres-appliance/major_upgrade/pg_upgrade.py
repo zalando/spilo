@@ -89,7 +89,6 @@ class _PostgresqlUpgrade(Postgresql):
             conn_kwargs['database'] = d
             with get_connection_cursor(**conn_kwargs) as cur:
 
-                logger.info('Revoking permissions from cluster objects that may break major upgrade')
                 cmd = "REVOKE EXECUTE ON FUNCTION pg_catalog.pg_switch_{0}() FROM admin".format(self.wal_name)
                 logger.info('Executing "%s" in the database="%s"', cmd, d)
                 cur.execute(cmd)
