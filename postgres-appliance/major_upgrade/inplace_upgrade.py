@@ -513,6 +513,11 @@ hosts deny = *
         except Exception:
             return logger.error('Failed to drop possibly incompatible objects')
 
+        try:
+            self.postgresql.revoke_possibly_incompatible_permissions()
+        except Exception:
+            return logger.error('Failed to revoke possibly incompatible permissions')
+
         logging.info('Enabling maintenance mode')
         if not self.toggle_pause(True):
             return False
