@@ -86,9 +86,7 @@ class _PostgresqlUpgrade(Postgresql):
         conn_kwargs = self.local_conn_kwargs
 
         version = self.get_cluster_version()
-        cmd = "REVOKE EXECUTE ON FUNCTION pg_catalog.pg_switch_wal() from admin"
-        if version < 10:
-            cmd = "REVOKE EXECUTE ON FUNCTION pg_catalog.pg_switch_xlog() from admin"
+        cmd = "REVOKE EXECUTE ON FUNCTION pg_catalog.pg_switch_{0}() FROM admin".format(self.wal_name)
 
         conn_kwargs['database'] = 'postgres'
         with get_connection_cursor(**conn_kwargs) as cur:
