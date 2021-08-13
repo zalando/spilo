@@ -88,6 +88,11 @@ class _PostgresqlUpgrade(Postgresql):
         for d in self._get_all_databases():
             conn_kwargs['database'] = d
             with get_connection_cursor(**conn_kwargs) as cur:
+
+                cmd = "REVOKE EXECUTE ON FUNCTION pg_catalog.pg_switch_{0}() FROM admin".format(self.wal_name)
+                logger.info('Executing "%s" in the database="%s"', cmd, d)
+                cur.execute(cmd)
+
                 logger.info('Executing "DROP FUNCTION metric_helpers.pg_stat_statements" in the database="%s"', d)
                 cur.execute("DROP FUNCTION IF EXISTS metric_helpers.pg_stat_statements(boolean) CASCADE")
 
