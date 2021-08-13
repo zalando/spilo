@@ -79,20 +79,6 @@ class _PostgresqlUpgrade(Postgresql):
                     logger.info('Executing "DROP EXTENSION IF EXISTS %s" in the database="%s"', ext, d)
                     cur.execute("DROP EXTENSION IF EXISTS {0}".format(ext))
 
-    def revoke_possibly_incompatible_permissions(self):
-        from patroni.postgresql.connection import get_connection_cursor
-
-        logger.info('Revoking permissions from cluster objects that may break major upgrade')
-        conn_kwargs = self.local_conn_kwargs
-
-        version = self.get_cluster_version()
-        cmd = "REVOKE EXECUTE ON FUNCTION pg_catalog.pg_switch_{0}() FROM admin".format(self.wal_name)
-
-        conn_kwargs['database'] = 'postgres'
-        with get_connection_cursor(**conn_kwargs) as cur:
-            logger.info('Executing "%s"', cmd)
-            cur.execute(cmd)
-
     def drop_possibly_incompatible_objects(self):
         from patroni.postgresql.connection import get_connection_cursor
 
@@ -102,6 +88,12 @@ class _PostgresqlUpgrade(Postgresql):
         for d in self._get_all_databases():
             conn_kwargs['database'] = d
             with get_connection_cursor(**conn_kwargs) as cur:
+
+                logger.info('Revoking permissions from cluster objects that may break major upgrade')
+                cmd = "REVOKE EXECUTE ON FUNCTION pg_catalog.pg_switch_{0}() FROM admin".format(self.wal_name)
+                logger.info('Executing "%s" in the database="%s"', cmd, d)
+                cur.execute(cmd)
+
                 logger.info('Executing "DROP FUNCTION metric_helpers.pg_stat_statements" in the database="%s"', d)
                 cur.execute("DROP FUNCTION IF EXISTS metric_helpers.pg_stat_statements(boolean) CASCADE")
 

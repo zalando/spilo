@@ -98,7 +98,6 @@ def main():
 
     try:
         upgrade.drop_possibly_incompatible_objects()
-        upgrade.revoke_possibly_incompatible_permissions()
     except Exception:
         upgrade.stop(block_callbacks=True, checkpoint=False)
         raise
