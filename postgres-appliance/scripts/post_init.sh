@@ -158,7 +158,11 @@ CREATE EXTENSION IF NOT EXISTS set_user SCHEMA public;
 ALTER EXTENSION set_user UPDATE;
 GRANT EXECUTE ON FUNCTION public.set_user(text) TO admin;
 GRANT EXECUTE ON FUNCTION public.pg_stat_statements_reset($RESET_ARGS) TO admin;"
-    if [ "$PGVER" -lt 10 ]; then echo "GRANT EXECUTE ON FUNCTION pg_catalog.pg_switch_xlog() TO admin;"; else echo "GRANT EXECUTE ON FUNCTION pg_catalog.pg_switch_wal() TO admin;"; fi;
+    if [ "$PGVER" -lt 10 ]; then
+        echo "GRANT EXECUTE ON FUNCTION pg_catalog.pg_switch_xlog() TO admin;"
+    else
+        echo "GRANT EXECUTE ON FUNCTION pg_catalog.pg_switch_wal() TO admin;"
+    fi
     if [ "x$ENABLE_PG_MON" = "xtrue" ] && [ "$PGVER" -ge 11 ]; then echo "CREATE EXTENSION IF NOT EXISTS pg_mon SCHEMA public;"; fi
     cat metric_helpers.sql
 done < <(psql -d "$2" -tAc 'select pg_catalog.quote_ident(datname) from pg_catalog.pg_database where datallowconn')
