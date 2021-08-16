@@ -2,7 +2,7 @@ Environment Configuration Settings
 ==================================
 
 - **ETCD_HOST**: the DNS A record pointing to Etcd hosts.
-- **ETCD_HOSTS**: list of Etcd hosts in format host1:port1,host2:port2,etc.
+- **ETCD_HOSTS**: list of Etcd hosts in format '"host1:port1","host2:port2",...,"hostN:portN"'.
 - **ETCD_DISCOVERY_DOMAIN**: the DNS SRV record pointing to Etcd hosts.
 - **ETCD_URL**: url for Etcd host in format http(s)://host1:port
 - **ETCD_PROXY**: url for Etcd Proxy format http(s)://host1:port
@@ -67,7 +67,7 @@ Environment Configuration Settings
 - **SSH_USERNAME**: (optional) the username for WAL backups.
 - **SSH_PRIVATE_KEY_PATH**: (optional) the path to the private key used for WAL backups.
 - **AZURE_STORAGE_ACCOUNT**:(optional) the azure storage account to use for WAL backups.
-- **AZURE_STORAGE_ACCOUNT_ACCESS_KEY**:(optional) the access key for the azure storage account used for WAL backups.
+- **AZURE_STORAGE_ACCESS_KEY**:(optional) the access key for the azure storage account used for WAL backups.
 - **CALLBACK_SCRIPT**: the callback script to run on various cluster actions (on start, on stop, on restart, on role change). The script will receive the cluster name, connection string and the current action. See `Patroni <http://patroni.readthedocs.io/en/latest/SETTINGS.html?highlight=callback#postgresql>`__ documentation for details.
 - **LOG_S3_BUCKET**: path to the S3 bucket used for PostgreSQL daily log files (i.e. s3://foobar). Spilo will add /spilo/scope/pg_daily_logs to that path. Logs are shipped if this variable is set.
 - **LOG_SHIP_SCHEDULE**: cron schedule for shipping compressed logs from ``pg_log`` (if this feature is enabled, '00 02 * * *' by default)
