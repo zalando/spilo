@@ -105,7 +105,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     else \
         BUILD_PACKAGES="$BUILD_PACKAGES pgxnclient zlib1g-dev libprotobuf-c-dev libpam0g-dev libcurl4-openssl-dev libicu-dev python libc-ares-dev pandoc pkg-config" \
 # debezium-decoderbufs: libprotobuf-c-dev
-# pgbouncer: libc-ares-dev pandoc pkg-config
         && apt-get install -y $BUILD_PACKAGES libprotobuf-c1 libcurl4 \
 \
         # install pam_oauth2.so
@@ -217,7 +216,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             done; \
     done \
 \
-    && apt-get install -y skytools3-ticker \
+    && apt-get install -y skytools3-ticker pgbouncer \
 \
     && sed -i "s/ main.*$/ main/g" /etc/apt/sources.list.d/pgdg.list \
     && apt-get update \
@@ -233,16 +232,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             # create postgis symlinks to make it possible to perform update
             && ln -s postgis-${POSTGIS_VERSION%.*}.so \
                 /usr/lib/postgresql/${version}/lib/postgis-2.5.so; \
-        done \
-        # patch, build and install pgbouncer
-        && apt-get source pgbouncer \
-        && cd $(ls -d pgbouncer-*) \
-        # Increase password size
-        && sed -i 's/\(MAX_PASSWORD\t\).*/\11024/' include/bouncer.h \
-        && sed -i 's/\(SEND_wrap(\)512\(, pktbuf_write_PasswordMessage, res, sk, psw)\)/\11024\2/' include/pktbuf.h \
-        && DEB_BUILD_OPTIONS=nocheck debuild -b -uc -us \
-        && cd .. \
-        && dpkg -i pgbouncer_*.deb; \
+        done; \
     fi \
 \
     # build and install missing packages
@@ -358,7 +348,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && find /var/log -type f -exec truncate --size 0 {} \;
 
 # Install patroni, wal-e and wal-g
-ENV PATRONIVERSION=2.1.0
+ENV PATRONIVERSION=2.1.1
 ENV WALE_VERSION=1.1.1
 ENV WALG_VERSION=v0.2.19
 RUN export DEBIAN_FRONTEND=noninteractive \
