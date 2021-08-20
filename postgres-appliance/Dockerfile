@@ -84,7 +84,7 @@ ENV POSTGIS_VERSION=3.1 \
     PG_AUTH_MON_COMMIT=a0c086ad9865c9a0f468f12d09b77353acd2de28 \
     PG_MON_COMMIT=54fbdcc3cfe7e2a626bd96dda644d9a0c6866b58 \
     DECODERBUFS=v.1.3.1.Final \
-    SET_USER=REL2_0_0 \
+    SET_USER=REL2_0_1 \
     PLPROFILER=REL4_1 \
     PAM_OAUTH2=v1.0.1 \
     PLANTUNER_COMMIT=800d81bc85da64ff3ef66e12aed1d4e1e54fc006 \
@@ -136,8 +136,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && curl -sL https://github.com/CyberDem0n/pg_auth_mon/archive/$PG_AUTH_MON_COMMIT.tar.gz | tar xz \
     && curl -sL https://github.com/cybertec-postgresql/pg_permission/archive/$PG_PERMISSIONS_COMMIT.tar.gz | tar xz \
     && git clone -b $SET_USER https://github.com/pgaudit/set_user.git \
-    # Silence annoying NOTICE messages about deprecated GUCs
-    && sed -i 's/^\(bool  show_.* =\) true;/\1 false;/' set_user/compatibility.h \
     && git clone https://github.com/timescale/timescaledb.git \
 \
     && apt-get install -y postgresql-common libevent-2.1 libevent-pthreads-2.1 brotli libbrotli1 python3.6 python3-psycopg2 \
