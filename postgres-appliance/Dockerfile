@@ -1,6 +1,6 @@
 ARG BASE_IMAGE=ubuntu:18.04
 ARG PGVERSION=13
-ARG TIMESCALEDB="1.7.5 2.3.1 2.4.0"
+ARG TIMESCALEDB="1.7.5 2.3.1 2.4.1"
 ARG DEMO=false
 ARG COMPRESS=false
 
@@ -84,7 +84,7 @@ ENV POSTGIS_VERSION=3.1 \
     PG_AUTH_MON_COMMIT=437435b4e2de32a820e86973f6934ec849a768e0 \
     PG_MON_COMMIT=54fbdcc3cfe7e2a626bd96dda644d9a0c6866b58 \
     DECODERBUFS=v.1.3.1.Final \
-    SET_USER=REL2_0_0 \
+    SET_USER=REL2_0_1 \
     PLPROFILER=REL4_1 \
     PAM_OAUTH2=v1.0.1 \
     PLANTUNER_COMMIT=800d81bc85da64ff3ef66e12aed1d4e1e54fc006 \
@@ -105,7 +105,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     else \
         BUILD_PACKAGES="$BUILD_PACKAGES pgxnclient zlib1g-dev libprotobuf-c-dev libpam0g-dev libcurl4-openssl-dev libicu-dev python libc-ares-dev pandoc pkg-config" \
 # debezium-decoderbufs: libprotobuf-c-dev
-# pgbouncer: libc-ares-dev pandoc pkg-config
         && apt-get install -y $BUILD_PACKAGES libprotobuf-c1 libcurl4 \
 \
         # install pam_oauth2.so
@@ -137,8 +136,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && curl -sL https://github.com/RafiaSabih/pg_auth_mon/archive/$PG_AUTH_MON_COMMIT.tar.gz | tar xz \
     && curl -sL https://github.com/cybertec-postgresql/pg_permission/archive/$PG_PERMISSIONS_COMMIT.tar.gz | tar xz \
     && git clone -b $SET_USER https://github.com/pgaudit/set_user.git \
-    # Silence annoying NOTICE messages about deprecated GUCs
-    && sed -i 's/^\(bool  show_.* =\) true;/\1 false;/' set_user/compatibility.h \
     && git clone https://github.com/timescale/timescaledb.git \
 \
     && apt-get install -y postgresql-common libevent-2.1 libevent-pthreads-2.1 brotli libbrotli1 python3.6 python3-psycopg2 \
@@ -217,7 +214,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             done; \
     done \
 \
-    && apt-get install -y skytools3-ticker \
+    && apt-get install -y skytools3-ticker pgbouncer \
 \
     && sed -i "s/ main.*$/ main/g" /etc/apt/sources.list.d/pgdg.list \
     && apt-get update \
@@ -233,16 +230,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             # create postgis symlinks to make it possible to perform update
             && ln -s postgis-${POSTGIS_VERSION%.*}.so \
                 /usr/lib/postgresql/${version}/lib/postgis-2.5.so; \
-        done \
-        # patch, build and install pgbouncer
-        && apt-get source pgbouncer \
-        && cd $(ls -d pgbouncer-*) \
-        # Increase password size
-        && sed -i 's/\(MAX_PASSWORD\t\).*/\11024/' include/bouncer.h \
-        && sed -i 's/\(SEND_wrap(\)512\(, pktbuf_write_PasswordMessage, res, sk, psw)\)/\11024\2/' include/pktbuf.h \
-        && DEB_BUILD_OPTIONS=nocheck debuild -b -uc -us \
-        && cd .. \
-        && dpkg -i pgbouncer_*.deb; \
+        done; \
     fi \
 \
     # build and install missing packages
@@ -358,7 +346,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && find /var/log -type f -exec truncate --size 0 {} \;
 
 # Install patroni, wal-e and wal-g
-ENV PATRONIVERSION=2.1.0
+ENV PATRONIVERSION=2.1.1
 ENV WALE_VERSION=1.1.1
 ENV WALG_VERSION=v0.2.19
 RUN export DEBIAN_FRONTEND=noninteractive \
