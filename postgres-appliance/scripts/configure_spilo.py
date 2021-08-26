@@ -236,6 +236,7 @@ restapi:
 postgresql:
   pgpass: /run/postgresql/pgpass
   use_unix_socket: true
+  use_unix_socket_repl: true
   name: '{{instance_data.id}}'
   listen: '*:{{PGPORT}}'
   connect_address: {{instance_data.ip}}:{{PGPORT}}
@@ -276,6 +277,7 @@ ltree,pgcrypto,pgq,pg_trgm,postgres_fdw,tablefunc,uuid-ossp,hypopg'
     - hostssl all             +{{HUMAN_ROLE}}    ::1/128            pam
     {{/PAM_OAUTH2}}
     - host    all             all                ::1/128            md5
+    - local   replication     {{PGUSER_STANDBY}}                    trust
     - hostssl replication     {{PGUSER_STANDBY}} all                md5
     {{^ALLOW_NOSSL}}
     - hostnossl all           all                all                reject
