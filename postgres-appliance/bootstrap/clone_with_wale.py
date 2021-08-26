@@ -58,6 +58,9 @@ def fix_output(output):
     for line in output.decode('utf-8').splitlines():
         if not started:
             started = re.match(r'^name\s+last_modified\s+', line)
+            started = re.match(r'^name\s+last_modified\s+', line) or re.match(r'^name\s+modified\s+', line)
+            if started:
+                line = line.replace(' modified ', ' last_modified ')
         if started:
             yield '\t'.join(line.split())
 
