@@ -100,7 +100,8 @@ class _PostgresqlUpgrade(Postgresql):
                     logger.info('Executing "DROP EXTENSION IF EXISTS %s" in the database="%s"', ext, d)
                     cur.execute("DROP EXTENSION IF EXISTS {0}".format(ext))
 
-                cur.execute("SELECT oid::regclass FROM pg_catalog.pg_class WHERE relpersistence = 'u'")
+                cur.execute("SELECT oid::regclass FROM pg_catalog.pg_class"
+                            " WHERE relpersistence = 'u' AND relkind = 'r'")
                 for unlogged in cur.fetchall():
                     logger.info('Truncating unlogged table %s', unlogged[0])
                     try:
