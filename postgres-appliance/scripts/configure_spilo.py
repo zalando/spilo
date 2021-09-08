@@ -112,7 +112,6 @@ def write_certificates(environment, overwrite):
         p = subprocess.Popen(openssl_cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         output, _ = p.communicate()
         logging.debug(output)
-        logging.info('Generating ssl certificate')
     if 'SSL_CA' in environment:
         logging.info('Generating ssl ca certificate')
         write_file(environment['SSL_CA'], environment['SSL_CA_FILE'], overwrite)
