@@ -91,6 +91,16 @@ def write_certificates(environment, overwrite):
         logging.info('Writing custom ssl certificate')
         for k in ssl_keys:
             write_file(environment[k], environment[k + '_FILE'], overwrite)
+        if 'SSL_CA' in environment:
+            logging.info('Generating ssl ca certificate')
+            write_file(environment['SSL_CA'], environment['SSL_CA_FILE'], overwrite)
+        else:
+            logging.info('No CA certificate to generate')
+        if 'SSL_CRL' in environment:
+            logging.info('Generating ssl crl certificate')
+            write_file(environment['SSL_CRL'], environment['SSL_CRL_FILE'], overwrite)
+        else:
+            logging.info('No CRL certificate to generate')
     else:
         if os.path.exists(environment['SSL_PRIVATE_KEY_FILE']) and not overwrite:
             logging.warning('Private key already exists, not overwriting. (Use option --force if necessary)')
@@ -112,16 +122,6 @@ def write_certificates(environment, overwrite):
         p = subprocess.Popen(openssl_cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         output, _ = p.communicate()
         logging.debug(output)
-    if 'SSL_CA' in environment:
-        logging.info('Generating ssl ca certificate')
-        write_file(environment['SSL_CA'], environment['SSL_CA_FILE'], overwrite)
-    else:
-        logging.info('No ca certificate to generate')
-    if 'SSL_CRL' in environment:
-        logging.info('Generating ssl crl certificate')
-        write_file(environment['SSL_CRL'], environment['SSL_CRL_FILE'], overwrite)
-    else:
-        logging.info('No crl certificate to generate')
 
     os.chmod(environment['SSL_PRIVATE_KEY_FILE'], 0o600)
     adjust_owner(environment['SSL_PRIVATE_KEY_FILE'], gid=-1)
