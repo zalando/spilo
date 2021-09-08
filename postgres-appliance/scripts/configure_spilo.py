@@ -88,7 +88,7 @@ def write_certificates(environment, overwrite):
 
     ssl_keys = ['SSL_CERTIFICATE', 'SSL_PRIVATE_KEY']
     if set(ssl_keys) <= set(environment):
-        logging.info('Generating custom ssl certificate')
+        logging.info('Writing custom ssl certificate')
         for k in ssl_keys:
             write_file(environment[k], environment[k + '_FILE'], overwrite)
     else:
