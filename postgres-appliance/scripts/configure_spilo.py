@@ -88,8 +88,19 @@ def write_certificates(environment, overwrite):
 
     ssl_keys = ['SSL_CERTIFICATE', 'SSL_PRIVATE_KEY']
     if set(ssl_keys) <= set(environment):
+        logging.info('Writing custom ssl certificate')
         for k in ssl_keys:
             write_file(environment[k], environment[k + '_FILE'], overwrite)
+        if 'SSL_CA' in environment:
+            logging.info('Writing ssl ca certificate')
+            write_file(environment['SSL_CA'], environment['SSL_CA_FILE'], overwrite)
+        else:
+            logging.info('No ca certificate to write')
+        if 'SSL_CRL' in environment:
+            logging.info('Writing ssl certificate revocation list')
+            write_file(environment['SSL_CRL'], environment['SSL_CRL_FILE'], overwrite)
+        else:
+            logging.info('No certificate revocation list to write')
     else:
         if os.path.exists(environment['SSL_PRIVATE_KEY_FILE']) and not overwrite:
             logging.warning('Private key already exists, not overwriting. (Use option --force if necessary)')
@@ -107,7 +118,7 @@ def write_certificates(environment, overwrite):
             '-out',
             environment['SSL_CERTIFICATE_FILE'],
         ]
-        logging.info('Generating ssl certificate')
+        logging.info('Generating ssl self-signed certificate')
         p = subprocess.Popen(openssl_cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         output, _ = p.communicate()
         logging.debug(output)
@@ -611,6 +622,11 @@ def get_placeholders(provider):
     placeholders['instance_data'] = get_instance_metadata(provider)
 
     placeholders['BGMON_LISTEN_IP'] = get_listen_ip()
+
+    if 'SSL_CA' in placeholders and placeholders['SSL_CA_FILE'] == '':
+        placeholders['SSL_CA_FILE'] = os.path.join(placeholders['RW_DIR'], 'certs', 'ca.crt')
+    if 'SSL_CRL' in placeholders and placeholders['SSL_CRL_FILE'] == '':
+        placeholders['SSL_CRL_FILE'] = os.path.join(placeholders['RW_DIR'], 'certs', 'server.crl')
 
     return placeholders
 
