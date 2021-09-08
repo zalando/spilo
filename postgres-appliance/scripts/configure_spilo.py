@@ -88,6 +88,7 @@ def write_certificates(environment, overwrite):
 
     ssl_keys = ['SSL_CERTIFICATE', 'SSL_PRIVATE_KEY']
     if set(ssl_keys) <= set(environment):
+        logging.info('Generating custom ssl certificate')
         for k in ssl_keys:
             write_file(environment[k], environment[k + '_FILE'], overwrite)
     else:
@@ -107,10 +108,21 @@ def write_certificates(environment, overwrite):
             '-out',
             environment['SSL_CERTIFICATE_FILE'],
         ]
-        logging.info('Generating ssl certificate')
+        logging.info('Autogenerating ssl certificate')
         p = subprocess.Popen(openssl_cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         output, _ = p.communicate()
         logging.debug(output)
+        logging.info('Generating ssl certificate')
+    if 'SSL_CA' in environment:
+        logging.info('Generating ssl ca certificate')
+        write_file(environment['SSL_CA'], environment['SSL_CA_FILE'], overwrite)
+    else:
+        logging.info('No ca certificate to generate')
+    if 'SSL_CRL' in environment:
+        logging.info('Generating ssl crl certificate')
+        write_file(environment['SSL_CRL'], environment['SSL_CRL_FILE'], overwrite)
+    else:
+        logging.info('No crl certificate to generate')
 
     os.chmod(environment['SSL_PRIVATE_KEY_FILE'], 0o600)
     adjust_owner(environment['SSL_PRIVATE_KEY_FILE'], gid=-1)
