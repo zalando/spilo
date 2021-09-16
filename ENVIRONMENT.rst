@@ -31,6 +31,10 @@ Environment Configuration Settings
 - **SSL_CRL_FILE**: path to the SSL Certificate Revocation List file inside the container (by default: '')
 - **SSL_CERTIFICATE_FILE**: path to the SSL certificate file inside the container (by default PGHOME/server.crt), Spilo will generate one if not present.
 - **SSL_PRIVATE_KEY_FILE**: path to the SSL private key within the container (by default PGHOME/server.key), Spilo will generate one if not present
+- **SSL_CA**: content of the SSL CA certificate in the SSL_CA_FILE file (by default: '')
+- **SSL_CRL**: content of the SSL Certificate Revocation List in the SSL_CRL_FILE file (by default: '')
+- **SSL_CERTIFICATE**: content of the SSL certificate in the SSL_CERTIFICATE_FILE file (by default PGHOME/server.crt).
+- **SSL_PRIVATE_KEY**: content of the SSL private key in the SSL_PRIVATE_KEY_FILE file (by default PGHOME/server.key).
 - **SSL_TEST_RELOAD**: whenever to test for certificate rotation and reloading (by default True if SSL_PRIVATE_KEY_FILE has been set)
 - **WALE_BACKUP_THRESHOLD_MEGABYTES**: maximum size of the WAL segments accumulated after the base backup to consider WAL-E restore instead of pg_basebackup.
 - **WALE_BACKUP_THRESHOLD_PERCENTAGE**: maximum ratio (in percents) of the accumulated WAL files to the base backup to consider WAL-E restore instead of pg_basebackup.
@@ -89,7 +93,19 @@ In case of S3, `wal-e` is used for backups and `wal-g` for restore.
 
 - **USE_WALG_BACKUP**: (optional) Enforce using `wal-g` instead of `wal-e` for backups (Boolean)
 - **USE_WALG_RESTORE**: (optional) Enforce using `wal-g` instead of `wal-e` for restores (Boolean)
-- **WALG_AZ_PREFIX**: (optional) the azure prefix to store WAL backups at in the format azure://test-container/walg-folder.
+
 - **WALG_DELTA_MAX_STEPS**, **WALG_DELTA_ORIGIN**, **WALG_DOWNLOAD_CONCURRENCY**, **WALG_UPLOAD_CONCURRENCY**, **WALG_UPLOAD_DISK_CONCURRENCY**: (optional) configuration options for wal-g.
 - **WALG_S3_CA_CERT_FILE**: (optional) TLS CA certificate for wal-g (see [wal-g configuration](https://github.com/wal-g/wal-g#configuration))
 - **WALG_SSH_PREFIX**: (optional) the ssh prefix to store WAL backups at in the format ssh://host.example.com/path/to/backups/ See `Wal-g <https://github.com/wal-g/wal-g#configuration>`__ documentation for details.
+
+Azure Specific WAL-G Configuration
+`````
+
+For more inforamation on the Azure specific options, refer to https://github.com/wal-g/wal-g/blob/master/docs/STORAGES.md#azure
+
+- **WALG_AZ_PREFIX**: Enables Azure Backups. The azure prefix to store WAL backups at in the format azure://test-container/walg-folder.
+- **AZURE_STORAGE_ACCOUNT**
+- **AZURE_STORAGE_ACCESS_KEY**
+- **AZURE_STORAGE_SAS_TOKEN**
+- **WALG_AZURE_BUFFER_SIZE**
+- **WALG_AZURE_MAX_BUFFERS**

@@ -88,8 +88,19 @@ def write_certificates(environment, overwrite):
 
     ssl_keys = ['SSL_CERTIFICATE', 'SSL_PRIVATE_KEY']
     if set(ssl_keys) <= set(environment):
+        logging.info('Writing custom ssl certificate')
         for k in ssl_keys:
             write_file(environment[k], environment[k + '_FILE'], overwrite)
+        if 'SSL_CA' in environment:
+            logging.info('Writing ssl ca certificate')
+            write_file(environment['SSL_CA'], environment['SSL_CA_FILE'], overwrite)
+        else:
+            logging.info('No ca certificate to write')
+        if 'SSL_CRL' in environment:
+            logging.info('Writing ssl certificate revocation list')
+            write_file(environment['SSL_CRL'], environment['SSL_CRL_FILE'], overwrite)
+        else:
+            logging.info('No certificate revocation list to write')
     else:
         if os.path.exists(environment['SSL_PRIVATE_KEY_FILE']) and not overwrite:
             logging.warning('Private key already exists, not overwriting. (Use option --force if necessary)')
@@ -107,7 +118,7 @@ def write_certificates(environment, overwrite):
             '-out',
             environment['SSL_CERTIFICATE_FILE'],
         ]
-        logging.info('Generating ssl certificate')
+        logging.info('Generating ssl self-signed certificate')
         p = subprocess.Popen(openssl_cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         output, _ = p.communicate()
         logging.debug(output)
@@ -236,6 +247,7 @@ restapi:
 postgresql:
   pgpass: /run/postgresql/pgpass
   use_unix_socket: true
+  use_unix_socket_repl: true
   name: '{{instance_data.id}}'
   listen: '*:{{PGPORT}}'
   connect_address: {{instance_data.ip}}:{{PGPORT}}
@@ -276,6 +288,7 @@ ltree,pgcrypto,pgq,pg_trgm,postgres_fdw,tablefunc,uuid-ossp,hypopg'
     - hostssl all             +{{HUMAN_ROLE}}    ::1/128            pam
     {{/PAM_OAUTH2}}
     - host    all             all                ::1/128            md5
+    - local   replication     {{PGUSER_STANDBY}}                    trust
     - hostssl replication     {{PGUSER_STANDBY}} all                md5
     {{^ALLOW_NOSSL}}
     - hostnossl all           all                all                reject
@@ -610,6 +623,11 @@ def get_placeholders(provider):
 
     placeholders['BGMON_LISTEN_IP'] = get_listen_ip()
 
+    if 'SSL_CA' in placeholders and placeholders['SSL_CA_FILE'] == '':
+        placeholders['SSL_CA_FILE'] = os.path.join(placeholders['RW_DIR'], 'certs', 'ca.crt')
+    if 'SSL_CRL' in placeholders and placeholders['SSL_CRL_FILE'] == '':
+        placeholders['SSL_CRL_FILE'] = os.path.join(placeholders['RW_DIR'], 'certs', 'server.crl')
+
     return placeholders
 
 
@@ -691,7 +709,8 @@ def write_wale_environment(placeholders, prefix, overwrite):
     s3_names = ['WALE_S3_PREFIX', 'WALG_S3_PREFIX', 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY',
                 'WALE_S3_ENDPOINT', 'AWS_ENDPOINT', 'AWS_REGION', 'AWS_INSTANCE_PROFILE',
                 'WALG_S3_SSE_KMS_ID', 'WALG_S3_SSE', 'WALG_DISABLE_S3_SSE', 'AWS_S3_FORCE_PATH_STYLE']
-    azure_names = ['WALG_AZ_PREFIX', 'AZURE_STORAGE_ACCOUNT', 'AZURE_STORAGE_ACCESS_KEY']
+    azure_names = ['WALG_AZ_PREFIX', 'AZURE_STORAGE_ACCOUNT', 'AZURE_STORAGE_ACCESS_KEY',
+                   'AZURE_STORAGE_SAS_TOKEN', 'WALG_AZURE_BUFFER_SIZE', 'WALG_AZURE_MAX_BUFFERS']
     gs_names = ['WALE_GS_PREFIX', 'WALG_GS_PREFIX', 'GOOGLE_APPLICATION_CREDENTIALS']
     swift_names = ['WALE_SWIFT_PREFIX', 'SWIFT_AUTHURL', 'SWIFT_TENANT', 'SWIFT_TENANT_ID', 'SWIFT_USER',
                    'SWIFT_USER_ID', 'SWIFT_USER_DOMAIN_NAME', 'SWIFT_USER_DOMAIN_ID', 'SWIFT_PASSWORD',

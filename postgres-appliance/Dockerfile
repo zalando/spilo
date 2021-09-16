@@ -1,6 +1,6 @@
 ARG BASE_IMAGE=ubuntu:18.04
 ARG PGVERSION=14
-ARG TIMESCALEDB="1.7.5 2.3.1 2.4.0"
+ARG TIMESCALEDB="1.7.5 2.3.1 2.4.1"
 ARG DEMO=false
 ARG COMPRESS=false
 
@@ -81,11 +81,11 @@ ARG DEB_PG_SUPPORTED_VERSIONS="$PGOLDVERSIONS $PGVERSION"
 # Install PostgreSQL, extensions and contribs
 ENV POSTGIS_VERSION=3.1 \
     POSTGIS_LEGACY=3.0 \
-    BG_MON_COMMIT=504af68d63c328033fc76ebb5cd4e3709b823c19 \
-    PG_AUTH_MON_COMMIT=a0c086ad9865c9a0f468f12d09b77353acd2de28 \
+    BG_MON_COMMIT=1f3461dda893c14778c02b5968d4c83a5d4d8e7d \
+    PG_AUTH_MON_COMMIT=437435b4e2de32a820e86973f6934ec849a768e0 \
     PG_MON_COMMIT=54fbdcc3cfe7e2a626bd96dda644d9a0c6866b58 \
     DECODERBUFS=v.1.3.1.Final \
-    SET_USER=REL2_0_0 \
+    SET_USER=REL2_0_1 \
     PLPROFILER=REL4_1 \
     PAM_OAUTH2=v1.0.1 \
     PLANTUNER_COMMIT=800d81bc85da64ff3ef66e12aed1d4e1e54fc006 \
@@ -106,7 +106,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     else \
         BUILD_PACKAGES="$BUILD_PACKAGES pgxnclient zlib1g-dev libprotobuf-c-dev libpam0g-dev libcurl4-openssl-dev libicu-dev python libc-ares-dev pandoc pkg-config" \
 # debezium-decoderbufs: libprotobuf-c-dev
-# pgbouncer: libc-ares-dev pandoc pkg-config
         && apt-get install -y $BUILD_PACKAGES libprotobuf-c1 libcurl4 \
 \
         # install pam_oauth2.so
@@ -135,11 +134,9 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && if [ "$WITH_PERL" != "true" ] || [ "$DEMO" != "true" ]; then dpkg -i *.deb || apt-get -y -f install; fi \
 \
     && curl -sL https://github.com/CyberDem0n/bg_mon/archive/$BG_MON_COMMIT.tar.gz | tar xz \
-    && curl -sL https://github.com/CyberDem0n/pg_auth_mon/archive/$PG_AUTH_MON_COMMIT.tar.gz | tar xz \
+    && curl -sL https://github.com/RafiaSabih/pg_auth_mon/archive/$PG_AUTH_MON_COMMIT.tar.gz | tar xz \
     && curl -sL https://github.com/cybertec-postgresql/pg_permission/archive/$PG_PERMISSIONS_COMMIT.tar.gz | tar xz \
     && git clone -b $SET_USER https://github.com/pgaudit/set_user.git \
-    # Silence annoying NOTICE messages about deprecated GUCs
-    && sed -i 's/^\(bool  show_.* =\) true;/\1 false;/' set_user/compatibility.h \
     && patch -d set_user -p1 < set_user.patch \
     && git clone https://github.com/timescale/timescaledb.git \
 \
@@ -223,7 +220,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             done; \
     done \
 \
-    && apt-get install -y skytools3-ticker \
+    && apt-get install -y skytools3-ticker pgbouncer \
 \
     && sed -i "s/-testing.*$/ main/g" /etc/apt/sources.list.d/pgdg.list \
     && apt-get update \
@@ -242,15 +239,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             && ln -s postgis-${POSTGIS_VERSION%.*}.so \
                 /usr/lib/postgresql/${version}/lib/postgis-2.5.so; \
         done \
-        # patch, build and install pgbouncer
-        && apt-get source pgbouncer \
-        && cd $(ls -d pgbouncer-*) \
-        # Increase password size
-        && sed -i 's/\(MAX_PASSWORD\t\).*/\11024/' include/bouncer.h \
-        && sed -i 's/\(SEND_wrap(\)512\(, pktbuf_write_PasswordMessage, res, sk, psw)\)/\11024\2/' include/pktbuf.h \
-        && DEB_BUILD_OPTIONS=nocheck debuild -b -uc -us \
-        && cd .. \
-        && dpkg -i pgbouncer_*.deb \
         && PACKAGES="partman repack"; \
     fi \
 \
@@ -372,9 +360,9 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && find /var/log -type f -exec truncate --size 0 {} \;
 
 # Install patroni, wal-e and wal-g
-ENV PATRONIVERSION=2.1.0
+ENV PATRONIVERSION=2.1.1
 ENV WALE_VERSION=1.1.1
-ENV WALG_VERSION=v0.2.19
+ENV WALG_VERSION=v1.1
 RUN export DEBIAN_FRONTEND=noninteractive \
     && set -ex \
     && BUILD_PACKAGES="python3-pip python3-wheel python3-dev git patchutils binutils" \
@@ -391,8 +379,10 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 \
     && if [ "$DEMO" != "true" ]; then \
         EXTRAS=",etcd,consul,zookeeper,aws" \
-        && curl -sL https://github.com/wal-g/wal-g/releases/download/$WALG_VERSION/wal-g.linux-amd64.tar.gz \
+        && DISTRIB_RELEASE=$(sed -n 's/DISTRIB_RELEASE=//p' /etc/lsb-release) \
+        && curl -sL https://github.com/wal-g/wal-g/releases/download/$WALG_VERSION/wal-g-pg-ubuntu-$DISTRIB_RELEASE-amd64.tar.gz \
                 | tar -C /usr/local/bin -xz \
+        && mv /usr/local/bin/wal-g-pg-ubuntu-$DISTRIB_RELEASE-amd64 /usr/local/bin/wal-g \
         && strip /usr/local/bin/wal-g \
         && apt-get install -y python3-etcd python3-consul python3-kazoo python3-meld3 \
                         python3-boto python3-gevent python3-greenlet python3-cachetools \
@@ -400,7 +390,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 \
         && find /usr/share/python-babel-localedata/locale-data -type f ! -name 'en_US*.dat' -delete \
 \
-        && pip3 install filechunkio wal-e[aws,google,swift]==$WALE_VERSION \
+        && pip3 install filechunkio wal-e[aws,google,swift]==$WALE_VERSION google-crc32c==1.1.2 \
                 'git+https://github.com/zalando/pg_view.git@master#egg=pg-view' \
 \
         # Revert https://github.com/wal-e/wal-e/commit/485d834a18c9b0d97115d95f89e16bdc564e9a18, it affects S3 performance

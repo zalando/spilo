@@ -88,6 +88,11 @@ class _PostgresqlUpgrade(Postgresql):
         for d in self._get_all_databases():
             conn_kwargs['database'] = d
             with get_connection_cursor(**conn_kwargs) as cur:
+
+                cmd = "REVOKE EXECUTE ON FUNCTION pg_catalog.pg_switch_{0}() FROM admin".format(self.wal_name)
+                logger.info('Executing "%s" in the database="%s"', cmd, d)
+                cur.execute(cmd)
+
                 logger.info('Executing "DROP FUNCTION metric_helpers.pg_stat_statements" in the database="%s"', d)
                 cur.execute("DROP FUNCTION IF EXISTS metric_helpers.pg_stat_statements(boolean) CASCADE")
 
@@ -95,7 +100,8 @@ class _PostgresqlUpgrade(Postgresql):
                     logger.info('Executing "DROP EXTENSION IF EXISTS %s" in the database="%s"', ext, d)
                     cur.execute("DROP EXTENSION IF EXISTS {0}".format(ext))
 
-                cur.execute("SELECT oid::regclass FROM pg_catalog.pg_class WHERE relpersistence = 'u'")
+                cur.execute("SELECT oid::regclass FROM pg_catalog.pg_class"
+                            " WHERE relpersistence = 'u' AND relkind = 'r'")
                 for unlogged in cur.fetchall():
                     logger.info('Truncating unlogged table %s', unlogged[0])
                     try:
