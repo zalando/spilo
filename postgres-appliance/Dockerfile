@@ -152,6 +152,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             && if [ "$DEMO" != "true" ]; then \
                 EXTRAS="postgresql-pltcl-${version} \
                         postgresql-${version}-hypopg \
+                        postgresql-${version}-pgaudit \
                         postgresql-${version}-pg-checksums \
                         postgresql-${version}-pgq3 \
                         postgresql-${version}-pllua \
@@ -162,7 +163,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                         postgresql-${version}-wal2json" \
                 && if [ $version != "14" ]; then \
                     EXTRAS="$EXTRAS \
-                        postgresql-${version}-pgaudit \
                         postgresql-${version}-pgl-ddl-deploy \
                         postgresql-${version}-pglogical \
                         postgresql-${version}-pglogical-ticker \
