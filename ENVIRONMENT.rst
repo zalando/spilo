@@ -29,12 +29,18 @@ Environment Configuration Settings
 - **SCOPE**: cluster name, multiple Spilos belonging to the same cluster must have identical scope.
 - **SSL_CA_FILE**: path to the SSL CA certificate file inside the container (by default: '')
 - **SSL_CRL_FILE**: path to the SSL Certificate Revocation List file inside the container (by default: '')
-- **SSL_CERTIFICATE_FILE**: path to the SSL certificate file inside the container (by default PGHOME/server.crt), Spilo will generate one if not present.
-- **SSL_PRIVATE_KEY_FILE**: path to the SSL private key within the container (by default PGHOME/server.key), Spilo will generate one if not present
+- **SSL_CERTIFICATE_FILE**: path to the SSL certificate file inside the container (by default /run/certs/server.crt), Spilo will generate one if not present.
+- **SSL_PRIVATE_KEY_FILE**: path to the SSL private key within the container (by default /run/certs/server.key), Spilo will generate one if not present
 - **SSL_CA**: content of the SSL CA certificate in the SSL_CA_FILE file (by default: '')
 - **SSL_CRL**: content of the SSL Certificate Revocation List in the SSL_CRL_FILE file (by default: '')
-- **SSL_CERTIFICATE**: content of the SSL certificate in the SSL_CERTIFICATE_FILE file (by default PGHOME/server.crt).
-- **SSL_PRIVATE_KEY**: content of the SSL private key in the SSL_PRIVATE_KEY_FILE file (by default PGHOME/server.key).
+- **SSL_CERTIFICATE**: content of the SSL certificate in the SSL_CERTIFICATE_FILE file (by default /run/certs/server.crt).
+- **SSL_PRIVATE_KEY**: content of the SSL private key in the SSL_PRIVATE_KEY_FILE file (by default /run/certs/server.key).
+- **SSL_RESTAPI_CA_FILE**: path to the Patroni REST Api SSL CA certificate file inside the container (by default: '')
+- **SSL_RESTAPI_CERTIFICATE_FILE**: path to the Patroni REST Api SSL certificate file inside the container (by default /run/certs/restapi.crt), Spilo will generate one if not present.
+- **SSL_RESTAPI_PRIVATE_KEY_FILE**: path to the Patroni REST Api SSL private key within the container (by default /run/certs/restapi.key), Spilo will generate one if not present
+- **SSL_RESTAPI_CA**: content of the Patroni REST Api SSL CA certificate in the SSL_RESTAPI_CA_FILE file (by default: '')
+- **SSL_RESTAPI_CERTIFICATE**: content of the REST Api SSL certificate in the SSL_CERTIFICATE_FILE file (by default /run/certs/server.crt).
+- **SSL_RESTAPI_PRIVATE_KEY**: content of the REST Api SSL private key in the SSL_PRIVATE_KEY_FILE file (by default /run/certs/server.key).
 - **SSL_TEST_RELOAD**: whenever to test for certificate rotation and reloading (by default True if SSL_PRIVATE_KEY_FILE has been set)
 - **WALE_BACKUP_THRESHOLD_MEGABYTES**: maximum size of the WAL segments accumulated after the base backup to consider WAL-E restore instead of pg_basebackup.
 - **WALE_BACKUP_THRESHOLD_PERCENTAGE**: maximum ratio (in percents) of the accumulated WAL files to the base backup to consider WAL-E restore instead of pg_basebackup.
