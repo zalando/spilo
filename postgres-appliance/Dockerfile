@@ -53,6 +53,17 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     done \
     && curl -s -o - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
 \
+    # Add pgroonga repositories
+    # Libs + for version 9.6
+    && for t in deb deb-src; do \
+        echo "$t http://ppa.launchpad.net/groonga/ppa/ubuntu ${DISTRIB_CODENAME} main" >> /etc/apt/sources.list.d/pgroonga.list; \
+    done \
+    && apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 8678AF29D1B5ABA1A5A651063359E7CECB64A157 \
+    # For versions 10-13
+    && curl "https://packages.groonga.org/ubuntu/groonga-apt-source-latest-${DISTRIB_CODENAME}.deb" -o groonga-apt-source-latest.deb  \
+    && apt-get install -y ./groonga-apt-source-latest.deb \
+    && rm ./groonga-apt-source-latest.deb \
+\
     # Clean up
     && apt-get purge -y libcap2-bin \
     && apt-get autoremove -y \
@@ -168,6 +179,9 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 fi \
                 && if [ ${version%.*} -lt 11 ]; then \
                     EXTRAS="$EXTRAS postgresql-${version}-amcheck"; \
+                fi \
+                && if [ ${version%.*} -ge 10 ]; then \
+                    EXTRAS="$EXTRAS postgresql-${version}-pgdg-pgroonga"; \
                 fi; \
             fi \
 \
