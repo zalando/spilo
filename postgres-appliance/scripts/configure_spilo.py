@@ -139,9 +139,6 @@ def write_restapi_certificates(environment, overwrite):
         for k in ssl_keys:
             write_file(environment[k], environment[k + '_FILE'], overwrite)
         if 'SSL_RESTAPI_CA' in environment:
-            if environment['SSL_RESTAPI_CA_FILE'] == '':
-                environment['SSL_RESTAPI_CA_FILE'] = os.path.join(environment['RW_DIR'], 'certs',
-                                                                  'rest-api-server-ca.crt')
             logging.info('Writing REST Api ssl ca certificate')
             write_file(environment['SSL_RESTAPI_CA'], environment['SSL_RESTAPI_CA_FILE'], overwrite)
         else:
