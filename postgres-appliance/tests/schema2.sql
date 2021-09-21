@@ -1,4 +1,4 @@
-CREATE EXTENSION amcheck_next;  /* the upgrade scrip must delete it before running pg_upgrade --check! */
+CREATE EXTENSION amcheck_next;  /* the upgrade script must delete it before running pg_upgrade --check! */
 
 \c test_db
 
