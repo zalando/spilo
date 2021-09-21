@@ -538,10 +538,8 @@ def get_placeholders(provider):
     placeholders.setdefault('SSL_CERTIFICATE_FILE', os.path.join(placeholders['RW_DIR'], 'certs', 'server.crt'))
     placeholders.setdefault('SSL_PRIVATE_KEY_FILE', os.path.join(placeholders['RW_DIR'], 'certs', 'server.key'))
     placeholders.setdefault('SSL_RESTAPI_CA_FILE', '')
-    placeholders.setdefault('SSL_RESTAPI_CERTIFICATE_FILE', os.path.join(placeholders['RW_DIR'], 'certs',
-                            'rest-api-server.crt'))
-    placeholders.setdefault('SSL_RESTAPI_PRIVATE_KEY_FILE', os.path.join(placeholders['RW_DIR'], 'certs',
-                            'restapi-api-server.key'))
+    placeholders.setdefault('SSL_RESTAPI_CERTIFICATE_FILE', '')
+    placeholders.setdefault('SSL_RESTAPI_PRIVATE_KEY_FILE', '')
     placeholders.setdefault('WALE_BACKUP_THRESHOLD_MEGABYTES', 102400)
     placeholders.setdefault('WALE_BACKUP_THRESHOLD_PERCENTAGE', 30)
     placeholders.setdefault('INITDB_LOCALE', 'en_US')
