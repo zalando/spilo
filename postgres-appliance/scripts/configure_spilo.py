@@ -666,13 +666,14 @@ def get_placeholders(provider):
     if 'SSL_CRL' in placeholders and placeholders['SSL_CRL_FILE'] == '':
         placeholders['SSL_CRL_FILE'] = os.path.join(placeholders['RW_DIR'], 'certs', 'server.crl')
 
-    ssl_keys = ['SSL_RESTAPI_CERTIFICATE', 'SSL_RESTAPI_PRIVATE_KEY']
-    if not set(ssl_keys) <= set(placeholders):
-        placeholders['SSL_RESTAPI_CERTIFICATE_FILE'] = ''
-        placeholders['SSL_RESTAPI_PRIVATE_KEY_FILE'] = ''
-        placeholders['SSL_RESTAPI_CA_FILE'] = ''
-        placeholders['SSL_RESTAPI_CA'] = ''
-    elif 'SSL_RESTAPI_CA' in placeholders and placeholders['SSL_RESTAPI_CA_FILE'] == '':
+    if {'SSL_RESTAPI_CERTIFICATE', 'SSL_RESTAPI_PRIVATE_KEY'} <= set(placeholders):
+        if not placeholders['SSL_RESTAPI_CERTIFICATE_FILE']:
+            placeholders['SSL_RESTAPI_CERTIFICATE_FILE'] = os.path.join(placeholders['RW_DIR'], 'certs',
+                                                                        'rest-api-server.crt')
+        if not placeholders['SSL_RESTAPI_PRIVATE_KEY_FILE']:
+            placeholders['SSL_RESTAPI_PRIVATE_KEY_FILE'] = os.path.join(placeholders['RW_DIR'], 'certs',
+                                                                        'restapi-api-server.key')
+    if placeholders.get('SSL_RESTAPI_CA') and not placeholders['SSL_RESTAPI_CA_FILE']:
         placeholders['SSL_RESTAPI_CA_FILE'] = os.path.join(placeholders['RW_DIR'], 'certs', 'rest-api-ca.crt')
 
     return placeholders
