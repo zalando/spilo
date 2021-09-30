@@ -127,9 +127,14 @@ function wait_all_streaming() {
     wait_query "$1" "SELECT COUNT(*) FROM pg_stat_replication WHERE application_name LIKE 'spilo_'" 2
 }
 
-function wait_zero_lag() {
+function wait_zero_lag_old() {
     log_info "Waiting for all replicas to catch up with WAL replay..."
     wait_query "$1" "SELECT COUNT(*) FROM pg_stat_replication WHERE application_name LIKE 'spilo_' AND pg_catalog.pg_xlog_location_diff(pg_catalog.pg_current_xlog_location(), COALESCE(replay_location, '0/0')) < 16*1024*1024" 2
+}
+
+function wait_zero_lag() {
+    log_info "Waiting for all replicas to catch up with WAL replay..."
+    wait_query "$1" "SELECT COUNT(*) FROM pg_stat_replication WHERE application_name LIKE 'spilo_' AND pg_catalog.pg_wal_lsn_diff(pg_catalog.pg_current_wal_lsn(), COALESCE(replay_lsn, '0/0')) < 16*1024*1024" 2
 }
 
 function create_schema() {
@@ -153,15 +158,15 @@ function test_inplace_upgrade_wrong_container() {
 }
 
 function test_inplace_upgrade_wrong_version() {
-    docker_exec "$1" "PGVERSION=9.5 $UPGRADE_SCRIPT 3" 2>&1 | grep 'Upgrade is not required'
+    docker_exec "$1" "PGVERSION=9.6 $UPGRADE_SCRIPT 3" 2>&1 | grep 'Upgrade is not required'
 }
 
 function test_inplace_upgrade_wrong_capacity() {
     docker_exec "$1" "PGVERSION=10 $UPGRADE_SCRIPT 4" 2>&1 | grep 'number of replicas does not match'
 }
 
-function test_successful_inplace_upgrade_to_9_6() {
-    docker_exec "$1" "PGVERSION=9.6 $UPGRADE_SCRIPT 3"
+function test_successful_inplace_upgrade_to_10() {
+    docker_exec "$1" "PGVERSION=10 $UPGRADE_SCRIPT 3"
 }
 
 function test_envdir_suffix() {
@@ -176,7 +181,7 @@ function test_envdir_updated_to_x() {
 }
 
 function test_failed_inplace_upgrade_big_replication_lag() {
-    ! test_successful_inplace_upgrade_to_9_6 "$1"
+    ! test_successful_inplace_upgrade_to_10 "$1"
 }
 
 function test_successful_inplace_upgrade_to_12() {
@@ -221,7 +226,7 @@ function start_clone_with_wale_upgrade_to_14_container() {
         -e SCOPE=upgrade3 \
         -e PGVERSION=14 \
         -e CLONE_SCOPE=demo \
-        -e CLONE_PGVERSION=9.5 \
+        -e CLONE_PGVERSION=9.6 \
         -e CLONE_METHOD=CLONE_WITH_WALE \
         -e CLONE_TARGET_TIME="$(date -d '1 minute' -u +'%F %T UTC')" \
         --name "${PREFIX}upgrade4" \
@@ -266,7 +271,7 @@ function verify_clone_with_basebackup_upgrade() {
 }
 
 function verify_clone_with_wale_upgrade_to_14() {
-    log_info "Waiting for clone with wal-e and upgrade 9.5->14 to complete..."
+    log_info "Waiting for clone with wal-e and upgrade 9.6->14 to complete..."
     find_leader "$1" 1
     wait_query "$1" "SELECT current_setting('server_version_num')::int/10000" 14 2> /dev/null
 }
@@ -284,7 +289,7 @@ function run_test() {
 function test_spilo() {
     local container=$1
 
-    run_test test_envdir_suffix "$container" 9.5
+    run_test test_envdir_suffix "$container" 9.6
 
     run_test test_inplace_upgrade_wrong_version "$container"
     run_test test_inplace_upgrade_wrong_capacity "$container"
@@ -295,20 +300,20 @@ function test_spilo() {
 
     # run_test test_failed_inplace_upgrade_big_replication_lag "$container"
 
-    wait_zero_lag "$container"
+    wait_zero_lag_old "$container"
     run_test verify_archive_mode_is_on "$container"
     wait_backup "$container"
 
     local upgrade_container
     upgrade_container=$(start_clone_with_wale_upgrade_to_14_container)
-    log_info "Started $upgrade_container for testing major upgrade 9.5->14 after clone with wal-e"
+    log_info "Started $upgrade_container for testing major upgrade 9.6->14 after clone with wal-e"
 
-    log_info "Testing in-place major upgrade 9.5->9.6"
-    run_test test_successful_inplace_upgrade_to_9_6 "$container"
+    log_info "Testing in-place major upgrade 9.6->10"
+    run_test test_successful_inplace_upgrade_to_10 "$container"
 
     wait_all_streaming "$container"
 
-    run_test test_envdir_updated_to_x 9.6
+    run_test test_envdir_updated_to_x 10
 
     create_schema2 "$container" || exit 1
 
@@ -331,7 +336,7 @@ function test_spilo() {
     log_info "Started $upgrade_container for testing major upgrade 9.6->10 after clone with wal-e"
 
     drop_table_with_oids "$container"
-    log_info "Testing in-place major upgrade 9.6->12"
+    log_info "Testing in-place major upgrade 10->12"
     run_test test_successful_inplace_upgrade_to_12 "$container"
 
     wait_all_streaming "$container"

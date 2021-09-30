@@ -73,14 +73,14 @@ ARG TIMESCALEDB
 ARG TIMESCALEDB_APACHE_ONLY=true
 ARG DEMO
 ARG COMPRESS
-ARG PGOLDVERSIONS="9.5 9.6 10 11 12 13"
+ARG PGOLDVERSIONS="9.6 10 11 12 13"
 ARG WITH_PERL=false
 
 ARG DEB_PG_SUPPORTED_VERSIONS="$PGOLDVERSIONS $PGVERSION"
 
 # Install PostgreSQL, extensions and contribs
 ENV POSTGIS_VERSION=3.1 \
-    POSTGIS_LEGACY=3.0 \
+    POSTGIS_LEGACY=3.1 \
     BG_MON_COMMIT=1f3461dda893c14778c02b5968d4c83a5d4d8e7d \
     PG_AUTH_MON_COMMIT=437435b4e2de32a820e86973f6934ec849a768e0 \
     PG_MON_COMMIT=54fbdcc3cfe7e2a626bd96dda644d9a0c6866b58 \
@@ -104,7 +104,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && rm -f *.deb \
         && apt-get install -y $BUILD_PACKAGES; \
     else \
-        BUILD_PACKAGES="$BUILD_PACKAGES pgxnclient zlib1g-dev libprotobuf-c-dev libpam0g-dev libcurl4-openssl-dev libicu-dev python libc-ares-dev pandoc pkg-config" \
+        BUILD_PACKAGES="$BUILD_PACKAGES zlib1g-dev libprotobuf-c-dev libpam0g-dev libcurl4-openssl-dev libicu-dev python libc-ares-dev pandoc pkg-config" \
 # debezium-decoderbufs: libprotobuf-c-dev
         && apt-get install -y $BUILD_PACKAGES libprotobuf-c1 libcurl4 \
 \
@@ -200,14 +200,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             && cd .. \
 \
             && if [ "$DEMO" != "true" ]; then \
-                if [ ${version%.*} -lt 11 ]; then \
-                    for extension in quantile trimmed_aggregates; do \
-                        pgxn install $extension \
-                        && strip /usr/lib/postgresql/$version/lib/$extension.so; \
-                    done; \
-                fi \
-\
-                && EXTRA_EXTENSIONS="plantuner-${PLANTUNER_COMMIT} plprofiler postgres-decoderbufs" \
+                EXTRA_EXTENSIONS="plantuner-${PLANTUNER_COMMIT} plprofiler postgres-decoderbufs" \
                 && if [ ${version%.*} -ge 10 ]; then \
                      EXTRA_EXTENSIONS="$EXTRA_EXTENSIONS pg_mon-${PG_MON_COMMIT}"; \
                 fi; \
@@ -321,7 +314,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                         && d2="$d1" \
                         && d1="../../${v1##*/}/$d1" \
                         && if [ "${d2%-*}" = "contrib/postgis" ]; then \
-                            if  [ "${v2##*/}" = "9.5" ]; then d2="${d2%-*}-$POSTGIS_LEGACY"; fi \
+                            if  [ "${v2##*/}" = "9.6" ]; then d2="${d2%-*}-$POSTGIS_LEGACY"; fi \
                             && d1="../$d1"; \
                         fi \
                         && d2="$v2/$d2" \
