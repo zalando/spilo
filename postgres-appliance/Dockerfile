@@ -154,7 +154,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                         postgresql-${version}-hypopg \
                         postgresql-${version}-pgaudit \
                         postgresql-${version}-pg-checksums \
-                        postgresql-${version}-pgq3 \
                         postgresql-${version}-pllua \
                         postgresql-${version}-plpgsql-check \
                         postgresql-${version}-plproxy \
@@ -180,8 +179,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             # Install PostgreSQL binaries, contrib, plproxy and multiple pl's
             && apt-get install --allow-downgrades -y postgresql-contrib-${version} \
                     postgresql-plpython3-${version} postgresql-server-dev-${version} \
-                    postgresql-${version}-cron postgresql-${version}-pg-stat-kcache \
-                    $EXTRAS \
+                    postgresql-${version}-cron postgresql-${version}-pgq3 \
+                    postgresql-${version}-pg-stat-kcache $EXTRAS \
 \
             # Install 3rd party stuff
             && cd timescaledb \
@@ -222,7 +221,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 \
     && apt-get install -y skytools3-ticker pgbouncer \
 \
-    && sed -i "s/-testing.*$/ main/g" /etc/apt/sources.list.d/pgdg.list \
+    && sed -i "s/ main.*$/ main/g" /etc/apt/sources.list.d/pgdg.list \
     && apt-get update \
     && apt-get install -y postgresql postgresql-server-dev-all postgresql-all libpq-dev \
     && for version in $DEB_PG_SUPPORTED_VERSIONS; do \
