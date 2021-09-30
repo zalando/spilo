@@ -264,7 +264,7 @@ bootstrap:
 scope: &scope '{{SCOPE}}'
 restapi:
   listen: ':{{APIPORT}}'
-  connect_address: {{REST_API_CONNECT_ADDRESS}}:{{APIPORT}}
+  connect_address: {{RESTAPI_CONNECT_ADDRESS}}:{{APIPORT}}
   {{#SSL_RESTAPI_CA_FILE}}
   cafile: {{SSL_RESTAPI_CA_FILE}}
   {{/SSL_RESTAPI_CA_FILE}}
@@ -653,7 +653,7 @@ def get_placeholders(provider):
     placeholders['postgresql']['parameters']['max_connections'] = min(max(100, int(os_memory_mb/30)), 1000)
 
     placeholders['instance_data'] = get_instance_metadata(provider)
-    placeholders.setdefault('REST_API_CONNECT_ADDRESS', placeholders['instance_data']['ip'])
+    placeholders.setdefault('RESTAPI_CONNECT_ADDRESS', placeholders['instance_data']['ip'])
 
     placeholders['BGMON_LISTEN_IP'] = get_listen_ip()
 
