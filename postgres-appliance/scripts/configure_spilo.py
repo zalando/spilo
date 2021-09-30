@@ -127,6 +127,27 @@ def write_certificates(environment, overwrite):
     adjust_owner(environment['SSL_PRIVATE_KEY_FILE'], gid=-1)
 
 
+def write_restapi_certificates(environment, overwrite):
+    """Write REST Api SSL certificate to files
+
+    If certificates are specified, they are written, otherwise
+    dummy certificates are generated and written"""
+
+    ssl_keys = ['SSL_RESTAPI_CERTIFICATE', 'SSL_RESTAPI_PRIVATE_KEY']
+    if set(ssl_keys) <= set(environment):
+        logging.info('Writing REST Api custom ssl certificate')
+        for k in ssl_keys:
+            write_file(environment[k], environment[k + '_FILE'], overwrite)
+        if 'SSL_RESTAPI_CA' in environment:
+            logging.info('Writing REST Api ssl ca certificate')
+            write_file(environment['SSL_RESTAPI_CA'], environment['SSL_RESTAPI_CA_FILE'], overwrite)
+        else:
+            logging.info('No REST Api ca certificate to write')
+
+        os.chmod(environment['SSL_RESTAPI_PRIVATE_KEY_FILE'], 0o600)
+        adjust_owner(environment['SSL_RESTAPI_PRIVATE_KEY_FILE'], gid=-1)
+
+
 def deep_update(a, b):
     """Updates data structures
 
@@ -244,6 +265,15 @@ scope: &scope '{{SCOPE}}'
 restapi:
   listen: ':{{APIPORT}}'
   connect_address: {{instance_data.ip}}:{{APIPORT}}
+  {{#SSL_RESTAPI_CA_FILE}}
+  cafile: {{SSL_RESTAPI_CA_FILE}}
+  {{/SSL_RESTAPI_CA_FILE}}
+  {{#SSL_RESTAPI_CERTIFICATE_FILE}}
+  certfile: {{SSL_RESTAPI_CERTIFICATE_FILE}}
+  {{/SSL_RESTAPI_CERTIFICATE_FILE}}
+  {{#SSL_RESTAPI_PRIVATE_KEY_FILE}}
+  keyfile: {{SSL_RESTAPI_PRIVATE_KEY_FILE}}
+  {{/SSL_RESTAPI_PRIVATE_KEY_FILE}}
 postgresql:
   pgpass: /run/postgresql/pgpass
   use_unix_socket: true
@@ -504,6 +534,9 @@ def get_placeholders(provider):
     placeholders.setdefault('SSL_CRL_FILE', '')
     placeholders.setdefault('SSL_CERTIFICATE_FILE', os.path.join(placeholders['RW_DIR'], 'certs', 'server.crt'))
     placeholders.setdefault('SSL_PRIVATE_KEY_FILE', os.path.join(placeholders['RW_DIR'], 'certs', 'server.key'))
+    placeholders.setdefault('SSL_RESTAPI_CA_FILE', '')
+    placeholders.setdefault('SSL_RESTAPI_CERTIFICATE_FILE', '')
+    placeholders.setdefault('SSL_RESTAPI_PRIVATE_KEY_FILE', '')
     placeholders.setdefault('WALE_BACKUP_THRESHOLD_MEGABYTES', 102400)
     placeholders.setdefault('WALE_BACKUP_THRESHOLD_PERCENTAGE', 30)
     placeholders.setdefault('INITDB_LOCALE', 'en_US')
@@ -627,6 +660,16 @@ def get_placeholders(provider):
         placeholders['SSL_CA_FILE'] = os.path.join(placeholders['RW_DIR'], 'certs', 'ca.crt')
     if 'SSL_CRL' in placeholders and placeholders['SSL_CRL_FILE'] == '':
         placeholders['SSL_CRL_FILE'] = os.path.join(placeholders['RW_DIR'], 'certs', 'server.crl')
+
+    if {'SSL_RESTAPI_CERTIFICATE', 'SSL_RESTAPI_PRIVATE_KEY'} <= set(placeholders):
+        if not placeholders['SSL_RESTAPI_CERTIFICATE_FILE']:
+            placeholders['SSL_RESTAPI_CERTIFICATE_FILE'] = os.path.join(placeholders['RW_DIR'], 'certs',
+                                                                        'rest-api-server.crt')
+        if not placeholders['SSL_RESTAPI_PRIVATE_KEY_FILE']:
+            placeholders['SSL_RESTAPI_PRIVATE_KEY_FILE'] = os.path.join(placeholders['RW_DIR'], 'certs',
+                                                                        'restapi-api-server.key')
+    if placeholders.get('SSL_RESTAPI_CA') and not placeholders['SSL_RESTAPI_CA_FILE']:
+        placeholders['SSL_RESTAPI_CA_FILE'] = os.path.join(placeholders['RW_DIR'], 'certs', 'rest-api-ca.crt')
 
     return placeholders
 
@@ -1031,6 +1074,7 @@ def main():
                 write_wale_environment(placeholders, '', args['force'])
         elif section == 'certificate':
             write_certificates(placeholders, args['force'])
+            write_restapi_certificates(placeholders, args['force'])
         elif section == 'crontab':
             write_crontab(placeholders, args['force'])
         elif section == 'pam-oauth2':
