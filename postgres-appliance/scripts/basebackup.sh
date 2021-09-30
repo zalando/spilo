@@ -21,7 +21,7 @@ done
 
 if which pg_receivewal &> /dev/null; then
     PG_RECEIVEWAL=pg_receivewal
-    PG_BASEBACKUP_OPTS="-X none"
+    PG_BASEBACKUP_OPTS="-X stream"
 else
     PG_RECEIVEWAL=pg_receivexlog
     PG_BASEBACKUP_OPTS=""
