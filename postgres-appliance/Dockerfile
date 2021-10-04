@@ -222,15 +222,13 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 \
     && if [ "$DEMO" != "true" ]; then \
         for version in $DEB_PG_SUPPORTED_VERSIONS; do \
-            if [ "$version" != "14" ]; then \
-                # due to dependency issues partman has to be installed separately
-                apt-get install -y postgresql-${version}-partman; \
-            fi \
+            # due to dependency issues partman has to be installed separately
+            apt-get install -y postgresql-${version}-partman \
             # create postgis symlinks to make it possible to perform update
             && ln -s postgis-${POSTGIS_VERSION%.*}.so \
                 /usr/lib/postgresql/${version}/lib/postgis-2.5.so; \
         done \
-        && PACKAGES="partman repack"; \
+        && PACKAGES="repack"; \
     fi \
 \
     # build and install missing packages
