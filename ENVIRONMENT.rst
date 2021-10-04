@@ -41,7 +41,8 @@ Environment Configuration Settings
 - **SSL_RESTAPI_CA**: content of the Patroni REST Api SSL CA certificate in the SSL_RESTAPI_CA_FILE file (by default: '')
 - **SSL_RESTAPI_CERTIFICATE**: content of the REST Api SSL certificate in the SSL_CERTIFICATE_FILE file (by default /run/certs/server.crt).
 - **SSL_RESTAPI_PRIVATE_KEY**: content of the REST Api SSL private key in the SSL_PRIVATE_KEY_FILE file (by default /run/certs/server.key).
-- **SSL_TEST_RELOAD**: whenever to test for certificate rotation and reloading (by default True if SSL_PRIVATE_KEY_FILE has been set)
+- **SSL_TEST_RELOAD**: whenever to test for certificate rotation and reloading (by default True if SSL_PRIVATE_KEY_FILE has been set).
+- **RESTAPI_CONNECT_ADDRESS**: when you configure Patroni RESTAPI in SSL mode some safe API (i.e. switchover) perform hostname validation. In this case could be convenient configure ````restapi.connect_address````as a hostname instead of IP. For example, you can configure it as "$(POD_NAME).<service name>".
 - **WALE_BACKUP_THRESHOLD_MEGABYTES**: maximum size of the WAL segments accumulated after the base backup to consider WAL-E restore instead of pg_basebackup.
 - **WALE_BACKUP_THRESHOLD_PERCENTAGE**: maximum ratio (in percents) of the accumulated WAL files to the base backup to consider WAL-E restore instead of pg_basebackup.
 - **WALE_ENV_DIR**: directory where to store WAL-E environment variables
