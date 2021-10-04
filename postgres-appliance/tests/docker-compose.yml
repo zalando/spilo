@@ -49,7 +49,7 @@ services:
               postgresql:
                 parameters:
                   shared_buffers: 32MB
-            PGVERSION: '9.5'
+            PGVERSION: '9.6'
             # Just to test upgrade with clone. Without CLONE_SCOPE they don't work
             CLONE_WAL_S3_BUCKET: *bucket
             CLONE_AWS_ACCESS_KEY_ID: *access_key
