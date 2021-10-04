@@ -65,7 +65,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             /usr/share/locale/??_?? \
     && find /var/log -type f -exec truncate --size 0 {} \;
 
-COPY cron_unprivileged.c set_user.patch dependencies/debs dependencies/src /builddeps/
+COPY cron_unprivileged.c dependencies/debs dependencies/src /builddeps/
 COPY patches/*.patch /builddeps/
 
 ARG PGVERSION
@@ -85,7 +85,7 @@ ENV POSTGIS_VERSION=3.1 \
     PG_AUTH_MON_COMMIT=437435b4e2de32a820e86973f6934ec849a768e0 \
     PG_MON_COMMIT=54fbdcc3cfe7e2a626bd96dda644d9a0c6866b58 \
     DECODERBUFS=v.1.3.1.Final \
-    SET_USER=REL2_0_1 \
+    SET_USER=REL3_0_0 \
     PLPROFILER=REL4_1 \
     PAM_OAUTH2=v1.0.1 \
     PLANTUNER_COMMIT=800d81bc85da64ff3ef66e12aed1d4e1e54fc006 \
