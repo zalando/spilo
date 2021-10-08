@@ -202,6 +202,7 @@ bootstrap:
         archive_timeout: 1800s
         wal_level: hot_standby
         wal_log_hints: 'on'
+        wal_compression: 'on'
         max_wal_senders: 10
         max_connections: {{postgresql.parameters.max_connections}}
         max_replication_slots: 10
