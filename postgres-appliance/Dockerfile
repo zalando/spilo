@@ -158,14 +158,14 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                         postgresql-${version}-plproxy \
                         postgresql-${version}-postgis-${POSTGIS_VERSION%.*} \
                         postgresql-${version}-postgis-${POSTGIS_VERSION%.*}-scripts \
+                        postgresql-${version}-repack \
                         postgresql-${version}-wal2json" \
                 && if [ $version != "14" ]; then \
                     EXTRAS="$EXTRAS \
                         postgresql-${version}-pgl-ddl-deploy \
                         postgresql-${version}-pglogical \
                         postgresql-${version}-pglogical-ticker \
-                        postgresql-${version}-pldebugger \
-                        postgresql-${version}-repack"; \
+                        postgresql-${version}-pldebugger"; \
                 fi \
                 && if [ "$WITH_PERL" = "true" ]; then \
                     EXTRAS="$EXTRAS postgresql-plperl-${version}"; \
@@ -227,12 +227,11 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             # create postgis symlinks to make it possible to perform update
             && ln -s postgis-${POSTGIS_VERSION%.*}.so \
                 /usr/lib/postgresql/${version}/lib/postgis-2.5.so; \
-        done \
-        && PACKAGES="repack"; \
+        done; \
     fi \
 \
     # build and install missing packages
-    && for pkg in pgextwlist $PACKAGES; do \
+    && for pkg in pgextwlist; do \
         apt-get source postgresql-13-${pkg} \
         && cd $(ls -d *${pkg%?}*-*/) \
         && if [ -f ../$pkg.patch ]; then patch -p1 < ../$pkg.patch; fi \
@@ -243,11 +242,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             && egrep -v '(PG_END_TRY|EmitWarningsOnPlaceholders)' pgextwlist.c.f > pgextwlist.c; \
         fi \
         && pg_buildext updatecontrol \
-        && if [ "$pkg" = "pgextwlist" ]; then \
-            DEB_BUILD_OPTIONS=nocheck debuild -b -uc -us; \
-        else \
-            DEB_BUILD_OPTIONS=nocheck DEB_PG_SUPPORTED_VERSIONS=$PGVERSION debuild -b -uc -us; \
-        fi \
+        && DEB_BUILD_OPTIONS=nocheck debuild -b -uc -us \
         && cd .. \
         && for version in $DEB_PG_SUPPORTED_VERSIONS; do \
             for deb in postgresql-${version}-${pkg}_*.deb; do \
