@@ -12,6 +12,7 @@ ARG ADDITIONAL_LOCALES=
 RUN export DEBIAN_FRONTEND=noninteractive \
     && echo 'APT::Install-Recommends "0";\nAPT::Install-Suggests "0";' > /etc/apt/apt.conf.d/01norecommend \
     && apt-get update \
+	&& apt-get install -y libtinfo5 \ 
     && apt-get install -y curl ca-certificates less locales jq vim-tiny gnupg1 cron runit dumb-init libcap2-bin rsync sysstat \
     && ln -s chpst /usr/bin/envdir \
     # Make it possible to use the following utilities without root (if container runs without "no-new-privileges:true")
@@ -89,7 +90,8 @@ ENV POSTGIS_VERSION=3.1 \
     PLPROFILER=REL4_1 \
     PAM_OAUTH2=v1.0.1 \
     PLANTUNER_COMMIT=800d81bc85da64ff3ef66e12aed1d4e1e54fc006 \
-    PG_PERMISSIONS_COMMIT=314b9359e3d77c0b2ef7dbbde97fa4be80e31925
+    PG_PERMISSIONS_COMMIT=314b9359e3d77c0b2ef7dbbde97fa4be80e31925 \
+	PLV8_VERSION=2.3.15
 
 RUN export DEBIAN_FRONTEND=noninteractive \
     && set -ex \
@@ -97,7 +99,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && apt-get update \
     && cd /builddeps \
 \
-    && BUILD_PACKAGES="devscripts equivs build-essential fakeroot debhelper git gcc libc6-dev make cmake libevent-dev libbrotli-dev libssl-dev libkrb5-dev" \
+    && BUILD_PACKAGES="devscripts equivs build-essential fakeroot debhelper git gcc libc6-dev make cmake libevent-dev libbrotli-dev libssl-dev libkrb5-dev gpp cpp pkg-config apt-transport-https libc++-dev libc++abi-dev libc++1 libc++abi1" \
     && if [ "$DEMO" = "true" ]; then \
         export DEB_PG_SUPPORTED_VERSIONS="$PGVERSION" \
         && WITH_PERL=false \
@@ -117,6 +119,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && git clone -b $PLPROFILER https://github.com/bigsql/plprofiler.git \
         && tar -xzf plantuner-${PLANTUNER_COMMIT}.tar.gz \
         && curl -sL https://github.com/RafiaSabih/pg_mon/archive/$PG_MON_COMMIT.tar.gz | tar xz \
+		&& curl -sL https://github.com/plv8/plv8/archive/v${PLV8_VERSION}.tar.gz | tar xz \
 \
         && for p in python3-keyring python3-docutils ieee-data; do \
             version=$(apt-cache show $p | sed -n 's/^Version: //p' | sort -rV | head -n 1) \
@@ -219,6 +222,14 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && for version in $DEB_PG_SUPPORTED_VERSIONS; do \
         apt-get install -y postgresql-server-dev-${version}; \
     done \
+	# installing plv8 extension 
+	&& cd plv8-${PLV8_VERSION} \
+    && for version in $DEB_PG_SUPPORTED_VERSIONS; do \
+	    make PG_CONFIG=/usr/lib/postgresql/${version}/bin/pg_config \
+		&& make install PG_CONFIG=/usr/lib/postgresql/${version}/bin/pg_config \
+		&& strip /usr/lib/postgresql/${version}/lib/plv8-${PLV8_VERSION}.so; \
+    done \
+	&& cd .. \
 \
     && if [ "$DEMO" != "true" ]; then \
         for version in $DEB_PG_SUPPORTED_VERSIONS; do \
