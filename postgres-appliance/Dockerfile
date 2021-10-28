@@ -1,6 +1,6 @@
 ARG BASE_IMAGE=ubuntu:18.04
 ARG PGVERSION=14
-ARG TIMESCALEDB="1.7.5 2.3.1 2.4.2"
+ARG TIMESCALEDB="1.7.5 2.3.1 2.5.0"
 ARG DEMO=false
 ARG COMPRESS=false
 
@@ -81,10 +81,10 @@ ARG DEB_PG_SUPPORTED_VERSIONS="$PGOLDVERSIONS $PGVERSION"
 # Install PostgreSQL, extensions and contribs
 ENV POSTGIS_VERSION=3.1 \
     POSTGIS_LEGACY=3.1 \
-    BG_MON_COMMIT=b81800d9d45d112ef402eca7588d24364198417b \
+    BG_MON_COMMIT=098b4857d1e88862439c0f02a6031e9fb78e5ef2 \
     PG_AUTH_MON_COMMIT=437435b4e2de32a820e86973f6934ec849a768e0 \
     PG_MON_COMMIT=54fbdcc3cfe7e2a626bd96dda644d9a0c6866b58 \
-    DECODERBUFS=v.1.3.1.Final \
+    DECODERBUFS=v1.7.0.Final \
     SET_USER=REL3_0_0 \
     PLPROFILER=REL4_1 \
     PAM_OAUTH2=v1.0.1 \
@@ -153,6 +153,10 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                         postgresql-${version}-hypopg \
                         postgresql-${version}-pgaudit \
                         postgresql-${version}-pg-checksums \
+                        postgresql-${version}-pgl-ddl-deploy \
+                        postgresql-${version}-pglogical \
+                        postgresql-${version}-pglogical-ticker \
+                        postgresql-${version}-pldebugger \
                         postgresql-${version}-pllua \
                         postgresql-${version}-plpgsql-check \
                         postgresql-${version}-plproxy \
@@ -160,13 +164,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                         postgresql-${version}-postgis-${POSTGIS_VERSION%.*}-scripts \
                         postgresql-${version}-repack \
                         postgresql-${version}-wal2json" \
-                && if [ $version != "14" ]; then \
-                    EXTRAS="$EXTRAS \
-                        postgresql-${version}-pgl-ddl-deploy \
-                        postgresql-${version}-pglogical \
-                        postgresql-${version}-pglogical-ticker \
-                        postgresql-${version}-pldebugger"; \
-                fi \
                 && if [ "$WITH_PERL" = "true" ]; then \
                     EXTRAS="$EXTRAS postgresql-plperl-${version}"; \
                 fi \

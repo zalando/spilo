@@ -114,6 +114,10 @@ GRANT SELECT ON public.postgres_log TO admin;"
 if [ "$PGVER" -ge 13 ]; then
     echo "ALTER TABLE public.postgres_log ADD COLUMN IF NOT EXISTS backend_type text;"
 fi
+if [ "$PGVER" -ge 14 ]; then
+    echo "ALTER TABLE public.postgres_log ADD COLUMN IF NOT EXISTS leader_pid integer;"
+    echo "ALTER TABLE public.postgres_log ADD COLUMN IF NOT EXISTS query_id bigint;"
+fi
 
 # Sunday could be 0 or 7 depending on the format, we just create both
 for i in $(seq 0 7); do
