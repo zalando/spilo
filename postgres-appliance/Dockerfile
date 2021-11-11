@@ -66,7 +66,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && find /var/log -type f -exec truncate --size 0 {} \;
 
 COPY cron_unprivileged.c dependencies/debs dependencies/src /builddeps/
-COPY patches/*.patch /builddeps/
 
 ARG PGVERSION
 ARG TIMESCALEDB
