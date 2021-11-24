@@ -62,6 +62,7 @@ pipeline:
     <<: *ENV
     ARCH: arm64
   type: script
+  timeout: 10h
   vm_config:
     type: linux
   commands:

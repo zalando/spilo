@@ -23,12 +23,13 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 RUN if [ "$(dpkg --print-architecture)" != "amd64" ]; then git clone -b $WALG_VERSION --recurse-submodules https://github.com/wal-g/wal-g.git; fi
 WORKDIR /wal-g
 RUN if [ "$(dpkg --print-architecture)" != "amd64" ]; then go get -v -t -d ./... && go mod vendor; fi
-RUN if [ "$(dpkg --print-architecture)" != "amd64" ]; then bash link_brotli.sh; fi
-RUN if [ "$(dpkg --print-architecture)" != "amd64" ]; then bash link_libsodium.sh; fi
+RUN if [ "$(dpkg --print-architecture)" != "amd64" ]; then export MAKEFLAGS="-j $(grep -c ^processor /proc/cpuinfo)" && bash link_brotli.sh; fi
+RUN if [ "$(dpkg --print-architecture)" != "amd64" ]; then export MAKEFLAGS="-j $(grep -c ^processor /proc/cpuinfo)" && bash link_libsodium.sh; fi
 RUN if [ "$(dpkg --print-architecture)" != "amd64" ]; then \
         if grep -q DISTRIB_RELEASE=18.04 /etc/lsb-release; then export CGO_LDFLAGS=-no-pie; fi \
         && export USE_LIBSODIUM=1 \
         && export USE_LZO=1 \
+        && export MAKEFLAGS="-j $(grep -c ^processor /proc/cpuinfo)" \
         && make pg_build; \
     fi
 
@@ -138,6 +139,7 @@ ENV POSTGIS_VERSION=3.1 \
     PG_PERMISSIONS_COMMIT=314b9359e3d77c0b2ef7dbbde97fa4be80e31925
 
 RUN export DEBIAN_FRONTEND=noninteractive \
+    && export MAKEFLAGS="-j $(grep -c ^processor /proc/cpuinfo)" \
     && set -ex \
     && sed -i 's/^#\s*\(deb.*universe\)$/\1/g' /etc/apt/sources.list \
     && apt-get update \
