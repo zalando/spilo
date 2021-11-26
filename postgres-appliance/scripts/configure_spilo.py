@@ -22,7 +22,7 @@ import yaml
 import pystache
 import requests
 
-from spilo_commons import RW_DIR, PATRONI_CONFIG_FILE, append_extentions,\
+from spilo_commons import RW_DIR, PATRONI_CONFIG_FILE, append_extensions,\
         get_binary_version, get_bin_dir, is_valid_pg_version, write_file, write_patroni_config
 
 
@@ -1025,10 +1025,10 @@ def main():
     version = float(placeholders['PGVERSION'])
     if 'shared_preload_libraries' not in user_config.get('postgresql', {}).get('parameters', {}):
         config['postgresql']['parameters']['shared_preload_libraries'] =\
-                append_extentions(config['postgresql']['parameters']['shared_preload_libraries'], version)
+                append_extensions(config['postgresql']['parameters']['shared_preload_libraries'], version)
     if 'extwlist.extensions' not in user_config.get('postgresql', {}).get('parameters', {}):
         config['postgresql']['parameters']['extwlist.extensions'] =\
-                append_extentions(config['postgresql']['parameters']['extwlist.extensions'], version, True)
+                append_extensions(config['postgresql']['parameters']['extwlist.extensions'], version, True)
 
     # Ensure replication is available
     if 'pg_hba' in config['bootstrap'] and not any(['replication' in i for i in config['bootstrap']['pg_hba']]):
