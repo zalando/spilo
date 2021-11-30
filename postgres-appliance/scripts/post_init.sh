@@ -40,6 +40,13 @@ ALTER EXTENSION pg_auth_mon UPDATE;
 GRANT SELECT ON TABLE public.pg_auth_mon TO robot_zmon;
 
 CREATE EXTENSION IF NOT EXISTS pg_cron SCHEMA public;
+DO \$\$
+BEGIN
+    PERFORM 1 FROM pg_catalog.pg_proc WHERE pronamespace = 'cron'::pg_catalog.regnamespace AND proname = 'schedule' AND proargnames = '{p_schedule,p_database,p_command}';
+    IF FOUND THEN
+        ALTER FUNCTION cron.schedule(text, text, text) RENAME TO schedule_in_database;
+    END IF;
+END;\$\$;
 ALTER EXTENSION pg_cron UPDATE;
 
 ALTER POLICY cron_job_policy ON cron.job USING (username = current_user OR
@@ -51,7 +58,15 @@ REVOKE SELECT ON cron.job FROM public;
 GRANT SELECT ON cron.job TO admin;
 GRANT UPDATE (database, nodename) ON cron.job TO admin;
 
-CREATE OR REPLACE FUNCTION cron.schedule(p_schedule text, p_database text, p_command text)
+ALTER POLICY cron_job_run_details_policy ON cron.job_run_details USING (username = current_user OR
+    (pg_has_role(current_user, 'admin', 'MEMBER')
+    AND pg_has_role(username, 'admin', 'MEMBER')
+    AND NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname = username AND rolsuper)
+    ));
+REVOKE SELECT ON cron.job_run_details FROM public;
+GRANT SELECT ON cron.job_run_details TO admin;
+
+CREATE OR REPLACE FUNCTION cron.schedule_in_database(p_schedule text, p_database text, p_command text)
 RETURNS bigint
 LANGUAGE plpgsql
 AS \$function\$
@@ -67,12 +82,20 @@ BEGIN
     RETURN l_jobid;
 END;
 \$function\$;
+REVOKE EXECUTE ON FUNCTION cron.alter_job(bigint, text, text, text, text, boolean) FROM public;
+GRANT EXECUTE ON FUNCTION cron.alter_job(bigint, text, text, text, text, boolean) TO admin;
 REVOKE EXECUTE ON FUNCTION cron.schedule(text, text) FROM public;
 GRANT EXECUTE ON FUNCTION cron.schedule(text, text) TO admin;
 REVOKE EXECUTE ON FUNCTION cron.schedule(text, text, text) FROM public;
 GRANT EXECUTE ON FUNCTION cron.schedule(text, text, text) TO admin;
+REVOKE EXECUTE ON FUNCTION cron.schedule_in_database(text, text, text) FROM public;
+GRANT EXECUTE ON FUNCTION cron.schedule_in_database(text, text, text) TO admin;
+REVOKE EXECUTE ON FUNCTION cron.schedule_in_database(text, text, text, text, text, boolean) FROM public;
+GRANT EXECUTE ON FUNCTION cron.schedule_in_database(text, text, text, text, text, boolean) TO admin;
 REVOKE EXECUTE ON FUNCTION cron.unschedule(bigint) FROM public;
 GRANT EXECUTE ON FUNCTION cron.unschedule(bigint) TO admin;
+REVOKE EXECUTE ON FUNCTION cron.unschedule(name) FROM public;
+GRANT EXECUTE ON FUNCTION cron.unschedule(name) TO admin;
 GRANT USAGE ON SCHEMA cron TO admin;
 
 CREATE EXTENSION IF NOT EXISTS file_fdw SCHEMA public;
