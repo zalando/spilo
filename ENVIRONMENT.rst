@@ -46,7 +46,7 @@ Environment Configuration Settings
 - **WALE_BACKUP_THRESHOLD_MEGABYTES**: maximum size of the WAL segments accumulated after the base backup to consider WAL-E restore instead of pg_basebackup.
 - **WALE_BACKUP_THRESHOLD_PERCENTAGE**: maximum ratio (in percents) of the accumulated WAL files to the base backup to consider WAL-E restore instead of pg_basebackup.
 - **WALE_ENV_DIR**: directory where to store WAL-E environment variables
-- **WAL_S3_BUCKET**: (optional) path to the S3 bucket used for WAL-E base backups (i.e. s3://foobar). Spilo will add /spilo/scope/wal to that path.
+- **WAL_S3_BUCKET**: (optional) name of the S3 bucket used for WAL-E base backups.
 - **AWS_ACCESS_KEY_ID**: (optional) aws access key
 - **AWS_SECRET_ACCESS_KEY**: (optional) aws secret key
 - **AWS_REGION**: (optional) region of S3 bucket
