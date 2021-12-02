@@ -783,11 +783,20 @@ def write_wale_environment(placeholders, prefix, overwrite):
 
         # for S3-compatible storage we want to specify WALE_S3_ENDPOINT and AWS_ENDPOINT, but not AWS_REGION
         if aws_endpoint or wale_endpoint:
-            if not aws_endpoint:
-                aws_endpoint = wale_endpoint.replace('+path://', '://')
-            elif not wale_endpoint:
+            convention = 'path'
+            if not wale_endpoint:
                 wale_endpoint = aws_endpoint.replace('://', '+path://')
+            else:
+                match = re.match(r'^(\w+)\+(\w+)(://.+)$', wale_endpoint)
+                if match:
+                    convention = match.group(2)
+                else:
+                    logging.warning('Invalid WALE_S3_ENDPOINT, the format is protocol+convention://hostname:port, '
+                                    'but got %s', wale_endpoint)
+                if not aws_endpoint:
+                    aws_endpoint = match.expand(r'\1\3') if match else wale_endpoint
             wale.update(WALE_S3_ENDPOINT=wale_endpoint, AWS_ENDPOINT=aws_endpoint, WALG_DISABLE_S3_SSE='true')
+            wale['AWS_S3_FORCE_PATH_STYLE'] = 'true' if convention == 'path' else 'false'
             if aws_region and wale.get('USE_WALG_BACKUP') == 'true':
                 wale['AWS_REGION'] = aws_region
         elif not aws_region:
