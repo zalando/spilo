@@ -31,7 +31,7 @@ def patch_wale_prefix(value, new_version):
 
 
 def update_configs(new_version):
-    from spilo_commons import append_extentions, get_bin_dir, get_patroni_config, write_file, write_patroni_config
+    from spilo_commons import append_extensions, get_bin_dir, get_patroni_config, write_file, write_patroni_config
 
     config = get_patroni_config()
 
@@ -41,12 +41,12 @@ def update_configs(new_version):
     shared_preload_libraries = config['postgresql'].get('parameters', {}).get('shared_preload_libraries')
     if shared_preload_libraries is not None:
         config['postgresql']['parameters']['shared_preload_libraries'] =\
-                append_extentions(shared_preload_libraries, version)
+                append_extensions(shared_preload_libraries, version)
 
     extwlist_extensions = config['postgresql'].get('parameters', {}).get('extwlist.extensions')
     if extwlist_extensions is not None:
         config['postgresql']['parameters']['extwlist.extensions'] =\
-                append_extentions(extwlist_extensions, version, True)
+                append_extensions(extwlist_extensions, version, True)
 
     write_patroni_config(config, True)
 

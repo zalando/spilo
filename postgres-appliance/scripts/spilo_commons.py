@@ -31,7 +31,7 @@ def adjust_extensions(old, version, extwlist=False):
     return ','.join(ret)
 
 
-def append_extentions(old, version, extwlist=False):
+def append_extensions(old, version, extwlist=False):
     extwlist = 3 if extwlist else 2
     ret = []
 
