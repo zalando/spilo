@@ -62,6 +62,7 @@ pipeline:
     <<: *ENV
     ARCH: arm64
   type: script
+  requires_human_approval: true
   timeout: 10h
   vm_config:
     type: linux
