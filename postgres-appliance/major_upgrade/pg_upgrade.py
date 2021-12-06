@@ -186,7 +186,7 @@ class _PostgresqlUpgrade(Postgresql):
             return True
 
     def prepare_new_pgdata(self, version):
-        from spilo_commons import append_extentions
+        from spilo_commons import append_extensions
 
         locale = self.query('SHOW lc_collate').fetchone()[0]
         encoding = self.query('SHOW server_encoding').fetchone()[0]
@@ -222,7 +222,7 @@ class _PostgresqlUpgrade(Postgresql):
         shared_preload_libraries = self.config.get('parameters').get('shared_preload_libraries')
         if shared_preload_libraries:
             self._old_shared_preload_libraries = self.config.get('parameters')['shared_preload_libraries'] =\
-                append_extentions(shared_preload_libraries, float(version))
+                append_extensions(shared_preload_libraries, float(version))
             self.no_bg_mon()
 
         if not self.bootstrap._initdb(initdb_config):

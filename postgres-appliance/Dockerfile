@@ -164,7 +164,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && git clone -b $DECODERBUFS https://github.com/debezium/postgres-decoderbufs.git \
         && git clone -b $PLPROFILER https://github.com/bigsql/plprofiler.git \
         && tar -xzf plantuner-${PLANTUNER_COMMIT}.tar.gz \
-        && curl -sL https://github.com/RafiaSabih/pg_mon/archive/$PG_MON_COMMIT.tar.gz | tar xz \
+        && curl -sL https://github.com/sdudoladov/pg_mon/archive/$PG_MON_COMMIT.tar.gz | tar xz \
 \
         && for p in python3-keyring python3-docutils ieee-data; do \
             version=$(apt-cache show $p | sed -n 's/^Version: //p' | sort -rV | head -n 1) \
@@ -182,7 +182,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && if [ "$WITH_PERL" != "true" ] || [ "$DEMO" != "true" ]; then dpkg -i *.deb || apt-get -y -f install; fi \
 \
     && curl -sL https://github.com/CyberDem0n/bg_mon/archive/$BG_MON_COMMIT.tar.gz | tar xz \
-    && curl -sL https://github.com/RafiaSabih/pg_auth_mon/archive/$PG_AUTH_MON_COMMIT.tar.gz | tar xz \
+    && curl -sL https://github.com/sdudoladov/pg_auth_mon/archive/$PG_AUTH_MON_COMMIT.tar.gz | tar xz \
     && curl -sL https://github.com/cybertec-postgresql/pg_permission/archive/$PG_PERMISSIONS_COMMIT.tar.gz | tar xz \
     && git clone -b $SET_USER https://github.com/pgaudit/set_user.git \
     && git clone https://github.com/timescale/timescaledb.git \
