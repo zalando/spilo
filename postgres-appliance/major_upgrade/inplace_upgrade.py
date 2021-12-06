@@ -417,7 +417,7 @@ hosts deny = *
         conn_kwargs = self.postgresql.local_conn_kwargs
 
         for d in self.postgresql.query('SELECT datname FROM pg_catalog.pg_database WHERE datallowconn'):
-            conn_kwargs['database'] = d[0]
+            conn_kwargs['dbname'] = d[0]
             with get_connection_cursor(**conn_kwargs) as cur:
                 cur.execute('SELECT attrelid::regclass, quote_ident(attname), attstattarget '
                             'FROM pg_catalog.pg_attribute WHERE attnum > 0 AND NOT attisdropped AND attstattarget > 0')
@@ -437,7 +437,7 @@ hosts deny = *
 
         logger.info('Restoring default statistics targets after upgrade')
         for db, val in self._statistics.items():
-            conn_kwargs['database'] = db
+            conn_kwargs['dbname'] = db
             with get_connection_cursor(**conn_kwargs) as cur:
                 for table, val in val.items():
                     for column, target in val.items():
@@ -457,7 +457,7 @@ hosts deny = *
         conn_kwargs = self.postgresql.local_conn_kwargs
 
         for db, val in self._statistics.items():
-            conn_kwargs['database'] = db
+            conn_kwargs['dbname'] = db
             with get_connection_cursor(**conn_kwargs) as cur:
                 for table in val.keys():
                     query = 'ANALYZE {0}'.format(table)
