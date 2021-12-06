@@ -4,6 +4,53 @@ ARG TIMESCALEDB="1.7.5 2.3.1 2.5.1"
 ARG DEMO=false
 ARG COMPRESS=false
 
+FROM $BASE_IMAGE as dependencies-builder
+
+ENV WALG_VERSION=v1.1
+# We want to build ourself non-amd64 wal-g in one of the build steps
+RUN export DEBIAN_FRONTEND=noninteractive \
+    && echo 'APT::Install-Recommends "0";\nAPT::Install-Suggests "0";' > /etc/apt/apt.conf.d/01norecommend \
+    && apt-get update \
+    && apt-get install -y curl ca-certificates \
+    && if [ "$(dpkg --print-architecture)" != "amd64" ]; then \
+        apt-get install -y software-properties-common \
+        && add-apt-repository ppa:longsleep/golang-backports \
+        && apt-get update \
+        && apt-get install -y golang-go liblzo2-dev brotli libsodium-dev git make cmake gcc \
+        && go version; \
+    fi
+
+RUN if [ "$(dpkg --print-architecture)" != "amd64" ]; then git clone -b $WALG_VERSION --recurse-submodules https://github.com/wal-g/wal-g.git; fi
+WORKDIR /wal-g
+RUN if [ "$(dpkg --print-architecture)" != "amd64" ]; then go get -v -t -d ./... && go mod vendor; fi
+RUN if [ "$(dpkg --print-architecture)" != "amd64" ]; then export MAKEFLAGS="-j $(grep -c ^processor /proc/cpuinfo)" && bash link_brotli.sh; fi
+RUN if [ "$(dpkg --print-architecture)" != "amd64" ]; then export MAKEFLAGS="-j $(grep -c ^processor /proc/cpuinfo)" && bash link_libsodium.sh; fi
+RUN if [ "$(dpkg --print-architecture)" != "amd64" ]; then \
+        if grep -q DISTRIB_RELEASE=18.04 /etc/lsb-release; then export CGO_LDFLAGS=-no-pie; fi \
+        && export USE_LIBSODIUM=1 \
+        && export USE_LZO=1 \
+        && export MAKEFLAGS="-j $(grep -c ^processor /proc/cpuinfo)" \
+        && make pg_build; \
+    fi
+
+COPY  dependencies/debs /builddeps/
+# We want to remove all libgdal20 debs except one that is for current architecture.
+RUN echo "shopt -s extglob\nrm /builddeps/!(*_$(dpkg --print-architecture).deb)" | bash -s
+ARG DEMO
+RUN mkdir /builddeps/wal-g \
+    && if [ "$DEMO" = "true" ]; then \
+        rm -f /builddeps/*.deb; \
+    elif [ "$(dpkg --print-architecture)" != "amd64" ]; then \
+        cp /wal-g/main/pg/wal-g /builddeps/wal-g/; \
+    else \
+        # In order to speed up amd64 build we just download the binary from GH
+        DISTRIB_RELEASE=$(sed -n 's/DISTRIB_RELEASE=//p' /etc/lsb-release) \
+        && curl -sL https://github.com/wal-g/wal-g/releases/download/$WALG_VERSION/wal-g-pg-ubuntu-$DISTRIB_RELEASE-amd64.tar.gz \
+                | tar -C /builddeps/wal-g -xz \
+        && mv /builddeps/wal-g/wal-g-pg-ubuntu-$DISTRIB_RELEASE-amd64 /builddeps/wal-g/wal-g; \
+    fi
+
+
 FROM $BASE_IMAGE as builder-false
 
 ARG DEMO
@@ -25,8 +72,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         # Required for wal-e
         apt-get install -y pv lzop \
         # install etcdctl
-        && ETCDVERSION=2.3.8 \
-        && curl -L https://github.com/coreos/etcd/releases/download/v${ETCDVERSION}/etcd-v${ETCDVERSION}-linux-amd64.tar.gz \
+        && ETCDVERSION=3.3.27 \
+        && curl -L https://github.com/coreos/etcd/releases/download/v${ETCDVERSION}/etcd-v${ETCDVERSION}-linux-$(dpkg --print-architecture).tar.gz \
                 | tar xz -C /bin --strip=1 --wildcards --no-anchored etcdctl etcd; \
     fi \
 \
@@ -65,7 +112,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             /usr/share/locale/??_?? \
     && find /var/log -type f -exec truncate --size 0 {} \;
 
-COPY cron_unprivileged.c dependencies/debs dependencies/src /builddeps/
+COPY cron_unprivileged.c dependencies/src /builddeps/
+COPY --from=dependencies-builder /builddeps/*.deb /builddeps/
 
 ARG PGVERSION
 ARG TIMESCALEDB
@@ -91,6 +139,7 @@ ENV POSTGIS_VERSION=3.1 \
     PG_PERMISSIONS_COMMIT=314b9359e3d77c0b2ef7dbbde97fa4be80e31925
 
 RUN export DEBIAN_FRONTEND=noninteractive \
+    && export MAKEFLAGS="-j $(grep -c ^processor /proc/cpuinfo)" \
     && set -ex \
     && sed -i 's/^#\s*\(deb.*universe\)$/\1/g' /etc/apt/sources.list \
     && apt-get update \
@@ -339,10 +388,12 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             /usr/lib/postgresql/*/bin/pltcl_* \
     && find /var/log -type f -exec truncate --size 0 {} \;
 
-# Install patroni, wal-e and wal-g
+# Install wal-g
+COPY --from=dependencies-builder /builddeps/wal-g /usr/local/bin/
+
+# Install patroni and wal-e
 ENV PATRONIVERSION=2.1.2
 ENV WALE_VERSION=1.1.1
-ENV WALG_VERSION=v1.1
 RUN export DEBIAN_FRONTEND=noninteractive \
     && set -ex \
     && BUILD_PACKAGES="python3-pip python3-wheel python3-dev git patchutils binutils" \
@@ -359,14 +410,9 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 \
     && if [ "$DEMO" != "true" ]; then \
         EXTRAS=",etcd,consul,zookeeper,aws" \
-        && DISTRIB_RELEASE=$(sed -n 's/DISTRIB_RELEASE=//p' /etc/lsb-release) \
-        && curl -sL https://github.com/wal-g/wal-g/releases/download/$WALG_VERSION/wal-g-pg-ubuntu-$DISTRIB_RELEASE-amd64.tar.gz \
-                | tar -C /usr/local/bin -xz \
-        && mv /usr/local/bin/wal-g-pg-ubuntu-$DISTRIB_RELEASE-amd64 /usr/local/bin/wal-g \
-        && strip /usr/local/bin/wal-g \
         && apt-get install -y python3-etcd python3-consul python3-kazoo python3-meld3 \
                         python3-boto python3-gevent python3-greenlet python3-cachetools \
-                        python3-rsa python3-pyasn1-modules python3-swiftclient \
+                        python3-rsa python3-pyasn1-modules python3-swiftclient python3-cffi \
 \
         && find /usr/share/python-babel-localedata/locale-data -type f ! -name 'en_US*.dat' -delete \
 \
@@ -413,7 +459,9 @@ RUN set -ex \
         && rm -rf /var/lib/apt/lists/* /var/cache/debconf/* /usr/share/doc /usr/share/man /etc/rc?.d /etc/systemd \
         && ln -snf busybox /bin/sh \
         && files="/bin/sh" \
-        && libs="$(ldd $files | awk '{print $3;}' | grep '^/' | sort -u) /lib/x86_64-linux-gnu/ld-linux-x86-64.so.* /lib/x86_64-linux-gnu/libnsl.so.* /lib/x86_64-linux-gnu/libnss_compat.so.*" \
+        && arch=$(uname -m) \
+        && darch=$(uname -m | sed 's/_/-/') \
+        && libs="$(ldd $files | awk '{print $3;}' | grep '^/' | sort -u) /lib/ld-linux-$darch.so.* /lib/$arch-linux-gnu/ld-linux-$darch.so.* /lib/$arch-linux-gnu/libnsl.so.* /lib/$arch-linux-gnu/libnss_compat.so.*" \
         && (echo /var/run /var/spool $files $libs | tr ' ' '\n' && realpath $files $libs) | sort -u | sed 's/^\///' > /exclude \
         && find /etc/alternatives -xtype l -delete \
         && save_dirs="usr lib var bin sbin etc/ssl etc/init.d etc/alternatives etc/apt" \

@@ -20,7 +20,7 @@ services:
         networks: [ demo ]
         container_name: demo-etcd
         hostname: etcd
-        command: "sh -c 'exec etcd -name etcd1 -listen-client-urls http://0.0.0.0:2379 -advertise-client-urls http://$$(hostname --ip-address):2379'"
+        command: "sh -c 'export ETCD_UNSUPPORTED_ARCH=$$(dpkg --print-architecture) && exec etcd -name etcd1 -listen-client-urls http://0.0.0.0:2379 -advertise-client-urls http://$$(hostname --ip-address):2379'"
 
     spilo1: &spilo
         depends_on: [ minio ]
