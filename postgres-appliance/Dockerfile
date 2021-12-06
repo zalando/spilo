@@ -1,6 +1,6 @@
 ARG BASE_IMAGE=ubuntu:18.04
 ARG PGVERSION=14
-ARG TIMESCALEDB="1.7.5 2.3.1 2.5.0"
+ARG TIMESCALEDB="1.7.5 2.3.1 2.5.1"
 ARG DEMO=false
 ARG COMPRESS=false
 
@@ -392,7 +392,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 COPY --from=dependencies-builder /builddeps/wal-g /usr/local/bin/
 
 # Install patroni and wal-e
-ENV PATRONIVERSION=2.1.1
+ENV PATRONIVERSION=2.1.2
 ENV WALE_VERSION=1.1.1
 RUN export DEBIAN_FRONTEND=noninteractive \
     && set -ex \
