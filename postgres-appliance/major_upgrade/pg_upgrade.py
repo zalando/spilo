@@ -73,7 +73,7 @@ class _PostgresqlUpgrade(Postgresql):
         conn_kwargs = self.local_conn_kwargs
 
         for d in self._get_all_databases():
-            conn_kwargs['database'] = d
+            conn_kwargs['dbname'] = d
             with get_connection_cursor(**conn_kwargs) as cur:
                 for ext in self._INCOMPATIBLE_EXTENSIONS:
                     logger.info('Executing "DROP EXTENSION IF EXISTS %s" in the database="%s"', ext, d)
@@ -86,7 +86,7 @@ class _PostgresqlUpgrade(Postgresql):
         conn_kwargs = self.local_conn_kwargs
 
         for d in self._get_all_databases():
-            conn_kwargs['database'] = d
+            conn_kwargs['dbname'] = d
             with get_connection_cursor(**conn_kwargs) as cur:
 
                 cmd = "REVOKE EXECUTE ON FUNCTION pg_catalog.pg_switch_{0}() FROM admin".format(self.wal_name)
@@ -115,7 +115,7 @@ class _PostgresqlUpgrade(Postgresql):
         conn_kwargs = self.local_conn_kwargs
 
         for d in self._get_all_databases():
-            conn_kwargs['database'] = d
+            conn_kwargs['dbname'] = d
             with get_connection_cursor(**conn_kwargs) as cur:
                 cur.execute('SELECT quote_ident(extname) FROM pg_catalog.pg_extension')
                 for extname in cur.fetchall():
