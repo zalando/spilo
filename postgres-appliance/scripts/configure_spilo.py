@@ -886,22 +886,26 @@ def check_crontab(user):
     return True
 
 
-def setup_crontab(user, lines):
+def setup_crontab(lines, root=False):
+    user = 'root' if root else 'postgres'
     lines += ['']  # EOF requires empty line for cron
     c = subprocess.Popen(['crontab', '-u', user, '-'], stdin=subprocess.PIPE)
     c.communicate(input='\n'.join(lines).encode())
 
 
-def setup_runit_cron(placeholders):
+def setup_runit_cron(placeholders, root=False):
+    iamroot = os.getuid() == 0
+    if root and not iamroot:
+        raise Exception("Cron for root can only be enabled when running as root")
     crontabs = os.path.join(placeholders['RW_DIR'], 'cron', 'crontabs')
     if not os.path.exists(crontabs):
         os.makedirs(crontabs)
         os.chmod(crontabs, 0o1730)
-        if os.getuid() == 0:
+        if iamroot:
             import grp
             os.chown(crontabs, -1, grp.getgrnam('crontab').gr_gid)
 
-    link_runit_service(placeholders, 'cron')
+    link_runit_service(placeholders, 'cron-root' if root else 'cron')
 
 
 def write_crontab(placeholders, overwrite):
@@ -945,14 +949,13 @@ def write_crontab(placeholders, overwrite):
 
     lines += yaml.load(placeholders['CRONTAB'])
 
-    if len(lines) > 1 or root_lines:
+    if len(lines) > 1 and (overwrite or check_crontab('postgres')):
+        setup_crontab(lines)
         setup_runit_cron(placeholders)
 
-    if len(lines) > 1 and (overwrite or check_crontab('postgres')):
-        setup_crontab('postgres', lines)
-
     if root_lines and (overwrite or check_crontab('root')):
-        setup_crontab('root', root_lines)
+        setup_crontab(root_lines, root=True)
+        setup_runit_cron(placeholders, root=True)
 
 
 def write_pam_oauth2_configuration(placeholders, overwrite):
