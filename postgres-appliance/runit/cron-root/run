@@ -1,4 +1,0 @@
-#!/bin/sh -e
-
-exec 2>&1
-exec env -i /usr/bin/supercronic $RW_DIR/cron/crontab/root

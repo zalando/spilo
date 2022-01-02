@@ -1,0 +1,4 @@
+#!/bin/sh -e
+
+exec 2>&1
+exec env -i --chdir "$HOME" "HOME=$HOME" "LOGNAME=root" "PATH=$PATH" SHELL=/bin/sh /usr/bin/supercronic "$RW_DIR/cron/crontabs/root"

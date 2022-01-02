@@ -59,12 +59,14 @@ ARG ADDITIONAL_LOCALES=
 RUN export DEBIAN_FRONTEND=noninteractive \
     && echo 'APT::Install-Recommends "0";\nAPT::Install-Suggests "0";' > /etc/apt/apt.conf.d/01norecommend \
     && apt-get update \
-    && apt-get install -y curl ca-certificates less locales jq vim-tiny gnupg1 runit dumb-init libcap2-bin rsync sysstat \
+    && apt-get install -y curl ca-certificates less locales jq vim-tiny gnupg1 cron runit dumb-init libcap2-bin rsync sysstat \
     && ln -s chpst /usr/bin/envdir \
     # Make it possible to use the following utilities without root (if container runs without "no-new-privileges:true")
     && setcap 'cap_sys_nice+ep' /usr/bin/chrt \
     && setcap 'cap_sys_nice+ep' /usr/bin/renice \
-\
+    # Disable unwanted cron jobs
+    && rm -fr /etc/cron.??* \
+    && truncate --size 0 /etc/crontab \
     # Install supercronic
     && curl -L https://github.com/aptible/supercronic/releases/download/v0.1.12/supercronic-linux-amd64 > /usr/bin/supercronic \
     && chmod +x /usr/bin/supercronic \
@@ -113,7 +115,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             /usr/share/locale/??_?? \
     && find /var/log -type f -exec truncate --size 0 {} \;
 
-COPY dependencies/src /builddeps/
+COPY cron_unprivileged.c dependencies/src /builddeps/
 COPY --from=dependencies-builder /builddeps/*.deb /builddeps/
 
 ARG PGVERSION
@@ -296,6 +298,9 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             done; \
         done; \
     done \
+\
+    # make it possible for cron to work without root
+    && gcc -s -shared -fPIC -o /usr/local/lib/cron_unprivileged.so cron_unprivileged.c \
 \
     # Remove unnecessary packages
     && apt-get purge -y ${BUILD_PACKAGES} postgresql postgresql-all postgresql-server-dev-* libpq-dev=* libmagic1 bsdmainutils \
@@ -506,8 +511,9 @@ COPY pgq_ticker.ini $PGHOME/
 
 RUN sed -i "s|/var/lib/postgresql.*|$PGHOME:/bin/bash|" /etc/passwd \
         && chown -R postgres:postgres $PGHOME $RW_DIR \
-        && rm -fr /var/tmp \
+        && rm -fr /var/spool/cron /var/tmp \
         && mkdir -p /var/spool \
+        && ln -s $RW_DIR/cron /var/spool/cron \
         && ln -s $RW_DIR/tmp /var/tmp \
         && ln -snf $RW_DIR/service /etc/service \
         && ln -s $RW_DIR/pam.d-postgresql /etc/pam.d/postgresql \

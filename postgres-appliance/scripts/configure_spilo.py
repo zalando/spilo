@@ -886,26 +886,35 @@ def check_crontab(user):
     return True
 
 
-def setup_crontab(lines, root=False):
-    user = 'root' if root else 'postgres'
+def setup_crontab(user, lines):
     lines += ['']  # EOF requires empty line for cron
     c = subprocess.Popen(['crontab', '-u', user, '-'], stdin=subprocess.PIPE)
     c.communicate(input='\n'.join(lines).encode())
 
 
-def setup_runit_cron(placeholders, root=False):
-    iamroot = os.getuid() == 0
-    if root and not iamroot:
-        raise Exception("Cron for root can only be enabled when running as root")
+def setup_runit_cron(placeholders):
     crontabs = os.path.join(placeholders['RW_DIR'], 'cron', 'crontabs')
     if not os.path.exists(crontabs):
         os.makedirs(crontabs)
         os.chmod(crontabs, 0o1730)
-        if iamroot:
+        if os.getuid() == 0:
             import grp
             os.chown(crontabs, -1, grp.getgrnam('crontab').gr_gid)
 
-    link_runit_service(placeholders, 'cron-root' if root else 'cron')
+    link_runit_service(placeholders, 'cron')
+
+
+def setup_runit_supercronic(placeholders, lines, root=False):
+    iamroot = os.getuid() == 0
+    if root and not iamroot:
+        raise Exception("Supercronic for root can only be enabled when running as root")
+    crontabs = os.path.join(placeholders['RW_DIR'], 'cron', 'crontabs')
+    if not os.path.exists(crontabs):
+        os.makedirs(crontabs)
+    user = 'root' if root else 'postgres'
+    with open(os.path.join(crontabs, user), 'w+') as f:
+        f.writelines(line + '\n' for line in lines)
+    link_runit_service(placeholders, 'supercronic-' + user)
 
 
 def write_crontab(placeholders, overwrite):
@@ -949,13 +958,25 @@ def write_crontab(placeholders, overwrite):
 
     lines += yaml.load(placeholders['CRONTAB'])
 
-    if len(lines) > 1 and (overwrite or check_crontab('postgres')):
-        setup_crontab(lines)
-        setup_runit_cron(placeholders)
+    cron_driver = os.environ.get('CRON_DRIVER', 'cron')
+    if cron_driver == 'supercronic':
+        if len(lines) > 1 and (overwrite or check_crontab('postgres')):
+            setup_runit_supercronic(placeholders, lines)
 
-    if root_lines and (overwrite or check_crontab('root')):
-        setup_crontab(root_lines, root=True)
-        setup_runit_cron(placeholders, root=True)
+        if root_lines and (overwrite or check_crontab('root')):
+            setup_runit_supercronic(placeholders, root_lines, root=True)
+    else:
+        if cron_driver != 'cron':
+            logging.warning('Unknown CRON_DRIVER {}, falling back to CRON_DRIVER=cron'.format(cron_driver))
+
+        if len(lines) > 1 or root_lines:
+            setup_runit_cron(placeholders)
+
+        if len(lines) > 1 and (overwrite or check_crontab('postgres')):
+            setup_crontab('postgres', lines)
+
+        if root_lines and (overwrite or check_crontab('root')):
+            setup_crontab('root', root_lines)
 
 
 def write_pam_oauth2_configuration(placeholders, overwrite):

@@ -1,0 +1,8 @@
+#!/bin/sh -e
+
+if [ "$(id -u)" -eq 0 ]; then
+    exec runuser -u postgres "$0"
+fi
+
+exec 2>&1
+exec env -i --chdir "$HOME" "HOME=$HOME" "LOGNAME=postgres" "PATH=$PATH" SHELL=/bin/sh /usr/bin/supercronic "$RW_DIR/cron/crontabs/postgres"
