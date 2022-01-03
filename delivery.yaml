@@ -11,6 +11,7 @@ pipeline:
   commands:
   - desc: Build spilo docker image
     cmd: |
+      chmod -R o-w postgres-appliance
       cd postgres-appliance
       docker build --build-arg PGVERSION=$PGVERSION --build-arg BASE_IMAGE=$BASE_IMAGE -t spilo .
       docker images
@@ -72,6 +73,7 @@ pipeline:
       docker run --privileged --rm tonistiigi/binfmt --install "$ARCH"
   - desc: Build spilo-cdp-arm64 docker image
     cmd: |
+      chmod -R o-w postgres-appliance
       cd postgres-appliance
       docker buildx build --platform "linux/$ARCH" --build-arg PGVERSION=$PGVERSION -t spilo .
       docker images
