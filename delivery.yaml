@@ -67,6 +67,8 @@ pipeline:
   timeout: 10h
   vm_config:
     type: linux
+    size: large
+    priority: 3
   commands:
   - desc: Setup environment
     cmd: |
