@@ -512,6 +512,10 @@ RUN sed -i "s|/var/lib/postgresql.*|$PGHOME:/bin/bash|" /etc/passwd \
         && mkdir -p /var/spool \
         && ln -s $RW_DIR/cron /var/spool/cron \
         && ln -s $RW_DIR/tmp /var/tmp \
+        && for d in /etc/service/*; do \
+            chmod 750 $d/* \
+            && ln -s /run/supervise/$(basename $d) $d/supervise; \
+        done \
         && ln -snf $RW_DIR/service /etc/service \
         && ln -s $RW_DIR/pam.d-postgresql /etc/pam.d/postgresql \
         && ln -s $RW_DIR/postgres.yml $PGHOME/postgres.yml \
@@ -534,6 +538,7 @@ RUN sed -i "s|/var/lib/postgresql.*|$PGHOME:/bin/bash|" /etc/passwd \
         # Allow users in the root group to access the following files and dirs
         && if [ "$COMPRESS" != "true" ]; then \
            chmod 664 /etc/passwd \
+           && chmod o+r /etc/shadow \
            && chgrp -R 0 $PGHOME $RW_DIR \
            && chmod -R g=u $PGHOME $RW_DIR \
            && usermod -a -G root postgres; \

@@ -70,14 +70,13 @@ def adjust_owner(resource, uid=None, gid=None):
 
 
 def link_runit_service(placeholders, name):
-    service_dir = os.path.join(placeholders['RW_DIR'], 'service', name)
+    rw_service = os.path.join(placeholders['RW_DIR'], 'service')
+    service_dir = os.path.join(rw_service, name)
     if not os.path.exists(service_dir):
-        os.makedirs(service_dir)
-        for f in ('run', 'finish'):
-            src_file = os.path.join('/etc/runit/runsvdir/default', name, f)
-            dst_file = os.path.join(service_dir, f)
-            if os.path.exists(src_file) and not os.path.exists(dst_file):
-                os.symlink(src_file, dst_file)
+        if not os.path.exists(rw_service):
+            os.makedirs(rw_service)
+        os.symlink(os.path.join('/etc/runit/runsvdir/default', name), service_dir)
+        os.makedirs(os.path.join(placeholders['RW_DIR'], 'supervise', name))
 
 
 def write_certificates(environment, overwrite):
