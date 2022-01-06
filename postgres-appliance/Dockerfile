@@ -198,6 +198,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 \
             && if [ "$DEMO" != "true" ]; then \
                 EXTRAS="postgresql-pltcl-${version} \
+                        postgresql-${version}-first-last-agg \
                         postgresql-${version}-hypopg \
                         postgresql-${version}-pgaudit \
                         postgresql-${version}-pg-checksums \
