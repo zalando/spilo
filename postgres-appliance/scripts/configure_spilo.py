@@ -443,9 +443,12 @@ def get_instance_metadata(provider):
         openstack_metadata = requests.get(url, timeout=5).json()
         metadata['zone'] = openstack_metadata['availability_zone']
         if not USE_KUBERNETES:
-            # OpenStack does not support providing an IP through metadata so keep
-            # auto-discovered one.
+            # Try get IP via OpenStack EC2-compatible API, if can't then fail back to auto-discovered one.
             metadata['id'] = openstack_metadata.uuid
+            url = 'http://169.254.169.254/2009-04-04/meta-data'
+            r = requests.get(url)
+            if r.ok:
+                mapping.update({'ip': 'local-ipv4', 'id': 'instance-id'}) 
     else:
         logging.info("No meta-data available for this provider")
         return metadata
