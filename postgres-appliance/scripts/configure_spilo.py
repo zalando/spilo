@@ -1055,27 +1055,6 @@ def main():
                 os.makedirs(pg_socket_dir)
                 os.chmod(pg_socket_dir, 0o2775)
                 adjust_owner(pg_socket_dir)
-
-            # It is a recurring and very annoying problem with crashes (host/pod/container)
-            # while the backup is taken in the exclusive mode which leaves the backup_label
-            # in the PGDATA. Having the backup_label file in the PGDATA makes postgres think
-            # that we are restoring from the backup and it puts this information into the
-            # pg_control. Effectively it makes it impossible to start postgres in recovery
-            # with such PGDATA because the recovery never-ever-ever-ever finishes.
-            #
-            # As a workaround we will remove the backup_label file from PGDATA if we know
-            # for sure that the Postgres was already running with exactly this PGDATA.
-            # As proof that the postgres was running we will use the presence of postmaster.pid
-            # in the PGDATA, because it is 100% known that neither pg_basebackup nor
-            # wal-e/wal-g are backing up/restoring this file.
-            #
-            # We are not doing such trick in the Patroni (removing backup_label) because
-            # we have absolutely no idea what software people use for backup/recovery.
-            # In case of some home-grown solution they might end up in copying postmaster.pid...
-            postmaster_pid = os.path.join(pgdata, 'postmaster.pid')
-            backup_label = os.path.join(pgdata, 'backup_label')
-            if os.path.isfile(postmaster_pid) and os.path.isfile(backup_label):
-                os.unlink(backup_label)
         elif section == 'pgqd':
             link_runit_service(placeholders, 'pgqd')
         elif section == 'log':
