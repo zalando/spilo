@@ -421,7 +421,10 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 'git+https://github.com/zalando/pg_view.git@master#egg=pg-view' \
 \
         # Non-exclusive backups
-        && curl -sL https://github.com/CyberDem0n/wal-e/commit/db831a1cbe2f96703e8860e8e07b7e93fbaf095d.diff \
+        && curl -sL https://github.com/CyberDem0n/wal-e/commit/dad4d53969b93c56f1eaa5243ffa8e9051fd7eb7.diff \
+                | patch -d /usr/local/lib/python3.6/dist-packages/wal_e -p2 \
+        # WALE_DISABLE_S3_SSE support
+        && curl -sL https://github.com/CyberDem0n/wal-e/commit/0309317d33d252fcd968b3eb97313a9fdf022c65.diff \
                 | patch -d /usr/local/lib/python3.6/dist-packages/wal_e -p2 \
         # Revert https://github.com/wal-e/wal-e/commit/485d834a18c9b0d97115d95f89e16bdc564e9a18, it affects S3 performance
         && curl -sL https://github.com/wal-e/wal-e/commit/485d834a18c9b0d97115d95f89e16bdc564e9a18.diff \

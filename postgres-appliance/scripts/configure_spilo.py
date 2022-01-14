@@ -751,7 +751,7 @@ def write_log_environment(placeholders):
 
 def write_wale_environment(placeholders, prefix, overwrite):
     s3_names = ['WALE_S3_PREFIX', 'WALG_S3_PREFIX', 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY',
-                'WALE_S3_ENDPOINT', 'AWS_ENDPOINT', 'AWS_REGION', 'AWS_INSTANCE_PROFILE',
+                'WALE_S3_ENDPOINT', 'AWS_ENDPOINT', 'AWS_REGION', 'AWS_INSTANCE_PROFILE', 'WALE_DISABLE_S3_SSE',
                 'WALG_S3_SSE_KMS_ID', 'WALG_S3_SSE', 'WALG_DISABLE_S3_SSE', 'AWS_S3_FORCE_PATH_STYLE']
     azure_names = ['WALG_AZ_PREFIX', 'AZURE_STORAGE_ACCOUNT', 'AZURE_STORAGE_ACCESS_KEY',
                    'AZURE_STORAGE_SAS_TOKEN', 'WALG_AZURE_BUFFER_SIZE', 'WALG_AZURE_MAX_BUFFERS']
@@ -794,7 +794,8 @@ def write_wale_environment(placeholders, prefix, overwrite):
                                     'but got %s', wale_endpoint)
                 if not aws_endpoint:
                     aws_endpoint = match.expand(r'\1\3') if match else wale_endpoint
-            wale.update(WALE_S3_ENDPOINT=wale_endpoint, AWS_ENDPOINT=aws_endpoint, WALG_DISABLE_S3_SSE='true')
+            wale.update(WALE_S3_ENDPOINT=wale_endpoint, AWS_ENDPOINT=aws_endpoint,
+                        WALG_DISABLE_S3_SSE='true', WALE_DISABLE_S3_SSE='true')
             wale['AWS_S3_FORCE_PATH_STYLE'] = 'true' if convention == 'path' else 'false'
             if aws_region and wale.get('USE_WALG_BACKUP') == 'true':
                 wale['AWS_REGION'] = aws_region
@@ -812,6 +813,10 @@ def write_wale_environment(placeholders, prefix, overwrite):
 
         if not (wale.get('AWS_SECRET_ACCESS_KEY') and wale.get('AWS_ACCESS_KEY_ID')):
             wale['AWS_INSTANCE_PROFILE'] = 'true'
+
+        if wale.get('WALE_DISABLE_S3_SSE') and not wale.get('WALG_DISABLE_S3_SSE'):
+            wale['WALG_DISABLE_S3_SSE'] = wale['WALE_DISABLE_S3_SSE']
+
         if wale.get('USE_WALG_BACKUP') and wale.get('WALG_DISABLE_S3_SSE') != 'true' and not wale.get('WALG_S3_SSE'):
             wale['WALG_S3_SSE'] = 'AES256'
         write_envdir_names = s3_names + walg_names
