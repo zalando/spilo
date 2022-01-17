@@ -195,7 +195,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 \
             && if [ "$DEMO" != "true" ]; then \
                 EXTRAS="postgresql-pltcl-${version} \
-                        postgresql-${version}-decoderbufs \
                         postgresql-${version}-dirtyread \
                         postgresql-${version}-extra-window-functions \
                         postgresql-${version}-first-last-agg \
@@ -217,6 +216,9 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                         postgresql-${version}-wal2json" \
                 && if [ "$WITH_PERL" = "true" ]; then \
                     EXTRAS="$EXTRAS postgresql-plperl-${version}"; \
+                fi \
+                && if [ ${version%.*} -ge 10 ]; then \
+                    EXTRAS="$EXTRAS postgresql-${version}-decoderbufs"; \
                 fi \
                 && if [ ${version%.*} -lt 11 ]; then \
                     EXTRAS="$EXTRAS postgresql-${version}-amcheck"; \
