@@ -120,3 +120,4 @@ For more inforamation on the Azure specific options, refer to https://github.com
 - **AZURE_STORAGE_SAS_TOKEN**
 - **WALG_AZURE_BUFFER_SIZE**
 - **WALG_AZURE_MAX_BUFFERS**
+- **AZURE_ENVIRONMENT_NAME**
