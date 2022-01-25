@@ -46,6 +46,14 @@ elif python3 /scripts/configure_spilo.py all; then
     else
         $CMD &
     fi
+else ## /scripts/configure_spilo failed.  Try one more time after a brief pause.
+    sleep 2
+    CMD="/scripts/patroni_wait.sh -t 3600 -- envdir $WALE_ENV_DIR /scripts/postgres_backup.sh $PGDATA"
+    if [ "$(id -u)" = "0" ]; then
+        su postgres -c "PATH=$PATH $CMD" &
+    else
+        $CMD &
+    fi
 fi
 
 sv_stop() {
