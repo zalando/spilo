@@ -47,6 +47,7 @@ elif python3 /scripts/configure_spilo.py all; then
         $CMD &
     fi
 else ## /scripts/configure_spilo failed.  Try one more time after a brief pause.
+    echo "/launch.sh: /scripts/configure_spilo.py failed.  Retrying after a brief delay..."
     sleep 2
     CMD="/scripts/patroni_wait.sh -t 3600 -- envdir $WALE_ENV_DIR /scripts/postgres_backup.sh $PGDATA"
     if [ "$(id -u)" = "0" ]; then
