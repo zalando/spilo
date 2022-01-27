@@ -305,8 +305,8 @@ postgresql:
     bg_mon.listen_address: '{{BGMON_LISTEN_IP}}'
     bg_mon.history_buckets: 120
     pg_stat_statements.track_utility: 'off'
-    extwlist.extensions: 'btree_gin,btree_gist,citext,hstore,intarray,\
-ltree,pgcrypto,pgq,pg_trgm,postgres_fdw,tablefunc,uuid-ossp,hypopg'
+    extwlist.extensions: 'btree_gin,btree_gist,citext,extra_window_functions,first_last_agg,hll,\
+hstore,hypopg,intarray,ltree,pgcrypto,pgq,pgq_node,pg_trgm,postgres_fdw,tablefunc,uuid-ossp'
     extwlist.custom_path: /scripts
   pg_hba:
     - local   all             all                                   trust

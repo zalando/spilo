@@ -131,7 +131,6 @@ ENV POSTGIS_VERSION=3.2 \
     BG_MON_COMMIT=098b4857d1e88862439c0f02a6031e9fb78e5ef2 \
     PG_AUTH_MON_COMMIT=437435b4e2de32a820e86973f6934ec849a768e0 \
     PG_MON_COMMIT=54fbdcc3cfe7e2a626bd96dda644d9a0c6866b58 \
-    DECODERBUFS=v1.7.0.Final \
     SET_USER=REL3_0_0 \
     PLPROFILER=REL4_1 \
     PAM_OAUTH2=v1.0.1 \
@@ -152,16 +151,14 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && rm -f *.deb \
         && apt-get install -y $BUILD_PACKAGES; \
     else \
-        BUILD_PACKAGES="$BUILD_PACKAGES zlib1g-dev libprotobuf-c-dev libpam0g-dev libcurl4-openssl-dev libicu-dev python libc-ares-dev pandoc pkg-config" \
-# debezium-decoderbufs: libprotobuf-c-dev
-        && apt-get install -y $BUILD_PACKAGES libprotobuf-c1 libcurl4 \
+        BUILD_PACKAGES="$BUILD_PACKAGES zlib1g-dev libpam0g-dev libcurl4-openssl-dev libicu-dev python libc-ares-dev pandoc pkg-config" \
+        && apt-get install -y $BUILD_PACKAGES libcurl4 \
 \
         # install pam_oauth2.so
         && git clone -b $PAM_OAUTH2 --recurse-submodules https://github.com/CyberDem0n/pam-oauth2.git \
         && make -C pam-oauth2 install \
 \
         # prepare 3rd sources
-        && git clone -b $DECODERBUFS https://github.com/debezium/postgres-decoderbufs.git \
         && git clone -b $PLPROFILER https://github.com/bigsql/plprofiler.git \
         && tar -xzf plantuner-${PLANTUNER_COMMIT}.tar.gz \
         && curl -sL https://github.com/sdudoladov/pg_mon/archive/$PG_MON_COMMIT.tar.gz | tar xz \
@@ -198,13 +195,17 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 \
             && if [ "$DEMO" != "true" ]; then \
                 EXTRAS="postgresql-pltcl-${version} \
+                        postgresql-${version}-dirtyread \
+                        postgresql-${version}-extra-window-functions \
                         postgresql-${version}-first-last-agg \
+                        postgresql-${version}-hll \
                         postgresql-${version}-hypopg \
                         postgresql-${version}-pgaudit \
                         postgresql-${version}-pg-checksums \
                         postgresql-${version}-pgl-ddl-deploy \
                         postgresql-${version}-pglogical \
                         postgresql-${version}-pglogical-ticker \
+                        postgresql-${version}-pgq-node \
                         postgresql-${version}-pldebugger \
                         postgresql-${version}-pllua \
                         postgresql-${version}-plpgsql-check \
@@ -215,6 +216,9 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                         postgresql-${version}-wal2json" \
                 && if [ "$WITH_PERL" = "true" ]; then \
                     EXTRAS="$EXTRAS postgresql-plperl-${version}"; \
+                fi \
+                && if [ ${version%.*} -ge 10 ]; then \
+                    EXTRAS="$EXTRAS postgresql-${version}-decoderbufs"; \
                 fi \
                 && if [ ${version%.*} -lt 11 ]; then \
                     EXTRAS="$EXTRAS postgresql-${version}-amcheck"; \
@@ -244,7 +248,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             && cd .. \
 \
             && if [ "$DEMO" != "true" ]; then \
-                EXTRA_EXTENSIONS="plantuner-${PLANTUNER_COMMIT} plprofiler postgres-decoderbufs" \
+                EXTRA_EXTENSIONS="plantuner-${PLANTUNER_COMMIT} plprofiler" \
                 && if [ ${version%.*} -ge 10 ]; then \
                      EXTRA_EXTENSIONS="$EXTRA_EXTENSIONS pg_mon-${PG_MON_COMMIT}"; \
                 fi; \
@@ -329,8 +333,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                     fi; \
                 done; \
             done \
-            && for e in pgq plproxy address_standardizer address_standardizer_data_us; do \
-                orig=$(ls -1 $e--*--*.sql 2> /dev/null | head -n1) \
+            && for e in pgq pgq_node plproxy address_standardizer address_standardizer_data_us; do \
+                orig=$(basename "$(find -maxdepth 1 -type f -name "$e--*--*.sql" | head -n1)") \
                 && if [ "x$orig" != "x" ]; then \
                     for f in $e--*--*.sql; do \
                         if [ "$f" != "$orig" ] && [ ! -L $f ] && diff $f $orig > /dev/null; then \
