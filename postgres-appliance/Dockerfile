@@ -424,6 +424,12 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && pip3 install filechunkio wal-e[aws,google,swift]==$WALE_VERSION google-crc32c==1.1.2 \
                 'git+https://github.com/zalando/pg_view.git@master#egg=pg-view' \
 \
+        # Non-exclusive backups
+        && curl -sL https://github.com/CyberDem0n/wal-e/commit/dad4d53969b93c56f1eaa5243ffa8e9051fd7eb7.diff \
+                | patch -d /usr/local/lib/python3.6/dist-packages/wal_e -p2 \
+        # WALE_DISABLE_S3_SSE support
+        && curl -sL https://github.com/CyberDem0n/wal-e/commit/0309317d33d252fcd968b3eb97313a9fdf022c65.diff \
+                | patch -d /usr/local/lib/python3.6/dist-packages/wal_e -p2 \
         # Revert https://github.com/wal-e/wal-e/commit/485d834a18c9b0d97115d95f89e16bdc564e9a18, it affects S3 performance
         && curl -sL https://github.com/wal-e/wal-e/commit/485d834a18c9b0d97115d95f89e16bdc564e9a18.diff \
                 | patch -d /usr/local/lib/python3.6/dist-packages/wal_e -Rp2 \

@@ -754,7 +754,7 @@ def write_log_environment(placeholders):
 
 def write_wale_environment(placeholders, prefix, overwrite):
     s3_names = ['WALE_S3_PREFIX', 'WALG_S3_PREFIX', 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY',
-                'WALE_S3_ENDPOINT', 'AWS_ENDPOINT', 'AWS_REGION', 'AWS_INSTANCE_PROFILE',
+                'WALE_S3_ENDPOINT', 'AWS_ENDPOINT', 'AWS_REGION', 'AWS_INSTANCE_PROFILE', 'WALE_DISABLE_S3_SSE',
                 'WALG_S3_SSE_KMS_ID', 'WALG_S3_SSE', 'WALG_DISABLE_S3_SSE', 'AWS_S3_FORCE_PATH_STYLE']
     azure_names = ['WALG_AZ_PREFIX', 'AZURE_STORAGE_ACCOUNT', 'AZURE_STORAGE_ACCESS_KEY',
                    'AZURE_STORAGE_SAS_TOKEN', 'WALG_AZURE_BUFFER_SIZE', 'WALG_AZURE_MAX_BUFFERS',
@@ -798,7 +798,8 @@ def write_wale_environment(placeholders, prefix, overwrite):
                                     'but got %s', wale_endpoint)
                 if not aws_endpoint:
                     aws_endpoint = match.expand(r'\1\3') if match else wale_endpoint
-            wale.update(WALE_S3_ENDPOINT=wale_endpoint, AWS_ENDPOINT=aws_endpoint, WALG_DISABLE_S3_SSE='true')
+            wale.update(WALE_S3_ENDPOINT=wale_endpoint, AWS_ENDPOINT=aws_endpoint,
+                        WALG_DISABLE_S3_SSE='true', WALE_DISABLE_S3_SSE='true')
             wale['AWS_S3_FORCE_PATH_STYLE'] = 'true' if convention == 'path' else 'false'
             if aws_region and wale.get('USE_WALG_BACKUP') == 'true':
                 wale['AWS_REGION'] = aws_region
@@ -816,6 +817,10 @@ def write_wale_environment(placeholders, prefix, overwrite):
 
         if not (wale.get('AWS_SECRET_ACCESS_KEY') and wale.get('AWS_ACCESS_KEY_ID')):
             wale['AWS_INSTANCE_PROFILE'] = 'true'
+
+        if wale.get('WALE_DISABLE_S3_SSE') and not wale.get('WALG_DISABLE_S3_SSE'):
+            wale['WALG_DISABLE_S3_SSE'] = wale['WALE_DISABLE_S3_SSE']
+
         if wale.get('USE_WALG_BACKUP') and wale.get('WALG_DISABLE_S3_SSE') != 'true' and not wale.get('WALG_S3_SSE'):
             wale['WALG_S3_SSE'] = 'AES256'
         write_envdir_names = s3_names + walg_names
@@ -1059,27 +1064,6 @@ def main():
                 os.makedirs(pg_socket_dir)
                 os.chmod(pg_socket_dir, 0o2775)
                 adjust_owner(pg_socket_dir)
-
-            # It is a recurring and very annoying problem with crashes (host/pod/container)
-            # while the backup is taken in the exclusive mode which leaves the backup_label
-            # in the PGDATA. Having the backup_label file in the PGDATA makes postgres think
-            # that we are restoring from the backup and it puts this information into the
-            # pg_control. Effectively it makes it impossible to start postgres in recovery
-            # with such PGDATA because the recovery never-ever-ever-ever finishes.
-            #
-            # As a workaround we will remove the backup_label file from PGDATA if we know
-            # for sure that the Postgres was already running with exactly this PGDATA.
-            # As proof that the postgres was running we will use the presence of postmaster.pid
-            # in the PGDATA, because it is 100% known that neither pg_basebackup nor
-            # wal-e/wal-g are backing up/restoring this file.
-            #
-            # We are not doing such trick in the Patroni (removing backup_label) because
-            # we have absolutely no idea what software people use for backup/recovery.
-            # In case of some home-grown solution they might end up in copying postmaster.pid...
-            postmaster_pid = os.path.join(pgdata, 'postmaster.pid')
-            backup_label = os.path.join(pgdata, 'backup_label')
-            if os.path.isfile(postmaster_pid) and os.path.isfile(backup_label):
-                os.unlink(backup_label)
         elif section == 'pgqd':
             link_runit_service(placeholders, 'pgqd')
         elif section == 'log':
