@@ -36,7 +36,7 @@ services:
 #            USE_WALG: 'true'  # wal-e is used and tested by default, wal-g is used automatically for restore in case of S3
             WALE_DISABLE_S3_SSE: &wale_disable_s3_sse 'true'
             ETCDCTL_ENDPOINTS: http://etcd:2379
-            ETCD_HOST: "etcd:2379"
+            ETCD3_HOST: "etcd:2379"
             SCOPE: demo
             ENABLE_PG_MON: 'true'
             SPILO_CONFIGURATION: |
