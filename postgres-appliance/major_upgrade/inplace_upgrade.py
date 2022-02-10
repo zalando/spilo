@@ -104,7 +104,7 @@ class InplaceUpgrade(object):
 
         if self.upgrade_required:
             # we want to reduce tcp timeouts and keepalives and therefore tune loop_wait, retry_timeout, and ttl
-            self.dcs = get_dcs({**config.copy(), 'loop_wait': 0, 'ttl': 10, 'retry_timeout':10, 'patronictl': True})
+            self.dcs = get_dcs({**config.copy(), 'loop_wait': 0, 'ttl': 10, 'retry_timeout': 10, 'patronictl': True})
             self.request = PatroniRequest(config, True)
 
     @staticmethod
