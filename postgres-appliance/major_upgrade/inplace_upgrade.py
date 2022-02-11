@@ -103,7 +103,8 @@ class InplaceUpgrade(object):
         self.rsyncd_started = False
 
         if self.upgrade_required:
-            self.dcs = get_dcs(config)
+            # we want to reduce tcp timeouts and keepalives and therefore tune loop_wait, retry_timeout, and ttl
+            self.dcs = get_dcs({**config.copy(), 'loop_wait': 0, 'ttl': 10, 'retry_timeout': 10, 'patronictl': True})
             self.request = PatroniRequest(config, True)
 
     @staticmethod
@@ -612,6 +613,11 @@ hosts deny = *
             logger.error('Failed to start primary after upgrade')
 
         logger.info('Upgrade downtime: %s', time.time() - downtime_start)
+
+        # The last attempt to fix initialize key race condition
+        cluster = self.dcs.get_cluster()
+        if cluster.initialize == self._old_sysid:
+            self.dcs.cancel_initialization()
 
         try:
             self.postgresql.update_extensions()
