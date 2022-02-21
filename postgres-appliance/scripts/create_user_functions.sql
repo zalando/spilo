@@ -32,7 +32,7 @@ DECLARE
     pw text;
 BEGIN
     SELECT user_management.random_password(20) INTO pw;
-    EXECUTE format($$ CREATE USER %I WITH PASSWORD %L IN ROLE cron_admin $$, username, pw);
+    EXECUTE format($$ CREATE USER %I WITH PASSWORD %L $$, username, pw);
     RETURN pw;
 END
 $function$
@@ -90,9 +90,8 @@ BEGIN
     IF FOUND
     THEN
         EXECUTE format($$ ALTER ROLE %I WITH PASSWORD %L $$, username, password);
-        EXECUTE format($$ GRANT ROLE cron_admin TO %I $$, username);
     ELSE
-        EXECUTE format($$ CREATE USER %I WITH PASSWORD %L IN ROLE cron_admin $$, username, password);
+        EXECUTE format($$ CREATE USER %I WITH PASSWORD %L $$, username, password);
     END IF;
 END
 $function$
