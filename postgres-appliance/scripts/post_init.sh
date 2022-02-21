@@ -13,7 +13,16 @@ BEGIN
     ELSE
         CREATE ROLE admin CREATEDB;
     END IF;
+
+    PERFORM * FROM pg_catalog.pg_authid WHERE rolname = 'cron_admin';
+    IF FOUND THEN
+        ALTER ROLE cron_admin WITH NOCREATEDB NOLOGIN NOCREATEROLE NOSUPERUSER NOREPLICATION INHERIT;
+    ELSE
+        CREATE ROLE cron_admin;
+    END IF;
 END;\$\$;
+
+GRANT cron_admin TO admin;
 
 DO \$\$
 BEGIN
@@ -50,21 +59,22 @@ END;\$\$;
 ALTER EXTENSION pg_cron UPDATE;
 
 ALTER POLICY cron_job_policy ON cron.job USING (username = current_user OR
-    (pg_has_role(current_user, 'admin', 'MEMBER')
-    AND pg_has_role(username, 'admin', 'MEMBER')
+    (pg_has_role(current_user, 'cron_admin', 'MEMBER')
+    AND pg_has_role(username, 'cron_admin', 'MEMBER')
     AND NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname = username AND rolsuper)
     ));
-REVOKE SELECT ON cron.job FROM public;
-GRANT SELECT ON cron.job TO admin;
-GRANT UPDATE (database, nodename) ON cron.job TO admin;
+REVOKE SELECT ON cron.job FROM admin, public;
+GRANT SELECT ON cron.job TO cron_admin;
+REVOKE UPDATE (database, nodename) ON cron.job FROM admin;
+GRANT UPDATE (database, nodename) ON cron.job TO cron_admin;
 
 ALTER POLICY cron_job_run_details_policy ON cron.job_run_details USING (username = current_user OR
-    (pg_has_role(current_user, 'admin', 'MEMBER')
-    AND pg_has_role(username, 'admin', 'MEMBER')
+    (pg_has_role(current_user, 'cron_admin', 'MEMBER')
+    AND pg_has_role(username, 'cron_admin', 'MEMBER')
     AND NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname = username AND rolsuper)
     ));
-REVOKE SELECT ON cron.job_run_details FROM public;
-GRANT SELECT ON cron.job_run_details TO admin;
+REVOKE SELECT ON cron.job_run_details FROM admin, public;
+GRANT SELECT ON cron.job_run_details TO cron_admin;
 
 CREATE OR REPLACE FUNCTION cron.schedule_in_database(p_schedule text, p_database text, p_command text)
 RETURNS bigint
@@ -82,21 +92,22 @@ BEGIN
     RETURN l_jobid;
 END;
 \$function\$;
-REVOKE EXECUTE ON FUNCTION cron.alter_job(bigint, text, text, text, text, boolean) FROM public;
-GRANT EXECUTE ON FUNCTION cron.alter_job(bigint, text, text, text, text, boolean) TO admin;
-REVOKE EXECUTE ON FUNCTION cron.schedule(text, text) FROM public;
-GRANT EXECUTE ON FUNCTION cron.schedule(text, text) TO admin;
-REVOKE EXECUTE ON FUNCTION cron.schedule(text, text, text) FROM public;
-GRANT EXECUTE ON FUNCTION cron.schedule(text, text, text) TO admin;
-REVOKE EXECUTE ON FUNCTION cron.schedule_in_database(text, text, text) FROM public;
-GRANT EXECUTE ON FUNCTION cron.schedule_in_database(text, text, text) TO admin;
-REVOKE EXECUTE ON FUNCTION cron.schedule_in_database(text, text, text, text, text, boolean) FROM public;
-GRANT EXECUTE ON FUNCTION cron.schedule_in_database(text, text, text, text, text, boolean) TO admin;
-REVOKE EXECUTE ON FUNCTION cron.unschedule(bigint) FROM public;
-GRANT EXECUTE ON FUNCTION cron.unschedule(bigint) TO admin;
-REVOKE EXECUTE ON FUNCTION cron.unschedule(name) FROM public;
-GRANT EXECUTE ON FUNCTION cron.unschedule(name) TO admin;
-GRANT USAGE ON SCHEMA cron TO admin;
+REVOKE EXECUTE ON FUNCTION cron.alter_job(bigint, text, text, text, text, boolean) FROM admin, public;
+GRANT EXECUTE ON FUNCTION cron.alter_job(bigint, text, text, text, text, boolean) TO cron_admin;
+REVOKE EXECUTE ON FUNCTION cron.schedule(text, text) FROM admin, public;
+GRANT EXECUTE ON FUNCTION cron.schedule(text, text) TO cron_admin;
+REVOKE EXECUTE ON FUNCTION cron.schedule(text, text, text) FROM admin, public;
+GRANT EXECUTE ON FUNCTION cron.schedule(text, text, text) TO cron_admin;
+REVOKE EXECUTE ON FUNCTION cron.schedule_in_database(text, text, text) FROM admin, public;
+GRANT EXECUTE ON FUNCTION cron.schedule_in_database(text, text, text) TO cron_admin;
+REVOKE EXECUTE ON FUNCTION cron.schedule_in_database(text, text, text, text, text, boolean) FROM admin, public;
+GRANT EXECUTE ON FUNCTION cron.schedule_in_database(text, text, text, text, text, boolean) TO cron_admin;
+REVOKE EXECUTE ON FUNCTION cron.unschedule(bigint) FROM admin, public;
+GRANT EXECUTE ON FUNCTION cron.unschedule(bigint) TO cron_admin;
+REVOKE EXECUTE ON FUNCTION cron.unschedule(name) FROM admin, public;
+GRANT EXECUTE ON FUNCTION cron.unschedule(name) TO cron_admin;
+REVOKE USAGE ON SCHEMA cron FROM admin;
+GRANT USAGE ON SCHEMA cron TO cron_admin;
 
 CREATE EXTENSION IF NOT EXISTS file_fdw SCHEMA public;
 DO \$\$

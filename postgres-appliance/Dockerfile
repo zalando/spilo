@@ -397,7 +397,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 COPY --from=dependencies-builder /builddeps/wal-g /usr/local/bin/
 
 # Install patroni and wal-e
-ENV PATRONIVERSION=2.1.2
+ENV PATRONIVERSION=2.1.3
 ENV WALE_VERSION=1.1.1
 RUN export DEBIAN_FRONTEND=noninteractive \
     && set -ex \
