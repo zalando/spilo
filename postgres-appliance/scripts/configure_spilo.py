@@ -770,8 +770,9 @@ def write_wale_environment(placeholders, prefix, overwrite):
                   'WALG_NETWORK_RATE_LIMIT', 'WALG_COMPRESSION_METHOD', 'USE_WALG_BACKUP',
                   'USE_WALG_RESTORE', 'WALG_BACKUP_COMPRESSION_METHOD', 'WALG_BACKUP_FROM_REPLICA',
                   'WALG_SENTINEL_USER_DATA', 'WALG_PREVENT_WAL_OVERWRITE', 'WALG_S3_CA_CERT_FILE',
-                  'WALG_LIBSODIUM_KEY', 'WALG_LIBSODIUM_KEY_PATH', 'WALG_LIBSODIUM_KEY_TRANSFORM', 'WALG_PGP_KEY', 'WALG_PGP_KEY_PATH',
-                  'WALG_PGP_KEY_PASSPHRASE', 'no_proxy', 'http_proxy', 'https_proxy']
+                  'WALG_LIBSODIUM_KEY', 'WALG_LIBSODIUM_KEY_PATH', 'WALG_LIBSODIUM_KEY_TRANSFORM',
+                  'WALG_PGP_KEY', 'WALG_PGP_KEY_PATH', 'WALG_PGP_KEY_PASSPHRASE',
+                  'no_proxy', 'http_proxy', 'https_proxy']
 
     wale = defaultdict(lambda: '')
     for name in ['PGVERSION', 'PGPORT', 'WALE_ENV_DIR', 'SCOPE', 'WAL_BUCKET_SCOPE_PREFIX', 'WAL_BUCKET_SCOPE_SUFFIX',
