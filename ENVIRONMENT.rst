@@ -106,7 +106,7 @@ In case of S3, `wal-e` is used for backups and `wal-g` for restore.
 - **WALG_DELTA_MAX_STEPS**, **WALG_DELTA_ORIGIN**, **WALG_DOWNLOAD_CONCURRENCY**, **WALG_UPLOAD_CONCURRENCY**, **WALG_UPLOAD_DISK_CONCURRENCY**, **WALG_DISK_RATE_LIMIT**, **WALG_NETWORK_RATE_LIMIT**, **WALG_COMPRESSION_METHOD**, **WALG_BACKUP_COMPRESSION_METHOD**, **WALG_BACKUP_FROM_REPLICA**, **WALG_SENTINEL_USER_DATA**, **WALG_PREVENT_WAL_OVERWRITE**: (optional) configuration options for wal-g.
 - **WALG_S3_CA_CERT_FILE**: (optional) TLS CA certificate for wal-g (see [wal-g configuration](https://github.com/wal-g/wal-g#configuration))
 - **WALG_SSH_PREFIX**: (optional) the ssh prefix to store WAL backups at in the format ssh://host.example.com/path/to/backups/ See `Wal-g <https://github.com/wal-g/wal-g#configuration>`__ documentation for details.
-- **WALG_LIBSODIUM_KEY**, **WALG_LIBSODIUM_KEY_PATH**, **WALG_PGP_KEY**, **WALG_PGP_KEY_PATH**, **WALG_PGP_KEY_PASSPHRASE** (optional) wal-g encryption properties (see [wal-g encryption](https://github.com/wal-g/wal-g#encryption))
+- **WALG_LIBSODIUM_KEY**, **WALG_LIBSODIUM_KEY_PATH**, **WALG_LIBSODIUM_KEY_TRANSFORM**, **WALG_PGP_KEY**, **WALG_PGP_KEY_PATH**, **WALG_PGP_KEY_PASSPHRASE** (optional) wal-g encryption properties (see [wal-g encryption](https://github.com/wal-g/wal-g#encryption))
 - **http_proxy**, **https_proxy**, **no_proxy** (optional) HTTP(S) proxy configuration for `wal-g` to access S3. While http_proxy and https_proxy take a proxy URL, no_proxy takes a comma separated list of exceptions. Both are following a de-facto standard, see the [`wget`](https://www.gnu.org/software/wget/manual/html_node/Proxies.html) documentation.
 
 
