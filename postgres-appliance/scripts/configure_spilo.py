@@ -799,8 +799,10 @@ def write_wale_environment(placeholders, prefix, overwrite):
                                     'but got %s', wale_endpoint)
                 if not aws_endpoint:
                     aws_endpoint = match.expand(r'\1\3') if match else wale_endpoint
-            wale.update(WALE_S3_ENDPOINT=wale_endpoint, AWS_ENDPOINT=aws_endpoint,
-                        WALG_DISABLE_S3_SSE='true', WALE_DISABLE_S3_SSE='true')
+            wale.update(WALE_S3_ENDPOINT=wale_endpoint, AWS_ENDPOINT=aws_endpoint)
+            for name in ('WALE_DISABLE_S3_SSE', 'WALG_DISABLE_S3_SSE'):
+                if not wale.get(name):
+                    wale[name] = 'true'
             wale['AWS_S3_FORCE_PATH_STYLE'] = 'true' if convention == 'path' else 'false'
             if aws_region and wale.get('USE_WALG_BACKUP') == 'true':
                 wale['AWS_REGION'] = aws_region
