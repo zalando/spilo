@@ -1,6 +1,6 @@
 ARG BASE_IMAGE=ubuntu:18.04
 ARG PGVERSION=14
-ARG TIMESCALEDB="1.7.5 2.3.1 2.5.2"
+ARG TIMESCALEDB="1.7.5 2.3.1 2.6.0"
 ARG DEMO=false
 ARG COMPRESS=false
 
@@ -74,7 +74,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         # install etcdctl
         && ETCDVERSION=3.3.27 \
         && curl -L https://github.com/coreos/etcd/releases/download/v${ETCDVERSION}/etcd-v${ETCDVERSION}-linux-$(dpkg --print-architecture).tar.gz \
-                | tar xz -C /bin --strip=1 --wildcards --no-anchored etcdctl etcd; \
+                | tar xz -C /bin --strip=1 --wildcards --no-anchored etcdctl etcd \
+        && chown root:root /bin/etcd*; \
     fi \
 \
     # Cleanup all locales but en_US.UTF-8 and optionally specified in ADDITIONAL_LOCALES arg
@@ -524,7 +525,7 @@ RUN sed -i "s|/var/lib/postgresql.*|$PGHOME:/bin/bash|" /etc/passwd \
         && ln -s $RW_DIR/cron /var/spool/cron \
         && ln -s $RW_DIR/tmp /var/tmp \
         && for d in /etc/service/*; do \
-            chmod 750 $d/* \
+            chmod 755 $d/* \
             && ln -s /run/supervise/$(basename $d) $d/supervise; \
         done \
         && ln -snf $RW_DIR/service /etc/service \
