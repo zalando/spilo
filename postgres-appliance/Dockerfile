@@ -39,7 +39,9 @@ RUN echo "shopt -s extglob\nrm /builddeps/!(*_$(dpkg --print-architecture).deb)"
 ARG DEMO
 RUN mkdir /builddeps/wal-g \
     && if [ "$DEMO" = "true" ]; then \
-        rm -f /builddeps/*.deb; \
+        rm -f /builddeps/*.deb \
+        # Create an empty dummy deb file to prevent the `COPY --from=dependencies-builder /builddeps/*.deb /builddeps/` step from failing
+        && touch /builddeps/dummy.deb; \
     elif [ "$(dpkg --print-architecture)" != "amd64" ]; then \
         cp /wal-g/main/pg/wal-g /builddeps/wal-g/; \
     else \
@@ -180,7 +182,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 \
     && curl -sL https://github.com/CyberDem0n/bg_mon/archive/$BG_MON_COMMIT.tar.gz | tar xz \
     && curl -sL https://github.com/sdudoladov/pg_auth_mon/archive/$PG_AUTH_MON_COMMIT.tar.gz | tar xz \
-    && curl -sL https://github.com/cybertec-postgresql/pg_permission/archive/$PG_PERMISSIONS_COMMIT.tar.gz | tar xz \
+    && curl -sL https://github.com/cybertec-postgresql/pg_permissions/archive/$PG_PERMISSIONS_COMMIT.tar.gz | tar xz \
     && git clone -b $SET_USER https://github.com/pgaudit/set_user.git \
     && git clone https://github.com/timescale/timescaledb.git \
 \
@@ -256,7 +258,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 EXTRA_EXTENSIONS=""; \
             fi \
 \
-            && for n in bg_mon-${BG_MON_COMMIT} pg_auth_mon-${PG_AUTH_MON_COMMIT} set_user pg_permission-${PG_PERMISSIONS_COMMIT} $EXTRA_EXTENSIONS; do \
+            && for n in bg_mon-${BG_MON_COMMIT} pg_auth_mon-${PG_AUTH_MON_COMMIT} set_user pg_permissions-${PG_PERMISSIONS_COMMIT} $EXTRA_EXTENSIONS; do \
                 make -C $n USE_PGXS=1 clean install-strip; \
             done; \
     done \
