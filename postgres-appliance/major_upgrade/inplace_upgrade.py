@@ -52,7 +52,7 @@ def update_configs(new_version):
 
     # update wal-e/wal-g envdir files
     restore_command = shlex.split(config['postgresql'].get('recovery_conf', {}).get('restore_command', ''))
-    if len(restore_command) > 4 and restore_command[0] == 'envdir':
+    if len(restore_command) > 6 and restore_command[0] == 'envdir':
         envdir = restore_command[1]
 
         try:

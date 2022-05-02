@@ -46,6 +46,7 @@ Environment Configuration Settings
 - **WALE_BACKUP_THRESHOLD_MEGABYTES**: maximum size of the WAL segments accumulated after the base backup to consider WAL-E restore instead of pg_basebackup.
 - **WALE_BACKUP_THRESHOLD_PERCENTAGE**: maximum ratio (in percents) of the accumulated WAL files to the base backup to consider WAL-E restore instead of pg_basebackup.
 - **WALE_ENV_DIR**: directory where to store WAL-E environment variables
+- **WAL_RESTORE_TIMEOUT**: timeout (in seconds) for restoring a single WAL file (at most 16 MB) from the backup location, 0 by default. A duration of 0 disables the timeout.
 - **WAL_S3_BUCKET**: (optional) name of the S3 bucket used for WAL-E base backups.
 - **AWS_ACCESS_KEY_ID**: (optional) aws access key
 - **AWS_SECRET_ACCESS_KEY**: (optional) aws secret key

@@ -180,7 +180,8 @@ bootstrap:
       {{/STANDBY_WITH_WALE}}
       - basebackup_fast_xlog
       {{#STANDBY_WITH_WALE}}
-      restore_command: envdir "{{STANDBY_WALE_ENV_DIR}}" /scripts/restore_command.sh "%f" "%p"
+      restore_command: envdir "{{STANDBY_WALE_ENV_DIR}}" timeout "{{WAL_RESTORE_TIMEOUT}}"
+        /scripts/restore_command.sh "%f" "%p"
       {{/STANDBY_WITH_WALE}}
       {{#STANDBY_HOST}}
       host: {{STANDBY_HOST}}
@@ -228,7 +229,8 @@ bootstrap:
     command: envdir "{{CLONE_WALE_ENV_DIR}}" python3 /scripts/clone_with_wale.py
       --recovery-target-time="{{CLONE_TARGET_TIME}}"
     recovery_conf:
-        restore_command: envdir "{{CLONE_WALE_ENV_DIR}}" /scripts/restore_command.sh "%f" "%p"
+        restore_command: envdir "{{CLONE_WALE_ENV_DIR}}" timeout "{{WAL_RESTORE_TIMEOUT}}"
+          /scripts/restore_command.sh "%f" "%p"
         recovery_target_timeline: latest
         {{#USE_PAUSE_AT_RECOVERY_TARGET}}
         recovery_target_action: pause
@@ -335,7 +337,8 @@ ltree,pgcrypto,pgq,pg_trgm,postgres_fdw,tablefunc,uuid-ossp,hypopg'
 
   {{#USE_WALE}}
   recovery_conf:
-    restore_command: envdir "{{WALE_ENV_DIR}}" /scripts/restore_command.sh "%f" "%p"
+    restore_command: envdir "{{WALE_ENV_DIR}}" timeout "{{WAL_RESTORE_TIMEOUT}}"
+      /scripts/restore_command.sh "%f" "%p"
   {{/USE_WALE}}
   authentication:
     superuser:
@@ -549,6 +552,7 @@ def get_placeholders(provider):
     placeholders.setdefault('WAL_BUCKET_SCOPE_PREFIX', '{0}-'.format(placeholders['NAMESPACE'])
                             if placeholders['NAMESPACE'] not in ('default', '') else '')
     placeholders.setdefault('WAL_BUCKET_SCOPE_SUFFIX', '')
+    placeholders.setdefault('WAL_RESTORE_TIMEOUT', '0')
     placeholders.setdefault('WALE_ENV_DIR', os.path.join(placeholders['RW_DIR'], 'etc', 'wal-e.d', 'env'))
     placeholders.setdefault('USE_WALE', False)
     cpu_count = str(min(psutil.cpu_count(), 10))
