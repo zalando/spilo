@@ -229,7 +229,7 @@ bootstrap:
       --recovery-target-time="{{CLONE_TARGET_TIME}}"
     recovery_conf:
         restore_command: envdir "{{CLONE_WALE_ENV_DIR}}" /scripts/restore_command.sh "%f" "%p"
-        recovery_target_timeline: "{{TIMELINE_ID}}"
+        recovery_target_timeline: "{{CLONE_TARGET_TIMELINE}}"
         {{#USE_PAUSE_AT_RECOVERY_TARGET}}
         recovery_target_action: pause
         {{/USE_PAUSE_AT_RECOVERY_TARGET}}
@@ -543,7 +543,7 @@ def get_placeholders(provider):
     placeholders.setdefault('WALE_BACKUP_THRESHOLD_MEGABYTES', 102400)
     placeholders.setdefault('WALE_BACKUP_THRESHOLD_PERCENTAGE', 30)
     placeholders.setdefault('INITDB_LOCALE', 'en_US')
-    placeholders.setdefault('TIMELINE_ID', 'latest')
+    placeholders.setdefault('CLONE_TARGET_TIMELINE', 'latest')
     # if Kubernetes is defined as a DCS, derive the namespace from the POD_NAMESPACE, if not set explicitely.
     # We only do this for Kubernetes DCS, as we don't want to suddently change, i.e. DCS base path when running
     # in Kubernetes with Etcd in a non-default namespace
