@@ -12,6 +12,7 @@ Environment Configuration Settings
 - **PGHOME**: filesystem path where to put PostgreSQL home directory (/home/postgres by default)
 - **APIPORT**: TCP port to Patroni API connections (8008 by default)
 - **BACKUP_SCHEDULE**: cron schedule for doing backups via WAL-E (if WAL-E is enabled, '00 01 * * *' by default)
+- **CLONE_TARGET_TIMELINE**: timeline id of the backup for restore, 'latest' by default.
 - **CRONTAB**: anything that you want to run periodically as a cron job (empty by default)
 - **PGROOT**: a directory where we put the pgdata (by default /home/postgres/pgroot). One may adjust it to point to the mount point of the persistent volume, such as EBS.
 - **WALE_TMPDIR**: directory to store WAL-E temporary files. PGROOT/../tmp by default, make sure it has a few GBs of free space.
