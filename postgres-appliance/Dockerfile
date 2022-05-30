@@ -1,6 +1,6 @@
 ARG BASE_IMAGE=ubuntu:18.04
 ARG PGVERSION=14
-ARG TIMESCALEDB="1.7.5 2.3.1 2.6.1"
+ARG TIMESCALEDB="1.7.5 2.3.1 2.7.0"
 ARG DEMO=false
 ARG COMPRESS=false
 
@@ -130,7 +130,7 @@ ARG DEB_PG_SUPPORTED_VERSIONS="$PGOLDVERSIONS $PGVERSION"
 # Install PostgreSQL, extensions and contribs
 ENV POSTGIS_VERSION=3.2 \
     POSTGIS_LEGACY=3.2 \
-    BG_MON_COMMIT=098b4857d1e88862439c0f02a6031e9fb78e5ef2 \
+    BG_MON_COMMIT=5d5002836118e4baf4b356f859566c56433e811f \
     PG_AUTH_MON_COMMIT=437435b4e2de32a820e86973f6934ec849a768e0 \
     PG_MON_COMMIT=54fbdcc3cfe7e2a626bd96dda644d9a0c6866b58 \
     SET_USER=REL3_0_0 \
@@ -423,7 +423,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 \
         && find /usr/share/python-babel-localedata/locale-data -type f ! -name 'en_US*.dat' -delete \
 \
-        && pip3 install filechunkio wal-e[aws,google,swift]==$WALE_VERSION google-crc32c==1.1.2 \
+        && pip3 install filechunkio wal-e[aws,google,swift]==$WALE_VERSION google-crc32c==1.1.2 'protobuf<4.21.0' \
                 'git+https://github.com/zalando/pg_view.git@master#egg=pg-view' \
 \
         # Non-exclusive backups
