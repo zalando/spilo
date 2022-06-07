@@ -8,7 +8,7 @@ ENV PACKAGES="libgdal20"
 RUN export DEBIAN_FRONTEND=noninteractive \
     && echo 'APT::Install-Recommends "0";' > /etc/apt/apt.conf.d/01norecommend \
     && echo 'APT::Install-Suggests "0";' >> /etc/apt/apt.conf.d/01norecommend \
-    && && sed -i 's/^# deb-src/deb-src/' /etc/apt/sources.list \
+    && sed -i 's/^# deb-src/deb-src/' /etc/apt/sources.list \
     && apt-get update \
     && apt-get install -y devscripts equivs \
     && mk-build-deps $SOURCES \

@@ -1,4 +1,4 @@
 #!/bin/sh -e
 
 exec 2>&1
-exec env -i /bin/etcd --data-dir /run/etcd.data
+exec env -i ETCD_UNSUPPORTED_ARCH=$(dpkg --print-architecture) /bin/etcd --data-dir /run/etcd.data

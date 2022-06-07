@@ -61,6 +61,7 @@ ARG ADDITIONAL_LOCALES=
 RUN export DEBIAN_FRONTEND=noninteractive \
     && echo 'APT::Install-Recommends "0";\nAPT::Install-Suggests "0";' > /etc/apt/apt.conf.d/01norecommend \
     && apt-get update \
+    && apt-get -y upgrade \
     && apt-get install -y curl ca-certificates less locales jq vim-tiny gnupg1 cron runit dumb-init libcap2-bin rsync sysstat \
     && ln -s chpst /usr/bin/envdir \
     # Make it possible to use the following utilities without root (if container runs without "no-new-privileges:true")
@@ -399,7 +400,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 COPY --from=dependencies-builder /builddeps/wal-g /usr/local/bin/
 
 # Install patroni and wal-e
-ENV PATRONIVERSION=2.1.3
+ENV PATRONIVERSION=2.1.4
 ENV WALE_VERSION=1.1.1
 RUN export DEBIAN_FRONTEND=noninteractive \
     && set -ex \
