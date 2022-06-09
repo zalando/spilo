@@ -33,7 +33,6 @@ PROVIDER_LOCAL = "local"
 PROVIDER_UNSUPPORTED = "unsupported"
 USE_KUBERNETES = os.environ.get('KUBERNETES_SERVICE_HOST') is not None
 KUBERNETES_DEFAULT_LABELS = '{"application": "spilo"}'
-MEMORY_LIMIT_IN_BYTES_PATH = '/sys/fs/cgroup/memory/memory.limit_in_bytes'
 PATRONI_DCS = ('kubernetes', 'zookeeper', 'exhibitor', 'consul', 'etcd3', 'etcd')
 AUTO_ENABLE_WALG_RESTORE = ('WAL_S3_BUCKET', 'WALE_S3_PREFIX', 'WALG_S3_PREFIX', 'WALG_AZ_PREFIX', 'WALG_SSH_PREFIX')
 WALG_SSH_NAMES = ['WALG_SSH_PREFIX', 'SSH_PRIVATE_KEY_PATH', 'SSH_USERNAME', 'SSH_PORT']
@@ -647,9 +646,18 @@ def get_placeholders(provider):
         'envdir "{WALE_ENV_DIR}" {WALE_BINARY} wal-push "%p"'.format(**placeholders) \
         if placeholders['USE_WALE'] else '/bin/true'
 
-    if os.path.exists(MEMORY_LIMIT_IN_BYTES_PATH):
-        with open(MEMORY_LIMIT_IN_BYTES_PATH) as f:
+    cgroup_memory_limit_path = '/sys/fs/cgroup/memory/memory.limit_in_bytes'
+    cgroup_v2_memory_limit_path = '/sys/fs/cgroup/memory.max'
+
+    if os.path.exists(cgroup_memory_limit_path):
+        with open(cgroup_memory_limit_path) as f:
             os_memory_mb = int(f.read()) / 1048576
+    elif os.path.exists(cgroup_v2_memory_limit_path):
+        with open(cgroup_v2_memory_limit_path) as f:
+            try:
+                os_memory_mb = int(f.read()) / 1048576
+            except Exception:  # there could be "max"
+                os_memory_mb = 0x7FFFFFFFFFF
     else:
         os_memory_mb = sys.maxsize
     os_memory_mb = min(os_memory_mb, os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES') / 1048576)
