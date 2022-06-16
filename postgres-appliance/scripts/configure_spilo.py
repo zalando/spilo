@@ -656,7 +656,7 @@ def get_placeholders(provider):
         with open(cgroup_v2_memory_limit_path) as f:
             try:
                 os_memory_mb = int(f.read()) / 1048576
-            except Exception:  # there could be "max"
+            except Exception:  # string literal "max" is a possible value
                 os_memory_mb = 0x7FFFFFFFFFF
     else:
         os_memory_mb = sys.maxsize
