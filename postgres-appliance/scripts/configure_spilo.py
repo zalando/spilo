@@ -33,8 +33,7 @@ PROVIDER_LOCAL = "local"
 PROVIDER_UNSUPPORTED = "unsupported"
 USE_KUBERNETES = os.environ.get('KUBERNETES_SERVICE_HOST') is not None
 KUBERNETES_DEFAULT_LABELS = '{"application": "spilo"}'
-MEMORY_LIMIT_IN_BYTES_PATH = '/sys/fs/cgroup/memory/memory.limit_in_bytes'
-PATRONI_DCS = ('zookeeper', 'exhibitor', 'consul', 'etcd3', 'etcd')
+PATRONI_DCS = ('kubernetes', 'zookeeper', 'exhibitor', 'consul', 'etcd3', 'etcd')
 AUTO_ENABLE_WALG_RESTORE = ('WAL_S3_BUCKET', 'WALE_S3_PREFIX', 'WALG_S3_PREFIX', 'WALG_AZ_PREFIX', 'WALG_SSH_PREFIX')
 WALG_SSH_NAMES = ['WALG_SSH_PREFIX', 'SSH_PRIVATE_KEY_PATH', 'SSH_USERNAME', 'SSH_PORT']
 
@@ -647,9 +646,18 @@ def get_placeholders(provider):
         'envdir "{WALE_ENV_DIR}" {WALE_BINARY} wal-push "%p"'.format(**placeholders) \
         if placeholders['USE_WALE'] else '/bin/true'
 
-    if os.path.exists(MEMORY_LIMIT_IN_BYTES_PATH):
-        with open(MEMORY_LIMIT_IN_BYTES_PATH) as f:
+    cgroup_memory_limit_path = '/sys/fs/cgroup/memory/memory.limit_in_bytes'
+    cgroup_v2_memory_limit_path = '/sys/fs/cgroup/memory.max'
+
+    if os.path.exists(cgroup_memory_limit_path):
+        with open(cgroup_memory_limit_path) as f:
             os_memory_mb = int(f.read()) / 1048576
+    elif os.path.exists(cgroup_v2_memory_limit_path):
+        with open(cgroup_v2_memory_limit_path) as f:
+            try:
+                os_memory_mb = int(f.read()) / 1048576
+            except Exception:  # string literal "max" is a possible value
+                os_memory_mb = 0x7FFFFFFFFFF
     else:
         os_memory_mb = sys.maxsize
     os_memory_mb = min(os_memory_mb, os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES') / 1048576)
@@ -689,39 +697,38 @@ def pystache_render(*args, **kwargs):
 
 
 def get_dcs_config(config, placeholders):
-    if USE_KUBERNETES and placeholders.get('DCS_ENABLE_KUBERNETES_API'):
-        try:
-            kubernetes_labels = json.loads(placeholders.get('KUBERNETES_LABELS'))
-        except (TypeError, ValueError) as e:
-            logging.warning("could not parse kubernetes labels as a JSON: {0}, "
-                            "reverting to the default: {1}".format(e, KUBERNETES_DEFAULT_LABELS))
-            kubernetes_labels = json.loads(KUBERNETES_DEFAULT_LABELS)
+    # (KUBERNETES|ZOOKEEPER|EXHIBITOR|CONSUL|ETCD3|ETCD)_(HOSTS|HOST|PORT|...)
+    dcs_configs = defaultdict(dict)
+    for name, value in placeholders.items():
+        if '_' not in name:
+            continue
+        dcs, param = name.lower().split('_', 1)
+        if dcs in PATRONI_DCS:
+            if param == 'hosts':
+                if not (value.strip().startswith('-') or '[' in value):
+                    value = '[{0}]'.format(value)
+                value = yaml.safe_load(value)
+            elif param == 'discovery_domain':
+                param = 'discovery_srv'
+            dcs_configs[dcs][param] = value
 
-        config = {'kubernetes': {'role_label': placeholders.get('KUBERNETES_ROLE_LABEL'),
-                                 'scope_label': placeholders.get('KUBERNETES_SCOPE_LABEL'),
-                                 'labels': kubernetes_labels}}
-        if not placeholders.get('KUBERNETES_USE_CONFIGMAPS'):
-            config['kubernetes'].update({'use_endpoints': True, 'pod_ip': placeholders['instance_data']['ip'],
-                                         'ports': [{'port': 5432, 'name': 'postgresql'}]})
-        if str(placeholders.get('KUBERNETES_BYPASS_API_SERVICE')).lower() == 'true':
+    if USE_KUBERNETES and placeholders.get('DCS_ENABLE_KUBERNETES_API'):
+        config = {'kubernetes': dcs_configs['kubernetes']}
+        try:
+            kubernetes_labels = json.loads(config['kubernetes'].get('labels'))
+        except (TypeError, ValueError) as e:
+            logging.warning("could not parse kubernetes labels as a JSON: %r, "
+                            "reverting to the default: %s", e, KUBERNETES_DEFAULT_LABELS)
+            kubernetes_labels = json.loads(KUBERNETES_DEFAULT_LABELS)
+        config['kubernetes']['labels'] = kubernetes_labels
+
+        if not config['kubernetes'].pop('use_configmaps'):
+            config['kubernetes'].update({'use_endpoints': True, 'ports': [{'port': 5432, 'name': 'postgresql'}]})
+        if str(config['kubernetes'].pop('bypass_api_service', None)).lower() == 'true':
             config['kubernetes']['bypass_api_service'] = True
     else:
-        # (ZOOKEEPER|EXHIBITOR|CONSUL|ETCD3|ETCD)_(HOSTS|HOST|PORT|...)
-        dcs_configs = defaultdict(dict)
-        for name, value in placeholders.items():
-            if '_' not in name:
-                continue
-            dcs, param = name.lower().split('_', 1)
-            if dcs in PATRONI_DCS:
-                if param == 'hosts':
-                    if not (value.strip().startswith('-') or '[' in value):
-                        value = '[{0}]'.format(value)
-                    value = yaml.safe_load(value)
-                elif param == 'discovery_domain':
-                    param = 'discovery_srv'
-                dcs_configs[dcs][param] = value
         for dcs in PATRONI_DCS:
-            if dcs in dcs_configs:
+            if dcs != 'kubernetes' and dcs in dcs_configs:
                 config = {dcs: dcs_configs[dcs]}
                 break
         else:
@@ -1026,7 +1033,7 @@ def main():
     user_config_copy = deepcopy(user_config)
     config = deep_update(user_config_copy, config)
 
-    if provider == PROVIDER_LOCAL and not any(1 for key in config.keys() if key == 'kubernetes' or key in PATRONI_DCS):
+    if provider == PROVIDER_LOCAL and not any(1 for key in config.keys() if key in PATRONI_DCS):
         link_runit_service(placeholders, 'etcd')
         config['etcd'] = {'host': '127.0.0.1:2379'}
 
