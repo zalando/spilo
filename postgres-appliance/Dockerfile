@@ -1,5 +1,5 @@
 ARG BASE_IMAGE=ubuntu:18.04
-ARG PGVERSION=14
+ARG PGVERSION=15
 ARG TIMESCALEDB="1.7.5 2.3.1 2.7.0"
 ARG DEMO=false
 ARG COMPRESS=false
@@ -115,6 +115,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && find /var/log -type f -exec truncate --size 0 {} \;
 
 COPY cron_unprivileged.c dependencies/src /builddeps/
+COPY patches/*.patch /builddeps/
 COPY --from=dependencies-builder /builddeps/*.deb /builddeps/
 
 ARG PGVERSION
@@ -122,7 +123,7 @@ ARG TIMESCALEDB
 ARG TIMESCALEDB_APACHE_ONLY=true
 ARG DEMO
 ARG COMPRESS
-ARG PGOLDVERSIONS="9.6 10 11 12 13"
+ARG PGOLDVERSIONS="9.6 10 11 12 13 14"
 ARG WITH_PERL=false
 
 ARG DEB_PG_SUPPORTED_VERSIONS="$PGOLDVERSIONS $PGVERSION"
@@ -130,9 +131,9 @@ ARG DEB_PG_SUPPORTED_VERSIONS="$PGOLDVERSIONS $PGVERSION"
 # Install PostgreSQL, extensions and contribs
 ENV POSTGIS_VERSION=3.2 \
     POSTGIS_LEGACY=3.2 \
-    BG_MON_COMMIT=5d5002836118e4baf4b356f859566c56433e811f \
-    PG_AUTH_MON_COMMIT=437435b4e2de32a820e86973f6934ec849a768e0 \
-    PG_MON_COMMIT=54fbdcc3cfe7e2a626bd96dda644d9a0c6866b58 \
+    BG_MON_COMMIT=271c152412773c70f16bb70cb08597b91adbb947 \
+    PG_AUTH_MON_COMMIT=439697fe2980cf48f1760f45e04c2d69b2748e73 \
+    PG_MON_COMMIT=0fd850454d5e6812ad7d07ac3c9af9a3dba5abd5 \
     SET_USER=REL3_0_0 \
     PLPROFILER=REL4_1 \
     PAM_OAUTH2=v1.0.1 \
@@ -200,9 +201,16 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                         postgresql-${version}-dirtyread \
                         postgresql-${version}-extra-window-functions \
                         postgresql-${version}-first-last-agg \
-                        postgresql-${version}-hll \
-                        postgresql-${version}-hypopg \
+                        postgresql-${version}-hypopg" \
+\
+                && if [ $version != "15" ]; then \
+                    # not yet adapted for pg15
+                    EXTRAS="$EXTRAS \
                         postgresql-${version}-pgaudit \
+                        postgresql-${version}-repack \
+                        postgresql-${version}-wal2json \
+                        postgresql-${version}-plproxy \
+                        postgresql-${version}-hll \
                         postgresql-${version}-pg-checksums \
                         postgresql-${version}-pgl-ddl-deploy \
                         postgresql-${version}-pglogical \
@@ -211,27 +219,33 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                         postgresql-${version}-pldebugger \
                         postgresql-${version}-pllua \
                         postgresql-${version}-plpgsql-check \
-                        postgresql-${version}-plproxy \
                         postgresql-${version}-postgis-${POSTGIS_VERSION%.*} \
-                        postgresql-${version}-postgis-${POSTGIS_VERSION%.*}-scripts \
-                        postgresql-${version}-repack \
-                        postgresql-${version}-wal2json" \
+                        postgresql-${version}-postgis-${POSTGIS_VERSION%.*}-scripts"; \
+                fi \
+\
                 && if [ "$WITH_PERL" = "true" ]; then \
                     EXTRAS="$EXTRAS postgresql-plperl-${version}"; \
                 fi \
-                && if [ ${version%.*} -ge 10 ]; then \
+                && if [ ${version%.*} -ge 10 ] && [ ${version%.*} -lt 15 ]; then \
                     EXTRAS="$EXTRAS postgresql-${version}-decoderbufs"; \
                 fi \
                 && if [ ${version%.*} -lt 11 ]; then \
                     EXTRAS="$EXTRAS postgresql-${version}-amcheck"; \
-                fi; \
+                fi \
+                #those that have patches
+                && MISSING_EXTRAS="pgaudit repack wal2json plproxy decoderbufs"; \
             fi \
 \
             # Install PostgreSQL binaries, contrib, plproxy and multiple pl's
             && apt-get install --allow-downgrades -y postgresql-contrib-${version} \
                     postgresql-plpython3-${version} postgresql-server-dev-${version} \
-                    postgresql-${version}-cron postgresql-${version}-pgq3 \
+                    postgresql-${version}-pgq3 \
                     postgresql-${version}-pg-stat-kcache $EXTRAS \
+\
+            && if [ $version != "15" ]; then \
+                apt-get install -y postgresql-${version}-cron \
+                && MISSING="cron"; \
+            fi \
 \
             # Install 3rd party stuff
             && cd timescaledb \
@@ -275,16 +289,19 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && if [ "$DEMO" != "true" ]; then \
         for version in $DEB_PG_SUPPORTED_VERSIONS; do \
             # due to dependency issues partman has to be installed separately
-            apt-get install -y postgresql-${version}-partman \
+            if [ $version != "15" ]; then \
+                apt-get install -y postgresql-${version}-partman; \
+            fi \
             # create postgis symlinks to make it possible to perform update
             && ln -s postgis-${POSTGIS_VERSION%.*}.so \
                 /usr/lib/postgresql/${version}/lib/postgis-2.5.so; \
-        done; \
+        done \
+        && MISSING_EXTRAS="$MISSING_EXTRAS partman"; \
     fi \
 \
     # build and install missing packages
-    && for pkg in pgextwlist; do \
-        apt-get source postgresql-13-${pkg} \
+    && for pkg in pgextwlist $MISSING $MISSING_EXTRAS; do \
+        apt-get source postgresql-14-${pkg} \
         && cd $(ls -d *${pkg%?}*-*/) \
         && if [ -f ../$pkg.patch ]; then patch -p1 < ../$pkg.patch; fi \
         && if [ "$pkg" = "pgextwlist" ]; then \

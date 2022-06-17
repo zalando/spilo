@@ -1,0 +1,19 @@
+diff --git a/src/decoderbufs.c b/src/decoderbufs.c
+index 6900ea0..cf81477 100644
+--- a/src/decoderbufs.c
++++ b/src/decoderbufs.c
+@@ -269,10 +269,13 @@ static void set_datum_value(Decoderbufs__DatumMessage *datum_msg, Oid typid,
+       datum_msg->datum_case = DECODERBUFS__DATUM_MESSAGE__DATUM_DATUM_INT32;
+       break;
+     case INT8OID:
+-    case OIDOID:
+       datum_msg->datum_int64 = DatumGetInt64(datum);
+       datum_msg->datum_case = DECODERBUFS__DATUM_MESSAGE__DATUM_DATUM_INT64;
+       break;
++    case OIDOID:
++      datum_msg->datum_int64 = (Oid) DatumGetUInt64(datum);
++      datum_msg->datum_case = DECODERBUFS__DATUM_MESSAGE__DATUM_DATUM_INT64;
++      break;
+     case FLOAT4OID:
+       datum_msg->datum_float = DatumGetFloat4(datum);
+       datum_msg->datum_case = DECODERBUFS__DATUM_MESSAGE__DATUM_DATUM_FLOAT;

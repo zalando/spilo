@@ -221,10 +221,10 @@ function start_clone_with_wale_upgrade_replica_container() {
     start_clone_with_wale_upgrade_container 2
 }
 
-function start_clone_with_wale_upgrade_to_14_container() {
+function start_clone_with_wale_upgrade_to_15_container() {
     docker-compose run \
         -e SCOPE=upgrade3 \
-        -e PGVERSION=14 \
+        -e PGVERSION=15 \
         -e CLONE_SCOPE=demo \
         -e CLONE_PGVERSION=9.6 \
         -e CLONE_METHOD=CLONE_WITH_WALE \
@@ -233,15 +233,15 @@ function start_clone_with_wale_upgrade_to_14_container() {
         -d "spilo3"
 }
 
-function start_clone_with_wale_14_container() {
+function start_clone_with_wale_15_container() {
     docker-compose run \
         -e SCOPE=clone13 \
-        -e PGVERSION=14 \
+        -e PGVERSION=15 \
         -e CLONE_SCOPE=upgrade3 \
-        -e CLONE_PGVERSION=14 \
+        -e CLONE_PGVERSION=15 \
         -e CLONE_METHOD=CLONE_WITH_WALE \
         -e CLONE_TARGET_TIME="$(date -d '1 hour' -u +'%F %T UTC')" \
-        --name "${PREFIX}clone14" \
+        --name "${PREFIX}clone15" \
         -d "spilo3"
 }
 
@@ -270,10 +270,10 @@ function verify_clone_with_basebackup_upgrade() {
     wait_query "$1" "SELECT current_setting('server_version_num')::int/10000" 11 2> /dev/null
 }
 
-function verify_clone_with_wale_upgrade_to_14() {
-    log_info "Waiting for clone with wal-e and upgrade 9.6->14 to complete..."
+function verify_clone_with_wale_upgrade_to_15() {
+    log_info "Waiting for clone with wal-e and upgrade 9.6->15 to complete..."
     find_leader "$1" 1
-    wait_query "$1" "SELECT current_setting('server_version_num')::int/10000" 14 2> /dev/null
+    wait_query "$1" "SELECT current_setting('server_version_num')::int/10000" 15 2> /dev/null
 }
 
 function verify_archive_mode_is_on() {
@@ -305,8 +305,8 @@ function test_spilo() {
     wait_backup "$container"
 
     local upgrade_container
-    upgrade_container=$(start_clone_with_wale_upgrade_to_14_container)
-    log_info "Started $upgrade_container for testing major upgrade 9.6->14 after clone with wal-e"
+    upgrade_container=$(start_clone_with_wale_upgrade_to_15_container)
+    log_info "Started $upgrade_container for testing major upgrade 9.6->15 after clone with wal-e"
 
     log_info "Testing in-place major upgrade 9.6->10"
     run_test test_successful_inplace_upgrade_to_10 "$container"
@@ -319,15 +319,15 @@ function test_spilo() {
 
     run_test test_pg_upgrade_to_12_check_failed "$container"  # pg_upgrade --check complains about OID
 
-    run_test verify_clone_with_wale_upgrade_to_14 "$upgrade_container"
+    run_test verify_clone_with_wale_upgrade_to_15 "$upgrade_container"
 
     run_test verify_archive_mode_is_on "$upgrade_container"
     wait_backup "$upgrade_container"
     docker rm -f "$upgrade_container"
 
-    local clone14_container
-    clone14_container=$(start_clone_with_wale_14_container)
-    log_info "Started $clone14_container for testing point-in-time recovery (clone with wal-e) with unreachable target on 13+"
+    local clone15_container
+    clone15_container=$(start_clone_with_wale_15_container)
+    log_info "Started $clone15_container for testing point-in-time recovery (clone with wal-e) with unreachable target on 13+"
 
     wait_backup "$container"
     wait_zero_lag "$container"
@@ -343,8 +343,8 @@ function test_spilo() {
 
     run_test test_envdir_updated_to_x 12
 
-    find_leader "$clone14_container"
-    run_test verify_archive_mode_is_on "$clone14_container"
+    find_leader "$clone15_container"
+    run_test verify_archive_mode_is_on "$clone15_container"
 
     wait_backup "$container"
 
@@ -382,6 +382,15 @@ function test_spilo() {
     wait_all_streaming "$container"
 
     run_test test_envdir_updated_to_x 14
+
+    wait_backup "$container"
+
+    log_info "Testing in-place major upgrade to 14->15"
+    run_test test_successful_inplace_upgrade_to_15 "$container"
+
+    wait_all_streaming "$container"
+
+    run_test test_envdir_updated_to_x 15
 
     wait_backup "$container"
 

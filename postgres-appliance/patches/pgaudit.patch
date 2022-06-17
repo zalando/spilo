@@ -1,0 +1,206 @@
+diff --git a/Makefile b/Makefile
+index d49b60a..71870f6 100644
+--- a/Makefile
++++ b/Makefile
+@@ -4,7 +4,7 @@ MODULE_big = pgaudit
+ OBJS = pgaudit.o $(WIN32RES)
+ 
+ EXTENSION = pgaudit
+-DATA = pgaudit--1.6.2.sql pgaudit--1.6--1.6.1.sql pgaudit--1.6.1--1.6.2.sql
++DATA = pgaudit--1.7.sql
+ PGFILEDESC = "pgAudit - An audit logging extension for PostgreSQL"
+ 
+ REGRESS = pgaudit
+diff --git a/README.md b/README.md
+index dab8e99..aff6ba6 100644
+--- a/README.md
++++ b/README.md
+@@ -50,12 +50,14 @@ To limit the number of relations audit logged for `SELECT` and `DML` statements,
+ 
+ pgAudit was developed to support PostgreSQL 9.5 or greater.
+ 
+-In order to support new functionality introduced in each PostgreSQL release, pgAudit maintains a separate branch for each PostgreSQL major version (currently PostgreSQL 9.5 - 14) which will be maintained in a manner similar to the PostgreSQL project.
++In order to support new functionality introduced in each PostgreSQL release, pgAudit maintains a separate branch for each PostgreSQL major version (currently PostgreSQL 9.5 - 15) which will be maintained in a manner similar to the PostgreSQL project.
+ 
+ Aside from bug fixes, no further development is planned for stable branches. New development, if any, will be strictly for next unreleased major version of PostgreSQL.
+ 
+ pgAudit versions relate to PostgreSQL major versions as follows:
+ 
++- **pgAudit v1.7.X** is intended to support PostgreSQL 15.
++
+ - **pgAudit v1.6.X** is intended to support PostgreSQL 14.
+ 
+ - **pgAudit v1.5.X** is intended to support PostgreSQL 13.
+@@ -84,13 +86,13 @@ Change to pgAudit directory:
+ ```
+ cd pgaudit
+ ```
+-Checkout `REL_14_STABLE` branch (note that the stable branch may not exist for unreleased versions of PostgreSQL):
++Checkout `REL_15_STABLE` branch (note that the stable branch may not exist for unreleased versions of PostgreSQL):
+ ```
+-git checkout REL_14_STABLE
++git checkout REL_15_STABLE
+ ```
+ Build and install pgAudit:
+ ```
+-make install USE_PGXS=1 PG_CONFIG=/usr/pgsql-14/bin/pg_config
++make install USE_PGXS=1 PG_CONFIG=/usr/pgsql-15/bin/pg_config
+ ```
+ Instructions for testing and development may be found in `test`.
+ 
+@@ -100,7 +102,7 @@ Settings may be modified only by a superuser. Allowing normal users to change th
+ 
+ Settings can be specified globally (in `postgresql.conf` or using `ALTER SYSTEM ... SET`), at the database level (using `ALTER DATABASE ... SET`), or at the role level (using `ALTER ROLE ... SET`). Note that settings are not inherited through normal role inheritance and `SET ROLE` will not alter a user's pgAudit settings. This is a limitation of the roles system and not inherent to pgAudit.
+ 
+-The pgAudit extension must be loaded in [shared_preload_libraries](http://www.postgresql.org/docs/14/runtime-config-client.html#GUC-SHARED-PRELOAD-LIBRARIES). Otherwise, an error will be raised at load time and no audit logging will occur.
++The pgAudit extension must be loaded in [shared_preload_libraries](http://www.postgresql.org/docs/15/runtime-config-client.html#GUC-SHARED-PRELOAD-LIBRARIES). Otherwise, an error will be raised at load time and no audit logging will occur.
+ 
+ In addition, `CREATE EXTENSION pgaudit` must be called before `pgaudit.log` is set to ensure proper pgaudit functionality. The extension installs event triggers which add additional auditing for DDL. pgAudit will work without the extension installed but DDL statements will not have information about the object type and name.
+ 
+@@ -146,7 +148,7 @@ The default is `off`.
+ 
+ ### pgaudit.log_level
+ 
+-Specifies the log level that will be used for log entries (see [Message Severity Levels](http://www.postgresql.org/docs/14/runtime-config-logging.html#RUNTIME-CONFIG-SEVERITY-LEVELS) for valid levels) but note that `ERROR`, `FATAL`, and `PANIC` are not allowed). This setting is used for regression testing and may also be useful to end users for testing or other purposes.
++Specifies the log level that will be used for log entries (see [Message Severity Levels](http://www.postgresql.org/docs/15/runtime-config-logging.html#RUNTIME-CONFIG-SEVERITY-LEVELS) for valid levels) but note that `ERROR`, `FATAL`, and `PANIC` are not allowed). This setting is used for regression testing and may also be useful to end users for testing or other purposes.
+ 
+ Note that `pgaudit.log_level` is only enabled when `pgaudit.log_client` is `on`; otherwise the default will be used.
+ 
+@@ -353,7 +355,7 @@ Audit entries are written to the standard logging facility and contain the follo
+ 
+ - **PARAMETER** - If `pgaudit.log_parameter` is set then this field will contain the statement parameters as quoted CSV or `<none>` if there are no parameters. Otherwise, the field is `<not logged>`.
+ 
+-Use [log_line_prefix](http://www.postgresql.org/docs/14/runtime-config-logging.html#GUC-LOG-LINE-PREFIX) to add any other fields that are needed to satisfy your audit log requirements. A typical log line prefix might be `'%m %u %d [%p]: '` which would provide the date/time, user name, database name, and process id for each audit log.
++Use [log_line_prefix](http://www.postgresql.org/docs/15/runtime-config-logging.html#GUC-LOG-LINE-PREFIX) to add any other fields that are needed to satisfy your audit log requirements. A typical log line prefix might be `'%m %u %d [%p]: '` which would provide the date/time, user name, database name, and process id for each audit log.
+ 
+ ## Caveats
+ 
+diff --git a/expected/pgaudit.out b/expected/pgaudit.out
+index dd611f6..2becb8f 100644
+--- a/expected/pgaudit.out
++++ b/expected/pgaudit.out
+@@ -2509,9 +2509,9 @@ SET pgaudit.log = 'all,-misc_set';
+ SET pgaudit.log_level = 'warning';
+ CREATE EXTENSION pg_stat_statements;
+ WARNING:  AUDIT: SESSION,3,1,DDL,CREATE EXTENSION,,,CREATE EXTENSION pg_stat_statements;,<not logged>
+-ALTER EXTENSION pg_stat_statements UPDATE TO '1.9';
+-WARNING:  AUDIT: SESSION,4,1,DDL,ALTER EXTENSION,,,ALTER EXTENSION pg_stat_statements UPDATE TO '1.9';,<not logged>
+-NOTICE:  version "1.9" of extension "pg_stat_statements" is already installed
++ALTER EXTENSION pg_stat_statements UPDATE TO '1.10';
++WARNING:  AUDIT: SESSION,4,1,DDL,ALTER EXTENSION,,,ALTER EXTENSION pg_stat_statements UPDATE TO '1.10';,<not logged>
++NOTICE:  version "1.10" of extension "pg_stat_statements" is already installed
+ DROP EXTENSION pg_stat_statements;
+ WARNING:  AUDIT: SESSION,5,1,DDL,DROP EXTENSION,,,DROP EXTENSION pg_stat_statements;,<not logged>
+ SET pgaudit.log_level = 'notice';
+diff --git a/pgaudit--1.6--1.6.1.sql b/pgaudit--1.6--1.6.1.sql
+deleted file mode 100644
+index e954798..0000000
+--- a/pgaudit--1.6--1.6.1.sql
++++ /dev/null
+@@ -1,32 +0,0 @@
+--- complain if script is sourced in psql, rather than via CREATE EXTENSION
+-\echo Use "CREATE EXTENSION pgaudit" to load this file.\quit
+-
+--- Drop old triggers and functions
+-drop event trigger if exists pgaudit_ddl_command_end;
+-drop function if exists pgaudit_ddl_command_end();
+-
+-drop event trigger if exists pgaudit_sql_drop;
+-drop function if exists pgaudit_sql_drop();
+-
+--- Create triggers and functions with security definer and search_path
+-CREATE FUNCTION pgaudit_ddl_command_end()
+-	RETURNS event_trigger
+-	SECURITY DEFINER
+-	SET search_path = 'pg_catalog, pg_temp'
+-	LANGUAGE C
+-	AS 'MODULE_PATHNAME', 'pgaudit_ddl_command_end';
+-
+-CREATE EVENT TRIGGER pgaudit_ddl_command_end
+-	ON ddl_command_end
+-	EXECUTE PROCEDURE pgaudit_ddl_command_end();
+-
+-CREATE FUNCTION pgaudit_sql_drop()
+-	RETURNS event_trigger
+-	SECURITY DEFINER
+-	SET search_path = 'pg_catalog, pg_temp'
+-	LANGUAGE C
+-	AS 'MODULE_PATHNAME', 'pgaudit_sql_drop';
+-
+-CREATE EVENT TRIGGER pgaudit_sql_drop
+-	ON sql_drop
+-	EXECUTE PROCEDURE pgaudit_sql_drop();
+diff --git a/pgaudit--1.6.1--1.6.2.sql b/pgaudit--1.6.1--1.6.2.sql
+deleted file mode 100644
+index f7cfb9e..0000000
+--- a/pgaudit--1.6.1--1.6.2.sql
++++ /dev/null
+@@ -1,2 +0,0 @@
+--- complain if script is sourced in psql, rather than via CREATE EXTENSION
+-\echo Use "CREATE EXTENSION pgaudit" to load this file.\quit
+diff --git a/pgaudit--1.6.2.sql b/pgaudit--1.7.sql
+similarity index 100%
+rename from pgaudit--1.6.2.sql
+rename to pgaudit--1.7.sql
+diff --git a/pgaudit.control b/pgaudit.control
+index b18ca39..feef21e 100644
+--- a/pgaudit.control
++++ b/pgaudit.control
+@@ -1,5 +1,5 @@
+ # pgaudit extension
+ comment = 'provides auditing functionality'
+-default_version = '1.6.2'
++default_version = '1.7'
+ module_pathname = '$libdir/pgaudit'
+ relocatable = true
+diff --git a/sql/pgaudit.sql b/sql/pgaudit.sql
+index bb20525..fa6f00e 100644
+--- a/sql/pgaudit.sql
++++ b/sql/pgaudit.sql
+@@ -1586,7 +1586,7 @@ SET pgaudit.log = 'all,-misc_set';
+ SET pgaudit.log_level = 'warning';
+ 
+ CREATE EXTENSION pg_stat_statements;
+-ALTER EXTENSION pg_stat_statements UPDATE TO '1.9';
++ALTER EXTENSION pg_stat_statements UPDATE TO '1.10';
+ DROP EXTENSION pg_stat_statements;
+ 
+ SET pgaudit.log_level = 'notice';
+diff --git a/test/Dockerfile.debian b/test/Dockerfile.debian
+index f66cf06..bcd63f9 100644
+--- a/test/Dockerfile.debian
++++ b/test/Dockerfile.debian
+@@ -14,14 +14,14 @@ RUN useradd -m -u $UID -g $GID -o -s /bin/bash postgres
+ 
+ # Add PostgreSQL repository
+ RUN RELEASE_CODENAME=`lsb_release -c | awk '{print $2}'` && \
+-    echo 'deb http://apt.postgresql.org/pub/repos/apt/ '${RELEASE_CODENAME?}'-pgdg main' | \
++    echo 'deb http://apt.postgresql.org/pub/repos/apt/ '${RELEASE_CODENAME?}'-pgdg main 15' | \
+         tee -a /etc/apt/sources.list.d/pgdg.list
+ RUN APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=1 && \
+     wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
+ RUN apt-get update
+ 
+ # Install PostgreSQL
+-ENV PGVERSION=14
++ENV PGVERSION=15
+ 
+ RUN apt-get install -y postgresql-${PGVERSION?} postgresql-server-dev-${PGVERSION?}
+ 
+diff --git a/test/Dockerfile.rhel b/test/Dockerfile.rhel
+index 21a7c78..dd6d134 100644
+--- a/test/Dockerfile.rhel
++++ b/test/Dockerfile.rhel
+@@ -14,8 +14,11 @@ RUN useradd -m -u $UID -g $GID -o -s /bin/bash postgres
+ RUN rpm --import http://yum.postgresql.org/RPM-GPG-KEY-PGDG
+ RUN rpm -ivh https://download.postgresql.org/pub/repos/yum/reporpms/EL-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm
+ 
++# Enable PG15 repo (can be removed after the official release)
++RUN yum-config-manager --enable pgdg15-updates-testing
++
+ # Install PostgreSQL
+-ENV PGVERSION=14
++ENV PGVERSION=15
+ 
+ RUN yum install -y postgresql${PGVERSION?}-server postgresql${PGVERSION?}-devel postgresql${PGVERSION?}-contrib
+ 

@@ -1,0 +1,44 @@
+diff --git a/pgextwlist.c b/pgextwlist.c
+index fe474e2..1b4668b 100644
+--- a/pgextwlist.c
++++ b/pgextwlist.c
+@@ -363,7 +363,9 @@ extwlist_ProcessUtility(PROCESS_UTILITY_PROTO_ARGS)
+ 					 */
+ 					bool whitelisted = false;
+ 					List *objname = lfirst(lc);
+-#if PG_MAJOR_VERSION < 1000
++#if PG_VERSION_NUM >= 150000
++					name = strVal((String *) objname);
++#elif PG_MAJOR_VERSION < 1000
+ 					name = strVal(linitial(objname));
+ #else
+ 					name = strVal((Value *) objname);
+diff --git a/utils.c b/utils.c
+index d10c2f8..2d6214d 100644
+--- a/utils.c
++++ b/utils.c
+@@ -409,6 +409,15 @@ execute_sql_string(const char *sql, const char *filename)
+ 		List	   *stmt_list;
+ 		ListCell   *lc2;
+ 
++
++#if PG_VERSION_NUM >= 150000
++		stmt_list = pg_analyze_and_rewrite_fixedparams(parsetree,
++										   			   sql,
++										   			   NULL,
++										   			   0,
++													   NULL
++													   );
++#else		
+ 		stmt_list = pg_analyze_and_rewrite(parsetree,
+ 										   sql,
+ 										   NULL,
+@@ -417,6 +426,8 @@ execute_sql_string(const char *sql, const char *filename)
+ 										   , NULL
+ #endif
+ 										   );
++#endif
++
+ 		stmt_list = pg_plan_queries(stmt_list,
+ #if PG_MAJOR_VERSION >= 1300
+ 									sql,
