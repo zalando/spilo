@@ -1,26 +1,81 @@
 diff --git a/src/pg_cron.c b/src/pg_cron.c
-index 1a2ac26..5545894 100644
+index 839ce0d..5545894 100644
 --- a/src/pg_cron.c
 +++ b/src/pg_cron.c
+@@ -238,7 +238,7 @@ _PG_init(void)
+ 		NULL,
+ 		&EnableSuperuserJobs,
+ 		true,
+-		PGC_USERSET,
++		PGC_POSTMASTER,
+ 		GUC_SUPERUSER_ONLY,
+ 		NULL, NULL, NULL);
+ 
+@@ -268,7 +268,7 @@ _PG_init(void)
+ 			gettext_noop("Maximum number of jobs that can run concurrently."),
+ 			NULL,
+ 			&MaxRunningTasks,
+-			32,
++			(MaxConnections < 32) ? MaxConnections : 32,
+ 			0,
+ 			MaxConnections,
+ 			PGC_POSTMASTER,
+@@ -280,7 +280,7 @@ _PG_init(void)
+ 			gettext_noop("Maximum number of jobs that can run concurrently."),
+ 			NULL,
+ 			&MaxRunningTasks,
+-			5,
++			(max_worker_processes - 1 < 5) ? max_worker_processes - 1 : 5,
+ 			0,
+ 			max_worker_processes - 1,
+ 			PGC_POSTMASTER,
 @@ -998,6 +998,8 @@ WaitForLatch(int timeoutMs)
  
-        ResetLatch(MyLatch);
+ 	ResetLatch(MyLatch);
  
-+       CHECK_FOR_INTERRUPTS();
++	CHECK_FOR_INTERRUPTS();
 +
-        if (rc & WL_POSTMASTER_DEATH)
-        {
-                /* postmaster died and we should bail out immediately */
-@@ -2153,8 +2155,10 @@ ExecuteSqlString(const char *sql)
-                 * perform internal transaction control.
-                 */
-                oldcontext = MemoryContextSwitchTo(parsecontext);
--               #if PG_VERSION_NUM >= 100000
--                       querytree_list = pg_analyze_and_rewrite(parsetree, sql, NULL, 0,NULL);
-+               #if PG_VERSION_NUM >= 150000
-+                       querytree_list = pg_analyze_and_rewrite_fixedparams(parsetree, sql, NULL, 0, NULL);
-+               #elif PG_VERSION_NUM >= 100000
-+                       querytree_list = pg_analyze_and_rewrite(parsetree, sql, NULL, 0, NULL);
-                #else
-                        querytree_list = pg_analyze_and_rewrite(parsetree, sql, NULL, 0);
-                #endif
+ 	if (rc & WL_POSTMASTER_DEATH)
+ 	{
+ 		/* postmaster died and we should bail out immediately */
+@@ -1745,8 +1747,18 @@ ManageCronTask(CronTask *task, TimestampTz currentTime)
+ 		default:
+ 		{
+ 			int currentPendingRunCount = task->pendingRunCount;
++			CronJob *job = GetCronJob(jobId);
+ 
+-			InitializeCronTask(task, jobId);
++			/*
++			 * It may happen that job was unscheduled during task execution.
++			 * In this case we keep task as-is. Otherwise, we should
++			 * re-initialize task, i.e. reset fields to initial values including
++			 * status.
++			 */
++			if (job != NULL && job->active)
++				InitializeCronTask(task, jobId);
++			else
++				task->state = CRON_TASK_WAITING;
+ 
+ 			/*
+ 			 * We keep the number of runs that should have started while
+@@ -2028,7 +2040,6 @@ CronBackgroundWorker(Datum main_arg)
+ 	/* Post-execution cleanup. */
+ 	disable_timeout(STATEMENT_TIMEOUT, false);
+ 	CommitTransactionCommand();
+-	ProcessCompletedNotifies();
+ 	pgstat_report_activity(STATE_IDLE, command);
+ 	pgstat_report_stat(true);
+ 
+@@ -2144,8 +2155,10 @@ ExecuteSqlString(const char *sql)
+ 		 * perform internal transaction control.
+ 		 */
+ 		oldcontext = MemoryContextSwitchTo(parsecontext);
+-		#if PG_VERSION_NUM >= 100000
+-			querytree_list = pg_analyze_and_rewrite(parsetree, sql, NULL, 0,NULL);
++		#if PG_VERSION_NUM >= 150000
++			querytree_list = pg_analyze_and_rewrite_fixedparams(parsetree, sql, NULL, 0, NULL);
++		#elif PG_VERSION_NUM >= 100000
++			querytree_list = pg_analyze_and_rewrite(parsetree, sql, NULL, 0, NULL);
+ 		#else
+ 			querytree_list = pg_analyze_and_rewrite(parsetree, sql, NULL, 0);
+ 		#endif

@@ -7,7 +7,7 @@ index fe474e2..1b4668b 100644
  					bool whitelisted = false;
  					List *objname = lfirst(lc);
 -#if PG_MAJOR_VERSION < 1000
-+#if PG_VERSION_NUM >= 150000
++#if PG_MAJOR_VERSION >= 1500
 +					name = strVal((String *) objname);
 +#elif PG_MAJOR_VERSION < 1000
  					name = strVal(linitial(objname));
@@ -22,7 +22,7 @@ index d10c2f8..2d6214d 100644
  		ListCell   *lc2;
  
 +
-+#if PG_VERSION_NUM >= 150000
++#if PG_MAJOR_VERSION >= 1500
 +		stmt_list = pg_analyze_and_rewrite_fixedparams(parsetree,
 +										   			   sql,
 +										   			   NULL,

@@ -12,14 +12,14 @@ index d49b60a..71870f6 100644
  
  REGRESS = pgaudit
 diff --git a/README.md b/README.md
-index dab8e99..aff6ba6 100644
+index 439b4c8..538b22d 100644
 --- a/README.md
 +++ b/README.md
 @@ -50,12 +50,14 @@ To limit the number of relations audit logged for `SELECT` and `DML` statements,
  
  pgAudit was developed to support PostgreSQL 9.5 or greater.
  
--In order to support new functionality introduced in each PostgreSQL release, pgAudit maintains a separate branch for each PostgreSQL major version (currently PostgreSQL 9.5 - 14) which will be maintained in a manner similar to the PostgreSQL project.
+-In order to support new functionality introduced in each PostgreSQL release, pgAudit maintains a separate branch for each PostgreSQL major version (currently PostgreSQL 9.5 - 11) which will be maintained in a manner similar to the PostgreSQL project.
 +In order to support new functionality introduced in each PostgreSQL release, pgAudit maintains a separate branch for each PostgreSQL major version (currently PostgreSQL 9.5 - 15) which will be maintained in a manner similar to the PostgreSQL project.
  
  Aside from bug fixes, no further development is planned for stable branches. New development, if any, will be strictly for next unreleased major version of PostgreSQL.
@@ -35,51 +35,73 @@ index dab8e99..aff6ba6 100644
  ```
  cd pgaudit
  ```
--Checkout `REL_14_STABLE` branch (note that the stable branch may not exist for unreleased versions of PostgreSQL):
+-Checkout `REL_13_STABLE` branch (note that the stable branch may not exist for unreleased versions of PostgreSQL):
 +Checkout `REL_15_STABLE` branch (note that the stable branch may not exist for unreleased versions of PostgreSQL):
  ```
--git checkout REL_14_STABLE
+-git checkout REL_13_STABLE
 +git checkout REL_15_STABLE
  ```
  Build and install pgAudit:
  ```
--make install USE_PGXS=1 PG_CONFIG=/usr/pgsql-14/bin/pg_config
+-make install USE_PGXS=1 PG_CONFIG=/usr/pgsql-13/bin/pg_config
 +make install USE_PGXS=1 PG_CONFIG=/usr/pgsql-15/bin/pg_config
  ```
  Instructions for testing and development may be found in `test`.
  
-@@ -100,7 +102,7 @@ Settings may be modified only by a superuser. Allowing normal users to change th
+@@ -100,7 +102,11 @@ Settings may be modified only by a superuser. Allowing normal users to change th
  
  Settings can be specified globally (in `postgresql.conf` or using `ALTER SYSTEM ... SET`), at the database level (using `ALTER DATABASE ... SET`), or at the role level (using `ALTER ROLE ... SET`). Note that settings are not inherited through normal role inheritance and `SET ROLE` will not alter a user's pgAudit settings. This is a limitation of the roles system and not inherent to pgAudit.
  
--The pgAudit extension must be loaded in [shared_preload_libraries](http://www.postgresql.org/docs/14/runtime-config-client.html#GUC-SHARED-PRELOAD-LIBRARIES). Otherwise, an error will be raised at load time and no audit logging will occur.
+-The pgAudit extension must be loaded in [shared_preload_libraries](http://www.postgresql.org/docs/13/runtime-config-client.html#GUC-SHARED-PRELOAD-LIBRARIES). Otherwise, an error will be raised at load time and no audit logging will occur. In addition, `CREATE EXTENSION pgaudit` must be called before `pgaudit.log` is set. If the `pgaudit` extension is dropped and needs to be recreated then `pgaudit.log` must be unset first otherwise an error will be raised.
 +The pgAudit extension must be loaded in [shared_preload_libraries](http://www.postgresql.org/docs/15/runtime-config-client.html#GUC-SHARED-PRELOAD-LIBRARIES). Otherwise, an error will be raised at load time and no audit logging will occur.
++
++In addition, `CREATE EXTENSION pgaudit` must be called before `pgaudit.log` is set to ensure proper pgaudit functionality. The extension installs event triggers which add additional auditing for DDL. pgAudit will work without the extension installed but DDL statements will not have information about the object type and name.
++
++If the `pgaudit` extension is dropped and needs to be recreated then `pgaudit.log` must be unset first otherwise an error will be raised.
  
- In addition, `CREATE EXTENSION pgaudit` must be called before `pgaudit.log` is set to ensure proper pgaudit functionality. The extension installs event triggers which add additional auditing for DDL. pgAudit will work without the extension installed but DDL statements will not have information about the object type and name.
+ ### pgaudit.log
  
-@@ -146,7 +148,7 @@ The default is `off`.
+@@ -142,7 +148,7 @@ The default is `off`.
  
  ### pgaudit.log_level
  
--Specifies the log level that will be used for log entries (see [Message Severity Levels](http://www.postgresql.org/docs/14/runtime-config-logging.html#RUNTIME-CONFIG-SEVERITY-LEVELS) for valid levels) but note that `ERROR`, `FATAL`, and `PANIC` are not allowed). This setting is used for regression testing and may also be useful to end users for testing or other purposes.
+-Specifies the log level that will be used for log entries (see [Message Severity Levels](http://www.postgresql.org/docs/13/runtime-config-logging.html#RUNTIME-CONFIG-SEVERITY-LEVELS) for valid levels) but note that `ERROR`, `FATAL`, and `PANIC` are not allowed). This setting is used for regression testing and may also be useful to end users for testing or other purposes.
 +Specifies the log level that will be used for log entries (see [Message Severity Levels](http://www.postgresql.org/docs/15/runtime-config-logging.html#RUNTIME-CONFIG-SEVERITY-LEVELS) for valid levels) but note that `ERROR`, `FATAL`, and `PANIC` are not allowed). This setting is used for regression testing and may also be useful to end users for testing or other purposes.
  
  Note that `pgaudit.log_level` is only enabled when `pgaudit.log_client` is `on`; otherwise the default will be used.
  
-@@ -353,7 +355,7 @@ Audit entries are written to the standard logging facility and contain the follo
+@@ -349,7 +355,7 @@ Audit entries are written to the standard logging facility and contain the follo
  
  - **PARAMETER** - If `pgaudit.log_parameter` is set then this field will contain the statement parameters as quoted CSV or `<none>` if there are no parameters. Otherwise, the field is `<not logged>`.
  
--Use [log_line_prefix](http://www.postgresql.org/docs/14/runtime-config-logging.html#GUC-LOG-LINE-PREFIX) to add any other fields that are needed to satisfy your audit log requirements. A typical log line prefix might be `'%m %u %d [%p]: '` which would provide the date/time, user name, database name, and process id for each audit log.
+-Use [log_line_prefix](http://www.postgresql.org/docs/13/runtime-config-logging.html#GUC-LOG-LINE-PREFIX) to add any other fields that are needed to satisfy your audit log requirements. A typical log line prefix might be `'%m %u %d [%p]: '` which would provide the date/time, user name, database name, and process id for each audit log.
 +Use [log_line_prefix](http://www.postgresql.org/docs/15/runtime-config-logging.html#GUC-LOG-LINE-PREFIX) to add any other fields that are needed to satisfy your audit log requirements. A typical log line prefix might be `'%m %u %d [%p]: '` which would provide the date/time, user name, database name, and process id for each audit log.
  
  ## Caveats
  
+@@ -365,6 +371,8 @@ Autovacuum and Autoanalyze are not logged.
+ 
+ Statements that are executed after a transaction enters an aborted state will not be audit logged. However, the statement that caused the error and any subsequent statements executed in the aborted transaction will be logged as ERRORs by the standard logging facility.
+ 
++It is not possible to reliably audit superusers with pgAudit. One solution is to restrict access to superuser accounts and use the [set_user](https://github.com/pgaudit/set_user) extension to escalate permissions when required.
++
+ ## Authors
+ 
+ The PostgreSQL Audit Extension is based on the [2ndQuadrant](http://www.2ndquadrant.com) [pgaudit project](https://github.com/2ndQuadrant/pgaudit) authored by Simon Riggs, Abhijit Menon-Sen, and Ian Barwick and submitted as an extension to PostgreSQL core. Additional development has been done by David Steele of [Crunchy Data](http://www.crunchydata.com).
 diff --git a/expected/pgaudit.out b/expected/pgaudit.out
-index dd611f6..2becb8f 100644
+index 2cf7854..2becb8f 100644
 --- a/expected/pgaudit.out
 +++ b/expected/pgaudit.out
-@@ -2509,9 +2509,9 @@ SET pgaudit.log = 'all,-misc_set';
+@@ -1,6 +1,8 @@
+ \set VERBOSITY terse
+ -- Create pgaudit extension
+ CREATE EXTENSION IF NOT EXISTS pgaudit;
++-- Grant all on public schema to public
++GRANT ALL ON SCHEMA public TO public;
+ -- Make sure events don't get logged twice when session logging
+ SET pgaudit.log = 'all';
+ SET pgaudit.log_client = ON;
+@@ -2507,9 +2509,9 @@ SET pgaudit.log = 'all,-misc_set';
  SET pgaudit.log_level = 'warning';
  CREATE EXTENSION pg_stat_statements;
  WARNING:  AUDIT: SESSION,3,1,DDL,CREATE EXTENSION,,,CREATE EXTENSION pg_stat_statements;,<not logged>
@@ -142,6 +164,19 @@ diff --git a/pgaudit--1.6.2.sql b/pgaudit--1.7.sql
 similarity index 100%
 rename from pgaudit--1.6.2.sql
 rename to pgaudit--1.7.sql
+diff --git a/pgaudit.c b/pgaudit.c
+index 710b65e..ea9161a 100644
+--- a/pgaudit.c
++++ b/pgaudit.c
+@@ -2162,7 +2162,7 @@ _PG_init(void)
+     DefineCustomStringVariable(
+         "pgaudit.role",
+ 
+-        "Specifies the master role to use for object audit logging.  Muliple "
++        "Specifies the master role to use for object audit logging.  Multiple "
+         "audit roles can be defined by granting them to the master role. This "
+         "allows multiple groups to be in charge of different aspects of audit "
+         "logging.",
 diff --git a/pgaudit.control b/pgaudit.control
 index b18ca39..feef21e 100644
 --- a/pgaudit.control
@@ -154,10 +189,20 @@ index b18ca39..feef21e 100644
  module_pathname = '$libdir/pgaudit'
  relocatable = true
 diff --git a/sql/pgaudit.sql b/sql/pgaudit.sql
-index bb20525..fa6f00e 100644
+index 4aab306..fa6f00e 100644
 --- a/sql/pgaudit.sql
 +++ b/sql/pgaudit.sql
-@@ -1586,7 +1586,7 @@ SET pgaudit.log = 'all,-misc_set';
+@@ -3,6 +3,9 @@
+ -- Create pgaudit extension
+ CREATE EXTENSION IF NOT EXISTS pgaudit;
+ 
++-- Grant all on public schema to public
++GRANT ALL ON SCHEMA public TO public;
++
+ -- Make sure events don't get logged twice when session logging
+ SET pgaudit.log = 'all';
+ SET pgaudit.log_client = ON;
+@@ -1583,7 +1586,7 @@ SET pgaudit.log = 'all,-misc_set';
  SET pgaudit.log_level = 'warning';
  
  CREATE EXTENSION pg_stat_statements;
@@ -167,40 +212,109 @@ index bb20525..fa6f00e 100644
  
  SET pgaudit.log_level = 'notice';
 diff --git a/test/Dockerfile.debian b/test/Dockerfile.debian
-index f66cf06..bcd63f9 100644
+index 06adc2d..bcd63f9 100644
 --- a/test/Dockerfile.debian
 +++ b/test/Dockerfile.debian
-@@ -14,14 +14,14 @@ RUN useradd -m -u $UID -g $GID -o -s /bin/bash postgres
+@@ -1,33 +1,35 @@
+ FROM ubuntu:focal
  
- # Add PostgreSQL repository
+-# User and group id
+-ARG UID=1000
+-ARG GID=1000
+-
+-# Setup environment
+-ENV PGVERSION=14
+-ENV PGBIN=/usr/lib/postgresql/${PGVERSION}/bin
+-ENV PGDATA="/var/lib/postgresql/${PGVERSION}/test"
+-ENV PATH="${PATH}:${PGBIN}"
+-
+ # Install packages
+ RUN apt-get update
+-RUN DEBIAN_FRONTEND=noninteractive apt-get install -y sudo wget gnupg tzdata locales lsb-release apt-utils
++RUN DEBIAN_FRONTEND=noninteractive apt-get install -y sudo wget gnupg tzdata locales lsb-release apt-utils make gcc libssl-dev \
++    libkrb5-dev
+ 
+ # Create postgres user/group with specific IDs
++ARG UID=1000
++ARG GID=1000
++
+ RUN groupadd -g $GID -o postgres
+ RUN useradd -m -u $UID -g $GID -o -s /bin/bash postgres
+ 
+-# Install PostgreSQL
++# Add PostgreSQL repository
  RUN RELEASE_CODENAME=`lsb_release -c | awk '{print $2}'` && \
--    echo 'deb http://apt.postgresql.org/pub/repos/apt/ '${RELEASE_CODENAME?}'-pgdg main' | \
+-    echo 'deb http://apt.postgresql.org/pub/repos/apt/ '${RELEASE_CODENAME?}'-pgdg main 14' | \
 +    echo 'deb http://apt.postgresql.org/pub/repos/apt/ '${RELEASE_CODENAME?}'-pgdg main 15' | \
          tee -a /etc/apt/sources.list.d/pgdg.list
  RUN APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=1 && \
      wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
  RUN apt-get update
- 
- # Install PostgreSQL
--ENV PGVERSION=14
+-RUN apt-get install -y postgresql-${PGVERSION?} postgresql-server-dev-${PGVERSION?} make gcc libssl-dev libkrb5-dev
++
++# Install PostgreSQL
 +ENV PGVERSION=15
++
++RUN apt-get install -y postgresql-${PGVERSION?} postgresql-server-dev-${PGVERSION?}
  
- RUN apt-get install -y postgresql-${PGVERSION?} postgresql-server-dev-${PGVERSION?}
+ # Create PostgreSQL cluster
++ENV PGBIN=/usr/lib/postgresql/${PGVERSION}/bin
++ENV PGDATA="/var/lib/postgresql/${PGVERSION}/test"
++ENV PATH="${PATH}:${PGBIN}"
++
+ RUN sudo -u postgres ${PGBIN?}/initdb -A trust -k ${PGDATA?}
+ RUN echo "shared_preload_libraries = 'pgaudit'" >> ${PGDATA}/postgresql.conf
  
 diff --git a/test/Dockerfile.rhel b/test/Dockerfile.rhel
-index 21a7c78..dd6d134 100644
+index cb982f3..dd6d134 100644
 --- a/test/Dockerfile.rhel
 +++ b/test/Dockerfile.rhel
-@@ -14,8 +14,11 @@ RUN useradd -m -u $UID -g $GID -o -s /bin/bash postgres
+@@ -1,32 +1,32 @@
+ FROM centos:7
+ 
+-# User and group id
+-ARG UID=1000
+-ARG GID=1000
+-
+-# Setup environment
+-ENV PGVERSION=14
+-ENV PGBIN=/usr/pgsql-${PGVERSION}/bin
+-ENV PGDATA="/var/lib/pgsql/${PGVERSION}/data"
+-ENV PATH="${PATH}:${PGBIN}"
+-
+ # Install packages
+-RUN yum install -y centos-release-scl-rh epel-release
+-RUN yum install -y sudo
++RUN yum install -y centos-release-scl-rh epel-release sudo make gcc openssl-devel llvm-toolset-7-clang llvm5.0
+ 
+ # Create postgres user/group with specific IDs
++ARG UID=1000
++ARG GID=1000
++
+ RUN groupadd -g $GID -o postgres
+ RUN useradd -m -u $UID -g $GID -o -s /bin/bash postgres
+ 
+-# Install PostgreSQL
++# Add PostgreSQL repository
  RUN rpm --import http://yum.postgresql.org/RPM-GPG-KEY-PGDG
  RUN rpm -ivh https://download.postgresql.org/pub/repos/yum/reporpms/EL-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm
- 
+-# Enable PG14 repo (can be removed after the official release)
+-RUN yum-config-manager --enable pgdg14-updates-testing
+-RUN yum install -y postgresql${PGVERSION?}-server postgresql${PGVERSION?}-devel postgresql${PGVERSION?}-contrib \
+-                   make gcc openssl-devel llvm-toolset-7-clang llvm5.0
++
 +# Enable PG15 repo (can be removed after the official release)
 +RUN yum-config-manager --enable pgdg15-updates-testing
 +
- # Install PostgreSQL
--ENV PGVERSION=14
++# Install PostgreSQL
 +ENV PGVERSION=15
++
++RUN yum install -y postgresql${PGVERSION?}-server postgresql${PGVERSION?}-devel postgresql${PGVERSION?}-contrib
  
- RUN yum install -y postgresql${PGVERSION?}-server postgresql${PGVERSION?}-devel postgresql${PGVERSION?}-contrib
- 
+ # Create PostgreSQL cluster
++ENV PGBIN=/usr/pgsql-${PGVERSION}/bin
++ENV PGDATA="/var/lib/pgsql/${PGVERSION}/data"
++ENV PATH="${PATH}:${PGBIN}"
++
+ RUN sudo -u postgres ${PGBIN?}/initdb -A trust -k ${PGDATA?}
+ RUN echo "shared_preload_libraries = 'pgaudit'" >> ${PGDATA?}/postgresql.conf

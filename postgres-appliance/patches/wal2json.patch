@@ -1,7 +1,36 @@
 diff --git a/wal2json.c b/wal2json.c
-index 75b33c8..c4772e5 100644
+index 4f92d80..c4772e5 100644
 --- a/wal2json.c
 +++ b/wal2json.c
+@@ -3,7 +3,7 @@
+  * wal2json.c
+  * 		JSON output plugin for changeset extraction
+  *
+- * Copyright (c) 2013-2020, Euler Taveira de Oliveira
++ * Copyright (c) 2013-2022, Euler Taveira de Oliveira
+  *
+  * IDENTIFICATION
+  *		contrib/wal2json/wal2json.c
+@@ -68,7 +68,7 @@ typedef struct
+ 	bool		include_pk;			/* include primary key */
+ 
+ 	bool		pretty_print;		/* pretty-print JSON? */
+-	bool		write_in_chunks;	/* write in chunks? */
++	bool		write_in_chunks;	/* write in chunks? (v1) */
+ 
+ 	JsonAction	actions;			/* output only these actions */
+ 
+@@ -135,8 +135,8 @@ static void pg_decode_truncate(LogicalDecodingContext *ctx,
+ 					ReorderBufferChange *change);
+ #endif
+ 
+-static void columns_to_stringinfo(LogicalDecodingContext *ctx, TupleDesc tupdesc, HeapTuple tuple, bool addcomma, Oid reloid);
+-static void tuple_to_stringinfo(LogicalDecodingContext *ctx, TupleDesc tupdesc, HeapTuple tuple, Bitmapset *bs, bool replident, bool addcomma, Oid reloid);
++static void columns_to_stringinfo(LogicalDecodingContext *ctx, TupleDesc tupdesc, HeapTuple tuple, bool addcomma, Relation relation);
++static void tuple_to_stringinfo(LogicalDecodingContext *ctx, TupleDesc tupdesc, HeapTuple tuple, Bitmapset *bs, bool replident, bool addcomma, Relation relation);
+ static void pk_to_stringinfo(LogicalDecodingContext *ctx, TupleDesc tupdesc, HeapTuple tuple, Bitmapset *bs, bool addcomma);
+ static void identity_to_stringinfo(LogicalDecodingContext *ctx, TupleDesc tupdesc, HeapTuple tuple, Bitmapset *bs);
+ static bool parse_table_identifier(List *qualified_tables, char separator, List **select_tables);
 @@ -820,7 +820,12 @@ pg_decode_begin_txn_v1(LogicalDecodingContext *ctx, ReorderBufferTXN *txn)
  	}
  
@@ -28,18 +57,20 @@ index 75b33c8..c4772e5 100644
  
  #if PG_VERSION_NUM >= 90500
  	if (data->include_origin)
-@@ -876,7 +885,9 @@ pg_decode_commit_txn(LogicalDecodingContext *ctx, ReorderBufferTXN *txn,
+@@ -876,6 +885,12 @@ pg_decode_commit_txn(LogicalDecodingContext *ctx, ReorderBufferTXN *txn,
  {
  	JsonDecodingData *data = ctx->output_plugin_private;
  
--#if PG_VERSION_NUM >= 100000
 +#if	PG_VERSION_NUM >= 150000
 +	OutputPluginUpdateProgress(ctx, false);
 +#elif PG_VERSION_NUM >= 100000
- 	OutputPluginUpdateProgress(ctx);
- #endif
++	OutputPluginUpdateProgress(ctx);
++#endif
++
+ 	elog(DEBUG2, "my change counter: " UINT64_FORMAT " ; # of changes: " UINT64_FORMAT " ; # of changes in memory: " UINT64_FORMAT, data->nr_changes, txn->nentries, txn->nentries_mem);
+ 	elog(DEBUG2, "# of subxacts: %d", txn->nsubtxns);
  
-@@ -925,7 +936,12 @@ pg_decode_commit_txn_v2(LogicalDecodingContext *ctx, ReorderBufferTXN *txn,
+@@ -921,7 +936,12 @@ pg_decode_commit_txn_v2(LogicalDecodingContext *ctx, ReorderBufferTXN *txn,
  	if (data->include_xids)
  		appendStringInfo(ctx->out, ",\"xid\":%u", txn->xid);
  	if (data->include_timestamp)
@@ -53,7 +84,138 @@ index 75b33c8..c4772e5 100644
  
  #if PG_VERSION_NUM >= 90500
  	if (data->include_origin)
-@@ -2208,7 +2224,12 @@ pg_decode_write_change(LogicalDecodingContext *ctx, ReorderBufferTXN *txn, Relat
+@@ -949,7 +969,7 @@ pg_decode_commit_txn_v2(LogicalDecodingContext *ctx, ReorderBufferTXN *txn,
+  * replident: is this tuple a replica identity?
+  */
+ static void
+-tuple_to_stringinfo(LogicalDecodingContext *ctx, TupleDesc tupdesc, HeapTuple tuple, Bitmapset *bs, bool replident, bool addcomma, Oid reloid)
++tuple_to_stringinfo(LogicalDecodingContext *ctx, TupleDesc tupdesc, HeapTuple tuple, Bitmapset *bs, bool replident, bool addcomma, Relation relation)
+ {
+ 	JsonDecodingData	*data;
+ 	int					natt;
+@@ -1082,6 +1102,7 @@ tuple_to_stringinfo(LogicalDecodingContext *ctx, TupleDesc tupdesc, HeapTuple tu
+ 		if (data->include_types)
+ 		{
+ 			char	*type_str;
++			int		len;
+ 			Form_pg_type type_form = (Form_pg_type) GETSTRUCT(type_tuple);
+ 
+ 			/*
+@@ -1121,9 +1142,11 @@ tuple_to_stringinfo(LogicalDecodingContext *ctx, TupleDesc tupdesc, HeapTuple tu
+ 			/*
+ 			 * format_type() returns a quoted identifier, if
+ 			 * required. In this case, it doesn't need to enclose the type name
+-			 * in double quotes.
++			 * in double quotes. However, if it is an array type, it should
++			 * escape it because the brackets are outside the double quotes.
+ 			 */
+-			if (type_str[0] == '"')
++			len = strlen(type_str);
++			if (type_str[0] == '"' && type_str[len - 1] != ']')
+ 				appendStringInfo(&coltypes, "%s", type_str);
+ 			else
+ 				escape_json(&coltypes, type_str);
+@@ -1169,7 +1192,7 @@ tuple_to_stringinfo(LogicalDecodingContext *ctx, TupleDesc tupdesc, HeapTuple tu
+ 				ScanKeyInit(&scankeys[0],
+ 							Anum_pg_attrdef_adrelid,
+ 							BTEqualStrategyNumber, F_OIDEQ,
+-							ObjectIdGetDatum(reloid));
++							ObjectIdGetDatum(relation->rd_id));
+ 				ScanKeyInit(&scankeys[1],
+ 							Anum_pg_attrdef_adnum,
+ 							BTEqualStrategyNumber, F_INT2EQ,
+@@ -1187,7 +1210,7 @@ tuple_to_stringinfo(LogicalDecodingContext *ctx, TupleDesc tupdesc, HeapTuple tu
+ 					{
+ 						result = TextDatumGetCString(DirectFunctionCall2(pg_get_expr,
+ 																	def_value,
+-																	ObjectIdGetDatum(tuple->t_tableOid)));
++																	ObjectIdGetDatum(relation->rd_id)));
+ 
+ 						appendStringInfo(&coldefaults, "%s\"%s\"", comma, result);
+ 						pfree(result);
+@@ -1346,9 +1369,9 @@ tuple_to_stringinfo(LogicalDecodingContext *ctx, TupleDesc tupdesc, HeapTuple tu
+ 
+ /* Print columns information */
+ static void
+-columns_to_stringinfo(LogicalDecodingContext *ctx, TupleDesc tupdesc, HeapTuple tuple, bool addcomma, Oid reloid)
++columns_to_stringinfo(LogicalDecodingContext *ctx, TupleDesc tupdesc, HeapTuple tuple, bool addcomma, Relation relation)
+ {
+-	tuple_to_stringinfo(ctx, tupdesc, tuple, NULL, false, addcomma, reloid);
++	tuple_to_stringinfo(ctx, tupdesc, tuple, NULL, false, addcomma, relation);
+ }
+ 
+ /* Print replica identity information */
+@@ -1356,7 +1379,7 @@ static void
+ identity_to_stringinfo(LogicalDecodingContext *ctx, TupleDesc tupdesc, HeapTuple tuple, Bitmapset *bs)
+ {
+ 	/* Last parameter does not matter */
+-	tuple_to_stringinfo(ctx, tupdesc, tuple, bs, true, false, InvalidOid);
++	tuple_to_stringinfo(ctx, tupdesc, tuple, bs, true, false, NULL);
+ }
+ 
+ /* Print primary key information */
+@@ -1751,17 +1774,17 @@ pg_decode_change_v1(LogicalDecodingContext *ctx, ReorderBufferTXN *txn,
+ 			if (data->include_pk && OidIsValid(relation->rd_replidindex) &&
+ 					relation->rd_rel->relreplident == REPLICA_IDENTITY_DEFAULT)
+ 			{
+-				columns_to_stringinfo(ctx, tupdesc, &change->data.tp.newtuple->tuple, true, change->data.tp.relnode.relNode);
++				columns_to_stringinfo(ctx, tupdesc, &change->data.tp.newtuple->tuple, true, relation);
+ 				pk_to_stringinfo(ctx, tupdesc, &change->data.tp.newtuple->tuple, pkbs, false);
+ 			}
+ 			else
+ 			{
+-				columns_to_stringinfo(ctx, tupdesc, &change->data.tp.newtuple->tuple, false, change->data.tp.relnode.relNode);
++				columns_to_stringinfo(ctx, tupdesc, &change->data.tp.newtuple->tuple, false, relation);
+ 			}
+ 			break;
+ 		case REORDER_BUFFER_CHANGE_UPDATE:
+ 			/* Print the new tuple */
+-			columns_to_stringinfo(ctx, tupdesc, &change->data.tp.newtuple->tuple, true, change->data.tp.relnode.relNode);
++			columns_to_stringinfo(ctx, tupdesc, &change->data.tp.newtuple->tuple, true, relation);
+ 			if (data->include_pk && OidIsValid(relation->rd_replidindex) &&
+ 					relation->rd_rel->relreplident == REPLICA_IDENTITY_DEFAULT)
+ 				pk_to_stringinfo(ctx, tupdesc, &change->data.tp.newtuple->tuple, pkbs, true);
+@@ -1979,6 +2002,7 @@ pg_decode_write_tuple(LogicalDecodingContext *ctx, Relation relation, HeapTuple
+ 			HeapTuple		type_tuple;
+ 			Form_pg_type	type_form;
+ 			char			*type_str;
++			int				len;
+ 
+ 			type_tuple = SearchSysCache1(TYPEOID, ObjectIdGetDatum(attr->atttypid));
+ 			type_form = (Form_pg_type) GETSTRUCT(type_tuple);
+@@ -1996,17 +2020,28 @@ pg_decode_write_tuple(LogicalDecodingContext *ctx, Relation relation, HeapTuple
+ 			/*
+ 			 * format_type_with_typemod() returns a quoted identifier, if
+ 			 * required. In this case, it doesn't need to enclose the type name
+-			 * in double quotes.
++			 * in double quotes. However, if it is an array type, it should
++			 * escape it because the brackets are outside the double quotes.
+ 			 */
+-			if (type_str[0] == '"')
++			len = strlen(type_str);
++			if (type_str[0] == '"' && type_str[len -1] != ']')
+ 				appendStringInfo(ctx->out, "%s", type_str);
+ 			else
+-				appendStringInfo(ctx->out, "\"%s\"", type_str);
++				escape_json(ctx->out, type_str);
+ 			pfree(type_str);
+ 
+ 			ReleaseSysCache(type_tuple);
+ 		}
+ 
++		/*
++		 * Print type oid for columns.
++		 */
++		if (data->include_type_oids)
++		{
++			appendStringInfoString(ctx->out, ",\"typeoid\":");
++			appendStringInfo(ctx->out, "%d", attr->atttypid);
++		}
++
+ 		if (kind != PGOUTPUTJSON_PK)
+ 		{
+ 			appendStringInfoString(ctx->out, ",\"value\":");
+@@ -2189,7 +2224,12 @@ pg_decode_write_change(LogicalDecodingContext *ctx, ReorderBufferTXN *txn, Relat
  		appendStringInfo(ctx->out, ",\"xid\":%u", txn->xid);
  
  	if (data->include_timestamp)
@@ -66,7 +228,7 @@ index 75b33c8..c4772e5 100644
  
  #if PG_VERSION_NUM >= 90500
  	if (data->include_origin)
-@@ -2520,7 +2541,12 @@ pg_decode_message_v2(LogicalDecodingContext *ctx, ReorderBufferTXN *txn,
+@@ -2501,7 +2541,12 @@ pg_decode_message_v2(LogicalDecodingContext *ctx, ReorderBufferTXN *txn,
  	if (data->include_timestamp)
  	{
  		if (transactional)
@@ -79,7 +241,7 @@ index 75b33c8..c4772e5 100644
  		else
  			appendStringInfoString(ctx->out, ",\"timestamp\":null");
  	}
-@@ -2638,7 +2664,12 @@ static void pg_decode_truncate_v1(LogicalDecodingContext *ctx,
+@@ -2619,7 +2664,12 @@ static void pg_decode_truncate_v1(LogicalDecodingContext *ctx,
  		appendStringInfo(ctx->out, "%s%s%s\"xid\":%s%u,%s", data->ht, data->ht, data->ht, data->sp, txn->xid, data->nl);
  
  	if (data->include_timestamp)
@@ -92,7 +254,7 @@ index 75b33c8..c4772e5 100644
  
  	if (data->include_origin)
  		appendStringInfo(ctx->out, "%s%s%s\"origin\":%s%u,%s", data->ht, data->ht, data->ht, data->sp, txn->origin_id, data->nl);
-@@ -2723,7 +2754,12 @@ static void pg_decode_truncate_v2(LogicalDecodingContext *ctx,
+@@ -2704,7 +2754,12 @@ static void pg_decode_truncate_v2(LogicalDecodingContext *ctx,
  			appendStringInfo(ctx->out, ",\"xid\":%u", txn->xid);
  
  		if (data->include_timestamp)

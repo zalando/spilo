@@ -147,7 +147,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && apt-get update \
     && cd /builddeps \
 \
-    && BUILD_PACKAGES="devscripts equivs build-essential fakeroot debhelper git gcc libc6-dev make cmake libevent-dev libbrotli-dev libssl-dev libkrb5-dev" \
+    && BUILD_PACKAGES="devscripts equivs build-essential fakeroot debhelper git gcc libc6-dev make cmake libevent-dev libbrotli-dev libssl-dev libkrb5-dev libprotobuf-c-dev" \
     && if [ "$DEMO" = "true" ]; then \
         export DEB_PG_SUPPORTED_VERSIONS="$PGVERSION" \
         && WITH_PERL=false \
@@ -201,7 +201,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                         postgresql-${version}-dirtyread \
                         postgresql-${version}-extra-window-functions \
                         postgresql-${version}-first-last-agg \
-                        postgresql-${version}-hypopg" \
+                        postgresql-${version}-hypopg \
+                        postgresql-${version}-plproxy" \
 \
                 && if [ $version != "15" ]; then \
                     # not yet adapted for pg15
@@ -209,7 +210,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                         postgresql-${version}-pgaudit \
                         postgresql-${version}-repack \
                         postgresql-${version}-wal2json \
-                        postgresql-${version}-plproxy \
                         postgresql-${version}-hll \
                         postgresql-${version}-pg-checksums \
                         postgresql-${version}-pgl-ddl-deploy \
@@ -233,7 +233,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                     EXTRAS="$EXTRAS postgresql-${version}-amcheck"; \
                 fi \
                 #those that have patches
-                && MISSING_EXTRAS="pgaudit repack wal2json plproxy decoderbufs"; \
+                && MISSING_EXTRAS="pgaudit repack wal2json decoderbufs"; \
             fi \
 \
             # Install PostgreSQL binaries, contrib, plproxy and multiple pl's
