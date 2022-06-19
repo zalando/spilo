@@ -147,14 +147,14 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && apt-get update \
     && cd /builddeps \
 \
-    && BUILD_PACKAGES="devscripts equivs build-essential fakeroot debhelper git gcc libc6-dev make cmake libevent-dev libbrotli-dev libssl-dev libkrb5-dev libprotobuf-c-dev" \
+    && BUILD_PACKAGES="devscripts equivs build-essential fakeroot debhelper git gcc libc6-dev make cmake libevent-dev libbrotli-dev libssl-dev libkrb5-dev" \
     && if [ "$DEMO" = "true" ]; then \
         export DEB_PG_SUPPORTED_VERSIONS="$PGVERSION" \
         && WITH_PERL=false \
         && rm -f *.deb \
         && apt-get install -y $BUILD_PACKAGES; \
     else \
-        BUILD_PACKAGES="$BUILD_PACKAGES zlib1g-dev libpam0g-dev libcurl4-openssl-dev libicu-dev python libc-ares-dev pandoc pkg-config" \
+        BUILD_PACKAGES="$BUILD_PACKAGES zlib1g-dev libprotobuf-c-dev libpam0g-dev libcurl4-openssl-dev libicu-dev python libc-ares-dev pandoc pkg-config" \
         && apt-get install -y $BUILD_PACKAGES libcurl4 \
 \
         # install pam_oauth2.so
@@ -310,8 +310,15 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             && perl -ne 'print unless /PG_TRY/ .. /PG_CATCH/' pgextwlist.c > pgextwlist.c.f \
             && egrep -v '(PG_END_TRY|EmitWarningsOnPlaceholders)' pgextwlist.c.f > pgextwlist.c; \
         fi \
+        && if [ "$pkg" = "pgaudit" ]; then \
+            echo "15" > debian/pgversions; \
+        fi \
         && pg_buildext updatecontrol \
-        && DEB_BUILD_OPTIONS=nocheck debuild -b -uc -us \
+        && if [ "$pkg" = "pgextwlist" ]; then \
+            DEB_BUILD_OPTIONS=nocheck debuild -b -uc -us; \
+        else \
+            DEB_BUILD_OPTIONS=nocheck DEB_PG_SUPPORTED_VERSIONS=$PGVERSION debuild -b -uc -us; \
+        fi \
         && cd .. \
         && for version in $DEB_PG_SUPPORTED_VERSIONS; do \
             for deb in postgresql-${version}-${pkg}_*.deb; do \
