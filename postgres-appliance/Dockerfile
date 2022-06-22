@@ -243,8 +243,9 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                     postgresql-${version}-pg-stat-kcache $EXTRAS \
 \
             && if [ $version != "15" ]; then \
-                apt-get install -y postgresql-${version}-cron \
-                && MISSING="cron"; \
+                apt-get install -y postgresql-${version}-cron; \
+            else \
+                MISSING="cron"; \
             fi \
 \
             # Install 3rd party stuff
@@ -291,12 +292,13 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             # due to dependency issues partman has to be installed separately
             if [ $version != "15" ]; then \
                 apt-get install -y postgresql-${version}-partman; \
+            else \
+                MISSING_EXTRAS="$MISSING_EXTRAS partman"; \
             fi \
             # create postgis symlinks to make it possible to perform update
             && ln -s postgis-${POSTGIS_VERSION%.*}.so \
                 /usr/lib/postgresql/${version}/lib/postgis-2.5.so; \
-        done \
-        && MISSING_EXTRAS="$MISSING_EXTRAS partman"; \
+        done; \
     fi \
 \
     # build and install missing packages
@@ -339,7 +341,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     # Try to minimize size by creating symlinks instead of duplicate files
     && if [ "$DEMO" != "true" ]; then \
         cd /usr/lib/postgresql/$PGVERSION/bin \
-        && for u in clusterdb pg_archivecleanup pg_basebackup pg_isready pg_recvlogical pg_test_fsync pg_test_timing pgbench psql reindexdb vacuumdb vacuumlo *.py; do \
+        && for u in clusterdb pg_archivecleanup pg_basebackup pg_isready pg_recvlogical pg_test_fsync pg_test_timing pgbench reindexdb vacuumlo *.py; do \
             for v in /usr/lib/postgresql/*; do \
                 if [ "$v" != "/usr/lib/postgresql/$PGVERSION" ] && [ -f "$v/bin/$u" ]; then \
                     rm $v/bin/$u \
@@ -455,6 +457,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 | patch -d /usr/local/lib/python3.6/dist-packages/wal_e -p2 \
         # WALE_DISABLE_S3_SSE support
         && curl -sL https://github.com/CyberDem0n/wal-e/commit/0309317d33d252fcd968b3eb97313a9fdf022c65.diff \
+                | patch -d /usr/local/lib/python3.6/dist-packages/wal_e -p2 \
+        && curl -sL https://github.com/hughcapet/wal-e/commit/1d94336c14b1f36418963004f35642404d04e250.diff \
                 | patch -d /usr/local/lib/python3.6/dist-packages/wal_e -p2 \
         # Revert https://github.com/wal-e/wal-e/commit/485d834a18c9b0d97115d95f89e16bdc564e9a18, it affects S3 performance
         && curl -sL https://github.com/wal-e/wal-e/commit/485d834a18c9b0d97115d95f89e16bdc564e9a18.diff \
