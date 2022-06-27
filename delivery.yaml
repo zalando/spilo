@@ -24,7 +24,7 @@ pipeline:
   - desc: Tag and push spilo-cdp docker image
     cmd: |
       # push docker images only for commits to the master branch
-      if [ "x${CDP_SOURCE_BRANCH}" == "x" ] && [ "x${CDP_TARGET_BRANCH}" == "xmaster" ]; then
+      if [ "x${CDP_SOURCE_BRANCH}" == "x" ] && [ "x${CDP_TARGET_BRANCH}" == "xfeature/postgresql-15" ]; then
           cd postgres-appliance
           PATRONIVERSION=$(sed -n 's/^ENV PATRONIVERSION=\([1-9][0-9]*\.[0-9]*\).*$/\1/p' Dockerfile)
           IMAGE="$IMAGE-cdp-$PGVERSION:$PATRONIVERSION-p$CDP_TARGET_BRANCH_COUNTER"
@@ -32,31 +32,6 @@ pipeline:
           docker images
           docker push $IMAGE
       fi
-- id: tag-spilo
-  depends_on: [build-spilo-cdp]
-  type: script
-  requires_human_approval: true
-  when:
-    event: push
-    branch: master
-  env:
-    <<: *ENV
-  commands:
-  - desc: Tag and push production spilo
-    cmd: |
-      sudo apt-get update
-      sudo apt-get install -y jq
-      PATRONIVERSION=$(sed -n 's/^ENV PATRONIVERSION=\([1-9][0-9]*\.[0-9]*\).*$/\1/p' postgres-appliance/Dockerfile)
-      CDP_IMAGE="$IMAGE-cdp-$PGVERSION:$PATRONIVERSION-p$CDP_TARGET_BRANCH_COUNTER"
-      docker pull $CDP_IMAGE
-      PIERONE_TAGS=$(curl -sL https://$(echo $IMAGE | sed 's|/|/v1/repositories/|')-$PGVERSION/tags)
-      COUNTER=$((git tag && echo "$PIERONE_TAGS" | jq -r 'keys | .[]') | sed -n "s/^$PATRONIVERSION-p//p" | sort -un | tail -n1)
-      TAG="$PATRONIVERSION-p$((COUNTER+1))"
-      PROD_IMAGE="$IMAGE-$PGVERSION:$TAG"
-      docker tag $CDP_IMAGE $PROD_IMAGE
-      docker images
-      docker push $PROD_IMAGE
-      git gh-tag -m $(echo $PROD_IMAGE | sed 's/-write//') $TAG
 
 - id: build-spilo-cdp-arm64
   env:
@@ -82,7 +57,7 @@ pipeline:
   - desc: Tag and push spilo-cdp-arm64 docker image
     cmd: |
       # push docker images only for commits to the master branch
-      if [ "x${CDP_SOURCE_BRANCH}" == "x" ] && [ "x${CDP_TARGET_BRANCH}" == "xmaster" ]; then
+      if [ "x${CDP_SOURCE_BRANCH}" == "x" ] && [ "x${CDP_TARGET_BRANCH}" == "xfeature/postgresql-15" ]; then
           cd postgres-appliance
           PATRONIVERSION=$(sed -n 's/^ENV PATRONIVERSION=\([1-9][0-9]*\.[0-9]*\).*$/\1/p' Dockerfile)
           IMAGE="$IMAGE-cdp-$ARCH-$PGVERSION:$PATRONIVERSION-p$CDP_TARGET_BRANCH_COUNTER"

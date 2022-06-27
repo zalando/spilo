@@ -1,6 +1,6 @@
 FROM ubuntu:18.04
 
-MAINTAINER Alexander Kukushkin <alexander.kukushkin@zalando.de>
+LABEL maintainer="Alexander Kukushkin <alexander.kukushkin@zalando.de>"
 
 ENV SOURCES="gdal"
 ENV PACKAGES="libgdal20"

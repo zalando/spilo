@@ -506,7 +506,7 @@ hosts deny = *
         except Exception:
             return logger.error('Failed to drop possibly incompatible extensions')
 
-        if not self.postgresql.pg_upgrade(self.desired_version, check=True):
+        if not self.postgresql.pg_upgrade(check=True):
             return logger.error('pg_upgrade --check failed, more details in the %s_upgrade', self.postgresql.data_dir)
 
         try:
@@ -555,7 +555,7 @@ hosts deny = *
             results = pool.map_async(self.checkpoint, self.replica_connections.items())
             pool.close()
 
-        if not self.postgresql.pg_upgrade(self.desired_version):
+        if not self.postgresql.pg_upgrade():
             return logger.error('Failed to upgrade cluster from %s to %s', self.cluster_version, self.desired_version)
 
         self.postgresql.switch_pgdata()

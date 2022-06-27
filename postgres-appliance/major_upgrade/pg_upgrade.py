@@ -157,7 +157,7 @@ class _PostgresqlUpgrade(Postgresql):
             os.rename(self._data_dir, self._new_data_dir)
         os.rename(self._old_data_dir, self._data_dir)
 
-    def pg_upgrade(self, desired_version, check=False):
+    def pg_upgrade(self, check=False):
         upgrade_dir = self._data_dir + '_upgrade'
         if os.path.exists(upgrade_dir) and os.path.isdir(upgrade_dir):
             shutil.rmtree(upgrade_dir)
@@ -183,9 +183,6 @@ class _PostgresqlUpgrade(Postgresql):
         if subprocess.call([self.pgcommand('pg_upgrade')] + pg_upgrade_args) == 0:
             os.chdir(old_cwd)
             shutil.rmtree(upgrade_dir)
-            # check mode doesn't perform cleanup
-            if check and int(desired_version) >= 15:
-                shutil.rmtree(os.path.join(self._new_data_dir, 'pg_upgrade_output.d'))
             return True
 
     def prepare_new_pgdata(self, version):
@@ -248,8 +245,8 @@ class _PostgresqlUpgrade(Postgresql):
         self.configure_server_parameters()
         return True
 
-    def do_upgrade(self, desired_version):
-        return self.pg_upgrade(desired_version) and self.restore_shared_preload_libraries()\
+    def do_upgrade(self):
+        return self.pg_upgrade() and self.restore_shared_preload_libraries()\
                  and self.switch_pgdata() and self.cleanup_old_pgdata()
 
     def analyze(self, in_stages=False):
