@@ -106,7 +106,7 @@ def main():
     if not upgrade.stop(block_callbacks=True, checkpoint=False):
         raise Exception('Failed to stop the cluster with old postgres')
 
-    if not upgrade.do_upgrade(bin_version):
+    if not upgrade.do_upgrade():
         raise Exception('Failed to upgrade cluster from {0} to {1}'.format(cluster_version, bin_version))
 
     logger.info('Starting the cluster with new postgres after upgrade')
