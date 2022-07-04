@@ -140,7 +140,7 @@ ENV POSTGIS_VERSION=3.2 \
     PAM_OAUTH2=v1.0.1 \
     PLANTUNER_COMMIT=800d81bc85da64ff3ef66e12aed1d4e1e54fc006 \
     PG_PERMISSIONS_COMMIT=314b9359e3d77c0b2ef7dbbde97fa4be80e31925 \
-    PG_TM_AUX_COMMIT=6c012d38a4c1b0ba4a36952d60b0ce3a22ac9c3d
+    PG_TM_AUX_COMMIT=5f27c9a56835558f9c6aaf80a2dab81dfa6730b5
 
 RUN export DEBIAN_FRONTEND=noninteractive \
     && export MAKEFLAGS="-j $(grep -c ^processor /proc/cpuinfo)" \
@@ -186,7 +186,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && curl -sL https://github.com/CyberDem0n/bg_mon/archive/$BG_MON_COMMIT.tar.gz | tar xz \
     && curl -sL https://github.com/sdudoladov/pg_auth_mon/archive/$PG_AUTH_MON_COMMIT.tar.gz | tar xz \
     && curl -sL https://github.com/cybertec-postgresql/pg_permissions/archive/$PG_PERMISSIONS_COMMIT.tar.gz | tar xz \
-    && curl -sL https://github.com/x4m/pg_tm_aux/archive/$PG_TM_AUX_COMMIT.tar.gz | tar xz \
+    && curl -sL https://github.com/hughcapet/pg_tm_aux/archive/$PG_TM_AUX_COMMIT.tar.gz | tar xz \
     && git clone -b $SET_USER https://github.com/pgaudit/set_user.git \
     && git clone https://github.com/timescale/timescaledb.git \
 \
