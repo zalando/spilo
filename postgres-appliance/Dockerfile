@@ -131,7 +131,7 @@ ARG DEB_PG_SUPPORTED_VERSIONS="$PGOLDVERSIONS $PGVERSION"
 # Install PostgreSQL, extensions and contribs
 ENV POSTGIS_VERSION=3.2 \
     POSTGIS_LEGACY=3.2 \
-    BG_MON_COMMIT=5d5002836118e4baf4b356f859566c56433e811f \
+    BG_MON_COMMIT=8de3b0afb4e3337168b77d26ad4e0c5c89638f53 \
     PG_AUTH_MON_COMMIT=437435b4e2de32a820e86973f6934ec849a768e0 \
     PG_MON_COMMIT=54fbdcc3cfe7e2a626bd96dda644d9a0c6866b58 \
     SET_USER=REL3_0_0 \
@@ -494,6 +494,7 @@ COPY --from=builder-false / /
 FROM builder-${COMPRESS}
 
 LABEL maintainer="Alexander Kukushkin <alexander.kukushkin@zalando.de>"
+LABEL maintainer="Polina Bungina <polina.bungina@zalando.de>"
 
 ARG PGVERSION
 ARG TIMESCALEDB
