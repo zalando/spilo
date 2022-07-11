@@ -205,7 +205,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                         postgresql-${version}-extra-window-functions \
                         postgresql-${version}-first-last-agg \
                         postgresql-${version}-hypopg \
-                        postgresql-${version}-plproxy" \
+                        postgresql-${version}-plproxy \
+                        postgresql-${version}-plpgsql-check" \
 \
                 && if [ $version != "15" ]; then \
                     # not yet adapted for pg15
@@ -221,7 +222,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                         postgresql-${version}-pgq-node \
                         postgresql-${version}-pldebugger \
                         postgresql-${version}-pllua \
-                        postgresql-${version}-plpgsql-check \
                         postgresql-${version}-postgis-${POSTGIS_VERSION%.*} \
                         postgresql-${version}-postgis-${POSTGIS_VERSION%.*}-scripts"; \
                 fi \
