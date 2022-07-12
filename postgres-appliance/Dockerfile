@@ -157,13 +157,13 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         && apt-get install -y $BUILD_PACKAGES libcurl4 \
 \
         # install pam_oauth2.so
-        && git clone -b $PAM_OAUTH2 --recurse-submodules https://github.com/CyberDem0n/pam-oauth2.git \
+        && git clone -b $PAM_OAUTH2 --recurse-submodules https://github.com/zalando-pg/pam-oauth2.git \
         && make -C pam-oauth2 install \
 \
         # prepare 3rd sources
         && git clone -b $PLPROFILER https://github.com/bigsql/plprofiler.git \
         && tar -xzf plantuner-${PLANTUNER_COMMIT}.tar.gz \
-        && curl -sL https://github.com/sdudoladov/pg_mon/archive/$PG_MON_COMMIT.tar.gz | tar xz \
+        && curl -sL https://github.com/zalando-pg/pg_mon/archive/$PG_MON_COMMIT.tar.gz | tar xz \
 \
         && for p in python3-keyring python3-docutils ieee-data; do \
             version=$(apt-cache show $p | sed -n 's/^Version: //p' | sort -rV | head -n 1) \
@@ -180,8 +180,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 \
     && if [ "$WITH_PERL" != "true" ] || [ "$DEMO" != "true" ]; then dpkg -i *.deb || apt-get -y -f install; fi \
 \
-    && curl -sL https://github.com/CyberDem0n/bg_mon/archive/$BG_MON_COMMIT.tar.gz | tar xz \
-    && curl -sL https://github.com/sdudoladov/pg_auth_mon/archive/$PG_AUTH_MON_COMMIT.tar.gz | tar xz \
+    && curl -sL https://github.com/zalando-pg/bg_mon/archive/$BG_MON_COMMIT.tar.gz | tar xz \
+    && curl -sL https://github.com/zalando-pg/pg_auth_mon/archive/$PG_AUTH_MON_COMMIT.tar.gz | tar xz \
     && curl -sL https://github.com/cybertec-postgresql/pg_permissions/archive/$PG_PERMISSIONS_COMMIT.tar.gz | tar xz \
     && git clone -b $SET_USER https://github.com/pgaudit/set_user.git \
     && git clone https://github.com/timescale/timescaledb.git \
@@ -423,18 +423,10 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 \
         && find /usr/share/python-babel-localedata/locale-data -type f ! -name 'en_US*.dat' -delete \
 \
-        && pip3 install filechunkio wal-e[aws,google,swift]==$WALE_VERSION google-crc32c==1.1.2 'protobuf<4.21.0' \
+        && pip3 install filechunkio google-crc32c==1.1.2 'protobuf<4.21.0' \
+                'git+https://github.com/zalando-pg/wal-e.git#egg=wal-e[aws,google,swift]' \
                 'git+https://github.com/zalando/pg_view.git@master#egg=pg-view' \
 \
-        # Non-exclusive backups
-        && curl -sL https://github.com/CyberDem0n/wal-e/commit/dad4d53969b93c56f1eaa5243ffa8e9051fd7eb7.diff \
-                | patch -d /usr/local/lib/python3.6/dist-packages/wal_e -p2 \
-        # WALE_DISABLE_S3_SSE support
-        && curl -sL https://github.com/CyberDem0n/wal-e/commit/0309317d33d252fcd968b3eb97313a9fdf022c65.diff \
-                | patch -d /usr/local/lib/python3.6/dist-packages/wal_e -p2 \
-        # Revert https://github.com/wal-e/wal-e/commit/485d834a18c9b0d97115d95f89e16bdc564e9a18, it affects S3 performance
-        && curl -sL https://github.com/wal-e/wal-e/commit/485d834a18c9b0d97115d95f89e16bdc564e9a18.diff \
-                | patch -d /usr/local/lib/python3.6/dist-packages/wal_e -Rp2 \
         # https://github.com/wal-e/wal-e/issues/318
         && sed -i 's/^\(    for i in range(0,\) num_retries):.*/\1 100):/g' \
                     /usr/lib/python3/dist-packages/boto/utils.py; \
