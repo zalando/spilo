@@ -188,6 +188,9 @@ bootstrap:
       {{#STANDBY_PORT}}
       port: {{STANDBY_PORT}}
       {{/STANDBY_PORT}}
+      {{#STANDBY_PRIMARY_SLOT_NAME}}
+      primary_slot_name: {{STANDBY_PRIMARY_SLOT_NAME}}
+      {{/STANDBY_PRIMARY_SLOT_NAME}}
     {{/STANDBY_CLUSTER}}
     ttl: 30
     loop_wait: &loop_wait 10
@@ -611,6 +614,7 @@ def get_placeholders(provider):
     placeholders.setdefault('STANDBY_WITH_WALE', '')
     placeholders.setdefault('STANDBY_HOST', '')
     placeholders.setdefault('STANDBY_PORT', '')
+    placeholders.setdefault('STANDBY_PRIMARY_SLOT_NAME', '')
     placeholders.setdefault('STANDBY_CLUSTER', placeholders['STANDBY_WITH_WALE'] or placeholders['STANDBY_HOST'])
 
     if provider == PROVIDER_AWS and not USE_KUBERNETES:
