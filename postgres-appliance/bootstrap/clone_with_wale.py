@@ -28,8 +28,7 @@ def read_configuration():
     parser.add_argument('--dry-run', action='store_true', help='find a matching backup and build the wal-e '
                         'command to fetch that backup without running it')
     parser.add_argument('--recovery-target-timeline',
-                        help='the timeline up to which recovery will proceed',
-                        dest='recovery_target_timeline_string')
+                        help='the timeline from which recovery will proceed')
     args = parser.parse_args()
 
     options = namedtuple('Options', 'name datadir recovery_target_time recovery_target_timeline dry_run')
@@ -40,12 +39,7 @@ def read_configuration():
     else:
         recovery_target_time = None
 
-    if args.recovery_target_timeline_string == None:
-        recovery_target_timeline = "latest"
-    else:
-        recovery_target_timeline = args.recovery_target_timeline_string
-
-    return options(args.scope, args.datadir, recovery_target_time, recovery_target_timeline, args.dry_run)
+    return options(args.scope, args.datadir, recovery_target_time, args.recovery_target_timeline, args.dry_run)
 
 
 def build_wale_command(command, datadir=None, backup=None):
