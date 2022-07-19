@@ -226,7 +226,7 @@ bootstrap:
   method: clone_with_wale
   clone_with_wale:
     command: envdir "{{CLONE_WALE_ENV_DIR}}" python3 /scripts/clone_with_wale.py
-      --recovery-target-time="{{CLONE_TARGET_TIME}}"
+      --recovery-target-time="{{CLONE_TARGET_TIME}}" --recovery-target-timeline="{{CLONE_TARGET_TIMELINE}}"
     recovery_conf:
         restore_command: envdir "{{CLONE_WALE_ENV_DIR}}" timeout "{{WAL_RESTORE_TIMEOUT}}"
           /scripts/restore_command.sh "%f" "%p"
