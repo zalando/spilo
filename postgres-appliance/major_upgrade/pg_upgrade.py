@@ -170,7 +170,8 @@ class _PostgresqlUpgrade(Postgresql):
         pg_upgrade_args = ['-k', '-j', str(psutil.cpu_count()),
                            '-b', self._old_bin_dir, '-B', self._bin_dir,
                            '-d', self._data_dir, '-D', self._new_data_dir,
-                           '-O', "-c timescaledb.restoring='on'"]
+                           '-O', "-c timescaledb.restoring='on'",
+                           '-O', "-c archive_mode='off'"]
         if 'username' in self.config.superuser:
             pg_upgrade_args += ['-U', self.config.superuser['username']]
 
