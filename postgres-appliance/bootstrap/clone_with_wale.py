@@ -20,15 +20,20 @@ logger = logging.getLogger(__name__)
 
 def read_configuration():
     parser = argparse.ArgumentParser(description="Script to clone from S3 with support for point-in-time-recovery")
-    parser.add_argument('--scope', required=True, help='target cluster name')
-    parser.add_argument('--datadir', required=True, help='target cluster postgres data directory')
+    parser.add_argument('--scope', required=True, 
+                        help='target cluster name')
+    parser.add_argument('--datadir', required=True, 
+                        help='target cluster postgres data directory')
     parser.add_argument('--recovery-target-time',
                         help='the timestamp up to which recovery will proceed (including time zone)',
                         dest='recovery_target_time_string')
-    parser.add_argument('--dry-run', action='store_true', help='find a matching backup and build the wal-e '
+    parser.add_argument('--dry-run', action='store_true', 
+                        help='find a matching backup and build the wal-e '
                         'command to fetch that backup without running it')
     parser.add_argument('--recovery-target-timeline',
-                        help='the timeline from which recovery will proceed')
+                        help='the timeline up to which recovery will proceed. Leave empty for latest.',
+                        dest='recovery_target_timeline',
+                        type=lambda timeline_id: int(timeline_id,16))
     args = parser.parse_args()
 
     options = namedtuple('Options', 'name datadir recovery_target_time recovery_target_timeline dry_run')
@@ -39,8 +44,21 @@ def read_configuration():
     else:
         recovery_target_time = None
 
-    return options(args.scope, args.datadir, recovery_target_time, args.recovery_target_timeline, args.dry_run)
+    if args.recovery_target_timeline == None:
+        recovery_target_timeline = get_latest_timeline()
+    else:
+        recovery_target_timeline = args.recovery_target_timeline
 
+    return options(args.scope, args.datadir, recovery_target_time, recovery_target_timeline, args.dry_run)
+
+def get_latest_timeline():
+    env = os.environ.copy()
+    backup_list = list_backups(env)
+    latest_timeline_id = int("00000000",16)
+    for backup in backup_list:
+        if int(backup["name"][5:13], 16) > latest_timeline_id:
+            latest_timeline_id = int(backup["name"][5:13], 16)
+    return latest_timeline_id
 
 def build_wale_command(command, datadir=None, backup=None):
     cmd = ['wal-g' if os.getenv('USE_WALG_RESTORE') == 'true' else 'wal-e'] + [command]
@@ -72,11 +90,13 @@ def choose_backup(backup_list, recovery_target_time, recovery_target_timeline):
 
     match_timestamp = match = None
     for backup in backup_list:
-        last_modified = parse(backup['last_modified'])
-        if last_modified < recovery_target_time:
-            if match is None or last_modified > match_timestamp:
-                match = backup
-                match_timestamp = last_modified
+        timeline_id = int(backup["name"][5:13], 16)
+        if timeline_id == recovery_target_timeline:
+            last_modified = parse(backup['last_modified'])
+            if last_modified < recovery_target_time:
+                if match is None or last_modified > match_timestamp:
+                    match = backup
+                    match_timestamp = last_modified
     if match is not None:
         return match['name']
 
@@ -156,7 +176,7 @@ def find_backup(recovery_target_time, recovery_target_timeline, env):
                 if backup:
                     return backup, (name if value != old_value else None)
             else:  # We assume that the LATEST backup will be for the biggest postgres version!
-                return 'LATEST', (name if value != old_value else None)
+                return get_latest_timeline(), (name if value != old_value else None)
     if recovery_target_time:
         raise Exception('Could not find any backups prior to the point in time {0}'.format(recovery_target_time))
     raise Exception('Could not find any backups')
