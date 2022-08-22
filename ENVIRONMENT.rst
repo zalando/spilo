@@ -19,6 +19,9 @@ Environment Configuration Settings
 - **PGDATA**: location of PostgreSQL data directory, by default PGROOT/pgdata.
 - **PGUSER_STANDBY**: username for the replication user, 'standby' by default.
 - **PGPASSWORD_STANDBY**: a password for the replication user, 'standby' by default.
+- **STANDBY_HOST**: hostname or IP address of the primary to stream from.
+- **STANDBY_PORT**: TCP port on which the primary is listening for connections. Patroni will use "5432" if not set.
+- **STANDBY_PRIMARY_SLOT_NAME**: replication slot to use on the primary.
 - **PGUSER_ADMIN**: username for the default admin user, 'admin' by default.
 - **PGPASSWORD_ADMIN**: a password for the default admin user, 'cola' by default.
 - **USE_ADMIN**: whether to use the admin user or not.
