@@ -30,7 +30,6 @@ RUN bash /builddeps/prepare.sh
 COPY cron_unprivileged.c dependencies/src /builddeps/
 COPY patches/*.patch /builddeps/
 COPY build_scripts/base.sh /builddeps/
-COPY --from=dependencies-builder /builddeps/*.deb /builddeps/
 
 ARG PGVERSION
 ARG TIMESCALEDB
