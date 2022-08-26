@@ -50,7 +50,7 @@ fi
 
 pip3 install "patroni[kubernetes$EXTRAS]==$PATRONIVERSION"
 
-for d in /usr/local/lib/python3.6 /usr/lib/python3; do
+for d in /usr/local/lib/python3.10 /usr/lib/python3; do
     cd $d/dist-packages
     find . -type d -name tests -print0 | xargs -0 rm -fr
     find . -type f -name 'test_*.py*' -delete

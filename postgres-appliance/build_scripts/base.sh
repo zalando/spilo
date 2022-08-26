@@ -24,7 +24,8 @@ else
                     libprotobuf-c-dev
                     libpam0g-dev
                     libcurl4-openssl-dev
-                    libicu-dev python
+                    libicu-dev
+                    python2
                     libc-ares-dev
                     pandoc
                     pkg-config)
@@ -92,6 +93,7 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
         if [ "$version" != "15" ]; then
             # not yet adapted for pg15
             EXTRAS+=("postgresql-${version}-pgaudit"
+                "postgresql-${version}-partman"
                 "postgresql-${version}-repack"
                 "postgresql-${version}-wal2json"
                 "postgresql-${version}-hll"

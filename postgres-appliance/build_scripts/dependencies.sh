@@ -18,10 +18,10 @@ apt-get install -y curl ca-certificates
 
 # Build wal-g from source for a non-amd64 arch
 if [ "$ARCH" != "amd64" ]; then
-    apt-get install -y software-properties-common
+    apt-get install -y software-properties-common gpg-agent
     add-apt-repository ppa:longsleep/golang-backports
     apt-get update
-    apt-get install -y golang-go liblzo2-dev brotli libsodium-dev git make cmake gcc
+    apt-get install -y golang-go liblzo2-dev brotli libsodium-dev git make cmake gcc libc-dev
     go version
 
     git clone -b "$WALG_VERSION" --recurse-submodules https://github.com/wal-g/wal-g.git
