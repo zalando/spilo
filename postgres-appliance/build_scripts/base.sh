@@ -25,7 +25,6 @@ else
                     libpam0g-dev
                     libcurl4-openssl-dev
                     libicu-dev
-                    python2
                     libc-ares-dev
                     pandoc
                     pkg-config)
