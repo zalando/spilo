@@ -6,7 +6,7 @@ echo -e 'APT::Install-Recommends "0";\nAPT::Install-Suggests "0";' > /etc/apt/ap
 
 apt-get update
 apt-get -y upgrade
-apt-get install -y curl ca-certificates less locales jq vim-tiny gnupg1 cron runit dumb-init libcap2-bin rsync sysstat
+apt-get install -y curl ca-certificates less locales jq vim-tiny gnupg1 cron runit dumb-init libcap2-bin rsync sysstat gpg
 
 ln -s chpst /usr/bin/envdir
 
@@ -49,7 +49,7 @@ DISTRIB_CODENAME=$(sed -n 's/DISTRIB_CODENAME=//p' /etc/lsb-release)
 for t in deb deb-src; do
     echo "$t http://apt.postgresql.org/pub/repos/apt/ ${DISTRIB_CODENAME}-pgdg main" >> /etc/apt/sources.list.d/pgdg.list
 done
-curl -s -o - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add -
+curl -s -o - https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor | tee /etc/apt/trusted.gpg.d/apt.postgresql.org.gpg >/dev/null
 
 # Clean up
 apt-get purge -y libcap2-bin
