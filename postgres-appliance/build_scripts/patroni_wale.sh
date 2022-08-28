@@ -14,7 +14,7 @@ apt-get update
 
 # install most of the patroni dependencies from ubuntu packages
 apt-cache depends patroni \
-        | sed -n -e 's/.* Depends:(python3-.\+\)$/\1/p' \
+        | sed -n -e 's/.* Depends: \(python3-.\+\)$/\1/p' \
         | grep -Ev '^python3-(sphinx|etcd|consul|kazoo|kubernetes)' \
         | xargs apt-get install -y "${BUILD_PACKAGES[@]}" python3-pystache python3-requests
 
