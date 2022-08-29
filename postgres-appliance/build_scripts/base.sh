@@ -85,7 +85,9 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
                 "postgresql-${version}-extra-window-functions"
                 "postgresql-${version}-first-last-agg"
                 "postgresql-${version}-hypopg"
-                "postgresql-${version}-plproxy")
+                "postgresql-${version}-plproxy"
+                "postgresql-${version}-partman"
+                "postgresql-${version}-plpgsql-check")
 
         if [ "$version" != "15" ]; then
             # not yet adapted for pg15
@@ -100,7 +102,6 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
                 "postgresql-${version}-pgq-node"
                 "postgresql-${version}-pldebugger"
                 "postgresql-${version}-pllua"
-                "postgresql-${version}-plpgsql-check"
                 "postgresql-${version}-postgis-${POSTGIS_VERSION%.*}"
                 "postgresql-${version}-postgis-${POSTGIS_VERSION%.*}-scripts")
         fi
@@ -184,12 +185,6 @@ done
 
 if [ "$DEMO" != "true" ]; then
     for version in $DEB_PG_SUPPORTED_VERSIONS; do
-        # due to dependency issues partman has to be installed separately
-        if [ "$version" != "15" ]; then
-            apt-get install -y "postgresql-${version}-partman"
-        else
-            MISSING_EXTRAS+=(partman)
-        fi
         # create postgis symlinks to make it possible to perform update
         ln -s "postgis-${POSTGIS_VERSION%.*}.so" "/usr/lib/postgresql/${version}/lib/postgis-2.5.so"
     done
