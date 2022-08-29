@@ -25,7 +25,6 @@ else
                     libpam0g-dev
                     libcurl4-openssl-dev
                     libicu-dev
-                    python2
                     libc-ares-dev
                     pandoc
                     pkg-config)
@@ -70,7 +69,7 @@ apt-get install -y \
     libevent-pthreads-2.1 \
     brotli \
     libbrotli1 \
-    python3.6 \
+    python3.10 \
     python3-psycopg2
 
 # forbid creation of a main cluster when package is installed
