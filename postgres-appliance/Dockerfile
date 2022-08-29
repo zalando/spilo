@@ -6,7 +6,7 @@ ARG COMPRESS=false
 
 FROM $BASE_IMAGE as dependencies-builder
 
-ENV WALG_VERSION=v2.0.0
+ENV WALG_VERSION=v2.0.1
 # We want to build ourself non-amd64 wal-g in one of the build steps
 RUN export DEBIAN_FRONTEND=noninteractive \
     && echo 'APT::Install-Recommends "0";\nAPT::Install-Suggests "0";' > /etc/apt/apt.conf.d/01norecommend \
