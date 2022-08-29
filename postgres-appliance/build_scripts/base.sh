@@ -48,12 +48,8 @@ fi
 
 if [ "$WITH_PERL" != "true" ]; then
     version=$(apt-cache show perl | sed -n 's/^Version: //p' | sort -rV | head -n 1)
-    printf "Section: misc\nPriority: optional\nStandards-Version: 3.9.8\nPackage: perl\nSection:perl\nMulti-Arch: allowed\nReplaces: perl-base\nVersion: %s\nDescription: perl" "$version" > perl
+    printf "Priority: standard\nStandards-Version: 3.9.8\nPackage: perl\nMulti-Arch: allowed\nReplaces: perl-base, perl-modules\nVersion: %s\nDescription: perl" "$version" > perl
     equivs-build perl
-fi
-
-if [ "$WITH_PERL" != "true" ] || [ "$DEMO" != "true" ]; then
-    dpkg -i ./*.deb || apt-get -y -f install
 fi
 
 curl -sL "https://github.com/zalando-pg/bg_mon/archive/$BG_MON_COMMIT.tar.gz" | tar xz
@@ -224,8 +220,18 @@ done
 # make it possible for cron to work without root
 gcc -s -shared -fPIC -o /usr/local/lib/cron_unprivileged.so cron_unprivileged.c
 
+apt-get purge -y "${BUILD_PACKAGES[@]}"
+apt-get autoremove -y
+
+if [ "$WITH_PERL" != "true" ] || [ "$DEMO" != "true" ]; then
+    dpkg -i ./*.deb || apt-get -y -f install
+fi
+
 # Remove unnecessary packages
-apt-get purge -y "${BUILD_PACKAGES[@]}" \
+apt-get purge -y \
+                libdpkg-perl \
+                libperl5.* \
+                perl-modules-5.* \
                 postgresql \
                 postgresql-all \
                 postgresql-server-dev-* \
