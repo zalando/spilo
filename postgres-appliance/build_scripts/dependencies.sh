@@ -32,8 +32,6 @@ go mod vendor
 bash link_brotli.sh
 bash link_libsodium.sh
 
-if grep -q DISTRIB_RELEASE=18.04 /etc/lsb-release; then export CGO_LDFLAGS=-no-pie; fi
-
 export USE_LIBSODIUM=1
 export USE_LZO=1
 make pg_build

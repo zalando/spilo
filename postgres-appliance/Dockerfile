@@ -13,8 +13,6 @@ ENV WALG_VERSION=v2.0.1
 
 COPY build_scripts/dependencies.sh /builddeps/
 
-COPY dependencies/debs /builddeps/
-
 RUN bash /builddeps/dependencies.sh
 
 
