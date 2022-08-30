@@ -13,6 +13,8 @@ ENV WALG_VERSION=v2.0.1
 
 COPY build_scripts/dependencies.sh /builddeps/
 
+COPY dependencies/debs /builddeps/
+
 RUN bash /builddeps/dependencies.sh
 
 
@@ -28,6 +30,7 @@ RUN bash /builddeps/prepare.sh
 COPY cron_unprivileged.c dependencies/src /builddeps/
 COPY patches/*.patch /builddeps/
 COPY build_scripts/base.sh /builddeps/
+COPY --from=dependencies-builder /builddeps/*.deb /builddeps/
 
 ARG PGVERSION
 ARG TIMESCALEDB
