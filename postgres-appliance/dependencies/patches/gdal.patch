@@ -1,15 +1,17 @@
 --- debian/rules.orig	2022-08-30 11:19:02.338976183 +0000
-+++ debian/rules	2022-08-30 11:32:40.334594832 +0000
-@@ -130,42 +130,41 @@
++++ debian/rules	2022-08-30 13:07:12.610363706 +0000
+@@ -130,42 +130,45 @@
  			--with-ssse3=$(WITH_SSSE3) \
  			--with-avx=$(WITH_AVX) \
  			--with-bash-completion=yes \
 -			--with-armadillo=yes \
-+			--with-armadillo=no \
- 			--with-blosc=yes \
- 			--with-cfitsio=yes \
- 			--with-charls \
+-			--with-blosc=yes \
+-			--with-cfitsio=yes \
+-			--with-charls \
 -			--with-curl \
++			--with-armadillo=no \
++			--with-blosc=no \
++			--with-cfitsio=no \
 +			--with-curl=no \
  			--with-libdeflate \
  			--with-ecw=no \
@@ -20,7 +22,7 @@
 +			--with-geotiff=internal \
  			--with-grass=no \
 -			$(WITH_HDF5) \
- 			--with-heif \
+-			--with-heif \
  			--with-libjson-c=/usr \
 -			--with-libkml=yes \
 +			--with-libkml=no \
@@ -48,7 +50,13 @@
 +			--without-netcdf \
 +			--with-odbc=no \
 +			--without-ogdi \
++			--without-jpeg12 \
++			--with-jpeg=internal \
++			--with-png=internal \
 +			--with-openjpeg=no \
++			--with-gif=no \
++			--with-hdf4=no \
++			--with-hdf5=no \
 +			--with-pcre2=no \
 +			--without-pg \
 +			--with-poppler=no \
