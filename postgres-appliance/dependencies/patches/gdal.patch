@@ -1,6 +1,6 @@
---- debian/rules.orig	2022-08-30 11:19:02.338976183 +0000
-+++ debian/rules	2022-08-30 13:07:12.610363706 +0000
-@@ -130,42 +130,45 @@
+--- debian/rules.orig	2022-08-31 07:28:29.166137956 +0000
++++ debian/rules	2022-08-31 07:28:31.622350139 +0000
+@@ -130,42 +130,47 @@
  			--with-ssse3=$(WITH_SSSE3) \
  			--with-avx=$(WITH_AVX) \
  			--with-bash-completion=yes \
@@ -23,6 +23,7 @@
  			--with-grass=no \
 -			$(WITH_HDF5) \
 -			--with-heif \
++			--without-heif \
  			--with-libjson-c=/usr \
 -			--with-libkml=yes \
 +			--with-libkml=no \
@@ -50,6 +51,7 @@
 +			--without-netcdf \
 +			--with-odbc=no \
 +			--without-ogdi \
++			--without-charls \
 +			--without-jpeg12 \
 +			--with-jpeg=internal \
 +			--with-png=internal \
