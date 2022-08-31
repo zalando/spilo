@@ -32,6 +32,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && if [ "$need_rebuild" = "true" ]; then \
         cd /builddir \
         && apt-get source $SOURCES \
+        && export MAKEFLAGS="-j $(grep -c ^processor /proc/cpuinfo)" \
         && for pkg in $SOURCES; do \
             cd $(ls -d /builddir/$pkg-*) \
             && patch -p0 < /builddir/patches/$pkg.patch \
