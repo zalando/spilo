@@ -51,7 +51,7 @@ GRANT SELECT ON TABLE public.pg_auth_mon TO robot_zmon;
 CREATE EXTENSION IF NOT EXISTS pg_cron SCHEMA public;
 DO \$\$
 BEGIN
-    PERFORM 1 FROM pg_catalog.pg_proc WHERE pronamespace = 'cron'::pg_catalog.regnamespace AND proname = 'schedule' AND proargnames = '{p_schedule,p_database,p_command}';
+    PERFORM 1 FROM pg_catalog.pg_proc WHERE pronamespace = 'cron'::pg_catalog.regnamespace AND proname = 'schedule' AND proargnames OPERATOR(pg_catalog.=) '{p_schedule,p_database,p_command}';
     IF FOUND THEN
         ALTER FUNCTION cron.schedule(text, text, text) RENAME TO schedule_in_database;
     END IF;
