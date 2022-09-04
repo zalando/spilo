@@ -4,7 +4,7 @@ allow_concurrent_steps: true
 pipeline:
 - id: build-spilo-cdp
   env: &ENV
-    BASE_IMAGE: registry.opensource.zalan.do/library/ubuntu-18.04
+    BASE_IMAGE: registry.opensource.zalan.do/library/ubuntu-22.04
     IMAGE: registry-write.opensource.zalan.do/acid/spilo
     PGVERSION: 15
   type: script
