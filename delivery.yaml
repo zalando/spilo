@@ -8,6 +8,8 @@ pipeline:
     IMAGE: registry-write.opensource.zalan.do/acid/spilo
     PGVERSION: 14
   type: script
+  vm_config:
+    type: linux
   commands:
   - desc: Build spilo docker image
     cmd: |
