@@ -5,7 +5,9 @@ cd "$(dirname "${BASH_SOURCE[0]}")" || exit 1
 PGVER=$(psql -d "$2" -XtAc "SELECT pg_catalog.current_setting('server_version_num')::int/10000")
 if [ "$PGVER" -ge 12 ]; then RESET_ARGS="oid, oid, bigint"; fi
 
-(echo "DO \$\$
+(echo "
+SET search_path to 'pg_catalog';
+DO \$\$
 BEGIN
     PERFORM * FROM pg_catalog.pg_authid WHERE rolname = 'admin';
     IF FOUND THEN
@@ -51,7 +53,7 @@ GRANT SELECT ON TABLE public.pg_auth_mon TO robot_zmon;
 CREATE EXTENSION IF NOT EXISTS pg_cron SCHEMA public;
 DO \$\$
 BEGIN
-    PERFORM 1 FROM pg_catalog.pg_proc WHERE pronamespace = 'cron'::pg_catalog.regnamespace AND proname = 'schedule' AND proargnames OPERATOR(pg_catalog.=) '{p_schedule,p_database,p_command}';
+    PERFORM 1 FROM pg_catalog.pg_proc WHERE pronamespace = 'cron'::pg_catalog.regnamespace AND proname = 'schedule' AND proargnames = '{p_schedule,p_database,p_command}';
     IF FOUND THEN
         ALTER FUNCTION cron.schedule(text, text, text) RENAME TO schedule_in_database;
     END IF;
@@ -144,7 +146,8 @@ CREATE TABLE IF NOT EXISTS public.postgres_log (
     application_name text,
     CONSTRAINT postgres_log_check CHECK (false) NO INHERIT
 );
-GRANT SELECT ON public.postgres_log TO admin;"
+GRANT SELECT ON public.postgres_log TO admin;
+RESET search_path;"
 if [ "$PGVER" -ge 13 ]; then
     echo "ALTER TABLE public.postgres_log ADD COLUMN IF NOT EXISTS backend_type text;"
 fi
