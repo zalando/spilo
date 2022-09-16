@@ -27,9 +27,6 @@ if [ "$DEMO" != "true" ]; then
                 | tar xz -C /bin --strip=1 --wildcards --no-anchored --no-same-owner etcdctl etcd
 fi
 
-# Cleanup all locales but en_US.UTF-8 and optionally specified in ADDITIONAL_LOCALES arg
-find /usr/share/i18n/charmaps/ -type f ! -name UTF-8.gz -delete
-
 # Dirty hack for smooth migration of existing dbs
 bash /builddeps/locales.sh
 mv /usr/lib/locale/locale-archive /usr/lib/locale/locale-archive.22
@@ -41,7 +38,7 @@ DISTRIB_CODENAME=$(sed -n 's/DISTRIB_CODENAME=//p' /etc/lsb-release)
 for t in deb deb-src; do
     echo "$t http://apt.postgresql.org/pub/repos/apt/ ${DISTRIB_CODENAME}-pgdg main" >> /etc/apt/sources.list.d/pgdg.list
 done
-curl -s -o - https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor | tee /etc/apt/trusted.gpg.d/apt.postgresql.org.gpg >/dev/null
+curl -s -o - https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor > /etc/apt/trusted.gpg.d/apt.postgresql.org.gpg
 
 # Clean up
 apt-get purge -y libcap2-bin
