@@ -19,6 +19,9 @@ Environment Configuration Settings
 - **PGDATA**: location of PostgreSQL data directory, by default PGROOT/pgdata.
 - **PGUSER_STANDBY**: username for the replication user, 'standby' by default.
 - **PGPASSWORD_STANDBY**: a password for the replication user, 'standby' by default.
+- **STANDBY_HOST**: hostname or IP address of the primary to stream from.
+- **STANDBY_PORT**: TCP port on which the primary is listening for connections. Patroni will use "5432" if not set.
+- **STANDBY_PRIMARY_SLOT_NAME**: replication slot to use on the primary.
 - **PGUSER_ADMIN**: username for the default admin user, 'admin' by default.
 - **PGPASSWORD_ADMIN**: a password for the default admin user, 'cola' by default.
 - **USE_ADMIN**: whether to use the admin user or not.
@@ -110,7 +113,7 @@ In case of S3, `wal-e` is used for backups and `wal-g` for restore.
 - **WALG_SSH_PREFIX**: (optional) the ssh prefix to store WAL backups at in the format ssh://host.example.com/path/to/backups/ See `Wal-g <https://github.com/wal-g/wal-g#configuration>`__ documentation for details.
 - **WALG_LIBSODIUM_KEY**, **WALG_LIBSODIUM_KEY_PATH**, **WALG_LIBSODIUM_KEY_TRANSFORM**, **WALG_PGP_KEY**, **WALG_PGP_KEY_PATH**, **WALG_PGP_KEY_PASSPHRASE** (optional) wal-g encryption properties (see [wal-g encryption](https://github.com/wal-g/wal-g#encryption))
 - **http_proxy**, **https_proxy**, **no_proxy** (optional) HTTP(S) proxy configuration for `wal-g` to access S3. While http_proxy and https_proxy take a proxy URL, no_proxy takes a comma separated list of exceptions. Both are following a de-facto standard, see the [`wget`](https://www.gnu.org/software/wget/manual/html_node/Proxies.html) documentation.
-
+- **AWS_ROLE_ARN**, **AWS_WEB_IDENTITY_TOKEN_FILE** (optional) `AWS EKS IRSA <https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html>`__ auth configuration for `wal-g` to access S3. Usually these variables are automatically set by the AWS EKS. Only `wal-g` supports AWS EKS IRSA feature.
 
 Azure Specific WAL-G Configuration
 `````

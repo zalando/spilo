@@ -80,7 +80,7 @@ COPY --from=builder-false / /
 
 FROM builder-${COMPRESS}
 
-LABEL maintainer="Alexander Kukushkin <alexander.kukushkin@zalando.de>"
+LABEL maintainer="Polina Bungina <polina.bungina@zalando.de>"
 
 ARG PGVERSION
 ARG TIMESCALEDB

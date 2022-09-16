@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 class _PostgresqlUpgrade(Postgresql):
 
-    _INCOMPATIBLE_EXTENSIONS = ('amcheck_next',)
+    _INCOMPATIBLE_EXTENSIONS = ('amcheck_next', 'pg_repack',)
 
     def adjust_shared_preload_libraries(self, version):
         from spilo_commons import adjust_extensions
@@ -96,7 +96,7 @@ class _PostgresqlUpgrade(Postgresql):
                 logger.info('Executing "DROP FUNCTION metric_helpers.pg_stat_statements" in the database="%s"', d)
                 cur.execute("DROP FUNCTION IF EXISTS metric_helpers.pg_stat_statements(boolean) CASCADE")
 
-                for ext in ('pg_stat_kcache', 'pg_stat_statements', 'pg_repack') + self._INCOMPATIBLE_EXTENSIONS:
+                for ext in ('pg_stat_kcache', 'pg_stat_statements') + self._INCOMPATIBLE_EXTENSIONS:
                     logger.info('Executing "DROP EXTENSION IF EXISTS %s" in the database="%s"', ext, d)
                     cur.execute("DROP EXTENSION IF EXISTS {0}".format(ext))
 
@@ -170,7 +170,8 @@ class _PostgresqlUpgrade(Postgresql):
         pg_upgrade_args = ['-k', '-j', str(psutil.cpu_count()),
                            '-b', self._old_bin_dir, '-B', self._bin_dir,
                            '-d', self._data_dir, '-D', self._new_data_dir,
-                           '-O', "-c timescaledb.restoring='on'"]
+                           '-O', "-c timescaledb.restoring='on'",
+                           '-O', "-c archive_mode='off'"]
         if 'username' in self.config.superuser:
             pg_upgrade_args += ['-U', self.config.superuser['username']]
 
