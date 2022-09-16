@@ -71,12 +71,12 @@ else
     exit 1
 fi
 
-if [[ ! -z $WALE_S3_ENDPOINT && $WALE_S3_ENDPOINT =~ ^([a-z\+]{2,10}://)?([^:\/?]+) ]]; then
+if [[ -n $WALE_S3_ENDPOINT && $WALE_S3_ENDPOINT =~ ^([a-z\+]{2,10}://)?([^:\/?]+) ]]; then
     S3_HOST=${BASH_REMATCH[2]}
 fi
 
 if [[ -z $AWS_REGION ]]; then
-    if [[ ! -z $WALE_S3_ENDPOINT && $WALE_S3_ENDPOINT =~ ^([a-z\+]{2,10}://)?s3-([^\.]+) ]]; then
+    if [[ -n $WALE_S3_ENDPOINT && $WALE_S3_ENDPOINT =~ ^([a-z\+]{2,10}://)?s3-([^\.]+) ]]; then
         AWS_REGION=${BASH_REMATCH[2]}
     elif [[ "$AWS_INSTANCE_PROFILE" == "true" ]]; then
         load_region_from_aws_instance_profile
@@ -95,7 +95,8 @@ fi
 readonly SERVICE=s3
 readonly REQUEST=aws4_request
 readonly HOST=$BUCKET.$S3_HOST
-readonly TIME=$(date +%Y%m%dT%H%M%SZ)
+TIME=$(date +%Y%m%dT%H%M%SZ)
+readonly TIME
 readonly DATE=${TIME%T*}
 readonly DRSR="$DATE/$AWS_REGION/$SERVICE/$REQUEST"
 readonly EMPTYHASH=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
@@ -105,10 +106,14 @@ function hmac_sha256() {
 }
 
 # Four-step signing key calculation
-readonly DATE_KEY=$(hmac_sha256 key:"AWS4$AWS_SECRET_ACCESS_KEY" "$DATE")
-readonly DATE_REGION_KEY=$(hmac_sha256 "hexkey:$DATE_KEY" "$AWS_REGION")
-readonly DATE_REGION_SERVICE_KEY=$(hmac_sha256 "hexkey:$DATE_REGION_KEY" "$SERVICE")
-readonly SIGNING_KEY=$(hmac_sha256 "hexkey:$DATE_REGION_SERVICE_KEY" "$REQUEST")
+DATE_KEY=$(hmac_sha256 key:"AWS4$AWS_SECRET_ACCESS_KEY" "$DATE")
+readonly DATE_KEY
+DATE_REGION_KEY=$(hmac_sha256 "hexkey:$DATE_KEY" "$AWS_REGION")
+readonly DATE_REGION_KEY
+DATE_REGION_SERVICE_KEY=$(hmac_sha256 "hexkey:$DATE_REGION_KEY" "$SERVICE")
+readonly DATE_REGION_SERVICE_KEY
+SIGNING_KEY=$(hmac_sha256 "hexkey:$DATE_REGION_SERVICE_KEY" "$REQUEST")
+readonly SIGNING_KEY
 
 if [[ -z $AWS_INSTANCE_PROFILE ]]; then
     readonly SIGNED_HEADERS="host;x-amz-content-sha256;x-amz-date"
@@ -156,14 +161,14 @@ function generate_next_segments() {
 
 function clear_except() {
     set +e
-    for dir in $PREFETCHDIR/running/0*; do
+    for dir in "$PREFETCHDIR"/running/0*; do
         item=$(basename "$dir")
         if [[ $item =~ ^[0-9A-F]{24}$ ]]; then
             [[ " ${PREFETCHES[*]} " =~ \ $item\  ]] || rm -fr "$dir"
         fi
     done
 
-    for file in $PREFETCHDIR/0*; do
+    for file in "$PREFETCHDIR"/0*; do
         item=$(basename "$file")
         if [[ $item =~ ^[0-9A-F]{24}$ ]]; then
             [[ " ${PREFETCHES[*]} " =~ \ $item\  ]] || rm -f "$file"
@@ -182,9 +187,11 @@ function try_to_promote_prefetched() {
 
 echo "$$ $SEGMENT"
 
-readonly PREFETCHDIR=$(dirname "$DESTINATION")/.wal-e/prefetch
+PREFETCHDIR=$(dirname "$DESTINATION")/.wal-e/prefetch
+readonly PREFETCHDIR
 if [[ $prefetch -gt 0 && $SEGMENT =~ ^[0-9A-F]{24}$ ]]; then
-    readonly PREFETCHES=($(generate_next_segments "$prefetch"))
+    mapfile -t PREFETCHES < <(generate_next_segments "$prefetch")
+    readonly PREFETCHES
     for segment in "${PREFETCHES[@]}"; do
         running="$PREFETCHDIR/running/$segment"
         [[ -d $running || -f $PREFETCHDIR/$segment ]] && continue

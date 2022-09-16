@@ -43,9 +43,9 @@ while true; do
     [[ -z $wal_segment_backup_start ]] && wal_segment_backup_start=$($WAL_E backup-list 2> /dev/null \
         | sed '0,/^name\s*\(last_\)\?modified\s*/d' | sort -bk2 | tail -n1 | awk '{print $3;}' | sed 's/_.*$//')
 
-    [[ ! -z "$CONNSTR" && $server_version == "-1" ]] && server_version=$(psql -d "$CONNSTR" -tAc 'show server_version_num' 2> /dev/null || echo "-1")
+    [[ -n "$CONNSTR" && $server_version == "-1" ]] && server_version=$(psql -d "$CONNSTR" -tAc 'show server_version_num' 2> /dev/null || echo "-1")
 
-    [[ ! -z $wal_segment_backup_start && ( -z "$CONNSTR" || $server_version != "-1") ]] && break
+    [[ -n $wal_segment_backup_start && ( -z "$CONNSTR" || $server_version != "-1") ]] && break
     [[ $((ATTEMPT++)) -ge $RETRIES ]] && break
     sleep 1
 done
@@ -69,7 +69,7 @@ if [[ $server_version != "-1" ]]; then
     while true; do
         [[ -z $diff_in_bytes ]] && diff_in_bytes=$(psql -d "$CONNSTR" -tAc "$query")
         [[ -z $cluster_size ]] && cluster_size=$(psql -d "$CONNSTR" -tAc "SELECT SUM(pg_catalog.pg_database_size(datname)) FROM pg_catalog.pg_database")
-        [[ ! -z $diff_in_bytes && ! -z $cluster_size ]] && break
+        [[ -n $diff_in_bytes && -n $cluster_size ]] && break
         [[ $((ATTEMPT++)) -ge $RETRIES ]] && break
         sleep 1
     done
