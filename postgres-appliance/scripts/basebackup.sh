@@ -96,7 +96,9 @@ fi
 
 ATTEMPT=0
 while [[ $((ATTEMPT++)) -le $RETRIES ]]; do
-    pg_basebackup --pgdata="${DATA_DIR}" ${PG_BASEBACKUP_OPTS} --dbname="${CONNSTR}" &
+    # Please note that --waldir with static path is added temporarily.
+    # I will parameterize it once I am done with my actual task.
+    pg_basebackup --pgdata="${DATA_DIR}" --waldir="/wal" ${PG_BASEBACKUP_OPTS} --dbname="${CONNSTR}" &
     basebackup_pid=$!
     wait $basebackup_pid
     EXITCODE=$?
