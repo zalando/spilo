@@ -1,0 +1,59 @@
+name: Publish container
+on:
+  push:
+    tags:
+      - '*'
+jobs:
+  publish:
+    name: Build and push Spilo container
+    runs-on: ubuntu-latest
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+      packages: 'write'
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+    - name: Docker meta
+      id: meta
+      uses: docker/metadata-action@v4
+      with:
+        # list of Docker images to use as base name for tags
+        images: |
+          ghcr.io/pluralsh/spilo-14
+        # generate Docker tags based on the following events/attributes
+        tags: |
+          type=ref,event=tag
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v2
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+    - name: Login to GHCR
+      uses: docker/login-action@v2
+      with:
+        registry: ghcr.io
+        username: ${{ github.repository_owner }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    - name: Build and push
+      uses: docker/build-push-action@v3
+      with:
+        context: "postgres-appliance/"
+        file: "postgres-appliance/Dockerfile"
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        platforms: linux/amd64,linux/arm64
+  # release:
+  #   name: Create GitHub release
+  #   runs-on: ubuntu-latest
+  #   needs: publish
+  #   permissions:
+  #     contents: write
+  #     discussions: write
+  #   steps:
+  #   - name: Checkout
+  #     uses: actions/checkout@v3
+  #   - name: Release
+  #     uses: softprops/action-gh-release@v1
+  #     with:
+  #       generate_release_notes: true
