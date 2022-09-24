@@ -796,7 +796,7 @@ def write_wale_environment(placeholders, prefix, overwrite):
     for name in ['PGVERSION', 'PGPORT', 'WALE_ENV_DIR', 'SCOPE', 'WAL_BUCKET_SCOPE_PREFIX', 'WAL_BUCKET_SCOPE_SUFFIX',
                  'WAL_S3_BUCKET', 'WAL_GCS_BUCKET', 'WAL_GS_BUCKET', 'WAL_SWIFT_BUCKET', 'BACKUP_NUM_TO_RETAIN',
                  'ENABLE_WAL_PATH_COMPAT'] + s3_names + swift_names + gs_names + walg_names + azure_names + \
-                azure_auth_names + ssh_names:
+            azure_auth_names + ssh_names:
         wale[name] = placeholders.get(prefix + name, '')
 
     if wale.get('WAL_S3_BUCKET') or wale.get('WALE_S3_PREFIX') or wale.get('WALG_S3_PREFIX'):
@@ -874,9 +874,10 @@ def write_wale_environment(placeholders, prefix, overwrite):
             auth_opts += 1
 
         if auth_opts > 1:
-            logging.warning('Multiple authentication options configured for wal-g backup to Azure, using {}. Provide ' \
-                'either AZURE_STORAGE_ACCESS_KEY or AZURE_STORAGE_SAS_TOKEN or Service Principal (AZURE_CLIENT_ID, ' \
-                'AZURE_CLIENT_SECRET, AZURE_TENANT_ID) for authentication (or use MSI).'.format('/'.join(azure_auth)))
+            logging.warning('Multiple authentication options configured for wal-g backup to Azure, using {}. Provide '
+                            'either AZURE_STORAGE_ACCESS_KEY or AZURE_STORAGE_SAS_TOKEN or Service Principal '
+                            '(AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID) for authentication (or use '
+                            'MSI).'.format('/'.join(azure_auth)))
 
         write_envdir_names = azure_names + azure_auth + walg_names
 
