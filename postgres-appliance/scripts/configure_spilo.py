@@ -775,7 +775,8 @@ def write_wale_environment(placeholders, prefix, overwrite):
                 'AWS_WEB_IDENTITY_TOKEN_FILE']
     azure_names = ['WALG_AZ_PREFIX', 'AZURE_STORAGE_ACCOUNT',  'WALG_AZURE_BUFFER_SIZE', 'WALG_AZURE_MAX_BUFFERS',
                    'AZURE_ENVIRONMENT_NAME']
-    azure_auth_names = ['AZURE_STORAGE_ACCESS_KEY', 'AZURE_STORAGE_SAS_TOKEN', 'AZURE_CLIENT_ID', 'AZURE_CLIENT_SECRET', 'AZURE_TENANT_ID']
+    azure_auth_names = ['AZURE_STORAGE_ACCESS_KEY', 'AZURE_STORAGE_SAS_TOKEN', 'AZURE_CLIENT_ID',
+                        'AZURE_CLIENT_SECRET', 'AZURE_TENANT_ID']
     gs_names = ['WALE_GS_PREFIX', 'WALG_GS_PREFIX', 'GOOGLE_APPLICATION_CREDENTIALS']
     swift_names = ['WALE_SWIFT_PREFIX', 'SWIFT_AUTHURL', 'SWIFT_TENANT', 'SWIFT_TENANT_ID', 'SWIFT_USER',
                    'SWIFT_USER_ID', 'SWIFT_USER_DOMAIN_NAME', 'SWIFT_USER_DOMAIN_ID', 'SWIFT_PASSWORD',
@@ -794,7 +795,8 @@ def write_wale_environment(placeholders, prefix, overwrite):
     wale = defaultdict(lambda: '')
     for name in ['PGVERSION', 'PGPORT', 'WALE_ENV_DIR', 'SCOPE', 'WAL_BUCKET_SCOPE_PREFIX', 'WAL_BUCKET_SCOPE_SUFFIX',
                  'WAL_S3_BUCKET', 'WAL_GCS_BUCKET', 'WAL_GS_BUCKET', 'WAL_SWIFT_BUCKET', 'BACKUP_NUM_TO_RETAIN',
-                 'ENABLE_WAL_PATH_COMPAT'] + s3_names + swift_names + gs_names + walg_names + azure_names + azure_auth_names + ssh_names:
+                 'ENABLE_WAL_PATH_COMPAT'] + s3_names + swift_names + gs_names + walg_names + azure_names + \
+                azure_auth_names + ssh_names:
         wale[name] = placeholders.get(prefix + name, '')
 
     if wale.get('WAL_S3_BUCKET') or wale.get('WALE_S3_PREFIX') or wale.get('WALG_S3_PREFIX'):
@@ -872,7 +874,9 @@ def write_wale_environment(placeholders, prefix, overwrite):
             auth_opts += 1
 
         if auth_opts > 1:
-            logging.warning('Multiple authentication options configured for wal-g backup to Azure, using {}. Provide either AZURE_STORAGE_ACCESS_KEY or AZURE_STORAGE_SAS_TOKEN or Service Principal (AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID) for authentication (or use MSI).'.format('/'.join(azure_auth)))
+            logging.warning('Multiple authentication options configured for wal-g backup to Azure, using {}. Provide ' \
+                'either AZURE_STORAGE_ACCESS_KEY or AZURE_STORAGE_SAS_TOKEN or Service Principal (AZURE_CLIENT_ID, ' \
+                'AZURE_CLIENT_SECRET, AZURE_TENANT_ID) for authentication (or use MSI).'.format('/'.join(azure_auth)))
 
         write_envdir_names = azure_names + azure_auth + walg_names
 
