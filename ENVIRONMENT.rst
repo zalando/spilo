@@ -83,8 +83,11 @@ Environment Configuration Settings
 - **SSH_USERNAME**: (optional) the username for WAL backups.
 - **SSH_PORT**: (optional) the ssh port for WAL backups.
 - **SSH_PRIVATE_KEY_PATH**: (optional) the path to the private key used for WAL backups.
-- **AZURE_STORAGE_ACCOUNT**:(optional) the azure storage account to use for WAL backups.
-- **AZURE_STORAGE_ACCESS_KEY**:(optional) the access key for the azure storage account used for WAL backups.
+- **AZURE_STORAGE_ACCOUNT**: (optional) the azure storage account to use for WAL backups.
+- **AZURE_STORAGE_ACCESS_KEY**: (optional) the access key for the azure storage account used for WAL backups.
+- **AZURE_CLIENT_ID**: (optional) Client (application) ID of the Service Principal
+- **AZURE_CLIENT_SECRET**: (optional) Client secret of the Service Principal
+- **AZURE_TENANT_ID**: (optional) Tenant ID of the Service Principal
 - **CALLBACK_SCRIPT**: the callback script to run on various cluster actions (on start, on stop, on restart, on role change). The script will receive the cluster name, connection string and the current action. See `Patroni <http://patroni.readthedocs.io/en/latest/SETTINGS.html?highlight=callback#postgresql>`__ documentation for details.
 - **LOG_S3_BUCKET**: path to the S3 bucket used for PostgreSQL daily log files (i.e. s3://foobar). Spilo will add /spilo/scope/pg_daily_logs to that path. Logs are shipped if this variable is set.
 - **LOG_SHIP_SCHEDULE**: cron schedule for shipping compressed logs from ``pg_log`` (if this feature is enabled, '00 02 * * *' by default)
@@ -118,12 +121,30 @@ In case of S3, `wal-e` is used for backups and `wal-g` for restore.
 Azure Specific WAL-G Configuration
 `````
 
-For more inforamation on the Azure specific options, refer to https://github.com/wal-g/wal-g/blob/master/docs/STORAGES.md#azure
+For more information on the Azure specific options, refer to https://github.com/wal-g/wal-g/blob/master/docs/STORAGES.md#azure.
+
+General configuration options for wal-g backup to Azure:
 
 - **WALG_AZ_PREFIX**: Enables Azure Backups. The azure prefix to store WAL backups at in the format azure://test-container/walg-folder.
 - **AZURE_STORAGE_ACCOUNT**
-- **AZURE_STORAGE_ACCESS_KEY**
-- **AZURE_STORAGE_SAS_TOKEN**
 - **WALG_AZURE_BUFFER_SIZE**
 - **WALG_AZURE_MAX_BUFFERS**
 - **AZURE_ENVIRONMENT_NAME**
+
+For authentication with the Microsoft Azure Blob Storage, choose one of the available authentication options:
+
+- Storage Account Key:
+
+  - **AZURE_STORAGE_ACCESS_KEY**
+
+- Shared Access Signatures (SAS):
+
+  - **AZURE_STORAGE_SAS_TOKEN**
+
+- Service Principal:
+
+  - **AZURE_CLIENT_ID**
+  - **AZURE_CLIENT_SECRET**
+  - **AZURE_TENANT_ID**
+
+- Managed Service Identity (MSI): No configuration options required.
