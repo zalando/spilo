@@ -874,10 +874,10 @@ def write_wale_environment(placeholders, prefix, overwrite):
             auth_opts += 1
 
         if auth_opts > 1:
-            logging.warning('Multiple authentication options configured for wal-g backup to Azure, using {}. Provide '
+            logging.warning('Multiple authentication options configured for wal-g backup to Azure, using %s. Provide '
                             'either AZURE_STORAGE_ACCESS_KEY or AZURE_STORAGE_SAS_TOKEN or Service Principal '
                             '(AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID) for authentication (or use '
-                            'MSI).'.format('/'.join(azure_auth)))
+                            'MSI).', '/'.join(azure_auth))
 
         write_envdir_names = azure_names + azure_auth + walg_names
 
