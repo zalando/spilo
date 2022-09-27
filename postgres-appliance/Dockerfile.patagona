@@ -3,3 +3,5 @@
 FROM docker-registry.patagona.de/spilo:ts2.3.1-ts1.7.5-pg13-pg12-pg11-4454a379179e4c79cea35deb97ac947d1f0348f6
 
 COPY scripts/basebackup.sh /scripts/basebackup.sh
+
+COPY scripts/restore_command.sh /scripts/restore_command.sh

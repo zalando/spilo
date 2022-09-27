@@ -22,11 +22,20 @@ fi
 
 readonly wal_filename=$1
 readonly wal_destination=$2
+# location of "wal_fast" directory.
+readonly wal_fast_location=$3
 
 [[ -z $wal_filename || -z $wal_destination ]] && exit 1
 
 readonly wal_dir=$(dirname "$wal_destination")
-readonly wal_fast_source=$(dirname "$(dirname "$(realpath "$wal_dir")")")/wal_fast/$wal_filename
+
+if [[ -z $wal_fast_location ]] ; then
+    # default implementation to ensure backward compatibility
+    readonly wal_fast_source=$(dirname "$(dirname "$(realpath "$wal_dir")")")/wal_fast/$wal_filename
+else
+    # new implementation when using separate wal directory
+    readonly wal_fast_source="$wal_fast_location/$wal_filename"
+fi
 
 [[ -f $wal_fast_source ]] && exec mv "${wal_fast_source}" "${wal_destination}"
 
