@@ -1,49 +1,57 @@
---- debian/rules.orig	2018-01-30 06:06:47.000000000 +0000
-+++ debian/rules	2018-04-28 11:31:55.013154357 +0000
-@@ -101,38 +101,43 @@
- 			--with-rename-internal-libtiff-symbols=yes \
- 			--with-rename-internal-libgeotiff-symbols=yes \
- 			--with-threads \
+--- debian/rules.orig	2022-08-31 07:28:29.166137956 +0000
++++ debian/rules	2022-08-31 07:28:31.622350139 +0000
+@@ -130,42 +130,47 @@
+ 			--with-ssse3=$(WITH_SSSE3) \
+ 			--with-avx=$(WITH_AVX) \
+ 			--with-bash-completion=yes \
 -			--with-armadillo=yes \
-+			--with-armadillo=no \
- 			--with-cfitsio=no \
+-			--with-blosc=yes \
+-			--with-cfitsio=yes \
+-			--with-charls \
 -			--with-curl \
++			--with-armadillo=no \
++			--with-blosc=no \
++			--with-cfitsio=no \
 +			--with-curl=no \
+ 			--with-libdeflate \
  			--with-ecw=no \
--			--with-epsilon=/usr \
 -			--with-freexl=yes \
-+			--with-epsilon=no \
 +			--with-freexl=no \
  			--with-geos \
 -			--with-geotiff=yes \
 +			--with-geotiff=internal \
  			--with-grass=no \
 -			$(WITH_HDF5) \
+-			--with-heif \
++			--without-heif \
  			--with-libjson-c=/usr \
 -			--with-libkml=yes \
 +			--with-libkml=no \
  			--with-liblzma=yes \
 -			--with-libtiff=yes \
 +			--with-libtiff=internal \
+ 			--with-lz4=yes \
  			--with-mrsid=no \
 -			--with-mysql \
 -			--with-netcdf \
 -			--with-odbc \
 -			--with-ogdi \
 -			--with-openjpeg=yes \
+-			--with-pcre2 \
 -			--with-pg \
 -			--with-poppler=yes \
+-			--with-proj=yes \
 -			--with-qhull=yes \
 -			--with-sosi=yes \
 -			--with-spatialite=/usr \
 -			--with-sqlite3 \
 -			--with-webp \
 -			--with-xerces \
--			--with-dods-root=/usr \
 +			--without-mysql \
 +			--without-netcdf \
 +			--with-odbc=no \
 +			--without-ogdi \
++			--without-charls \
 +			--without-jpeg12 \
 +			--with-jpeg=internal \
 +			--with-png=internal \
@@ -51,19 +59,18 @@
 +			--with-gif=no \
 +			--with-hdf4=no \
 +			--with-hdf5=no \
++			--with-pcre2=no \
 +			--without-pg \
 +			--with-poppler=no \
++			--with-proj \
 +			--with-qhull=no \
 +			--with-sosi=no \
 +			--with-spatialite=no \
 +			--with-sqlite3=no \
 +			--with-webp=no \
-+			--without-xerces \
-+			--with-dods-root=no \
- 			--with-static-proj4=yes \
--			--with-java=/usr/lib/jvm/default-java \
++			--with-xerces=no \
+ 			--with-zstd \
 -			--with-perl \
-+			--without-java \
 +			--without-perl \
  			--with-python; \
  		mv GDALmake.opt GDALmake.opt-$$V; \

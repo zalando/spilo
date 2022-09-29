@@ -1,8 +1,18 @@
-ARG BASE_IMAGE=ubuntu:18.04
+ARG BASE_IMAGE=ubuntu:22.04
 ARG PGVERSION=15
 ARG TIMESCALEDB="1.7.5 2.3.1 2.7.2"
 ARG DEMO=false
 ARG COMPRESS=false
+ARG ADDITIONAL_LOCALES=
+
+
+FROM ubuntu:18.04 as ubuntu-18
+
+ARG ADDITIONAL_LOCALES
+
+COPY build_scripts/locales.sh /builddeps/
+
+RUN bash /builddeps/locales.sh
 
 
 FROM $BASE_IMAGE as dependencies-builder
@@ -21,11 +31,13 @@ RUN bash /builddeps/dependencies.sh
 FROM $BASE_IMAGE as builder-false
 
 ARG DEMO
-ARG ADDITIONAL_LOCALES=
+ARG ADDITIONAL_LOCALES
 
-COPY build_scripts/prepare.sh /builddeps/
+COPY build_scripts/prepare.sh build_scripts/locales.sh /builddeps/
 
 RUN bash /builddeps/prepare.sh
+
+COPY --from=ubuntu-18 /usr/lib/locale/locale-archive /usr/lib/locale/locale-archive.18
 
 COPY cron_unprivileged.c dependencies/src /builddeps/
 COPY patches/*.patch /builddeps/
@@ -42,7 +54,7 @@ ARG WITH_PERL=false
 ARG DEB_PG_SUPPORTED_VERSIONS="$PGOLDVERSIONS $PGVERSION"
 
 # Install PostgreSQL, extensions and contribs
-ENV POSTGIS_VERSION=3.2 \
+ENV POSTGIS_VERSION=3.3 \
     POSTGIS_LEGACY=3.2 \
     BG_MON_COMMIT=3424ecaaffea8c11d156af708b9c58d0cb6ceede \
     PG_AUTH_MON_COMMIT=439697fe2980cf48f1760f45e04c2d69b2748e73 \
@@ -102,6 +114,8 @@ ENV WALE_ENV_DIR=$RW_DIR/etc/wal-e.d/env \
 
 ENV PGDATA=$PGROOT/data \
     PGLOG=$PGROOT/pg_log
+
+ENV USE_OLD_LOCALES=false
 
 WORKDIR $PGHOME
 

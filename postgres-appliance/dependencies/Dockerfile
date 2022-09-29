@@ -1,9 +1,9 @@
-FROM ubuntu:18.04
+FROM ubuntu:22.04
 
 LABEL maintainer="Alexander Kukushkin <alexander.kukushkin@zalando.de>"
 
 ENV SOURCES="gdal"
-ENV PACKAGES="libgdal20"
+ENV PACKAGES="libgdal30"
 
 RUN export DEBIAN_FRONTEND=noninteractive \
     && echo 'APT::Install-Recommends "0";' > /etc/apt/apt.conf.d/01norecommend \
@@ -32,6 +32,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && if [ "$need_rebuild" = "true" ]; then \
         cd /builddir \
         && apt-get source $SOURCES \
+        && export MAKEFLAGS="-j $(grep -c ^processor /proc/cpuinfo)" \
         && for pkg in $SOURCES; do \
             cd $(ls -d /builddir/$pkg-*) \
             && patch -p0 < /builddir/patches/$pkg.patch \

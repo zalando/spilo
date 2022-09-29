@@ -26,19 +26,20 @@ if [ "$DEMO" != "true" ]; then
         python3-etcd \
         python3-consul \
         python3-kazoo \
-        python3-meld3 \
         python3-boto \
-        python3-gevent \
-        python3-greenlet \
+        python3-boto3 \
+        python3-botocore \
         python3-cachetools \
-        python3-rsa \
+        python3-cffi \
+        python3-gevent \
         python3-pyasn1-modules \
-        python3-swiftclient \
-        python3-cffi
+        python3-rsa \
+        python3-s3transfer \
+        python3-swiftclient
 
     find /usr/share/python-babel-localedata/locale-data -type f ! -name 'en_US*.dat' -delete
 
-    pip3 install filechunkio google-crc32c==1.1.2 'protobuf<4.21.0' \
+    pip3 install filechunkio protobuf \
             'git+https://github.com/zalando-pg/wal-e.git#egg=wal-e[aws,google,swift]' \
             'git+https://github.com/zalando/pg_view.git@master#egg=pg-view'
 
@@ -50,7 +51,7 @@ fi
 
 pip3 install "patroni[kubernetes$EXTRAS]==$PATRONIVERSION"
 
-for d in /usr/local/lib/python3.6 /usr/lib/python3; do
+for d in /usr/local/lib/python3.10 /usr/lib/python3; do
     cd $d/dist-packages
     find . -type d -name tests -print0 | xargs -0 rm -fr
     find . -type f -name 'test_*.py*' -delete
