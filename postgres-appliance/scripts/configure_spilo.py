@@ -1051,7 +1051,7 @@ def main():
 
     provider = get_provider()
     placeholders = get_placeholders(provider)
-    logging.info('Looks like your running %s', provider)
+    logging.info('Looks like you are running %s', provider)
 
     config = yaml.load(pystache_render(TEMPLATE, placeholders))
     config.update(get_dcs_config(config, placeholders))
