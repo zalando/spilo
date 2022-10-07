@@ -220,7 +220,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                         postgresql-${version}-postgis-${POSTGIS_VERSION%.*} \
                         postgresql-${version}-postgis-${POSTGIS_VERSION%.*}-scripts \
                         postgresql-${version}-repack \
-                        postgresql-${version}-wal2json" \
+                        postgresql-${version}-wal2json \
+                        postgresql-${version}-pgextwlist" \
                 && if [ "$WITH_PERL" = "true" ]; then \
                     EXTRAS="$EXTRAS postgresql-plperl-${version}"; \
                 fi \
@@ -286,27 +287,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                 /usr/lib/postgresql/${version}/lib/postgis-2.5.so; \
         done; \
     fi \
-\
-    # build and install missing packages
-    && for pkg in pgextwlist; do \
-        apt-get source postgresql-13-${pkg} \
-        && cd $(ls -d *${pkg%?}*-*/) \
-        && if [ -f ../$pkg.patch ]; then patch -p1 < ../$pkg.patch; fi \
-        && if [ "$pkg" = "pgextwlist" ]; then \
-            sed -i '/postgresql-all/d' debian/control.in \
-            # make it possible to use it from shared_preload_libraries
-            && perl -ne 'print unless /PG_TRY/ .. /PG_CATCH/' pgextwlist.c > pgextwlist.c.f \
-            && egrep -v '(PG_END_TRY|EmitWarningsOnPlaceholders)' pgextwlist.c.f > pgextwlist.c; \
-        fi \
-        && pg_buildext updatecontrol \
-        && DEB_BUILD_OPTIONS=nocheck debuild -b -uc -us \
-        && cd .. \
-        && for version in $DEB_PG_SUPPORTED_VERSIONS; do \
-            for deb in postgresql-${version}-${pkg}_*.deb; do \
-                if [ -f $deb ]; then dpkg -i $deb; fi; \
-            done; \
-        done; \
-    done \
 \
     # make it possible for cron to work without root
     && gcc -s -shared -fPIC -o /usr/local/lib/cron_unprivileged.so cron_unprivileged.c \
