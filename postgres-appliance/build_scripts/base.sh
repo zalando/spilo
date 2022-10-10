@@ -83,7 +83,10 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
                 "postgresql-${version}-hypopg"
                 "postgresql-${version}-plproxy"
                 "postgresql-${version}-partman"
-                "postgresql-${version}-plpgsql-check")
+                "postgresql-${version}-plpgsql-check"
+                "postgresql-${version}-pgextwlist"
+                "postgresql-${version}-pg-checksums"
+                "postgresql-${version}-pgq-node")
 
         if [ "$version" != "15" ]; then
             # not yet adapted for pg15
@@ -91,11 +94,9 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
                 "postgresql-${version}-repack"
                 "postgresql-${version}-wal2json"
                 "postgresql-${version}-hll"
-                "postgresql-${version}-pg-checksums"
                 "postgresql-${version}-pgl-ddl-deploy"
                 "postgresql-${version}-pglogical"
                 "postgresql-${version}-pglogical-ticker"
-                "postgresql-${version}-pgq-node"
                 "postgresql-${version}-pldebugger"
                 "postgresql-${version}-pllua"
                 "postgresql-${version}-postgis-${POSTGIS_VERSION%.*}"
@@ -187,28 +188,18 @@ if [ "$DEMO" != "true" ]; then
 fi
 
     # build and install missing packages
-for pkg in pgextwlist "${MISSING[@]}" "${MISSING_EXTRAS[@]}"; do
+for pkg in "${MISSING[@]}" "${MISSING_EXTRAS[@]}"; do
     apt-get source "postgresql-14-${pkg}"
     # use subshell to avoid having to cd back (SC2103)
     (
         cd "$(ls -d -- *"${pkg%?}"*-*/)"
         if [ -f "../$pkg.patch" ]; then patch -p1 < "../$pkg".patch; fi
 
-        if [ "$pkg" = "pgextwlist" ]; then
-            sed -i '/postgresql-all/d' debian/control.in
-            # make it possible to use it from shared_preload_libraries
-            perl -ne 'print unless /PG_TRY/ .. /PG_CATCH/' pgextwlist.c > pgextwlist.c.f
-            grep -E -v '(PG_END_TRY|EmitWarningsOnPlaceholders)' pgextwlist.c.f > pgextwlist.c
-        fi
         if [ "$pkg" = "pgaudit" ]; then
             echo "15" > debian/pgversions
         fi
         pg_buildext updatecontrol
-        if [ "$pkg" = "pgextwlist" ]; then
-            DEB_BUILD_OPTIONS=nocheck debuild -b -uc -us
-        else
-            DEB_BUILD_OPTIONS=nocheck DEB_PG_SUPPORTED_VERSIONS=$PGVERSION debuild -b -uc -us
-        fi
+        DEB_BUILD_OPTIONS=nocheck DEB_PG_SUPPORTED_VERSIONS=$PGVERSION debuild -b -uc -us
     )
     for version in $DEB_PG_SUPPORTED_VERSIONS; do
         for deb in postgresql-"${version}-${pkg}"_*.deb; do
