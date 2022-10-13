@@ -16,6 +16,14 @@ How to Use This Docker Image
 
 Spilo's setup assumes that you've correctly configured a load balancer (HAProxy, ELB, Google load balancer) that directs client connections to the master. There are two ways to achieve this: A) if the load balancer relies on the status code to distinguish between the healthy and failed nodes (like ELB), then one needs to configure it to poll the API URL; otherwise, B) you can use callback scripts to change the load balancer configuration dynamically.
 
+**Available container registries and image architectures**
+
+Spilo images are made available in two registries. First our publicly available opensource registry (a) and second the GitHub Container registry (b). Our internal registry is our preferred registry and is used as default by our postgres-operator. However, since our internal registry is not yet capable of mutliarch images and manifest lists, we additionally build and publish linux/amd64 and linux/arm64 images on the repos container registry.
+
+a) linux/amd64 only: registry.opensource.zalan.do/acid/spilo-$PGVERSION:$TAG
+b) linux/amd64 and linux/arm64: ghcr.io/zalando/spilo-$PGVERSION:$TAG
+
+
 How to Build This Docker Image
 ==============================
 
