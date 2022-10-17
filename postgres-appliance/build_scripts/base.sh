@@ -86,7 +86,9 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
                 "postgresql-${version}-plpgsql-check"
                 "postgresql-${version}-pgextwlist"
                 "postgresql-${version}-pg-checksums"
-                "postgresql-${version}-pgq-node")
+                "postgresql-${version}-pgq-node"
+                "postgresql-${version}-postgis-${POSTGIS_VERSION%.*}"
+                "postgresql-${version}-postgis-${POSTGIS_VERSION%.*}-scripts")
 
         if [ "$version" != "15" ]; then
             # not yet adapted for pg15
@@ -98,9 +100,7 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
                 "postgresql-${version}-pglogical"
                 "postgresql-${version}-pglogical-ticker"
                 "postgresql-${version}-pldebugger"
-                "postgresql-${version}-pllua"
-                "postgresql-${version}-postgis-${POSTGIS_VERSION%.*}"
-                "postgresql-${version}-postgis-${POSTGIS_VERSION%.*}-scripts")
+                "postgresql-${version}-pllua")
         fi
 
         if [ "$WITH_PERL" = "true" ]; then
