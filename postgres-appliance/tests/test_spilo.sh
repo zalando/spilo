@@ -2,6 +2,17 @@
 
 cd "$(dirname "${BASH_SOURCE[0]}")" || exit 1
 
+
+if ! docker info &> /dev/null; then
+    if podman info &> /dev/null; then
+        alias docker=podman
+        shopt -s expand_aliases
+    else
+        echo "docker/podman: command not found"
+        exit 1
+    fi
+fi
+
 readonly PREFIX="demo-"
 readonly UPGRADE_SCRIPT="python3 /scripts/inplace_upgrade.py"
 readonly TIMEOUT=120
