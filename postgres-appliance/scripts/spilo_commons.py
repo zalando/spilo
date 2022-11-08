@@ -12,13 +12,13 @@ LIB_DIR = '/usr/lib/postgresql'
 
 # (min_version, max_version, shared_preload_libraries, extwlist.extensions)
 extensions = {
-    'timescaledb':    (9.6, 12, True,  True),
-    'pg_cron':        (9.5, 13, True,  False),
-    'pg_stat_kcache': (9.4, 13, True,  False),
-    'pg_partman':     (9.4, 13, False, True)
+    'timescaledb':    (9.6, 14, True,  True),
+    'pg_cron':        (9.5, 14, True,  False),
+    'pg_stat_kcache': (9.4, 14, True,  False),
+    'pg_partman':     (9.4, 14, False, True)
 }
 if os.environ.get('ENABLE_PG_MON') == 'true':
-    extensions['pg_mon'] = (11,  13, True,  False)
+    extensions['pg_mon'] = (11,  14, True,  False)
 
 
 def adjust_extensions(old, version, extwlist=False):
@@ -31,13 +31,13 @@ def adjust_extensions(old, version, extwlist=False):
     return ','.join(ret)
 
 
-def append_extentions(old, version, extwlist=False):
+def append_extensions(old, version, extwlist=False):
     extwlist = 3 if extwlist else 2
     ret = []
 
     def maybe_append(name):
         value = extensions.get(name)
-        if name not in ret and value is None or value[0] <= version <= value[1] and value[extwlist]:
+        if name not in ret and (value is None or value[0] <= version <= value[1] and value[extwlist]):
             ret.append(name)
 
     for name in old.split(','):

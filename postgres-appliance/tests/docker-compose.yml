@@ -1,11 +1,11 @@
-version: "2"
+version: "2.1"
 
 networks:
     demo:
 
 services:
     minio:
-        image: minio/minio
+        image: minio/minio:RELEASE.2021-09-03T03-56-13Z
         networks: [ demo ]
         environment:
             MINIO_ACCESS_KEY: &access_key Eeghei0uVej1Wea8mato
@@ -16,15 +16,15 @@ services:
         command: -c 'mkdir -p /export/testbucket && /usr/bin/minio server /export'
 
     etcd:
-        image: spilo
+        image: ${SPILO_IMAGE:-spilo}
         networks: [ demo ]
         container_name: demo-etcd
         hostname: etcd
-        command: "sh -c 'exec etcd -name etcd1 -listen-client-urls http://0.0.0.0:2379 -advertise-client-urls http://$$(hostname --ip-address):2379'"
+        command: "sh -c 'export ETCD_UNSUPPORTED_ARCH=$$(dpkg --print-architecture) && exec etcd -name etcd1 -listen-client-urls http://0.0.0.0:2379 -advertise-client-urls http://$$(hostname --ip-address):2379'"
 
     spilo1: &spilo
         depends_on: [ minio ]
-        image: spilo
+        image: ${SPILO_IMAGE:-spilo}
         networks: [ demo ]
         environment:
             SPILO_PROVIDER: 'local'
@@ -33,27 +33,30 @@ services:
             AWS_ENDPOINT: &aws_endpoint 'http://minio:9000'
             AWS_S3_FORCE_PATH_STYLE: &aws_s3_force_path_style 'true'
             WAL_S3_BUCKET: &bucket testbucket
-            USE_WALG: 'true'
-            WALG_DISABLE_S3_SSE: &walg_disable_s3_sse 'true'
+#            USE_WALG: 'true'  # wal-e is used and tested by default, wal-g is used automatically for restore in case of S3
+            WALE_DISABLE_S3_SSE: &wale_disable_s3_sse 'true'
             ETCDCTL_ENDPOINTS: http://etcd:2379
-            ETCD_HOST: "etcd:2379"
+            ETCD3_HOST: "etcd:2379"
             SCOPE: demo
+            ENABLE_PG_MON: 'true'
             SPILO_CONFIGURATION: |
               bootstrap:
                 dcs:
                   loop_wait: 2
+                  postgresql:
+                    parameters:
+                      wal_keep_segments: 8
               postgresql:
                 parameters:
                   shared_buffers: 32MB
-                  wal_keep_segments: 8
-            PGVERSION: '9.5'
+            PGVERSION: '9.6'
             # Just to test upgrade with clone. Without CLONE_SCOPE they don't work
             CLONE_WAL_S3_BUCKET: *bucket
             CLONE_AWS_ACCESS_KEY_ID: *access_key
             CLONE_AWS_SECRET_ACCESS_KEY: *secret_key
             CLONE_AWS_ENDPOINT: *aws_endpoint
             CLONE_AWS_S3_FORCE_PATH_STYLE: *aws_s3_force_path_style
-            CLONE_WALG_DISABLE_S3_SSE: *walg_disable_s3_sse
+            CLONE_WALE_DISABLE_S3_SSE: *wale_disable_s3_sse
         hostname: spilo1
         container_name: demo-spilo1
 

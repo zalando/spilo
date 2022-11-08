@@ -21,13 +21,14 @@ done
 
 if which pg_receivewal &> /dev/null; then
     PG_RECEIVEWAL=pg_receivewal
-    PG_BASEBACKUP_OPTS="-X none"
+    PG_BASEBACKUP_OPTS=(-X none)
 else
     PG_RECEIVEWAL=pg_receivexlog
-    PG_BASEBACKUP_OPTS=""
+    PG_BASEBACKUP_OPTS=()
 fi
 
-readonly WAL_FAST=$(dirname "$DATA_DIR")/wal_fast
+WAL_FAST=$(dirname "$DATA_DIR")/wal_fast
+readonly WAL_FAST
 mkdir -p "$WAL_FAST"
 
 rm -fr "$DATA_DIR" "${WAL_FAST:?}"/*
@@ -96,7 +97,7 @@ fi
 
 ATTEMPT=0
 while [[ $((ATTEMPT++)) -le $RETRIES ]]; do
-    pg_basebackup --pgdata="${DATA_DIR}" ${PG_BASEBACKUP_OPTS} --dbname="${CONNSTR}" &
+    pg_basebackup --pgdata="${DATA_DIR}" "${PG_BASEBACKUP_OPTS[@]}" --dbname="${CONNSTR}" &
     basebackup_pid=$!
     wait $basebackup_pid
     EXITCODE=$?
@@ -108,5 +109,5 @@ while [[ $((ATTEMPT++)) -le $RETRIES ]]; do
     fi
 done
 
-[[ $EXITCODE != 0 && ! -z $receivewal_pid ]] && kill "$receivewal_pid"
+[[ $EXITCODE != 0 && -n $receivewal_pid ]] && kill "$receivewal_pid"
 exit $EXITCODE

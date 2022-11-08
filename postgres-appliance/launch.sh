@@ -11,7 +11,7 @@ if [ -f /a.tar.xz ]; then
     fi
 fi
 
-if [ "x$1" = "xinit" ]; then
+if [ "$1" = "init" ]; then
     exec /usr/bin/dumb-init -c --rewrite 1:0 -- /bin/sh /launch.sh
 fi
 

@@ -11,6 +11,8 @@ logger = logging.getLogger(__name__)
 
 class _PostgresqlUpgrade(Postgresql):
 
+    _INCOMPATIBLE_EXTENSIONS = ('amcheck_next', 'pg_repack',)
+
     def adjust_shared_preload_libraries(self, version):
         from spilo_commons import adjust_extensions
 
@@ -21,22 +23,26 @@ class _PostgresqlUpgrade(Postgresql):
             self.config.get('parameters')['shared_preload_libraries'] =\
                     adjust_extensions(shared_preload_libraries, version)
 
+    def no_bg_mon(self):
+        shared_preload_libraries = self.config.get('parameters').get('shared_preload_libraries')
+        if shared_preload_libraries:
+            tmp = filter(lambda a: a != "bg_mon", map(lambda a: a.strip(), shared_preload_libraries.split(",")))
+            self.config.get('parameters')['shared_preload_libraries'] = ",".join(tmp)
+
+    def restore_shared_preload_libraries(self):
+        if getattr(self, '_old_shared_preload_libraries'):
+            self.config.get('parameters')['shared_preload_libraries'] = self._old_shared_preload_libraries
+        return True
+
     def start_old_cluster(self, config, version):
         self.set_bin_dir(version)
-
-        version = float(version)
-
-        config[config['method']]['command'] = 'true'
-        if version < 9.5:  # 9.4 and older don't have recovery_target_action
-            action = config[config['method']].get('recovery_target_action')
-            config[config['method']]['pause_at_recovery_target'] = str(action == 'pause').lower()
 
         # make sure we don't archive wals from the old version
         self._old_config_values = {'archive_mode': self.config.get('parameters').get('archive_mode')}
         self.config.get('parameters')['archive_mode'] = 'off'
 
         # and don't load shared_preload_libraries which don't exist in the old version
-        self.adjust_shared_preload_libraries(version)
+        self.adjust_shared_preload_libraries(float(version))
 
         return self.bootstrap.bootstrap(config)
 
@@ -57,27 +63,45 @@ class _PostgresqlUpgrade(Postgresql):
         conn_kwargs.pop('connect_timeout', None)
         return conn_kwargs
 
+    def _get_all_databases(self):
+        return [d[0] for d in self.query('SELECT datname FROM pg_catalog.pg_database WHERE datallowconn')]
+
+    def drop_possibly_incompatible_extensions(self):
+        from patroni.postgresql.connection import get_connection_cursor
+
+        logger.info('Dropping extensions from the cluster which could be incompatible')
+        conn_kwargs = self.local_conn_kwargs
+
+        for d in self._get_all_databases():
+            conn_kwargs['dbname'] = d
+            with get_connection_cursor(**conn_kwargs) as cur:
+                for ext in self._INCOMPATIBLE_EXTENSIONS:
+                    logger.info('Executing "DROP EXTENSION IF EXISTS %s" in the database="%s"', ext, d)
+                    cur.execute("DROP EXTENSION IF EXISTS {0}".format(ext))
+
     def drop_possibly_incompatible_objects(self):
         from patroni.postgresql.connection import get_connection_cursor
 
         logger.info('Dropping objects from the cluster which could be incompatible')
         conn_kwargs = self.local_conn_kwargs
 
-        for d in self.query('SELECT datname FROM pg_catalog.pg_database WHERE datallowconn'):
-            conn_kwargs['database'] = d[0]
+        for d in self._get_all_databases():
+            conn_kwargs['dbname'] = d
             with get_connection_cursor(**conn_kwargs) as cur:
-                logger.info('Executing "DROP FUNCTION metric_helpers.pg_stat_statements" in the database="%s"', d[0])
+
+                cmd = "REVOKE EXECUTE ON FUNCTION pg_catalog.pg_switch_{0}() FROM admin".format(self.wal_name)
+                logger.info('Executing "%s" in the database="%s"', cmd, d)
+                cur.execute(cmd)
+
+                logger.info('Executing "DROP FUNCTION metric_helpers.pg_stat_statements" in the database="%s"', d)
                 cur.execute("DROP FUNCTION IF EXISTS metric_helpers.pg_stat_statements(boolean) CASCADE")
-                logger.info('Executing "DROP EXTENSION pg_stat_kcache"')
-                cur.execute("DROP EXTENSION IF EXISTS pg_stat_kcache")
-                logger.info('Executing "DROP EXTENSION pg_stat_statements"')
-                cur.execute("DROP EXTENSION IF EXISTS pg_stat_statements")
-                logger.info('Executing "DROP EXTENSION IF EXISTS amcheck_next" in the database="%s"', d[0])
-                cur.execute("DROP EXTENSION IF EXISTS amcheck_next")
-                if d[0] == 'postgres':
-                    logger.info('Executing "DROP TABLE postgres_log CASCADE" in the database=postgres')
-                    cur.execute('DROP TABLE IF EXISTS public.postgres_log CASCADE')
-                cur.execute("SELECT oid::regclass FROM pg_catalog.pg_class WHERE relpersistence = 'u'")
+
+                for ext in ('pg_stat_kcache', 'pg_stat_statements') + self._INCOMPATIBLE_EXTENSIONS:
+                    logger.info('Executing "DROP EXTENSION IF EXISTS %s" in the database="%s"', ext, d)
+                    cur.execute("DROP EXTENSION IF EXISTS {0}".format(ext))
+
+                cur.execute("SELECT oid::regclass FROM pg_catalog.pg_class"
+                            " WHERE relpersistence = 'u' AND relkind = 'r'")
                 for unlogged in cur.fetchall():
                     logger.info('Truncating unlogged table %s', unlogged[0])
                     try:
@@ -90,13 +114,13 @@ class _PostgresqlUpgrade(Postgresql):
 
         conn_kwargs = self.local_conn_kwargs
 
-        for d in self.query('SELECT datname FROM pg_catalog.pg_database WHERE datallowconn'):
-            conn_kwargs['database'] = d[0]
+        for d in self._get_all_databases():
+            conn_kwargs['dbname'] = d
             with get_connection_cursor(**conn_kwargs) as cur:
                 cur.execute('SELECT quote_ident(extname) FROM pg_catalog.pg_extension')
                 for extname in cur.fetchall():
                     query = 'ALTER EXTENSION {0} UPDATE'.format(extname[0])
-                    logger.info("Executing '%s' in the database=%s", query, d[0])
+                    logger.info("Executing '%s' in the database=%s", query, d)
                     try:
                         cur.execute(query)
                     except Exception as e:
@@ -146,12 +170,15 @@ class _PostgresqlUpgrade(Postgresql):
         pg_upgrade_args = ['-k', '-j', str(psutil.cpu_count()),
                            '-b', self._old_bin_dir, '-B', self._bin_dir,
                            '-d', self._data_dir, '-D', self._new_data_dir,
-                           '-O', "-c timescaledb.restoring='on'"]
+                           '-O', "-c timescaledb.restoring='on'",
+                           '-O', "-c archive_mode='off'"]
         if 'username' in self.config.superuser:
             pg_upgrade_args += ['-U', self.config.superuser['username']]
 
         if check:
             pg_upgrade_args += ['--check']
+        else:
+            self.config.write_postgresql_conf()
 
         logger.info('Executing pg_upgrade%s', (' --check' if check else ''))
         if subprocess.call([self.pgcommand('pg_upgrade')] + pg_upgrade_args) == 0:
@@ -160,7 +187,7 @@ class _PostgresqlUpgrade(Postgresql):
             return True
 
     def prepare_new_pgdata(self, version):
-        from spilo_commons import append_extentions
+        from spilo_commons import append_extensions
 
         locale = self.query('SHOW lc_collate').fetchone()[0]
         encoding = self.query('SHOW server_encoding').fetchone()[0]
@@ -181,6 +208,9 @@ class _PostgresqlUpgrade(Postgresql):
 
         self.set_bin_dir(version)
 
+        # shared_preload_libraries for the old cluster, cleaned from incompatible/missing libs
+        old_shared_preload_libraries = self.config.get('parameters').get('shared_preload_libraries')
+
         # restore original values of archive_mode and shared_preload_libraries
         if getattr(self, '_old_config_values', None):
             for name, value in self._old_config_values.items():
@@ -189,10 +219,12 @@ class _PostgresqlUpgrade(Postgresql):
                 else:
                     self.config.get('parameters')[name] = value
 
+        # for the new version we maybe need to add some libs to the shared_preload_libraries
         shared_preload_libraries = self.config.get('parameters').get('shared_preload_libraries')
         if shared_preload_libraries:
-            self.config.get('parameters')['shared_preload_libraries'] =\
-                    append_extentions(shared_preload_libraries, float(version))
+            self._old_shared_preload_libraries = self.config.get('parameters')['shared_preload_libraries'] =\
+                append_extensions(shared_preload_libraries, float(version))
+            self.no_bg_mon()
 
         if not self.bootstrap._initdb(initdb_config):
             return False
@@ -207,19 +239,43 @@ class _PostgresqlUpgrade(Postgresql):
         self._new_data_dir, self._data_dir = self._data_dir, self._new_data_dir
         self.config._postgresql_conf = old_postgresql_conf
         self._version_file = old_version_file
+
+        if old_shared_preload_libraries:
+            self.config.get('parameters')['shared_preload_libraries'] = old_shared_preload_libraries
+            self.no_bg_mon()
         self.configure_server_parameters()
         return True
 
     def do_upgrade(self):
-        return self.pg_upgrade() and self.switch_pgdata() and self.cleanup_old_pgdata()
+        return self.pg_upgrade() and self.restore_shared_preload_libraries()\
+                 and self.switch_pgdata() and self.cleanup_old_pgdata()
 
     def analyze(self, in_stages=False):
         vacuumdb_args = ['--analyze-in-stages'] if in_stages else []
         logger.info('Rebuilding statistics (vacuumdb%s)', (' ' + vacuumdb_args[0] if in_stages else ''))
-        vacuumdb_args += ['-a', '-Z', '-j', str(psutil.cpu_count())]
         if 'username' in self.config.superuser:
             vacuumdb_args += ['-U', self.config.superuser['username']]
-        subprocess.call([self.pgcommand('vacuumdb')] + vacuumdb_args)
+        vacuumdb_args += ['-Z', '-j']
+
+        # vacuumdb is processing databases sequantially, while we better do them in parallel,
+        # because it will help with the case when there are multiple databases in the same cluster.
+        single_worker_dbs = ('postgres', 'template1')
+        databases = self._get_all_databases()
+        db_count = len([d for d in databases if d not in single_worker_dbs])
+        # calculate concurrency per database, except always existing "single_worker_dbs" (they'll get always 1 worker)
+        concurrency = str(max(1, int(psutil.cpu_count()/max(1, db_count))))
+        procs = []
+        for d in databases:
+            j = '1' if d in single_worker_dbs else concurrency
+            try:
+                procs.append(subprocess.Popen([self.pgcommand('vacuumdb')] + vacuumdb_args + [j, '-d', d]))
+            except Exception:
+                pass
+        for proc in procs:
+            try:
+                proc.wait()
+            except Exception:
+                pass
 
 
 def PostgresqlUpgrade(config):

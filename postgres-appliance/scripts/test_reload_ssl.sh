@@ -1,14 +1,22 @@
 #!/bin/bash
 #
-# This script is being called every TEST_INTERVAL_MINUTES to check if the
-# spilo or postgres configuration need to be reloaded.
+# This script is called to check if the spilo or postgres configuration need to
+# be reloaded due to changes in TLS files.
 #
-# Usage: test_reload_ssl.sh <TEST_INTERVAL_MINUTES>
+# Usage: test_reload_ssl.sh <STORED_HASH_DIRECTORY>
 set -euo pipefail
 
-# How often this script is being called
-test_interval_min=$1
-test_interval_sec=$((test_interval_min * 60))
+# Directory where hashes for each SSL file are stored
+last_hash_dir=$1
+
+# Redirect output to a log file
+# exec >$last_hash_dir/test_reload_ssl.log 2>&1
+# NOW="$(date)"
+# LOGNAME="$last_hash_dir/test_reload_ssl.log."${NOW}
+# exec > "$LOGNAME" 2>&1
+
+# The hash command to use
+hash_cmd="sha256sum"
 
 ## Functions ##
 
@@ -18,25 +26,53 @@ log() {
 
 has_changed() {
     local env=$1
-    local path=${!1:-}
-    if [[ -z "$path" ]]; then
+    local src_path=${!1:-}
+    local hash_path="$last_hash_dir/${env}.hash"
+    local live_hash
+    local last_hash
+
+    if [[ -z "$src_path" ]]; then
         log "env=$env: environment is not set"
         return 1
     fi
-    if [[ ! -e "$path" ]]; then
-        log "env=$env path=$path: does not exist"
+    if [[ ! -e "$src_path" ]]; then
+        log "env=$env src_path=$src_path: does not exist"
         return 1
     fi
-    local mtime now elapsed_sec
-    mtime=$(stat -c '%Y' "$path")
-    now=$(date +%s)
-    elapsed_sec=$(( now - 1 - mtime ))
-    if [[ $elapsed_sec -gt $test_interval_sec ]]; then
-        log "env=$env path=$path elapsec_sec=$elapsed_sec: no changes detected"
+    if [[ ! -e "$hash_path" ]]; then
+        log "env=$env hash_path=$hash_path: does not exist yet"
+        return 0
+    fi
+
+    live_hash=$($hash_cmd "$src_path")
+    last_hash=$(cat "$hash_path")
+
+    if [[ $live_hash = "$last_hash" ]]; then
+        log "env=$env path=$src_path live_hash=$live_hash: no changes detected"
         return 1
     fi
-    log "env=$env path=$path elapsec_sec=$elapsed_sec: found changes"
+    log "env=$env path=$src_path live_hash=$live_hash last_hash=$last_hash: found changes"
     return 0
+}
+
+write_hash() {
+    local env=$1
+    local src_path=${!1:-}
+    local hash_path="$last_hash_dir/${env}.hash"
+
+    if [[ ! -e "$src_path" ]]; then
+        log "env=$env src_path=$src_path: does not exist; skipped writing hash"
+        return 0
+    fi
+
+    $hash_cmd "$src_path" > "$hash_path"
+}
+
+write_hashes() {
+    write_hash SSL_CA_FILE
+    write_hash SSL_CRL_FILE
+    write_hash SSL_CERTIFICATE_FILE
+    write_hash SSL_PRIVATE_KEY_FILE
 }
 
 ## Main ##
@@ -49,4 +85,5 @@ if
 then
     log "Reloading due to detected changes"
     pg_ctl reload
+    write_hashes
 fi

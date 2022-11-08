@@ -31,7 +31,7 @@ def patch_wale_prefix(value, new_version):
 
 
 def update_configs(new_version):
-    from spilo_commons import append_extentions, get_bin_dir, get_patroni_config, write_file, write_patroni_config
+    from spilo_commons import append_extensions, get_bin_dir, get_patroni_config, write_file, write_patroni_config
 
     config = get_patroni_config()
 
@@ -41,18 +41,18 @@ def update_configs(new_version):
     shared_preload_libraries = config['postgresql'].get('parameters', {}).get('shared_preload_libraries')
     if shared_preload_libraries is not None:
         config['postgresql']['parameters']['shared_preload_libraries'] =\
-                append_extentions(shared_preload_libraries, version)
+                append_extensions(shared_preload_libraries, version)
 
     extwlist_extensions = config['postgresql'].get('parameters', {}).get('extwlist.extensions')
     if extwlist_extensions is not None:
         config['postgresql']['parameters']['extwlist.extensions'] =\
-                append_extentions(extwlist_extensions, version, True)
+                append_extensions(extwlist_extensions, version, True)
 
     write_patroni_config(config, True)
 
     # update wal-e/wal-g envdir files
     restore_command = shlex.split(config['postgresql'].get('recovery_conf', {}).get('restore_command', ''))
-    if len(restore_command) > 4 and restore_command[0] == 'envdir':
+    if len(restore_command) > 6 and restore_command[0] == 'envdir':
         envdir = restore_command[1]
 
         try:
@@ -103,7 +103,8 @@ class InplaceUpgrade(object):
         self.rsyncd_started = False
 
         if self.upgrade_required:
-            self.dcs = get_dcs(config)
+            # we want to reduce tcp timeouts and keepalives and therefore tune loop_wait, retry_timeout, and ttl
+            self.dcs = get_dcs({**config.copy(), 'loop_wait': 0, 'ttl': 10, 'retry_timeout': 10, 'patronictl': True})
             self.request = PatroniRequest(config, True)
 
     @staticmethod
@@ -326,24 +327,8 @@ hosts deny = *
             logger.error('CHECKPOINT on % failed: %r', name, e)
             return name, False
 
-    def checkpoint_replicas(self):
-        logger.info('Executing CHECKPOINT on replicas %s', ','.join(self.replica_connections.keys()))
-        pool = ThreadPool(len(self.replica_connections))
-        results = pool.map(self.checkpoint, self.replica_connections.items())  # Run CHECKPOINT on replicas in parallel
-        pool.close()
-        pool.join()
-
-        for name, status in results:
-            if not status:
-                self.replica_connections.pop(name)
-
-        return self.replica_connections
-
     def rsync_replicas(self, primary_ip):
         from patroni.utils import polling_loop
-
-        if not self.checkpoint_replicas():
-            return
 
         logger.info('Notifying replicas %s to start rsync', ','.join(self.replica_connections.keys()))
         ret = True
@@ -433,7 +418,7 @@ hosts deny = *
         conn_kwargs = self.postgresql.local_conn_kwargs
 
         for d in self.postgresql.query('SELECT datname FROM pg_catalog.pg_database WHERE datallowconn'):
-            conn_kwargs['database'] = d[0]
+            conn_kwargs['dbname'] = d[0]
             with get_connection_cursor(**conn_kwargs) as cur:
                 cur.execute('SELECT attrelid::regclass, quote_ident(attname), attstattarget '
                             'FROM pg_catalog.pg_attribute WHERE attnum > 0 AND NOT attisdropped AND attstattarget > 0')
@@ -453,7 +438,7 @@ hosts deny = *
 
         logger.info('Restoring default statistics targets after upgrade')
         for db, val in self._statistics.items():
-            conn_kwargs['database'] = db
+            conn_kwargs['dbname'] = db
             with get_connection_cursor(**conn_kwargs) as cur:
                 for table, val in val.items():
                     for column, target in val.items():
@@ -473,7 +458,7 @@ hosts deny = *
         conn_kwargs = self.postgresql.local_conn_kwargs
 
         for db, val in self._statistics.items():
-            conn_kwargs['database'] = db
+            conn_kwargs['dbname'] = db
             with get_connection_cursor(**conn_kwargs) as cur:
                 for table in val.keys():
                     query = 'ANALYZE {0}'.format(table)
@@ -516,6 +501,11 @@ hosts deny = *
         if not self.postgresql.prepare_new_pgdata(self.desired_version):
             return logger.error('initdb failed')
 
+        try:
+            self.postgresql.drop_possibly_incompatible_extensions()
+        except Exception:
+            return logger.error('Failed to drop possibly incompatible extensions')
+
         if not self.postgresql.pg_upgrade(check=True):
             return logger.error('pg_upgrade --check failed, more details in the %s_upgrade', self.postgresql.data_dir)
 
@@ -534,7 +524,18 @@ hosts deny = *
             return logger.error('Failed to stop the cluster before pg_upgrade')
 
         if self.replica_connections:
-            checkpoint_lsn = int(self.postgresql.latest_checkpoint_location())
+            from patroni.postgresql.misc import parse_lsn
+
+            # Make sure we use the pg_controldata from the correct major version
+            self.postgresql.set_bin_dir(self.cluster_version)
+            controldata = self.postgresql.controldata()
+            self.postgresql.set_bin_dir(self.desired_version)
+
+            checkpoint_lsn = controldata.get('Latest checkpoint location')
+            if controldata.get('Database cluster state') != 'shut down' or not checkpoint_lsn:
+                return logger.error("Cluster wasn't shut down cleanly")
+
+            checkpoint_lsn = parse_lsn(checkpoint_lsn)
             logger.info('Latest checkpoint location: %s', checkpoint_lsn)
 
             logger.info('Starting rsyncd')
@@ -546,6 +547,14 @@ hosts deny = *
             if not (self.rsyncd.pid and self.rsyncd.poll() is None):
                 return logger.error('Failed to start rsyncd')
 
+        if self.replica_connections:
+            logger.info('Executing CHECKPOINT on replicas %s', ','.join(self.replica_connections.keys()))
+            pool = ThreadPool(len(self.replica_connections))
+            # Do CHECKPOINT on replicas in parallel with pg_upgrade.
+            # It will reduce the time for shutdown and so downtime.
+            results = pool.map_async(self.checkpoint, self.replica_connections.items())
+            pool.close()
+
         if not self.postgresql.pg_upgrade():
             return logger.error('Failed to upgrade cluster from %s to %s', self.cluster_version, self.desired_version)
 
@@ -555,12 +564,23 @@ hosts deny = *
         logger.info('Updating configuration files')
         envdir = update_configs(self.desired_version)
 
+        ret = True
+        if self.replica_connections:
+            # Check status of replicas CHECKPOINT and remove connections that are failed.
+            pool.join()
+            if results.ready():
+                for name, status in results.get():
+                    if not status:
+                        ret = False
+                        self.replica_connections.pop(name)
+
         member = cluster.get_member(self.postgresql.name)
         if self.replica_connections:
             primary_ip = member.conn_kwargs().get('host')
             rsync_start = time.time()
             try:
-                ret = self.rsync_replicas(primary_ip)
+                if not self.rsync_replicas(primary_ip):
+                    ret = False
             except Exception as e:
                 logger.error('rsync failed: %r', e)
                 ret = False
@@ -594,6 +614,11 @@ hosts deny = *
 
         logger.info('Upgrade downtime: %s', time.time() - downtime_start)
 
+        # The last attempt to fix initialize key race condition
+        cluster = self.dcs.get_cluster()
+        if cluster.initialize == self._old_sysid:
+            self.dcs.cancel_initialization()
+
         try:
             self.postgresql.update_extensions()
         except Exception as e:
@@ -603,7 +628,8 @@ hosts deny = *
         analyze_thread = Thread(target=self.analyze)
         analyze_thread.start()
 
-        self.wait_replicas_restart(cluster)
+        if self.replica_connections:
+            self.wait_replicas_restart(cluster)
 
         self.resume_cluster()
 
@@ -717,9 +743,15 @@ def rsync_replica(config, desired_version, primary_ip, pid):
     # the recovery.conf file and tried (and failed) to start the cluster up using wrong binaries.
     # In case of upgrade to 12+ presence of PGDATA/recovery.conf will not allow postgres to start.
     # We remove the recovery.conf and restart Patroni in order to make sure it is using correct config.
-    postgresql.config.remove_recovery_conf()
+    try:
+        postgresql.config.remove_recovery_conf()
+    except Exception:
+        pass
     kill_patroni()
-    postgresql.config.remove_recovery_conf()
+    try:
+        postgresql.config.remove_recovery_conf()
+    except Exception:
+        pass
 
     return postgresql.cleanup_old_pgdata()
 

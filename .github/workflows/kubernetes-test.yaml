@@ -1,0 +1,22 @@
+name: Kubernetes Installation Test
+
+on: 
+  pull_request:
+    paths:
+    - 'kubernetes/**'
+  push:
+    branches:
+    - master
+    paths:
+    - 'kubernetes/**'
+
+jobs:
+  kubernetes-installation-test:
+    runs-on: ubuntu-20.04
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Create Kind Cluster
+      uses: helm/kind-action@v1.1.0
+    - name: Install Spilo
+      run: kubectl apply -f kubernetes/spilo_kubernetes.yaml

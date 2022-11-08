@@ -15,7 +15,16 @@ BEGIN
     ELSE
         CREATE ROLE admin CREATEDB;
     END IF;
+
+    PERFORM * FROM pg_catalog.pg_authid WHERE rolname = 'cron_admin';
+    IF FOUND THEN
+        ALTER ROLE cron_admin WITH NOCREATEDB NOLOGIN NOCREATEROLE NOSUPERUSER NOREPLICATION INHERIT;
+    ELSE
+        CREATE ROLE cron_admin;
+    END IF;
 END;\$\$;
+
+GRANT cron_admin TO admin;
 
 DO \$\$
 BEGIN
@@ -42,18 +51,34 @@ ALTER EXTENSION pg_auth_mon UPDATE;
 GRANT SELECT ON TABLE public.pg_auth_mon TO robot_zmon;
 
 CREATE EXTENSION IF NOT EXISTS pg_cron SCHEMA public;
+DO \$\$
+BEGIN
+    PERFORM 1 FROM pg_catalog.pg_proc WHERE pronamespace = 'cron'::pg_catalog.regnamespace AND proname = 'schedule' AND proargnames = '{p_schedule,p_database,p_command}';
+    IF FOUND THEN
+        ALTER FUNCTION cron.schedule(text, text, text) RENAME TO schedule_in_database;
+    END IF;
+END;\$\$;
 ALTER EXTENSION pg_cron UPDATE;
 
 ALTER POLICY cron_job_policy ON cron.job USING (username = current_user OR
-    (pg_has_role(current_user, 'admin', 'MEMBER')
-    AND pg_has_role(username, 'admin', 'MEMBER')
+    (pg_has_role(current_user, 'cron_admin', 'MEMBER')
+    AND pg_has_role(username, 'cron_admin', 'MEMBER')
     AND NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname = username AND rolsuper)
     ));
-REVOKE SELECT ON cron.job FROM public;
-GRANT SELECT ON cron.job TO admin;
-GRANT UPDATE (database, nodename) ON cron.job TO admin;
+REVOKE SELECT ON cron.job FROM admin, public;
+GRANT SELECT ON cron.job TO cron_admin;
+REVOKE UPDATE (database, nodename) ON cron.job FROM admin;
+GRANT UPDATE (database, nodename) ON cron.job TO cron_admin;
 
-CREATE OR REPLACE FUNCTION cron.schedule(p_schedule text, p_database text, p_command text)
+ALTER POLICY cron_job_run_details_policy ON cron.job_run_details USING (username = current_user OR
+    (pg_has_role(current_user, 'cron_admin', 'MEMBER')
+    AND pg_has_role(username, 'cron_admin', 'MEMBER')
+    AND NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname = username AND rolsuper)
+    ));
+REVOKE SELECT ON cron.job_run_details FROM admin, public;
+GRANT SELECT ON cron.job_run_details TO cron_admin;
+
+CREATE OR REPLACE FUNCTION cron.schedule_in_database(p_schedule text, p_database text, p_command text)
 RETURNS bigint
 LANGUAGE plpgsql
 AS \$function\$
@@ -69,13 +94,22 @@ BEGIN
     RETURN l_jobid;
 END;
 \$function\$;
-REVOKE EXECUTE ON FUNCTION cron.schedule(text, text) FROM public;
-GRANT EXECUTE ON FUNCTION cron.schedule(text, text) TO admin;
-REVOKE EXECUTE ON FUNCTION cron.schedule(text, text, text) FROM public;
-GRANT EXECUTE ON FUNCTION cron.schedule(text, text, text) TO admin;
-REVOKE EXECUTE ON FUNCTION cron.unschedule(bigint) FROM public;
-GRANT EXECUTE ON FUNCTION cron.unschedule(bigint) TO admin;
-GRANT USAGE ON SCHEMA cron TO admin;
+REVOKE EXECUTE ON FUNCTION cron.alter_job(bigint, text, text, text, text, boolean) FROM admin, public;
+GRANT EXECUTE ON FUNCTION cron.alter_job(bigint, text, text, text, text, boolean) TO cron_admin;
+REVOKE EXECUTE ON FUNCTION cron.schedule(text, text) FROM admin, public;
+GRANT EXECUTE ON FUNCTION cron.schedule(text, text) TO cron_admin;
+REVOKE EXECUTE ON FUNCTION cron.schedule(text, text, text) FROM admin, public;
+GRANT EXECUTE ON FUNCTION cron.schedule(text, text, text) TO cron_admin;
+REVOKE EXECUTE ON FUNCTION cron.schedule_in_database(text, text, text) FROM admin, public;
+GRANT EXECUTE ON FUNCTION cron.schedule_in_database(text, text, text) TO cron_admin;
+REVOKE EXECUTE ON FUNCTION cron.schedule_in_database(text, text, text, text, text, boolean) FROM admin, public;
+GRANT EXECUTE ON FUNCTION cron.schedule_in_database(text, text, text, text, text, boolean) TO cron_admin;
+REVOKE EXECUTE ON FUNCTION cron.unschedule(bigint) FROM admin, public;
+GRANT EXECUTE ON FUNCTION cron.unschedule(bigint) TO cron_admin;
+REVOKE EXECUTE ON FUNCTION cron.unschedule(name) FROM admin, public;
+GRANT EXECUTE ON FUNCTION cron.unschedule(name) TO cron_admin;
+REVOKE USAGE ON SCHEMA cron FROM admin;
+GRANT USAGE ON SCHEMA cron TO cron_admin;
 
 CREATE EXTENSION IF NOT EXISTS file_fdw SCHEMA public;
 DO \$\$
@@ -109,11 +143,17 @@ CREATE TABLE IF NOT EXISTS public.postgres_log (
     query text,
     query_pos integer,
     location text,
-    application_name text,"
-if [ "$PGVER" -ge 13 ]; then echo "    backend_type text,"; fi
-echo "    CONSTRAINT postgres_log_check CHECK (false) NO INHERIT
+    application_name text,
+    CONSTRAINT postgres_log_check CHECK (false) NO INHERIT
 );
 GRANT SELECT ON public.postgres_log TO admin;"
+if [ "$PGVER" -ge 13 ]; then
+    echo "ALTER TABLE public.postgres_log ADD COLUMN IF NOT EXISTS backend_type text;"
+fi
+if [ "$PGVER" -ge 14 ]; then
+    echo "ALTER TABLE public.postgres_log ADD COLUMN IF NOT EXISTS leader_pid integer;"
+    echo "ALTER TABLE public.postgres_log ADD COLUMN IF NOT EXISTS query_id bigint;"
+fi
 
 # Sunday could be 0 or 7 depending on the format, we just create both
 for i in $(seq 0 7); do
@@ -137,16 +177,15 @@ while IFS= read -r db_name; do
     echo "\c ${db_name}"
     # In case if timescaledb binary is missing the first query fails with the error
     # ERROR:  could not access file "$libdir/timescaledb-$OLD_VERSION": No such file or directory
-    TIMESCALEDB_VERSION=$(echo -e "SELECT NULL;\nSELECT extversion FROM pg_catalog.pg_extension WHERE extname = 'timescaledb'" | psql -tAX -d "${db_name}" 2> /dev/null | tail -n 1)
-    if [ "x$TIMESCALEDB_VERSION" != "x" ] && [ "x$TIMESCALEDB_VERSION" != "x$TIMESCALEDB" ] \
-            && { [ "$PGVER" -ge 11 ] || [ "x$TIMESCALEDB_VERSION" != "x$TIMESCALEDB_LEGACY" ]; }; then
+    UPGRADE_TIMESCALEDB=$(echo -e "SELECT NULL;\nSELECT default_version != installed_version FROM pg_catalog.pg_available_extensions WHERE name = 'timescaledb'" | psql -tAX -d "${db_name}" 2> /dev/null | tail -n 1)
+    if [ "$UPGRADE_TIMESCALEDB" = "t" ]; then
         echo "ALTER EXTENSION timescaledb UPDATE;"
     fi
     UPGRADE_POSTGIS=$(echo -e "SELECT COUNT(*) FROM pg_catalog.pg_extension WHERE extname = 'postgis'" | psql -tAX -d "${db_name}" 2> /dev/null | tail -n 1)
-    if [ "x$UPGRADE_POSTGIS" = "x1" ]; then
+    if [ "$UPGRADE_POSTGIS" = "1" ]; then
         # public.postgis_lib_version() is available only if postgis extension is created
         UPGRADE_POSTGIS=$(echo -e "SELECT extversion != public.postgis_lib_version() FROM pg_catalog.pg_extension WHERE extname = 'postgis'" | psql -tAX -d "${db_name}" 2> /dev/null | tail -n 1)
-        if [ "x$UPGRADE_POSTGIS" = "xt" ]; then
+        if [ "$UPGRADE_POSTGIS" = "t" ]; then
             echo "ALTER EXTENSION postgis UPDATE;"
             echo "SELECT public.postgis_extensions_upgrade();"
         fi
@@ -158,7 +197,12 @@ CREATE EXTENSION IF NOT EXISTS set_user SCHEMA public;
 ALTER EXTENSION set_user UPDATE;
 GRANT EXECUTE ON FUNCTION public.set_user(text) TO admin;
 GRANT EXECUTE ON FUNCTION public.pg_stat_statements_reset($RESET_ARGS) TO admin;"
-    if [ "x$ENABLE_PG_MON" = "xtrue" ] && [ "$PGVER" -ge 11 ]; then echo "CREATE EXTENSION IF NOT EXISTS pg_mon SCHEMA public;"; fi
+    if [ "$PGVER" -lt 10 ]; then
+        echo "GRANT EXECUTE ON FUNCTION pg_catalog.pg_switch_xlog() TO admin;"
+    else
+        echo "GRANT EXECUTE ON FUNCTION pg_catalog.pg_switch_wal() TO admin;"
+    fi
+    if [ "$ENABLE_PG_MON" = "true" ] && [ "$PGVER" -ge 11 ]; then echo "CREATE EXTENSION IF NOT EXISTS pg_mon SCHEMA public;"; fi
     cat metric_helpers.sql
 done < <(psql -d "$POSTGRES_DB" -tAc 'select pg_catalog.quote_ident(datname) from pg_catalog.pg_database where datallowconn')
 ) | PGOPTIONS="-c synchronous_commit=local" psql -Xd "$POSTGRES_DB"

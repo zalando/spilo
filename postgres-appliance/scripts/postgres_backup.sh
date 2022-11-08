@@ -5,7 +5,7 @@ function log
     echo "$(date "+%Y-%m-%d %H:%M:%S.%3N") - $0 - $*"
 }
 
-[[ -z $1 ]] && echo "Usage: $0 PGDATA <DAYS_TO_RETAIN>" && exit 1
+[[ -z $1 ]] && echo "Usage: $0 PGDATA" && exit 1
 
 log "I was called as: $0 $*"
 
@@ -13,7 +13,8 @@ log "I was called as: $0 $*"
 readonly PGDATA=$1
 DAYS_TO_RETAIN=$BACKUP_NUM_TO_RETAIN
 
-readonly IN_RECOVERY=$(psql -tXqAc "select pg_is_in_recovery()")
+IN_RECOVERY=$(psql -tXqAc "select pg_is_in_recovery()")
+readonly IN_RECOVERY
 if [[ $IN_RECOVERY == "f" ]]; then
     [[ "$WALG_BACKUP_FROM_REPLICA" == "true" ]] && log "Cluster is not in recovery, not running backup" && exit 0
 elif [[ $IN_RECOVERY == "t" ]]; then
@@ -41,7 +42,8 @@ fi
 BEFORE=""
 LEFT=0
 
-readonly NOW=$(date +%s -u)
+NOW=$(date +%s -u)
+readonly NOW
 while read -r name last_modified rest; do
     last_modified=$(date +%s -ud "$last_modified")
     if [ $(((NOW-last_modified)/86400)) -ge $DAYS_TO_RETAIN ]; then
@@ -53,10 +55,10 @@ while read -r name last_modified rest; do
         # count how many backups will remain after we remove everything up to certain date
         ((LEFT=LEFT+1))
     fi
-done < <($WAL_E backup-list 2> /dev/null | sed '0,/^name\s*last_modified\s*/d')
+done < <($WAL_E backup-list 2> /dev/null | sed '0,/^name\s*\(last_\)\?modified\s*/d')
 
 # we want keep at least N backups even if the number of days exceeded
-if [ ! -z "$BEFORE" ] && [ $LEFT -ge $DAYS_TO_RETAIN ]; then
+if [ -n "$BEFORE" ] && [ $LEFT -ge $DAYS_TO_RETAIN ]; then
     if [[ "$USE_WALG_BACKUP" == "true" ]]; then
         $WAL_E delete before FIND_FULL "$BEFORE" --confirm
     else
