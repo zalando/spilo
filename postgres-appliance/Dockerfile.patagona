@@ -11,6 +11,8 @@ RUN export DISTRIB_RELEASE=$(sed -n 's/DISTRIB_RELEASE=//p' /etc/lsb-release) \
 
 COPY scripts/basebackup.sh /scripts/basebackup.sh
 
+COPY scripts/wale_restore.sh /scripts/wale_restore.sh
+
 COPY scripts/restore_command.sh /scripts/restore_command.sh
 
 COPY bootstrap/clone_with_wale.py /scripts/clone_with_wale.sh
