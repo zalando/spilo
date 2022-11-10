@@ -2,7 +2,7 @@
 # Hence we decide to use the follow image as base image
 FROM docker-registry.patagona.de/spilo:ts2.3.1-ts1.7.5-pg13-pg12-pg11-4454a379179e4c79cea35deb97ac947d1f0348f6
 
-ENV WALG_VERSION=v2.0.0
+ENV WALG_VERSION=v2.0.1
 
 RUN export DISTRIB_RELEASE=$(sed -n 's/DISTRIB_RELEASE=//p' /etc/lsb-release) \
     && curl -sL https://github.com/wal-g/wal-g/releases/download/$WALG_VERSION/wal-g-pg-ubuntu-$DISTRIB_RELEASE-amd64.tar.gz \
