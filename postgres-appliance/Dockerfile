@@ -40,7 +40,6 @@ RUN bash /builddeps/prepare.sh
 COPY --from=ubuntu-18 /usr/lib/locale/locale-archive /usr/lib/locale/locale-archive.18
 
 COPY cron_unprivileged.c dependencies/src /builddeps/
-COPY patches/*.patch /builddeps/
 COPY build_scripts/base.sh /builddeps/
 COPY --from=dependencies-builder /builddeps/*.deb /builddeps/
 
