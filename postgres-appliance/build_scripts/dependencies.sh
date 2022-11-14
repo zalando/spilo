@@ -6,7 +6,12 @@
 
 set -ex
 
-[ "$DEMO" = "true" ] && exit 0
+# should exist when $DEMO=TRUE to avoid 'COPY --from=dependencies-builder /builddeps/wal-g ...' failure
+
+if [ "$DEMO" = "true" ]; then
+    mkdir /builddeps/wal-g
+    exit 0
+fi
 
 export DEBIAN_FRONTEND=noninteractive
 MAKEFLAGS="-j $(grep -c ^processor /proc/cpuinfo)"
