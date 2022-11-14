@@ -220,8 +220,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
                         postgresql-${version}-postgis-${POSTGIS_VERSION%.*} \
                         postgresql-${version}-postgis-${POSTGIS_VERSION%.*}-scripts \
                         postgresql-${version}-repack \
-                        postgresql-${version}-wal2json \
-                        postgresql-${version}-pgextwlist" \
+                        postgresql-${version}-wal2json" \
                 && if [ "$WITH_PERL" = "true" ]; then \
                     EXTRAS="$EXTRAS postgresql-plperl-${version}"; \
                 fi \
@@ -237,7 +236,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
             && apt-get install --allow-downgrades -y postgresql-contrib-${version} \
                     postgresql-plpython3-${version} postgresql-server-dev-${version} \
                     postgresql-${version}-cron postgresql-${version}-pgq3 \
-                    postgresql-${version}-pg-stat-kcache $EXTRAS \
+                    postgresql-${version}-pg-stat-kcache postgresql-${version}-pgextwlist \
+                    $EXTRAS \
 \
             # Install 3rd party stuff
             && cd timescaledb \
