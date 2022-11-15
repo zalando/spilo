@@ -89,7 +89,6 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
                 "postgresql-${version}-pglogical"
                 "postgresql-${version}-pglogical-ticker"
                 "postgresql-${version}-plpgsql-check"
-                "postgresql-${version}-pgextwlist"
                 "postgresql-${version}-pg-checksums"
                 "postgresql-${version}-pgl-ddl-deploy"
                 "postgresql-${version}-pgq-node"
@@ -120,6 +119,7 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
     apt-get install --allow-downgrades -y \
         "postgresql-${version}-cron" \
         "postgresql-contrib-${version}" \
+        "postgresql-${version}-pgextwlist" \
         "postgresql-plpython3-${version}" \
         "postgresql-server-dev-${version}" \
         "postgresql-${version}-pgq3" \
