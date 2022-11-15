@@ -25,6 +25,7 @@ pipeline:
       bash postgres-appliance/tests/test_spilo.sh
   - desc: Tag and push spilo-cdp docker image
     cmd: |
+      # Push for PRs to feature/postgresql-15
       if [ "x${CDP_SOURCE_BRANCH}" != "x" ] && [ "x${CDP_TARGET_BRANCH}" == "xfeature/postgresql-15" ]; then
           cd postgres-appliance
           PATRONIVERSION=$(sed -n 's/^ENV PATRONIVERSION=\([1-9][0-9]*\.[0-9]*\).*$/\1/p' Dockerfile)
@@ -57,6 +58,7 @@ pipeline:
       docker images
   - desc: Tag and push spilo-cdp-arm64 docker image
     cmd: |
+      # Push for PRs to feature/postgresql-15
       if [ "x${CDP_SOURCE_BRANCH}" != "x" ] && [ "x${CDP_TARGET_BRANCH}" == "xfeature/postgresql-15" ]; then
           cd postgres-appliance
           PATRONIVERSION=$(sed -n 's/^ENV PATRONIVERSION=\([1-9][0-9]*\.[0-9]*\).*$/\1/p' Dockerfile)
