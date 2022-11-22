@@ -90,7 +90,9 @@ while true; do
         version=$(<"$DATA_DIR/PG_VERSION")
         [[ "$version" =~ \. ]] && wal_name=xlog || wal_name=wal
         readonly wal_dir=$DATA_DIR/pg_$wal_name
-        [[ ! -d $wal_dir ]] && rm -f "$wal_dir" && mkdir "$wal_dir"
+        # if wal directory does not exists
+        # create a symbolic link for wal directory
+        [[ ! -d $wal_dir ]] && ln -s /wal "$wal_dir"
         # remove broken symlinks from PGDATA
         find "$DATA_DIR" -xtype l -delete
         exit 0
