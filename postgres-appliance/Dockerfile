@@ -292,7 +292,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && gcc -s -shared -fPIC -o /usr/local/lib/cron_unprivileged.so cron_unprivileged.c \
 \
     # Remove unnecessary packages
-    && apt-get purge -y ${BUILD_PACKAGES} postgresql postgresql-all postgresql-server-dev-* libpq-dev=* libmagic1 bsdmainutils \
+    && apt-get purge -y ${BUILD_PACKAGES} postgresql postgresql-all postgresql-server-dev-* libpq-dev=* libmagic1 bsdmainutils curl \
     && apt-get autoremove -y \
     && apt-get clean \
     && dpkg -l | grep '^rc' | awk '{print $2}' | xargs apt-get purge -y \
