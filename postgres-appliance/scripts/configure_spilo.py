@@ -973,13 +973,9 @@ def write_crontab(placeholders, overwrite):
 
     if sys_nice_is_set:
         renice = '*/5 * * * * bash /scripts/renice.sh'
-        if not no_new_privs:
-            lines += [renice]
-        elif os.getuid() == 0:
+        lines += [renice]
+        if os.getuid() == 0:
             root_lines = [lines[0], renice]
-        else:
-            logging.info('Skipping creation of renice cron job due to running as not root '
-                         'and with "no-new-privileges:true" (allowPrivilegeEscalation=false on K8s)')
     else:
         logging.info('Skipping creation of renice cron job due to lack of SYS_NICE capability')
 
