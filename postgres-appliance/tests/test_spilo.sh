@@ -138,11 +138,6 @@ function wait_all_streaming() {
     wait_query "$1" "SELECT COUNT(*) FROM pg_stat_replication WHERE application_name LIKE 'spilo_'" 2
 }
 
-function wait_zero_lag_old() {
-    log_info "Waiting for all replicas to catch up with WAL replay..."
-    wait_query "$1" "SELECT COUNT(*) FROM pg_stat_replication WHERE application_name LIKE 'spilo_' AND pg_catalog.pg_xlog_location_diff(pg_catalog.pg_current_xlog_location(), COALESCE(replay_location, '0/0')) < 16*1024*1024" 2
-}
-
 function wait_zero_lag() {
     log_info "Waiting for all replicas to catch up with WAL replay..."
     wait_query "$1" "SELECT COUNT(*) FROM pg_stat_replication WHERE application_name LIKE 'spilo_' AND pg_catalog.pg_wal_lsn_diff(pg_catalog.pg_current_wal_lsn(), COALESCE(replay_lsn, '0/0')) < 16*1024*1024" 2
@@ -164,20 +159,16 @@ function drop_timescaledb() {
     docker_exec "$1" "psql -U postgres -d test_db -c 'DROP EXTENSION timescaledb CASCADE'"
 }
 
-function test_inplace_upgrade_wrong_container() {
-    ! docker_exec "$(get_non_leader "$1")" "PGVERSION=10 $UPGRADE_SCRIPT 4"
-}
-
 function test_inplace_upgrade_wrong_version() {
-    docker_exec "$1" "PGVERSION=9.6 $UPGRADE_SCRIPT 3" 2>&1 | grep 'Upgrade is not required'
+    docker_exec "$1" "PGVERSION=10 $UPGRADE_SCRIPT 3" 2>&1 | grep 'Upgrade is not required'
 }
 
 function test_inplace_upgrade_wrong_capacity() {
-    docker_exec "$1" "PGVERSION=10 $UPGRADE_SCRIPT 4" 2>&1 | grep 'number of replicas does not match'
+    docker_exec "$1" "PGVERSION=11 $UPGRADE_SCRIPT 4" 2>&1 | grep 'number of replicas does not match'
 }
 
-function test_successful_inplace_upgrade_to_10() {
-    docker_exec "$1" "PGVERSION=10 $UPGRADE_SCRIPT 3"
+function test_successful_inplace_upgrade_to_11() {
+    docker_exec "$1" "PGVERSION=11 $UPGRADE_SCRIPT 3"
 }
 
 function test_envdir_suffix() {
@@ -192,27 +183,27 @@ function test_envdir_updated_to_x() {
 }
 
 function test_failed_inplace_upgrade_big_replication_lag() {
-    ! test_successful_inplace_upgrade_to_10 "$1"
-}
-
-function test_successful_inplace_upgrade_to_12() {
-    docker_exec "$1" "PGVERSION=12 $UPGRADE_SCRIPT 3"
-}
-
-function test_pg_upgrade_to_12_check_failed() {
-    ! test_successful_inplace_upgrade_to_12 "$1"
+    ! test_successful_inplace_upgrade_to_11 "$1"
 }
 
 function test_successful_inplace_upgrade_to_13() {
     docker_exec "$1" "PGVERSION=13 $UPGRADE_SCRIPT 3"
 }
 
+function test_pg_upgrade_to_13_check_failed() {
+    ! test_successful_inplace_upgrade_to_13 "$1"
+}
+
 function test_successful_inplace_upgrade_to_14() {
     docker_exec "$1" "PGVERSION=14 $UPGRADE_SCRIPT 3"
 }
 
-function test_pg_upgrade_to_14_check_failed() {
-    ! test_successful_inplace_upgrade_to_14 "$1"
+function test_successful_inplace_upgrade_to_15() {
+    docker_exec "$1" "PGVERSION=15 $UPGRADE_SCRIPT 3"
+}
+
+function test_pg_upgrade_to_15_check_failed() {
+    ! test_successful_inplace_upgrade_to_15 "$1"
 }
 
 function start_clone_with_wale_upgrade_container() {
@@ -220,7 +211,7 @@ function start_clone_with_wale_upgrade_container() {
 
     docker-compose run \
         -e SCOPE=upgrade \
-        -e PGVERSION=10 \
+        -e PGVERSION=11 \
         -e CLONE_SCOPE=demo \
         -e CLONE_METHOD=CLONE_WITH_WALE \
         -e CLONE_TARGET_TIME="$(date -d '1 minute' -u +'%F %T UTC')" \
@@ -232,27 +223,27 @@ function start_clone_with_wale_upgrade_replica_container() {
     start_clone_with_wale_upgrade_container 2
 }
 
-function start_clone_with_wale_upgrade_to_14_container() {
+function start_clone_with_wale_upgrade_to_15_container() {
     docker-compose run \
         -e SCOPE=upgrade3 \
-        -e PGVERSION=14 \
+        -e PGVERSION=15 \
         -e CLONE_SCOPE=demo \
-        -e CLONE_PGVERSION=9.6 \
+        -e CLONE_PGVERSION=10 \
         -e CLONE_METHOD=CLONE_WITH_WALE \
         -e CLONE_TARGET_TIME="$(date -d '1 minute' -u +'%F %T UTC')" \
         --name "${PREFIX}upgrade4" \
         -d "spilo3"
 }
 
-function start_clone_with_wale_14_container() {
+function start_clone_with_wale_15_container() {
     docker-compose run \
         -e SCOPE=clone13 \
-        -e PGVERSION=14 \
+        -e PGVERSION=15 \
         -e CLONE_SCOPE=upgrade3 \
-        -e CLONE_PGVERSION=14 \
+        -e CLONE_PGVERSION=15 \
         -e CLONE_METHOD=CLONE_WITH_WALE \
         -e CLONE_TARGET_TIME="$(date -d '1 hour' -u +'%F %T UTC')" \
-        --name "${PREFIX}clone14" \
+        --name "${PREFIX}clone15" \
         -d "spilo3"
 }
 
@@ -260,7 +251,7 @@ function start_clone_with_basebackup_upgrade_container() {
     local container=$1
     docker-compose run \
         -e SCOPE=upgrade2 \
-        -e PGVERSION=11 \
+        -e PGVERSION=12 \
         -e CLONE_SCOPE=upgrade \
         -e CLONE_METHOD=CLONE_WITH_BASEBACKUP \
         -e CLONE_HOST="$(docker_exec "$container" "hostname --ip-address")" \
@@ -272,19 +263,19 @@ function start_clone_with_basebackup_upgrade_container() {
 }
 
 function verify_clone_with_wale_upgrade() {
-    wait_query "$1" "SELECT current_setting('server_version_num')::int/10000" 10 2> /dev/null
-}
-
-function verify_clone_with_basebackup_upgrade() {
-    log_info "Waiting for clone with basebackup and upgrade 10->11 to complete..."
-    find_leader "$1" 1
     wait_query "$1" "SELECT current_setting('server_version_num')::int/10000" 11 2> /dev/null
 }
 
-function verify_clone_with_wale_upgrade_to_14() {
-    log_info "Waiting for clone with wal-e and upgrade 9.6->14 to complete..."
+function verify_clone_with_basebackup_upgrade() {
+    log_info "Waiting for clone with basebackup and upgrade 11->12 to complete..."
     find_leader "$1" 1
-    wait_query "$1" "SELECT current_setting('server_version_num')::int/10000" 14 2> /dev/null
+    wait_query "$1" "SELECT current_setting('server_version_num')::int/10000" 12 2> /dev/null
+}
+
+function verify_clone_with_wale_upgrade_to_15() {
+    log_info "Waiting for clone with wal-e and upgrade 10->15 to complete..."
+    find_leader "$1" 1
+    wait_query "$1" "SELECT current_setting('server_version_num')::int/10000" 15 2> /dev/null
 }
 
 function verify_archive_mode_is_on() {
@@ -297,10 +288,16 @@ function run_test() {
     echo -e "Test case $1 ${GREEN}PASSED${RESET}"
 }
 
+# TEST SUITE 1 - In-place major upgrade 10->11->...->15
+# TEST SUITE 2 - Major upgrade 10->15 after wal-e clone
+# TEST SUITE 3 - PITR (clone with wal-e) with unreachable target (13+)
+# TEST SUITE 4 - Major upgrade 10->11 after wal-e clone
+# TEST SUITE 5 - Replica bootstrap with wal-e
 function test_spilo() {
+    # TEST SUITE 1
     local container=$1
 
-    run_test test_envdir_suffix "$container" 9.6
+    run_test test_envdir_suffix "$container" 10
 
     run_test test_inplace_upgrade_wrong_version "$container"
     run_test test_inplace_upgrade_wrong_capacity "$container"
@@ -311,81 +308,62 @@ function test_spilo() {
 
     # run_test test_failed_inplace_upgrade_big_replication_lag "$container"
 
-    wait_zero_lag_old "$container"
+    wait_zero_lag "$container"
     run_test verify_archive_mode_is_on "$container"
+
+    # TEST SUITE 2
+    local upgrade_container
+    upgrade_container=$(start_clone_with_wale_upgrade_to_15_container)
+    log_info "Started $upgrade_container for testing major upgrade 10->15 after clone with wal-e"
+
+    # TEST SUITE 1
     wait_backup "$container"
 
-    local upgrade_container
-    upgrade_container=$(start_clone_with_wale_upgrade_to_14_container)
-    log_info "Started $upgrade_container for testing major upgrade 9.6->14 after clone with wal-e"
-
-    log_info "Testing in-place major upgrade 9.6->10"
-    run_test test_successful_inplace_upgrade_to_10 "$container"
+    log_info "Testing in-place major upgrade 10->11"
+    run_test test_successful_inplace_upgrade_to_11 "$container"
 
     wait_all_streaming "$container"
 
-    run_test test_envdir_updated_to_x 10
+    run_test test_envdir_updated_to_x 11
 
     create_schema2 "$container" || exit 1
 
-    run_test test_pg_upgrade_to_12_check_failed "$container"  # pg_upgrade --check complains about OID
+    run_test test_pg_upgrade_to_13_check_failed "$container"  # pg_upgrade --check complains about OID
 
-    run_test verify_clone_with_wale_upgrade_to_14 "$upgrade_container"
+    # TEST SUITE 2
+    run_test verify_clone_with_wale_upgrade_to_15 "$upgrade_container"
 
     run_test verify_archive_mode_is_on "$upgrade_container"
     wait_backup "$upgrade_container"
     docker rm -f "$upgrade_container"
 
-    local clone14_container
-    clone14_container=$(start_clone_with_wale_14_container)
-    log_info "Started $clone14_container for testing point-in-time recovery (clone with wal-e) with unreachable target on 13+"
+    # TEST SUITE 3
+    local clone15_container
+    clone15_container=$(start_clone_with_wale_15_container)
+    log_info "Started $clone15_container for testing point-in-time recovery (clone with wal-e) with unreachable target on 13+"
 
+    # TEST SUITE 4
+    upgrade_container=$(start_clone_with_wale_upgrade_container)
+    log_info "Started $upgrade_container for testing major upgrade 10->11 after clone with wal-e"
+
+    # TEST SUITE 1
     wait_backup "$container"
     wait_zero_lag "$container"
 
-    upgrade_container=$(start_clone_with_wale_upgrade_container)
-    log_info "Started $upgrade_container for testing major upgrade 9.6->10 after clone with wal-e"
-
     drop_table_with_oids "$container"
-    log_info "Testing in-place major upgrade 10->12"
-    run_test test_successful_inplace_upgrade_to_12 "$container"
-
-    wait_all_streaming "$container"
-
-    run_test test_envdir_updated_to_x 12
-
-    find_leader "$clone14_container"
-    run_test verify_archive_mode_is_on "$clone14_container"
-
-    wait_backup "$container"
-
-    log_info "Testing in-place major upgrade to 12->13"
+    log_info "Testing in-place major upgrade 11->13"
     run_test test_successful_inplace_upgrade_to_13 "$container"
 
     wait_all_streaming "$container"
 
     run_test test_envdir_updated_to_x 13
 
-    log_info "Waiting for clone with wal-e and upgrade 9.6->10 to complete..."
-    find_leader "$upgrade_container" 1
-    run_test verify_clone_with_wale_upgrade "$upgrade_container"
+    # TEST SUITE 3
+    find_leader "$clone15_container"
+    run_test verify_archive_mode_is_on "$clone15_container"
 
-    wait_backup "$upgrade_container"
-
-    local upgrade_replica_container
-    upgrade_replica_container=$(start_clone_with_wale_upgrade_replica_container)
-    log_info "Started $upgrade_replica_container for testing replica bootstrap with wal-e"
-
-    local basebackup_container
-    basebackup_container=$(start_clone_with_basebackup_upgrade_container "$upgrade_container")
-    log_info "Started $basebackup_container for testing major upgrade 10->11 after clone with basebackup"
-
-
-#    run_test test_pg_upgrade_to_14_check_failed "$container"  # pg_upgrade --check complains about timescaledb
-
+    # TEST SUITE 1
     wait_backup "$container"
-
-#    drop_timescaledb "$container"
 
     log_info "Testing in-place major upgrade to 13->14"
     run_test test_successful_inplace_upgrade_to_14 "$container"
@@ -394,11 +372,44 @@ function test_spilo() {
 
     run_test test_envdir_updated_to_x 14
 
+    # TEST SUITE 4
+    log_info "Waiting for clone with wal-e and upgrade 10->11 to complete..."
+    find_leader "$upgrade_container" 1
+    run_test verify_clone_with_wale_upgrade "$upgrade_container"
+
+    wait_backup "$upgrade_container"
+
+    # TEST SUITE 5
+    local upgrade_replica_container
+    upgrade_replica_container=$(start_clone_with_wale_upgrade_replica_container)
+    log_info "Started $upgrade_replica_container for testing replica bootstrap with wal-e"
+
+    # TEST SUITE 4
+    local basebackup_container
+    basebackup_container=$(start_clone_with_basebackup_upgrade_container "$upgrade_container")
+    log_info "Started $basebackup_container for testing major upgrade 11->12 after clone with basebackup"
+
+    # TEST SUITE 1
+    run_test test_pg_upgrade_to_15_check_failed "$container"  # pg_upgrade --check complains about timescaledb
+
     wait_backup "$container"
 
+    drop_timescaledb "$container"
+
+    log_info "Testing in-place major upgrade to 14->15"
+    run_test test_successful_inplace_upgrade_to_15 "$container"
+
+    wait_all_streaming "$container"
+
+    run_test test_envdir_updated_to_x 15
+
+    wait_backup "$container"
+
+    # TEST SUITE 5
     log_info "Waiting for postgres to start in the $upgrade_replica_container..."
     run_test verify_clone_with_wale_upgrade "$upgrade_replica_container"
 
+    # TEST SUITE 4
     run_test verify_clone_with_basebackup_upgrade "$basebackup_container"
     run_test verify_archive_mode_is_on "$basebackup_container"
 }
