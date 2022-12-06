@@ -22,6 +22,7 @@ def read_configuration():
     parser = argparse.ArgumentParser(description="Script to clone from S3 with support for point-in-time-recovery")
     parser.add_argument('--scope', required=True, help='target cluster name')
     parser.add_argument('--datadir', required=True, help='target cluster postgres data directory')
+    parser.add_argument('--waldir', required=True, help='target cluster postgres wal directory')
     parser.add_argument('--recovery-target-time',
                         help='the timestamp up to which recovery will proceed (including time zone)',
                         dest='recovery_target_time_string')
@@ -29,7 +30,7 @@ def read_configuration():
                         'command to fetch that backup without running it')
     args = parser.parse_args()
 
-    options = namedtuple('Options', 'name datadir recovery_target_time dry_run')
+    options = namedtuple('Options', 'name datadir recovery_target_time dry_run waldir')
     if args.recovery_target_time_string:
         recovery_target_time = parse(args.recovery_target_time_string)
         if recovery_target_time.tzinfo is None:
@@ -37,7 +38,7 @@ def read_configuration():
     else:
         recovery_target_time = None
 
-    return options(args.scope, args.datadir, recovery_target_time, args.dry_run)
+    return options(args.scope, args.datadir, recovery_target_time, args.dry_run, args.waldir)
 
 
 def build_wale_command(command, datadir=None, backup=None):
@@ -163,7 +164,6 @@ def run_clone_from_s3(options):
     env = os.environ.copy()
 
     backup_name, update_envdir = find_backup(options.recovery_target_time, env)
-
     backup_fetch_cmd = build_wale_command('backup-fetch', options.datadir, backup_name)
     logger.info("cloning cluster %s using %s", options.name, ' '.join(backup_fetch_cmd))
     if not options.dry_run:
@@ -178,10 +178,27 @@ def run_clone_from_s3(options):
     return 0
 
 
+def create_symbolic_link_wal_directory(pg_data, wal_dir):
+    pg_wal = f'{pg_data}/pg_wal'
+    logger.info(f"Examining whether WAL already exists or not. directory={pg_wal}")
+
+    if not os.path.isdir(pg_wal):
+        create_symbolic_link_wal_dir = ['ln', '-s', wal_dir, pg_wal]
+        ret = subprocess.call(create_symbolic_link_wal_dir)
+        if ret == 0:
+            logger.info(f"Successfully created a wal directory with symbolic link to {wal_dir}")
+        else:
+            raise Exception("Creating a separate wal directory failed with exit code {0}".format(ret))
+    else:
+        logger.info(f"Wal directory with symbolic link to {wal_dir} already exists.")
+
+
 def main():
     options = read_configuration()
+
     try:
         run_clone_from_s3(options)
+        create_symbolic_link_wal_directory(options.datadir, options.waldir)
     except Exception:
         logger.exception("Clone failed")
         return 1

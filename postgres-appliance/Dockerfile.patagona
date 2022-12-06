@@ -3,6 +3,9 @@
 FROM docker-registry.patagona.de/spilo:ts2.3.1-ts1.7.5-pg13-pg12-pg11-4454a379179e4c79cea35deb97ac947d1f0348f6
 
 ENV WALG_VERSION=v2.0.1
+# Our system is using separate wal directory.
+# Defining this env variable to reuse it elsewhere.
+ENV WALG_DIRECTORY='/wal'
 
 RUN export DISTRIB_RELEASE=$(sed -n 's/DISTRIB_RELEASE=//p' /etc/lsb-release) \
     && curl -sL https://github.com/wal-g/wal-g/releases/download/$WALG_VERSION/wal-g-pg-ubuntu-$DISTRIB_RELEASE-amd64.tar.gz \
@@ -15,4 +18,6 @@ COPY scripts/wale_restore.sh /scripts/wale_restore.sh
 
 COPY scripts/restore_command.sh /scripts/restore_command.sh
 
-COPY bootstrap/clone_with_wale.py /scripts/clone_with_wale.sh
+COPY bootstrap/clone_with_wale.py /scripts/clone_with_wale.py
+
+COPY scripts/configure_spilo.py /scripts/configure_spilo.py
