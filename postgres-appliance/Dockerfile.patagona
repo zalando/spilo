@@ -21,3 +21,5 @@ COPY scripts/restore_command.sh /scripts/restore_command.sh
 COPY bootstrap/clone_with_wale.py /scripts/clone_with_wale.py
 
 COPY scripts/configure_spilo.py /scripts/configure_spilo.py
+
+COPY scripts/postgres_backup.sh /scripts/postgres_backup.sh
