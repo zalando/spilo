@@ -12,10 +12,8 @@ function generate_data() {
     docker_exec "$container" $'cd $PGDATA;
         rm -rf locales_test; mkdir locales_test; cd locales_test;
         /bin/bash "/home/postgres/tests/helper_script.sh";
-        for filename in ./_base-characters*; do
-            truncate -s -1 $filename \
-            && psql -c "insert into chars select regexp_split_to_table(pg_read_file(\'locales_test/${filename}\')::text, E\'\\n\');"
-        done
+        truncate -s -1 _base-characters \
+        && psql -c "insert into chars select regexp_split_to_table(pg_read_file(\'locales_test/_base-characters\')::text, E\'\\n\');"
     '
 }
 

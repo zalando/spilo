@@ -11,13 +11,13 @@ TEST_IMAGE=(
 )
 
 function main() {
-    for i in $(seq 0 1); do
-        stop_container "$TEST_CONTAINER_NAME"
+    for i in 0 1; do
+        rm_container "$TEST_CONTAINER_NAME"
         docker run --rm -d --privileged \
                 --name "$TEST_CONTAINER_NAME" \
                 -v "$PWD":/home/postgres/tests \
-                -e SPILO_PROVIDER=local -e USE_OLD_LOCALES=true \  #USE_OLD_LOCALES takes no effect for cdp-14
-                "${TEST_IMAGE[$i]}"
+                -e SPILO_PROVIDER=local -e USE_OLD_LOCALES=true \
+                "${TEST_IMAGE[$i]}"  #USE_OLD_LOCALES takes no effect for cdp-14
         attempts=0
         while ! docker exec -i spilo-test su postgres -c "pg_isready"; do
             if [[ "$attempts" -ge 15 ]]; then
@@ -35,6 +35,6 @@ function main() {
     rm -f output0.txt output1.txt
 }
 
-trap 'stop_container $TEST_CONTAINER_NAME' QUIT TERM EXIT
+trap 'rm_container $TEST_CONTAINER_NAME' QUIT TERM EXIT
 
 main

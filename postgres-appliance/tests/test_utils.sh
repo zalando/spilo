@@ -39,7 +39,7 @@ function stop_containers() {
     docker-compose rm -fs
 }
 
-function stop_container() {
+function rm_container() {
     docker rm -f "$1"
 }
 

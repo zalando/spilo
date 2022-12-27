@@ -3,9 +3,9 @@
 # Script is copied from https://github.com/ardentperf/glibc-unicode-sorting
 
 UNICODE_VERS="14"
-time curl -kO https://www.unicode.org/Public/${UNICODE_VERS}.0.0/ucd/UnicodeData.txt
+curl -kO https://www.unicode.org/Public/${UNICODE_VERS}.0.0/ucd/UnicodeData.txt
 
-time perl -naF';' -CO -e'
+perl -naF';' -CO -e'
   use utf8;
   sub pr {
     print chr($_[0]) . "\n";  # 199
@@ -105,4 +105,4 @@ time perl -naF';' -CO -e'
   if(/ First>/){$fi=hex("0x".$F[0]);next}; # generate blocks
   if(/ Last>/){$la=hex("0x".$F[0]);for($fi..$la){pr($_)};next};
   pr(hex("0x".$F[0])) # generate individual characters
-' UnicodeData.txt |split -l500000 - _base-characters
+' UnicodeData.txt > _base-characters
