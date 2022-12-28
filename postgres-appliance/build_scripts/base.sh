@@ -56,6 +56,7 @@ curl -sL "https://github.com/zalando-pg/bg_mon/archive/$BG_MON_COMMIT.tar.gz" | 
 curl -sL "https://github.com/zalando-pg/pg_auth_mon/archive/$PG_AUTH_MON_COMMIT.tar.gz" | tar xz
 curl -sL "https://github.com/cybertec-postgresql/pg_permissions/archive/$PG_PERMISSIONS_COMMIT.tar.gz" | tar xz
 curl -sL "https://github.com/hughcapet/pg_tm_aux/archive/$PG_TM_AUX_COMMIT.tar.gz" | tar xz
+curl -sL "https://github.com/zubkov-andrei/pg_profile/archive/$PG_PROFILE.tar.gz" | tar xz
 git clone -b "$SET_USER" https://github.com/pgaudit/set_user.git
 git clone https://github.com/timescale/timescaledb.git
 
@@ -159,6 +160,7 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
             set_user \
             pg_permissions-${PG_PERMISSIONS_COMMIT} \
             pg_tm_aux-${PG_TM_AUX_COMMIT} \
+            pg_profile-${PG_PROFILE} \
             "${EXTRA_EXTENSIONS[@]}"; do
         make -C "$n" USE_PGXS=1 clean install-strip
     done
