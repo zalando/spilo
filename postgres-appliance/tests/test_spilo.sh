@@ -2,47 +2,12 @@
 
 cd "$(dirname "${BASH_SOURCE[0]}")" || exit 1
 
-
-if ! docker info &> /dev/null; then
-    if podman info &> /dev/null; then
-        alias docker=podman
-        shopt -s expand_aliases
-    else
-        echo "docker/podman: command not found"
-        exit 1
-    fi
-fi
+# shellcheck disable=SC1091
+source ./test_utils.sh
 
 readonly PREFIX="demo-"
 readonly UPGRADE_SCRIPT="python3 /scripts/inplace_upgrade.py"
 readonly TIMEOUT=120
-
-if [[ -t 2 ]]; then
-    readonly RED="\033[1;31m"
-    readonly RESET="\033[0m"
-    readonly GREEN="\033[0;32m"
-else
-    readonly RED=""
-    readonly RESET=""
-    readonly GREEN=""
-fi
-
-function log_info() {
-    echo -e "${GREEN}$*${RESET}"
-}
-
-function log_error() {
-    echo -e "${RED}$*${RESET}"
-    exit 1
-}
-
-function start_containers() {
-    docker-compose up -d
-}
-
-function stop_containers() {
-    docker-compose rm -fs
-}
 
 function get_non_leader() {
     declare -r container=$1
@@ -52,11 +17,6 @@ function get_non_leader() {
     else
         echo "${PREFIX}spilo1"
     fi
-}
-
-function docker_exec() {
-    declare -r cmd=${*: -1:1}
-    docker exec "${@:1:$(($#-1))}" su postgres -c "$cmd"
 }
 
 function find_leader() {
@@ -283,10 +243,6 @@ function verify_archive_mode_is_on() {
     [ "$archive_mode" = "on" ]
 }
 
-function run_test() {
-    "$@" || log_error "Test case $1 FAILED"
-    echo -e "Test case $1 ${GREEN}PASSED${RESET}"
-}
 
 # TEST SUITE 1 - In-place major upgrade 10->11->...->15
 # TEST SUITE 2 - Major upgrade 10->15 after wal-e clone
