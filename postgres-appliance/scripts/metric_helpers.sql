@@ -218,4 +218,29 @@ REVOKE ALL ON TABLE pg_stat_statements FROM public;
 GRANT SELECT ON TABLE pg_stat_statements TO admin;
 GRANT SELECT ON TABLE pg_stat_statements TO robot_zmon;
 
+CREATE FUNCTION get_last_status_active_cronjobs(
+  OUT jobid bigint,
+  OUT database text,
+  OUT command text,
+  OUT status text,
+  OUT return_message text,
+  OUT start_time timestamp with time zone,
+  OUT end_time timestamp with time zone
+  ) RETURNS SETOF record AS
+$_$
+SELECT DISTINCT ON (job_run_details.jobid)
+       job_run_details.jobid,
+       job_run_details.database,
+       job_run_details.command,
+       job_run_details.status,
+       job_run_details.return_message,
+       job_run_details.start_time,
+       job_run_details.end_time
+  FROM job
+  JOIN job_run_details USING (jobid)
+ WHERE job.active
+ ORDER BY job_run_details.jobid, job_run_details.start_time DESC NULLS LAST;
+$_$
+LANGUAGE sql SECURITY DEFINER STRICT SET search_path to 'cron';
+
 RESET search_path;
