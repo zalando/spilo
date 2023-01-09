@@ -4,6 +4,8 @@ RETRIES=2
 THRESHOLD_PERCENTAGE=30
 THRESHOLD_MEGABYTES=10240
 
+export PGOPTIONS="-c search_path=pg_catalog"
+
 while getopts ":-:" optchar; do
     [[ "${optchar}" == "-" ]] || continue
     case "${OPTARG}" in

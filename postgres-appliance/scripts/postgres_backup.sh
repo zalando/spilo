@@ -13,7 +13,7 @@ log "I was called as: $0 $*"
 readonly PGDATA=$1
 DAYS_TO_RETAIN=$BACKUP_NUM_TO_RETAIN
 
-IN_RECOVERY=$(psql -tXqAc "select pg_is_in_recovery()")
+IN_RECOVERY=$(psql -tXqAc "select pg_catalog.pg_is_in_recovery()")
 readonly IN_RECOVERY
 if [[ $IN_RECOVERY == "f" ]]; then
     [[ "$WALG_BACKUP_FROM_REPLICA" == "true" ]] && log "Cluster is not in recovery, not running backup" && exit 0

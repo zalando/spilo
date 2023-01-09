@@ -2,6 +2,8 @@
 
 cd "$(dirname "${BASH_SOURCE[0]}")" || exit 1
 
+export PGOPTIONS="-c synchronous_commit=local -c search_path=pg_catalog"
+
 PGVER=$(psql -d "$2" -XtAc "SELECT pg_catalog.current_setting('server_version_num')::int/10000")
 if [ "$PGVER" -ge 12 ]; then RESET_ARGS="oid, oid, bigint"; fi
 
@@ -203,4 +205,4 @@ GRANT EXECUTE ON FUNCTION public.pg_stat_statements_reset($RESET_ARGS) TO admin;
     if [ "$ENABLE_PG_MON" = "true" ] && [ "$PGVER" -ge 11 ]; then echo "CREATE EXTENSION IF NOT EXISTS pg_mon SCHEMA public;"; fi
     cat metric_helpers.sql
 done < <(psql -d "$2" -tAc 'select pg_catalog.quote_ident(datname) from pg_catalog.pg_database where datallowconn')
-) | PGOPTIONS="-c synchronous_commit=local" psql -Xd "$2"
+) | psql -Xd "$2"
