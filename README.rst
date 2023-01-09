@@ -36,6 +36,7 @@ There are a few build arguments defined in the Dockerfile and it is possible to 
 - PGOLDVERSIONS="9.5 9.6 10 11"
 - DEMO=false # set to true to build the smallest possible image which will work only on Kubernetes
 - TIMESCALEDB_APACHE_ONLY=true # set to false to build timescaledb community version (Timescale License)
+- TIMESCALEDB_TOOLKIT=true # set to false to skip installing toolkit with timescaledb community edition. Only relevant when TIMESCALEDB_APACHE_ONLY=false
 - ADDITIONAL_LOCALES= # additional UTF-8 locales to build into image (example: "de_DE pl_PL fr_FR")
 
 Run the image locally after build:
