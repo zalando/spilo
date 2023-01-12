@@ -1,8 +1,10 @@
 #!/bin/bash
 
 cd "$(dirname "${BASH_SOURCE[0]}")" || exit 1
+export POSTGRES_USER="$1"
+export POSTGRES_DB="$2"
 
-PGVER=$(psql -d "$2" -XtAc "SELECT pg_catalog.current_setting('server_version_num')::int/10000")
+PGVER=$(psql -d "$POSTGRES_DB" -XtAc "SELECT pg_catalog.current_setting('server_version_num')::int/10000")
 if [ "$PGVER" -ge 12 ]; then RESET_ARGS="oid, oid, bigint"; fi
 
 (echo "DO \$\$
@@ -26,11 +28,11 @@ GRANT cron_admin TO admin;
 
 DO \$\$
 BEGIN
-    PERFORM * FROM pg_catalog.pg_authid WHERE rolname = '$1';
+    PERFORM * FROM pg_catalog.pg_authid WHERE rolname = '$POSTGRES_USER';
     IF FOUND THEN
-        ALTER ROLE $1 WITH NOCREATEDB NOLOGIN NOCREATEROLE NOSUPERUSER NOREPLICATION INHERIT;
+        ALTER ROLE $POSTGRES_USER WITH NOCREATEDB NOLOGIN NOCREATEROLE NOSUPERUSER NOREPLICATION INHERIT;
     ELSE
-        CREATE ROLE $1;
+        CREATE ROLE $POSTGRES_USER;
     END IF;
 END;\$\$;
 
@@ -188,7 +190,7 @@ while IFS= read -r db_name; do
             echo "SELECT public.postgis_extensions_upgrade();"
         fi
     fi
-    sed "s/:HUMAN_ROLE/$1/" create_user_functions.sql
+    sed "s/:HUMAN_ROLE/$POSTGRES_USER/" create_user_functions.sql
     echo "CREATE EXTENSION IF NOT EXISTS pg_stat_statements SCHEMA public;
 CREATE EXTENSION IF NOT EXISTS pg_stat_kcache SCHEMA public;
 CREATE EXTENSION IF NOT EXISTS set_user SCHEMA public;
@@ -202,5 +204,55 @@ GRANT EXECUTE ON FUNCTION public.pg_stat_statements_reset($RESET_ARGS) TO admin;
     fi
     if [ "$ENABLE_PG_MON" = "true" ] && [ "$PGVER" -ge 11 ]; then echo "CREATE EXTENSION IF NOT EXISTS pg_mon SCHEMA public;"; fi
     cat metric_helpers.sql
-done < <(psql -d "$2" -tAc 'select pg_catalog.quote_ident(datname) from pg_catalog.pg_database where datallowconn')
-) | PGOPTIONS="-c synchronous_commit=local" psql -Xd "$2"
+done < <(psql -d "$POSTGRES_DB" -tAc 'select pg_catalog.quote_ident(datname) from pg_catalog.pg_database where datallowconn')
+) | PGOPTIONS="-c synchronous_commit=local" psql -Xd "$POSTGRES_DB"
+
+
+#The folloving code is taken from https://github.com/docker-library/postgres/blob/master/docker-entrypoint.sh
+
+# usage: docker_process_init_files [file [file [...]]]
+#    ie: docker_process_init_files /always-initdb.d/*
+# process initializer files, based on file extensions and permissions
+docker_process_init_files() {
+	echo
+	local f
+	for f; do
+		case "$f" in
+			*.sh)
+				# https://github.com/docker-library/postgres/issues/450#issuecomment-393167936
+				# https://github.com/docker-library/postgres/pull/452
+				if [ -x "$f" ]; then
+					echo "$0: running $f"
+					"$f"
+				else
+					echo "$0: sourcing $f"
+					# shellcheck disable=SC1090
+					source "$f"
+				fi
+				;;
+			*.sql)    echo "$0: running $f"; docker_process_sql -f "$f"; echo ;;
+			*.sql.gz) echo "$0: running $f"; gunzip -c "$f" | docker_process_sql; echo ;;
+			*.sql.xz) echo "$0: running $f"; xzcat "$f" | docker_process_sql; echo ;;
+			*)        echo "$0: ignoring $f" ;;
+		esac
+		echo
+	done
+}
+
+# Execute sql script, passed via stdin (or -f flag of pqsl)
+# usage: docker_process_sql [psql-cli-args]
+#    ie: docker_process_sql --dbname=mydb <<<'INSERT ...'
+#    ie: docker_process_sql -f my-file.sql
+#    ie: docker_process_sql <my-file.sql
+docker_process_sql() {
+	local query_runner=( psql -v "ON_ERROR_STOP=1" --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --no-password )
+
+	"${query_runner[@]}" "$@"
+}
+
+
+
+# check dir permissions to reduce likelihood of half-initialized database
+ls /docker-entrypoint-initdb.d/ > /dev/null
+
+docker_process_init_files /docker-entrypoint-initdb.d/*
