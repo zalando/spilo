@@ -597,7 +597,7 @@ def load_odd_config():
 
     if options.get('odd_config_file') is not None and os.path.isfile(options['odd_config_file']):
         with open(options['odd_config_file'], 'r') as f:
-            odd_config = yaml.load(f)
+            odd_config = yaml.safe_load(f)
         logging.debug('Loaded odd configuration from {}:\n{}'.format(options['odd_config_file'], pretty(odd_config)))
 
     return odd_config
