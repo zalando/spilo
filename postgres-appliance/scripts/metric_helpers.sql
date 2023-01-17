@@ -83,15 +83,7 @@ FROM (
 ) AS s3 WHERE schemaname NOT LIKE 'information_schema';
 $_$ LANGUAGE sql SECURITY DEFINER IMMUTABLE STRICT SET search_path to 'pg_catalog';
 
-REVOKE ALL ON FUNCTION get_table_bloat_approx() FROM public;
-GRANT EXECUTE ON FUNCTION get_table_bloat_approx() TO admin;
-GRANT EXECUTE ON FUNCTION get_table_bloat_approx() TO robot_zmon;
-
 CREATE OR REPLACE VIEW table_bloat AS SELECT * FROM get_table_bloat_approx();
-
-REVOKE ALL ON TABLE table_bloat FROM public;
-GRANT SELECT ON TABLE table_bloat TO admin;
-GRANT SELECT ON TABLE table_bloat TO robot_zmon;
 
 CREATE OR REPLACE FUNCTION get_btree_bloat_approx (
     OUT i_database name,
@@ -193,29 +185,48 @@ FROM (
 ) AS relation_stats;
 $_$ LANGUAGE sql SECURITY DEFINER IMMUTABLE STRICT SET search_path to 'pg_catalog';
 
-REVOKE ALL ON FUNCTION get_btree_bloat_approx() FROM public;
-GRANT EXECUTE ON FUNCTION get_btree_bloat_approx() TO admin;
-GRANT EXECUTE ON FUNCTION get_btree_bloat_approx() TO robot_zmon;
-
 CREATE OR REPLACE VIEW index_bloat AS SELECT * FROM get_btree_bloat_approx();
-
-REVOKE ALL ON TABLE index_bloat FROM public;
-GRANT SELECT ON TABLE index_bloat TO admin;
-GRANT SELECT ON TABLE index_bloat TO robot_zmon;
 
 CREATE OR REPLACE FUNCTION pg_stat_statements(showtext boolean) RETURNS SETOF public.pg_stat_statements AS
 $$
   SELECT * FROM public.pg_stat_statements(showtext);
 $$ LANGUAGE sql IMMUTABLE SECURITY DEFINER STRICT;
 
-REVOKE ALL ON FUNCTION pg_stat_statements(boolean) FROM public;
-GRANT EXECUTE ON FUNCTION pg_stat_statements(boolean) TO admin;
-GRANT EXECUTE ON FUNCTION pg_stat_statements(boolean) TO robot_zmon;
-
 CREATE OR REPLACE VIEW pg_stat_statements AS SELECT * FROM pg_stat_statements(true);
 
-REVOKE ALL ON TABLE pg_stat_statements FROM public;
-GRANT SELECT ON TABLE pg_stat_statements TO admin;
-GRANT SELECT ON TABLE pg_stat_statements TO robot_zmon;
+CREATE FUNCTION get_last_status_active_cronjobs(
+  OUT jobid bigint,
+  OUT database text,
+  OUT command text,
+  OUT status text,
+  OUT return_message text,
+  OUT start_time timestamp with time zone,
+  OUT end_time timestamp with time zone
+  ) RETURNS SETOF record AS
+$_$
+SELECT DISTINCT ON (job_run_details.jobid)
+       job_run_details.jobid,
+       job_run_details.database,
+       job_run_details.command,
+       job_run_details.status,
+       job_run_details.return_message,
+       job_run_details.start_time,
+       job_run_details.end_time
+  FROM job
+  JOIN job_run_details USING (jobid)
+ WHERE job.active
+ ORDER BY job_run_details.jobid, job_run_details.start_time DESC NULLS LAST;
+$_$
+LANGUAGE sql SECURITY DEFINER STRICT SET search_path to 'cron';
+
+CREATE OR REPLACE VIEW last_status_active_cronjobs AS SELECT * FROM get_last_status_active_cronjobs();
+
+REVOKE ALL ON ALL TABLES IN SCHEMA metric_helpers FROM public;
+GRANT SELECT ON ALL TABLES IN SCHEMA metric_helpers TO admin;
+GRANT SELECT ON ALL TABLES IN SCHEMA metric_helpers TO robot_zmon;
+
+REVOKE ALL ON ALL FUNCTIONS IN SCHEMA metric_helpers FROM public;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA metric_helpers TO admin;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA metric_helpers TO robot_zmon;
 
 RESET search_path;
