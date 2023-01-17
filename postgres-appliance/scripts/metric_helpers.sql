@@ -219,7 +219,7 @@ SELECT DISTINCT ON (job_run_details.jobid)
 $_$
 LANGUAGE sql SECURITY DEFINER STRICT SET search_path to 'cron';
 
-CREATE OR REPLACE VIEW status_active_cronjobs AS SELECT * FROM get_last_status_active_cronjobs();
+CREATE OR REPLACE VIEW last_status_active_cronjobs AS SELECT * FROM get_last_status_active_cronjobs();
 
 REVOKE ALL ON ALL TABLES IN SCHEMA metric_helpers FROM public;
 GRANT SELECT ON ALL TABLES IN SCHEMA metric_helpers TO admin;
