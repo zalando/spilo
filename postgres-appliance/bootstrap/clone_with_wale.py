@@ -70,11 +70,16 @@ def choose_backup(backup_list, recovery_target_time):
 
     match_timestamp = match = None
     for backup in backup_list:
-        last_modified = parse(backup['last_modified'])
-        if last_modified < recovery_target_time:
-            if match is None or last_modified > match_timestamp:
+        backup_time_field = 'last_modified'
+
+        if os.getenv('USE_WALG_RESTORE') == 'true':
+            backup_time_field = 'start_time'
+
+        backup_time = parse(backup[backup_time_field])
+        if backup_time < recovery_target_time:
+            if match is None or backup_time > match_timestamp:
                 match = backup
-                match_timestamp = last_modified
+                match_timestamp = backup_time
     if match is not None:
         return match['name']
 
