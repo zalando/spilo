@@ -13,6 +13,7 @@ pipeline:
   timeout: 3h
   vm_config:
     type: linux
+    size: extra_large
   commands:
   - desc: Build and load test image
     cmd: |
