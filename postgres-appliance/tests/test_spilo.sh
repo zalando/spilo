@@ -265,6 +265,7 @@ function test_spilo() {
     # run_test test_failed_inplace_upgrade_big_replication_lag "$container"
 
     wait_zero_lag "$container"
+    wait_backup "$container"
     run_test verify_archive_mode_is_on "$container"
 
     # TEST SUITE 2
@@ -333,6 +334,7 @@ function test_spilo() {
     find_leader "$upgrade_container" 1
     run_test verify_clone_with_wale_upgrade "$upgrade_container"
 
+    drop_table_with_oids "$upgrade_container"
     wait_backup "$upgrade_container"
 
     # TEST SUITE 5
