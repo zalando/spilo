@@ -94,20 +94,10 @@ BEGIN
     RETURN l_jobid;
 END;
 \$function\$;
-REVOKE EXECUTE ON FUNCTION cron.alter_job(bigint, text, text, text, text, boolean) FROM admin, public;
-GRANT EXECUTE ON FUNCTION cron.alter_job(bigint, text, text, text, text, boolean) TO cron_admin;
-REVOKE EXECUTE ON FUNCTION cron.schedule(text, text) FROM admin, public;
-GRANT EXECUTE ON FUNCTION cron.schedule(text, text) TO cron_admin;
-REVOKE EXECUTE ON FUNCTION cron.schedule(text, text, text) FROM admin, public;
-GRANT EXECUTE ON FUNCTION cron.schedule(text, text, text) TO cron_admin;
-REVOKE EXECUTE ON FUNCTION cron.schedule_in_database(text, text, text) FROM admin, public;
-GRANT EXECUTE ON FUNCTION cron.schedule_in_database(text, text, text) TO cron_admin;
-REVOKE EXECUTE ON FUNCTION cron.schedule_in_database(text, text, text, text, text, boolean) FROM admin, public;
-GRANT EXECUTE ON FUNCTION cron.schedule_in_database(text, text, text, text, text, boolean) TO cron_admin;
-REVOKE EXECUTE ON FUNCTION cron.unschedule(bigint) FROM admin, public;
-GRANT EXECUTE ON FUNCTION cron.unschedule(bigint) TO cron_admin;
-REVOKE EXECUTE ON FUNCTION cron.unschedule(name) FROM admin, public;
-GRANT EXECUTE ON FUNCTION cron.unschedule(name) TO cron_admin;
+
+REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA cron FROM admin, public;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA cron TO cron_admin;
+
 REVOKE USAGE ON SCHEMA cron FROM admin;
 GRANT USAGE ON SCHEMA cron TO cron_admin;
 

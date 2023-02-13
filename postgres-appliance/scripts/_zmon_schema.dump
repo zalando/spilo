@@ -444,5 +444,37 @@ $BODY$
 LANGUAGE plpython3u
 SECURITY DEFINER
 SET search_path to 'pg_catalog';
-grant execute on all functions in schema zmon_utils to robot_zmon;
 
+CREATE OR REPLACE FUNCTION zmon_utils.get_last_status_active_cronjobs(
+  OUT jobid bigint,
+  OUT database text,
+  OUT command text,
+  OUT status text,
+  OUT return_message text,
+  OUT start_time timestamp with time zone,
+  OUT end_time timestamp with time zone
+  ) RETURNS SETOF record AS
+$BODY$
+SELECT DISTINCT ON (job_run_details.jobid)
+       job_run_details.jobid,
+       job_run_details.database,
+       job_run_details.command,
+       job_run_details.status,
+       job_run_details.return_message,
+       job_run_details.start_time,
+       job_run_details.end_time
+  FROM job
+  JOIN job_run_details USING (jobid)
+ WHERE job.active
+ ORDER BY job_run_details.jobid, job_run_details.start_time DESC NULLS LAST;
+$BODY$
+LANGUAGE sql SECURITY DEFINER STRICT SET search_path to 'cron';
+
+REVOKE EXECUTE ON FUNCTION zmon_utils.get_last_status_active_cronjobs() FROM public;
+
+CREATE OR REPLACE VIEW zmon_utils.last_status_active_cronjobs AS SELECT * FROM zmon_utils.get_last_status_active_cronjobs();
+
+REVOKE ALL ON TABLE zmon_utils.last_status_active_cronjobs FROM public;
+GRANT SELECT ON TABLE zmon_utils.last_status_active_cronjobs TO robot_zmon;
+
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA zmon_utils TO robot_zmon;
