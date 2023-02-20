@@ -203,7 +203,7 @@ function start_clone_with_wale_upgrade_to_15_container() {
 
 function start_clone_with_wale_15_container() {
     docker-compose run \
-        -e SCOPE=clone13 \
+        -e SCOPE=clone15 \
         -e PGVERSION=15 \
         -e CLONE_SCOPE=upgrade3 \
         -e CLONE_PGVERSION=15 \
