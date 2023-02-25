@@ -265,8 +265,8 @@ function test_spilo() {
     # run_test test_failed_inplace_upgrade_big_replication_lag "$container"
 
     wait_zero_lag "$container"
-    wait_backup "$container"
     run_test verify_archive_mode_is_on "$container"
+    wait_backup "$container"
 
     # TEST SUITE 2
     local upgrade_container
@@ -286,6 +286,9 @@ function test_spilo() {
     create_schema2 "$container" || exit 1
 
     run_test test_pg_upgrade_to_13_check_failed "$container"  # pg_upgrade --check complains about OID
+    drop_table_with_oids "$container"
+    wait_backup "$container"
+    wait_zero_lag "$container"
 
     # TEST SUITE 2
     run_test verify_clone_with_wale_upgrade_to_15 "$upgrade_container"
@@ -304,10 +307,6 @@ function test_spilo() {
     log_info "Started $upgrade_container for testing major upgrade 10->11 after clone with wal-e"
 
     # TEST SUITE 1
-    wait_backup "$container"
-    wait_zero_lag "$container"
-
-    drop_table_with_oids "$container"
     log_info "Testing in-place major upgrade 11->13"
     run_test test_successful_inplace_upgrade_to_13 "$container"
 
@@ -334,7 +333,6 @@ function test_spilo() {
     find_leader "$upgrade_container" 1
     run_test verify_clone_with_wale_upgrade "$upgrade_container"
 
-    drop_table_with_oids "$upgrade_container"
     wait_backup "$upgrade_container"
 
     # TEST SUITE 5
