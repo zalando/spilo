@@ -48,7 +48,6 @@ pipeline:
                               --build-arg PGVERSION="$PGVERSION" \
                               --build-arg BASE_IMAGE="$BASE_IMAGE" \
                               -t "$ECR_TEST_IMAGE" \
-                              --network=host \
                               --push .
           cdp-promote-image "$ECR_TEST_IMAGE"
       fi
