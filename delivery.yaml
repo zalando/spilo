@@ -73,7 +73,7 @@ pipeline:
         docker buildx build --platform "linux/arm64" \
                             --build-arg PGVERSION="$PGVERSION" \
                             --build-arg BASE_IMAGE="$BASE_IMAGE" \
-                            -t "$ECR_TEST_IMAGE" .
+                            -t "test-spilo-cdp-arm64" .
 - id: tag-spilo
   depends_on: [build-spilo-cdp]
   type: script
