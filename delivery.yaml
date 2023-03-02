@@ -3,7 +3,7 @@ allow_concurrent_steps: true
 
 pipeline:
 - id: build-spilo-cdp
-  env:
+  env: &ENV
     BASE_IMAGE: container-registry.zalando.net/library/ubuntu-22.04
     PGVERSION: 15
     SPILO_TEST_IMAGE: test-spilo-cdp
@@ -52,6 +52,29 @@ pipeline:
                               --push .
           cdp-promote-image "$ECR_TEST_IMAGE"
       fi
+- id: test-arm-build
+  type: script
+  requires_human_approval: true
+  when:
+    event: pull_request
+  timeout: 3h
+  vm_config:
+    type: linux
+    size: extra_large
+  env:
+    <<: *ENV
+  commands:
+    - desc: Build test arm64 image
+      cmd: |
+        cd postgres-appliance
+
+        # create a Buildkit builder with CDP specific configuration
+        docker buildx create --config /etc/cdp-buildkitd.toml --driver-opt network=host --bootstrap --use
+
+        docker buildx build --platform "linux/arm64" \
+                            --build-arg PGVERSION="$PGVERSION" \
+                            --build-arg BASE_IMAGE="$BASE_IMAGE" \
+                            -t "$ECR_TEST_IMAGE" .
 - id: tag-spilo
   depends_on: [build-spilo-cdp]
   type: script
