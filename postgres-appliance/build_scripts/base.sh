@@ -129,25 +129,22 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
 
     # Install 3rd party stuff
 
-    # don't try to build timescaledb for pg15. Remove, when it is officially supported.
-    if [ "$version" != "15" ]; then
-        # use subshell to avoid having to cd back (SC2103)
-        (
-            cd timescaledb
-            for v in $TIMESCALEDB; do
-                git checkout "$v"
-                sed -i "s/VERSION 3.11/VERSION 3.10/" CMakeLists.txt
-                if BUILD_FORCE_REMOVE=true ./bootstrap -DREGRESS_CHECKS=OFF -DWARNINGS_AS_ERRORS=OFF \
-                        -DTAP_CHECKS=OFF -DPG_CONFIG="/usr/lib/postgresql/$version/bin/pg_config" \
-                        -DAPACHE_ONLY="$TIMESCALEDB_APACHE_ONLY" -DSEND_TELEMETRY_DEFAULT=NO; then
-                    make -C build install
-                    strip /usr/lib/postgresql/"$version"/lib/timescaledb*.so
-                fi
-                git reset --hard
-                git clean -f -d
-            done
-        )
-    fi
+    # use subshell to avoid having to cd back (SC2103)
+    (
+        cd timescaledb
+        for v in $TIMESCALEDB; do
+            git checkout "$v"
+            sed -i "s/VERSION 3.11/VERSION 3.10/" CMakeLists.txt
+            if BUILD_FORCE_REMOVE=true ./bootstrap -DREGRESS_CHECKS=OFF -DWARNINGS_AS_ERRORS=OFF \
+                    -DTAP_CHECKS=OFF -DPG_CONFIG="/usr/lib/postgresql/$version/bin/pg_config" \
+                    -DAPACHE_ONLY="$TIMESCALEDB_APACHE_ONLY" -DSEND_TELEMETRY_DEFAULT=NO; then
+                make -C build install
+                strip /usr/lib/postgresql/"$version"/lib/timescaledb*.so
+            fi
+            git reset --hard
+            git clean -f -d
+        done
+    )
 
     if [ "${TIMESCALEDB_APACHE_ONLY}" != "true" ] && [ "${TIMESCALEDB_TOOLKIT}" = "true" ]; then
         __versionCodename=$(sed </etc/os-release -ne 's/^VERSION_CODENAME=//p')
