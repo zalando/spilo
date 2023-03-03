@@ -35,7 +35,7 @@ else
     make -C pam-oauth2 install
 
     # prepare 3rd sources
-    git clone -b "$PLPROFILER" https://github.com/bigsql/plprofiler.git
+    git clone -b "$PLPROFILER" https://github.com/hughcapet/plprofiler.git
     tar -xzf "plantuner-${PLANTUNER_COMMIT}.tar.gz"
     curl -sL "https://github.com/zalando-pg/pg_mon/archive/$PG_MON_COMMIT.tar.gz" | tar xz
 
