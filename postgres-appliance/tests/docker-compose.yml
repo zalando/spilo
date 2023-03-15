@@ -16,7 +16,7 @@ services:
         command: -c 'mkdir -p /export/testbucket && /usr/bin/minio server /export'
 
     etcd:
-        image: ${SPILO_IMAGE:-spilo}
+        image: ${SPILO_TEST_IMAGE:-spilo}
         networks: [ demo ]
         container_name: demo-etcd
         hostname: etcd
@@ -24,7 +24,7 @@ services:
 
     spilo1: &spilo
         depends_on: [ minio ]
-        image: ${SPILO_IMAGE:-spilo}
+        image: ${SPILO_TEST_IMAGE:-spilo}
         networks: [ demo ]
         environment:
             SPILO_PROVIDER: 'local'

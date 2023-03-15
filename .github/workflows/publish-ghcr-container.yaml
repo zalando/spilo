@@ -60,7 +60,7 @@ jobs:
 
     - name: Test spilo docker image 
       env:
-        SPILO_IMAGE: "${{ steps.image.outputs.NAME }}"
+        SPILO_TEST_IMAGE: "${{ steps.image.outputs.NAME }}"
       run: |
         bash postgres-appliance/tests/test_spilo.sh 
 
