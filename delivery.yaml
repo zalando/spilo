@@ -13,7 +13,7 @@ pipeline:
     - event: push
       branch: master
     - event: pull_request
-  timeout: 3h
+  timeout: 10h
   vm_config:
     type: linux
     size: extra_large
