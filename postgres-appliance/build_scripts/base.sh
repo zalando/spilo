@@ -59,6 +59,7 @@ curl -sL "https://github.com/hughcapet/pg_tm_aux/archive/$PG_TM_AUX_COMMIT.tar.g
 curl -sL "https://github.com/zubkov-andrei/pg_profile/archive/$PG_PROFILE.tar.gz" | tar xz
 git clone -b "$SET_USER" https://github.com/pgaudit/set_user.git
 git clone https://github.com/timescale/timescaledb.git
+git clone https://github.com/pgvector/pgvector.git
 
 apt-get install -y \
     postgresql-common \
@@ -190,6 +191,18 @@ apt-get install -y postgresql postgresql-server-dev-all postgresql-all libpq-dev
 for version in $DEB_PG_SUPPORTED_VERSIONS; do
     apt-get install -y "postgresql-server-dev-${version}"
 done
+
+# install pgvector
+(
+    cd pgvector
+    for v in $PGVECTOR; do
+        git checkout "$v"
+        make
+        make install
+        git reset --hard
+        git clean -f -d
+    done
+)
 
 if [ "$DEMO" != "true" ]; then
     for version in $DEB_PG_SUPPORTED_VERSIONS; do
