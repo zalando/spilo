@@ -1,0 +1,41 @@
+name: RELEASE-IMAGE
+
+on:
+  push:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'The tag name of image'
+        required: true
+        default: ''
+  release:
+    types:
+      - published
+
+env:
+  RELEASE_VERSION: ${{ github.ref_name }}
+
+
+jobs:
+  image-tag:
+    runs-on: ubuntu-latest
+    outputs:
+      tag-name: ${{ steps.get_tag_name.outputs.tag_name }}
+    steps:
+      - name: Get Tag Name
+        id: get_tag_name
+        run: |
+          TAG_NAME=${{ inputs.image_tag }}
+          if [ -z "$TAG_NAME" ]; then
+              TAG_NAME=${{ env.RELEASE_VERSION }}
+          fi
+          echo tag_name=$TAG_NAME >> $GITHUB_OUTPUT
+
+  release-image:
+    needs: image-tag
+    uses: apecloud/apecd/.github/workflows/release-image.yml@v0.5.2
+    with:
+      MAKE_OPS: "push-image"
+      IMG: "apecloud/spilo"
+      VERSION: "${{ needs.image-tag.outputs.tag-name }}"
+    secrets: inherit
