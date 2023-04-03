@@ -1,7 +1,6 @@
 name: RELEASE-IMAGE
 
 on:
-  push:
   workflow_dispatch:
     inputs:
       image_tag:
@@ -14,6 +13,11 @@ on:
 
 env:
   RELEASE_VERSION: ${{ github.ref_name }}
+  IMAGE_NAME: ${{ github.repository }}
+  DOCKER_USER: ${{ secrets.DOCKER_REGISTRY_USER }}
+  DOCKER_PASSWORD: ${{ secrets.DOCKER_REGISTRY_PASSWORD }}
+  ALIYUN_USER: ${{ secrets.ALIYUN_REGISTRY_USER }}
+  ALIYUN_PASSWORD: ${{ secrets.ALIYUN_REGISTRY_PASSWORD }}
 
 
 jobs:
@@ -29,13 +33,82 @@ jobs:
           if [ -z "$TAG_NAME" ]; then
               TAG_NAME=${{ env.RELEASE_VERSION }}
           fi
+          TAG_NAME="${TAG_NAME/v/}"
           echo tag_name=$TAG_NAME >> $GITHUB_OUTPUT
 
   release-image:
     needs: image-tag
-    uses: apecloud/apecd/.github/workflows/release-image.yml@v0.5.2
-    with:
-      MAKE_OPS: "push-image"
-      IMG: "apecloud/spilo"
-      VERSION: "${{ needs.image-tag.outputs.tag-name }}"
-    secrets: inherit
+    name: Push ${{ matrix.registry }}
+    strategy:
+      fail-fast: false
+      matrix:
+        registry: [ docker.io, registry.cn-hangzhou.aliyuncs.com ]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: 'read'
+      packages: 'write'
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.7
+
+      - name: Install flake8 and docker-compose
+        run: python -m pip install flake8 docker-compose==1.17.1
+
+      - name: Derive spilo image name
+        id: image
+        working-directory: postgres-appliance
+        run: |
+          PGVERSION=$(sed -n 's/^ARG PGVERSION=\([1-9][0-9]*\).*$/\1/p' Dockerfile)
+          IMAGE="${{ matrix.registry }}/${{ env.IMAGE_NAME }}-$PGVERSION:${{ needs.image-tag.outputs.tag-name }}"
+          echo "NAME=$IMAGE" >> $GITHUB_OUTPUT
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - if: ${{ contains(matrix.registry, 'docker') }}
+        name: Login to ${{ matrix.registry }}
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ matrix.registry }}
+          username: ${{ env.DOCKER_USER }}
+          password: ${{ env.DOCKER_PASSWORD }}
+
+      - if: ${{ contains(matrix.registry, 'aliyuncs') }}
+        name: Login to ${{ matrix.registry }}
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ matrix.registry }}
+          username: ${{ env.ALIYUN_USER }}
+          password: ${{ env.ALIYUN_PASSWORD }}
+
+      - name: Build and export to local docker for testing
+        uses: docker/build-push-action@v3
+        with:
+          context: "postgres-appliance/"
+          load: true
+          tags: ${{ steps.image.outputs.NAME }}
+
+      - name: Test spilo docker image
+        env:
+          SPILO_TEST_IMAGE: "${{ steps.image.outputs.NAME }}"
+        run: |
+          bash postgres-appliance/tests/test_spilo.sh 
+
+      - name: Build arm64 additionaly and push multiarch image to ${{ matrix.registry }}
+        uses: docker/build-push-action@v3
+        with:
+          context: "postgres-appliance/"
+          push: true
+          tags: "${{ steps.image.outputs.NAME }}"
+          platforms: linux/amd64,linux/arm64
