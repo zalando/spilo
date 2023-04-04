@@ -66,8 +66,7 @@ jobs:
         id: image
         working-directory: postgres-appliance
         run: |
-          PGVERSION=$(sed -n 's/^ARG PGVERSION=\([1-9][0-9]*\).*$/\1/p' Dockerfile)
-          IMAGE="${{ matrix.registry }}/${{ env.IMAGE_NAME }}-$PGVERSION:${{ needs.image-tag.outputs.tag-name }}"
+          IMAGE="${{ matrix.registry }}/${{ env.IMAGE_NAME }}:${{ needs.image-tag.outputs.tag-name }}"
           echo "NAME=$IMAGE" >> $GITHUB_OUTPUT
 
       - name: Set up QEMU
@@ -105,7 +104,7 @@ jobs:
         run: |
           bash postgres-appliance/tests/test_spilo.sh 
 
-      - name: Build arm64 additionaly and push multiarch image to ${{ matrix.registry }}
+      - name: Build arm64 additionally and push multi-arch image to ${{ matrix.registry }}
         uses: docker/build-push-action@v3
         with:
           context: "postgres-appliance/"
