@@ -7,6 +7,13 @@ on:
         description: 'The tag name of image'
         required: true
         default: ''
+      pg_version:
+        description: 'The version of postgres'
+        required: true
+      pg_old_version:
+        description: 'The old version of postgres'
+        required: true
+
   release:
     types:
       - published
@@ -97,6 +104,9 @@ jobs:
           context: "postgres-appliance/"
           load: true
           tags: ${{ steps.image.outputs.NAME }}
+          build-args: |
+            PGVERSION=${{ inputs.pg_version }}
+            PGOLDVERSION=${{ inputs.pg_old_version }}
 
       - name: Test spilo docker image
         env:
@@ -111,3 +121,6 @@ jobs:
           push: true
           tags: "${{ steps.image.outputs.NAME }}"
           platforms: linux/amd64,linux/arm64
+          build-args: |
+            PGVERSION=${{ inputs.pg_version }}
+            PGOLDVERSION=${{ inputs.pg_old_version }}
