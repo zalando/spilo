@@ -106,7 +106,7 @@ jobs:
           tags: ${{ steps.image.outputs.NAME }}
           build-args: |
             PGVERSION=${{ inputs.pg_version }}
-            PGOLDVERSION=${{ inputs.pg_old_version }}
+            PGOLDVERSIONS=${{ inputs.pg_old_version }}
 
       - name: Test spilo docker image
         env:
@@ -123,4 +123,4 @@ jobs:
           platforms: linux/amd64,linux/arm64
           build-args: |
             PGVERSION=${{ inputs.pg_version }}
-            PGOLDVERSION=${{ inputs.pg_old_version }}
+            PGOLDVERSIONS=${{ inputs.pg_old_version }}
