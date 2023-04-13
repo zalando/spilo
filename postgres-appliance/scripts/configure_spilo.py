@@ -581,6 +581,7 @@ def get_placeholders(provider):
 
     placeholders.setdefault('LOG_SHIP_SCHEDULE', '1 0 * * *')
     placeholders.setdefault('LOG_S3_BUCKET', '')
+    placeholders.setdefault('LOG_S3_ENDPOINT', '')
     placeholders.setdefault('LOG_TMPDIR', os.path.abspath(os.path.join(placeholders['PGROOT'], '../tmp')))
     placeholders.setdefault('LOG_BUCKET_SCOPE_SUFFIX', '')
 
@@ -751,7 +752,8 @@ def write_log_environment(placeholders):
     aws_region = log_env.get('AWS_REGION')
     if not aws_region:
         aws_region = placeholders['instance_data']['zone'][:-1]
-    log_env['LOG_AWS_HOST'] = 's3.{}.amazonaws.com'.format(aws_region)
+
+    log_env['LOG_AWS_REGION'] = aws_region
 
     log_s3_key = 'spilo/{LOG_BUCKET_SCOPE_PREFIX}{SCOPE}{LOG_BUCKET_SCOPE_SUFFIX}/log/'.format(**log_env)
     log_s3_key += placeholders['instance_data']['id']
@@ -764,7 +766,7 @@ def write_log_environment(placeholders):
     if not os.path.exists(log_env['LOG_ENV_DIR']):
         os.makedirs(log_env['LOG_ENV_DIR'])
 
-    for var in ('LOG_TMPDIR', 'LOG_AWS_HOST', 'LOG_S3_KEY', 'LOG_S3_BUCKET', 'PGLOG'):
+    for var in ('LOG_TMPDIR', 'LOG_AWS_REGION', 'LOG_S3_ENDPOINT', 'LOG_S3_KEY', 'LOG_S3_BUCKET', 'PGLOG'):
         write_file(log_env[var], os.path.join(log_env['LOG_ENV_DIR'], var), True)
 
 
