@@ -754,7 +754,6 @@ def write_log_environment(placeholders):
         aws_region = placeholders['instance_data']['zone'][:-1]
 
     log_env['LOG_AWS_REGION'] = aws_region
-    log_env['LOG_S3_ENDPOINT'] = log_env.get('LOG_S3_ENDPOINT')
 
     log_s3_key = 'spilo/{LOG_BUCKET_SCOPE_PREFIX}{SCOPE}{LOG_BUCKET_SCOPE_SUFFIX}/log/'.format(**log_env)
     log_s3_key += placeholders['instance_data']['id']

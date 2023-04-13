@@ -55,7 +55,7 @@ def upload_to_s3(local_file_path):
     try:
         bucket.upload_file(local_file_path, key_name, Config=config)
     except S3UploadFailedError as e:
-        logger.exception('Failed to upload the %s to the bucket %s under the key %s. Exception: %s',
+        logger.exception('Failed to upload the %s to the bucket %s under the key %s. Exception: %r',
                          local_file_path, bucket_name, key_name, e)
         return False
 
