@@ -152,6 +152,19 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
         done
     )
 
+    # install pgvector
+    (
+        cd pgvector
+        for v in $PGVECTOR; do
+            git checkout "$v"
+            export PG_CONFIG="/usr/lib/postgresql/$version/bin/pg_config"
+            make && make install
+            strip /usr/lib/postgresql/"$version"/lib/verctor*.so
+            git reset --hard
+            git clean -f -d
+        done
+    )
+
     if [ "${TIMESCALEDB_APACHE_ONLY}" != "true" ] && [ "${TIMESCALEDB_TOOLKIT}" = "true" ]; then
         __versionCodename=$(sed </etc/os-release -ne 's/^VERSION_CODENAME=//p')
         echo "deb [signed-by=/usr/share/keyrings/timescale_E7391C94080429FF.gpg] https://packagecloud.io/timescale/timescaledb/ubuntu/ ${__versionCodename} main" | tee /etc/apt/sources.list.d/timescaledb.list
@@ -195,21 +208,6 @@ apt-get update
 apt-get install -y postgresql postgresql-server-dev-all postgresql-all libpq-dev
 for version in $DEB_PG_SUPPORTED_VERSIONS; do
     apt-get install -y "postgresql-server-dev-${version}"
-done
-
-# install pgvector
-for version in $DEB_PG_SUPPORTED_VERSIONS; do
-(
-    cd pgvector
-    for v in $PGVECTOR; do
-        git checkout "$v"
-        make
-        make install
-        strip /usr/lib/postgresql/"$version"/lib/verctor*.so
-        git reset --hard
-        git clean -f -d
-    done
-)
 done
 
 if [ "$DEMO" != "true" ]; then

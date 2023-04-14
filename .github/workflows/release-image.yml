@@ -121,4 +121,4 @@ jobs:
           platforms: linux/amd64,linux/arm64
           build-args: |
             PGVERSION=${{ inputs.pg_version }}
-            PGOLDVERSIONS=""
+            PGOLDVERSIONS=
