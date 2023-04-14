@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import boto
-import math
+import boto3
 import os
 import logging
 import subprocess
@@ -10,7 +9,9 @@ import sys
 import time
 
 from datetime import datetime, timedelta
-from filechunkio import FileChunkIO
+
+from boto3.exceptions import S3UploadFailedError
+from boto3.s3.transfer import TransferConfig
 
 logger = logging.getLogger(__name__)
 
@@ -37,61 +38,28 @@ def compress_pg_log():
 
 def upload_to_s3(local_file_path):
     # boto picks up AWS credentials automatically when run within a EC2 instance
-
-    # host sets a region and the correct AWS SignatureVersion along the way
-    # see https://github.com/boto/boto/issues/2741
-    conn = boto.connect_s3(host=os.getenv('LOG_AWS_HOST'))
+    s3 = boto3.resource(
+        service_name="s3",
+        endpoint_url=os.getenv('LOG_S3_ENDPOINT'),
+        region_name=os.getenv('LOG_AWS_REGION')
+    )
 
     bucket_name = os.getenv('LOG_S3_BUCKET')
-    bucket = conn.get_bucket(bucket_name, validate=False)
+    bucket = s3.Bucket(bucket_name)
 
     key_name = os.path.join(os.getenv('LOG_S3_KEY'), os.path.basename(local_file_path))
-    mp_upload = bucket.initiate_multipart_upload(key_name)
 
     chunk_size = 52428800  # 50 MiB
-    file_size = os.path.getsize(local_file_path)
-    chunk_count = math.ceil(file_size / chunk_size)
+    config = TransferConfig(multipart_threshold=chunk_size, multipart_chunksize=chunk_size)
 
-    for i in range(chunk_count):
-        offset = chunk_size * i
-        bytes = min(chunk_size, file_size - offset)
-        with FileChunkIO(local_file_path, 'r', offset=offset, bytes=bytes) as fp:
-            try:
-                mp_upload.upload_part_from_file(fp, part_num=i + 1)
-            except Exception:
-                logger.exception('Failed to upload the %s to the bucket %s under the key %s.'
-                                 'Cancelling the multipart upload %s.', local_file_path,
-                                 mp_upload.bucket_name, mp_upload.key_name, mp_upload.id)
-                cancel_multipart_upload(mp_upload)
-                return False
-
-    if not len(mp_upload.get_all_parts()) == chunk_count:
-        cancel_multipart_upload(mp_upload)
+    try:
+        bucket.upload_file(local_file_path, key_name, Config=config)
+    except S3UploadFailedError as e:
+        logger.exception('Failed to upload the %s to the bucket %s under the key %s. Exception: %r',
+                         local_file_path, bucket_name, key_name, e)
         return False
 
-    mp_upload.complete_upload()
     return True
-
-
-def is_successfully_cancelled(mp_upload):
-    return len(mp_upload.bucket.list_multipart_uploads(upload_id_marker=mp_upload.id)) == 0
-
-
-def cancel_multipart_upload(mp_upload, max_retries=3):
-    """
-    Attempt to free storage consumed by already uploaded parts to avoid extra charges from S3.
-    """
-
-    # cancellation might fail for uploads currently in progress
-    for _ in range(max_retries):
-        mp_upload.cancel_upload()
-        if is_successfully_cancelled(mp_upload):
-            break
-        time.sleep(10)
-
-    if not is_successfully_cancelled(mp_upload):
-        logger.warning('Unable to delete some of the already uploaded log parts. '
-                       'Leftover parts incur monetary charges from S3.')
 
 
 def main():
