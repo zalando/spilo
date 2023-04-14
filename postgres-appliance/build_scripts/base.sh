@@ -13,6 +13,11 @@ sed -i 's/^#\s*\(deb.*universe\)$/\1/g' /etc/apt/sources.list
 
 apt-get update
 
+export DEB_PG_SUPPORTED_VERSIONS="$PGVERSION"
+if [ "$PGOLDVERSIONS" != "" ]; then
+    export DEB_PG_SUPPORTED_VERSIONS="$PGOLDVERSIONS $PGVERSION"
+fi
+
 BUILD_PACKAGES=(devscripts equivs build-essential fakeroot debhelper git gcc libc6-dev make cmake libevent-dev libbrotli-dev libssl-dev libkrb5-dev)
 if [ "$DEMO" = "true" ]; then
     export DEB_PG_SUPPORTED_VERSIONS="$PGVERSION"
@@ -193,16 +198,19 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
 done
 
 # install pgvector
+for version in $DEB_PG_SUPPORTED_VERSIONS; do
 (
     cd pgvector
     for v in $PGVECTOR; do
         git checkout "$v"
         make
         make install
+        strip /usr/lib/postgresql/"$version"/lib/verctor*.so
         git reset --hard
         git clean -f -d
     done
 )
+done
 
 if [ "$DEMO" != "true" ]; then
     for version in $DEB_PG_SUPPORTED_VERSIONS; do
