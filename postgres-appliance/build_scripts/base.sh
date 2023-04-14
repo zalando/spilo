@@ -159,7 +159,6 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
             git checkout "$v"
             export PG_CONFIG="/usr/lib/postgresql/$version/bin/pg_config"
             make && make install
-            strip /usr/lib/postgresql/"$version"/lib/verctor*.so
             git reset --hard
             git clean -f -d
         done
