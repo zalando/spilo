@@ -25,6 +25,7 @@ import requests
 from spilo_commons import RW_DIR, PATRONI_CONFIG_FILE, append_extensions,\
         get_binary_version, get_bin_dir, is_valid_pg_version, write_file, write_patroni_config
 
+from kubeblocks_hack import prepare
 
 PROVIDER_AWS = "aws"
 PROVIDER_GOOGLE = "google"
@@ -1063,6 +1064,10 @@ def main():
     if not isinstance(user_config, dict):
         config_var_name = 'SPILO_CONFIGURATION' if 'SPILO_CONFIGURATION' in os.environ else 'PATRONI_CONFIGURATION'
         raise ValueError('{0} should contain a dict, yet it is a {1}'.format(config_var_name, type(user_config)))
+
+    pg_config_file = os.environ.get('KB_PG_CONFIG_PATH', '')
+    if os.path.exists(pg_config_file):
+        prepare(pg_config_file, user_config)
 
     user_config_copy = deepcopy(user_config)
     config = deep_update(user_config_copy, config)
