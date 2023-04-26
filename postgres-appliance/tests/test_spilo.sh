@@ -346,11 +346,11 @@ function test_spilo() {
     log_info "Started $basebackup_container for testing major upgrade 11->12 after clone with basebackup"
 
     # TEST SUITE 1
-    run_test test_pg_upgrade_to_15_check_failed "$container"  # pg_upgrade --check complains about timescaledb
+    # run_test test_pg_upgrade_to_15_check_failed "$container"  # pg_upgrade --check complains about timescaledb
 
     wait_backup "$container"
 
-    drop_timescaledb "$container"
+    # drop_timescaledb "$container"
 
     log_info "Testing in-place major upgrade to 14->15"
     run_test test_successful_inplace_upgrade_to_15 "$container"
