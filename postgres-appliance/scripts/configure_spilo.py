@@ -201,6 +201,7 @@ bootstrap:
       use_pg_rewind: true
       use_slots: true
       parameters:
+        archive_command: {{{postgresql.parameters.archive_command}}}
         archive_mode: "on"
         archive_timeout: 1800s
         wal_level: hot_standby
@@ -288,7 +289,6 @@ postgresql:
   connect_address: {{instance_data.ip}}:{{PGPORT}}
   data_dir: {{PGDATA}}
   parameters:
-    archive_command: {{{postgresql.parameters.archive_command}}}
     shared_buffers: {{postgresql.parameters.shared_buffers}}
     logging_collector: 'on'
     log_destination: csvlog
@@ -1071,6 +1071,14 @@ def main():
 
     user_config_copy = deepcopy(user_config)
     config = deep_update(user_config_copy, config)
+    archive_parameter = config['bootstrap']['dcs'].get('postgresql', {}).\
+        get('parameters', {}).get('archive_command', None)
+    # delete 'archive_command' in local configuration
+    if archive_parameter:
+        tmp_config = config.get('postgresql', {}).get('parameters', {})
+        if 'archive_command' in tmp_config:
+            logging.info("delete 'archive_command' in local configuration: '%s'", tmp_config['archive_command'])
+            del tmp_config['archive_command']
 
     if provider == PROVIDER_LOCAL and not any(1 for key in config.keys() if key in PATRONI_DCS):
         link_runit_service(placeholders, 'etcd')
