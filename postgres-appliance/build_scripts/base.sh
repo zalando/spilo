@@ -57,7 +57,6 @@ curl -sL "https://github.com/zalando-pg/pg_auth_mon/archive/$PG_AUTH_MON_COMMIT.
 curl -sL "https://github.com/cybertec-postgresql/pg_permissions/archive/$PG_PERMISSIONS_COMMIT.tar.gz" | tar xz
 curl -sL "https://github.com/hughcapet/pg_tm_aux/archive/$PG_TM_AUX_COMMIT.tar.gz" | tar xz
 curl -sL "https://github.com/zubkov-andrei/pg_profile/archive/$PG_PROFILE.tar.gz" | tar xz
-curl -sL "https://github.com/citusdata/pg_cron/archive/$PG_CRON_COMMIT.tar.gz" | tar xz
 git clone -b "$SET_USER" https://github.com/pgaudit/set_user.git
 git clone https://github.com/timescale/timescaledb.git
 
@@ -119,6 +118,7 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
 
     # Install PostgreSQL binaries, contrib, plproxy and multiple pl's
     apt-get install --allow-downgrades -y \
+        "postgresql-${version}-cron" \
         "postgresql-contrib-${version}" \
         "postgresql-${version}-pgextwlist" \
         "postgresql-plpython3-${version}" \
@@ -177,7 +177,6 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
             pg_permissions-${PG_PERMISSIONS_COMMIT} \
             pg_tm_aux-${PG_TM_AUX_COMMIT} \
             pg_profile-${PG_PROFILE} \
-            pg_cron-${PG_CRON_COMMIT} \
             "${EXTRA_EXTENSIONS[@]}"; do
         make -C "$n" USE_PGXS=1 clean install-strip
     done
