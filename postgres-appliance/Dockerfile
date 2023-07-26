@@ -1,6 +1,6 @@
 ARG BASE_IMAGE=ubuntu:22.04
 ARG PGVERSION=15
-ARG TIMESCALEDB="1.7.5 2.3.1 2.11.0"
+ARG TIMESCALEDB="1.7.5 2.3.1 2.11.1"
 ARG DEMO=false
 ARG COMPRESS=false
 ARG ADDITIONAL_LOCALES=
@@ -56,10 +56,10 @@ ARG DEB_PG_SUPPORTED_VERSIONS="$PGOLDVERSIONS $PGVERSION"
 # Install PostgreSQL, extensions and contribs
 ENV POSTGIS_VERSION=3.3 \
     POSTGIS_LEGACY=3.2 \
-    BG_MON_COMMIT=241d8134e4dda4ffe6f21d40abf8d544d78bc9d8 \
+    BG_MON_COMMIT=beec726abb662b30e58b85218c28b30b5c3c3cb3 \
     PG_AUTH_MON_COMMIT=439697fe2980cf48f1760f45e04c2d69b2748e73 \
     PG_MON_COMMIT=34c35a86e6dea26930bf1f770048cea2c695b80b \
-    SET_USER=REL3_0_0 \
+    SET_USER=REL4_0_1 \
     PLPROFILER=fix/pg15-shmem \
     PG_PROFILE=4.2 \
     PAM_OAUTH2=v1.0.1 \
@@ -76,7 +76,7 @@ COPY --from=dependencies-builder /builddeps/wal-g /usr/local/bin/
 COPY build_scripts/patroni_wale.sh build_scripts/compress_build.sh /builddeps/
 
 # Install patroni and wal-e
-ENV PATRONIVERSION=3.0.2
+ENV PATRONIVERSION=3.0.4
 ENV WALE_VERSION=1.1.1
 
 WORKDIR /
