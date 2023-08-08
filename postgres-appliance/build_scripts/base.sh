@@ -111,6 +111,10 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
             EXTRAS+=("postgresql-${version}-decoderbufs")
         fi
 
+        if [ "${version%.*}" -ge 11 ]; then
+            EXTRAS+=("postgresql-${version}-pgvector")
+        fi
+
         if [ "${version%.*}" -lt 11 ]; then
             EXTRAS+=("postgresql-${version}-amcheck")
         fi
