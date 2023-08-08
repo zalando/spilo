@@ -157,9 +157,6 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
         cd pgvector
         for v in $PGVECTOR; do
             git checkout "$v"
-            # fix Illegal instruction, https://github.com/pgvector/pgvector/issues/54#issuecomment-1562071614
-            # overwrite OPTFLAGS to remove -march=native
-            sed -i 's/OPTFLAGS = -march=native/OPTFLAGS =/' Makefile
             export PG_CONFIG="/usr/lib/postgresql/$version/bin/pg_config"
             # fix Illegal instruction, https://github.com/pgvector/pgvector/issues/54#issuecomment-1562071614
             # overwrite OPTFLAGS to remove -march=native
