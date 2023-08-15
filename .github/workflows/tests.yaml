@@ -28,6 +28,3 @@ jobs:
       run: cd postgres-appliance && docker build -t spilo .
     - name: Test spilo docker image
       run: bash postgres-appliance/tests/test_spilo.sh
-    - name: Test USE_OLD_LOCALES
-      run: bash -x postgres-appliance/tests/locales_test/test_locales.sh
-      if: github.event_name == 'push'

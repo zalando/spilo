@@ -2,8 +2,26 @@ version: "2017-09-20"
 allow_concurrent_steps: true
 
 pipeline:
-- id: build-spilo-cdp
-  env: &ENV
+
+- id: linters
+  type: script
+  when:
+    - event: push
+      branch: master
+    - event: pull_request
+  commands:
+  - desc: Set up packages
+    cmd: |
+      sudo apt-get update
+      sudo apt-get install -y python3-pip shellcheck
+      sudo pip3 install flake8
+  - desc: Run shellcheck
+    cmd: find postgres-appliance -name '*.sh' -print0 | xargs -0 shellcheck
+  - desc: Run flake8
+    cmd: find postgres-appliance -name '*.py' -print0 | xargs -0 python -m flake8
+
+- id: build-spilo-ecr
+  env:
     BASE_IMAGE: container-registry.zalando.net/library/ubuntu-22.04
     PGVERSION: 15
     SPILO_TEST_IMAGE: test-spilo-cdp
@@ -18,6 +36,11 @@ pipeline:
     type: linux
     size: extra_large
   commands:
+  - desc: Set up packages
+    cmd: |
+      sudo apt-get update
+      sudo apt-get install -y python3-pip
+      sudo pip3 install docker-compose==1.17.1
   - desc: Build test image
     cmd: |
       chmod -R o-w postgres-appliance
@@ -26,12 +49,14 @@ pipeline:
                    --build-arg BASE_IMAGE="$BASE_IMAGE" \
                    -t "$SPILO_TEST_IMAGE" .
       docker images
-  - desc: Test spilo image
+  - desc: Run general Spilo image tests
+    cmd: bash postgres-appliance/tests/test_spilo.sh
+  - desc: Test USE_OLD_LOCALES
     cmd: |
-      sudo apt-get update
-      sudo apt-get install -y python3-pip
-      sudo pip3 install docker-compose==1.17.1
-      bash postgres-appliance/tests/test_spilo.sh
+      # only on push to the master branch
+      if [ -z "$CDP_SOURCE_BRANCH" ]; then
+          bash -x postgres-appliance/tests/locales_test/test_locales.sh
+      fi
   - desc: Tag and push spilo-cdp docker images
     cmd: |
       # push docker images only for commits to the master branch
@@ -51,31 +76,9 @@ pipeline:
                               --push .
           cdp-promote-image "$ECR_TEST_IMAGE"
       fi
-- id: test-arm-build
-  type: script
-  requires_human_approval: true
-  when:
-    event: pull_request
-  timeout: 3h
-  vm_config:
-    type: linux
-    size: extra_large
-  env:
-    <<: *ENV
-  commands:
-    - desc: Build test arm64 image
-      cmd: |
-        cd postgres-appliance
 
-        # create a Buildkit builder with CDP specific configuration
-        docker buildx create --config /etc/cdp-buildkitd.toml --driver-opt network=host --bootstrap --use
-
-        docker buildx build --platform "linux/arm64" \
-                            --build-arg PGVERSION="$PGVERSION" \
-                            --build-arg BASE_IMAGE="$BASE_IMAGE" \
-                            -t "test-spilo-cdp-arm64" .
 - id: tag-spilo
-  depends_on: [build-spilo-cdp]
+  depends_on: [build-spilo-ecr]
   type: script
   requires_human_approval: true
   when:
