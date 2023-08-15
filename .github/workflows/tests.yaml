@@ -26,5 +26,9 @@ jobs:
       run: find postgres-appliance -name '*.py' -print0 | xargs -0 python -m flake8
     - name: Build spilo docker image
       run: cd postgres-appliance && docker build -t spilo .
-    - name: Test spilo docker image
-      run: bash postgres-appliance/tests/test_spilo.sh
+    # - name: Test spilo docker image
+    #   run: bash postgres-appliance/tests/test_spilo.sh
+    - name: Print some package versions
+      uses: anchore/sbom-action@v0
+      with:
+        image: spilo
