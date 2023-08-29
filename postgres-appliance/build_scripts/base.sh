@@ -281,10 +281,11 @@ if [ "$DEMO" != "true" ]; then
             if [ "$v1" = "$v2" ]; then
                 started=1
             elif [ $started = 1 ]; then
-                for d1 in extension contrib contrib/postgis-$POSTGIS_VERSION; do
-                    if [ "${v1##*/}" = "11" ] && [ "$d1" = "contrib/postgis-$POSTGIS_VERSION" ]; then
-                        continue
-                    fi
+
+                used_postgis_version=$POSTGIS_VERSION
+                if [ "${v1##*/}" = "11" ]; then used_postgis_version=$POSTGIS_LEGACY; fi
+
+                for d1 in extension contrib contrib/postgis-$used_postgis_version; do
                     cd "$v1/$d1"
                     d2="$d1"
                     d1="../../${v1##*/}/$d1"
