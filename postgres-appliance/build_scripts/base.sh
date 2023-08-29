@@ -275,10 +275,6 @@ if [ "$DEMO" != "true" ]; then
             fi
         done
 
-        if [ "${v1##*/}" = "10" ]; then
-            continue
-        fi
-
         # relink files with the same name and content across different major versions
         started=0
         for v2 in $(find /usr/share/postgresql -type d -mindepth 1 -maxdepth 1 | sort -Vr); do
