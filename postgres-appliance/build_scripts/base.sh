@@ -278,18 +278,20 @@ if [ "$DEMO" != "true" ]; then
         # relink files with the same name and content across different major versions
         started=0
         for v2 in $(find /usr/share/postgresql -type d -mindepth 1 -maxdepth 1 | sort -Vr); do
-            if [ "${v2##*/}" = "15" ]; then
-                continue
-            fi
             if [ "$v1" = "$v2" ]; then
                 started=1
             elif [ $started = 1 ]; then
-                for d1 in extension contrib contrib/postgis-$POSTGIS_VERSION; do
+
+                used_postgis_version=$POSTGIS_VERSION
+                if [ "${v1##*/}" = "11" ]; then used_postgis_version=$POSTGIS_LEGACY; fi
+
+                for d1 in extension contrib contrib/postgis-$used_postgis_version; do
                     cd "$v1/$d1"
                     d2="$d1"
                     d1="../../${v1##*/}/$d1"
                     if [ "${d2%-*}" = "contrib/postgis" ]; then
-                        if [ "${v2##*/}" = "10" ]; then d2="${d2%-*}-$POSTGIS_LEGACY"; fi
+                        if [ "${v2##*/}" = "11" ]; then d2="${d2%-*}-$POSTGIS_LEGACY"
+                        elif [ "${v2##*/}" = "10" ]; then d2="${d2%-*}-$POSTGIS_SUPER_LEGACY"; fi
                         d1="../$d1"
                     fi
                     d2="$v2/$d2"
