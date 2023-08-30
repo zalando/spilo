@@ -1,6 +1,6 @@
 ARG BASE_IMAGE=ubuntu:22.04
 ARG PGVERSION=15
-ARG TIMESCALEDB="1.7.5 2.3.1 2.11.1"
+ARG TIMESCALEDB="1.7.5 2.3.1 2.11.2"
 ARG DEMO=false
 ARG COMPRESS=false
 ARG ADDITIONAL_LOCALES=
@@ -77,7 +77,7 @@ COPY --from=dependencies-builder /builddeps/wal-g /usr/local/bin/
 COPY build_scripts/patroni_wale.sh build_scripts/compress_build.sh /builddeps/
 
 # Install patroni and wal-e
-ENV PATRONIVERSION=3.0.2
+ENV PATRONIVERSION=3.1.0
 ENV WALE_VERSION=1.1.1
 
 WORKDIR /
