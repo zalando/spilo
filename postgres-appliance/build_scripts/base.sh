@@ -83,20 +83,23 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
                 "postgresql-${version}-first-last-agg"
                 "postgresql-${version}-hll"
                 "postgresql-${version}-hypopg"
-                "postgresql-${version}-plproxy"
-                "postgresql-${version}-partman"
                 "postgresql-${version}-pgaudit"
                 "postgresql-${version}-pldebugger"
-                "postgresql-${version}-pglogical"
-                "postgresql-${version}-pglogical-ticker"
-                "postgresql-${version}-plpgsql-check"
                 "postgresql-${version}-pg-checksums"
-                "postgresql-${version}-pgl-ddl-deploy"
                 "postgresql-${version}-pgq-node"
                 "postgresql-${version}-postgis-${POSTGIS_VERSION%.*}"
                 "postgresql-${version}-postgis-${POSTGIS_VERSION%.*}-scripts"
                 "postgresql-${version}-repack"
                 "postgresql-${version}-wal2json")
+        
+        if [ "$version" != "16" ]; then
+            EXTRAS+=("postgresql-${version}-plproxy"
+                     "postgresql-${version}-partman"
+                     "postgresql-${version}-pglogical"
+                     "postgresql-${version}-pglogical-ticker"
+                     "postgresql-${version}-plpgsql-check"
+                     "postgresql-${version}-pgl-ddl-deploy")
+        fi
 
         if [ "$version" != "15" ]; then
             # not yet present for pg15
@@ -166,13 +169,14 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
         rm /usr/share/keyrings/timescale_E7391C94080429FF.gpg
     fi
 
+    EXTRA_EXTENSIONS=()
     if [ "$DEMO" != "true" ]; then
-        EXTRA_EXTENSIONS=("plantuner-${PLANTUNER_COMMIT}" plprofiler)
+        if [ "$version" != "16" ]; then
+            EXTRA_EXTENSIONS+=("plantuner-${PLANTUNER_COMMIT}" plprofiler)
+        fi
         if [ "${version%.*}" -ge 10 ]; then
             EXTRA_EXTENSIONS+=("pg_mon-${PG_MON_COMMIT}")
         fi
-    else
-        EXTRA_EXTENSIONS=()
     fi
 
     for n in bg_mon-${BG_MON_COMMIT} \
