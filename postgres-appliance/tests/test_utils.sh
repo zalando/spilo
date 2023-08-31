@@ -3,6 +3,7 @@
 if ! docker info &> /dev/null; then
     if podman info &> /dev/null; then
         alias docker=podman
+        alias xargs='xargs '  # allows '| xargs docker'
         shopt -s expand_aliases
     else
         echo "docker/podman: command not found"
@@ -29,6 +30,14 @@ function log_info() {
 function log_error() {
     echo -e "${RED}$*${RESET}"
     exit 1
+}
+
+function next_minute() {
+    date -d '1 minute' -u +'%F %T UTC' 2>/dev/null || date -v+1M -u +'%F %T UTC'
+}
+
+function next_hour() {
+    date -d '1 hour' -u +'%F %T UTC' 2>/dev/null || date -v+1H -u +'%F %T UTC'
 }
 
 function start_containers() {
