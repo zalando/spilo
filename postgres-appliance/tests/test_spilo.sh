@@ -9,6 +9,12 @@ readonly PREFIX="demo-"
 readonly UPGRADE_SCRIPT="python3 /scripts/inplace_upgrade.py"
 readonly TIMEOUT=120
 
+
+function cleanup() {
+    stop_containers
+    docker ps -q --filter "ancestor=${SPILO_IMAGE},name=${PREFIX}" | xargs docker rm -f
+}
+
 function get_non_leader() {
     declare -r container=$1
 
@@ -174,7 +180,7 @@ function start_clone_with_wale_upgrade_container() {
         -e PGVERSION=11 \
         -e CLONE_SCOPE=demo \
         -e CLONE_METHOD=CLONE_WITH_WALE \
-        -e CLONE_TARGET_TIME="$(date -d '1 minute' -u +'%F %T UTC')" \
+        -e CLONE_TARGET_TIME="$(next_minute)" \
         --name "${PREFIX}upgrade$ID" \
         -d "spilo$ID"
 }
@@ -190,19 +196,19 @@ function start_clone_with_wale_upgrade_to_15_container() {
         -e CLONE_SCOPE=demo \
         -e CLONE_PGVERSION=10 \
         -e CLONE_METHOD=CLONE_WITH_WALE \
-        -e CLONE_TARGET_TIME="$(date -d '1 minute' -u +'%F %T UTC')" \
+        -e CLONE_TARGET_TIME="$(next_minute)" \
         --name "${PREFIX}upgrade4" \
         -d "spilo3"
 }
 
 function start_clone_with_wale_15_container() {
     docker-compose run \
-        -e SCOPE=clone13 \
+        -e SCOPE=clone15 \
         -e PGVERSION=15 \
         -e CLONE_SCOPE=upgrade3 \
         -e CLONE_PGVERSION=15 \
         -e CLONE_METHOD=CLONE_WITH_WALE \
-        -e CLONE_TARGET_TIME="$(date -d '1 hour' -u +'%F %T UTC')" \
+        -e CLONE_TARGET_TIME="$(next_hour)" \
         --name "${PREFIX}clone15" \
         -d "spilo3"
 }
@@ -266,6 +272,7 @@ function test_spilo() {
 
     wait_zero_lag "$container"
     run_test verify_archive_mode_is_on "$container"
+    wait_backup "$container"
 
     # TEST SUITE 2
     local upgrade_container
@@ -285,13 +292,14 @@ function test_spilo() {
     create_schema2 "$container" || exit 1
 
     run_test test_pg_upgrade_to_13_check_failed "$container"  # pg_upgrade --check complains about OID
+    drop_table_with_oids "$container"
 
     # TEST SUITE 2
     run_test verify_clone_with_wale_upgrade_to_15 "$upgrade_container"
 
     run_test verify_archive_mode_is_on "$upgrade_container"
     wait_backup "$upgrade_container"
-    docker rm -f "$upgrade_container"
+    rm_container "$upgrade_container"
 
     # TEST SUITE 3
     local clone15_container
@@ -299,14 +307,12 @@ function test_spilo() {
     log_info "Started $clone15_container for testing point-in-time recovery (clone with wal-e) with unreachable target on 13+"
 
     # TEST SUITE 4
+    wait_backup "$container"
+    wait_zero_lag "$container"
     upgrade_container=$(start_clone_with_wale_upgrade_container)
     log_info "Started $upgrade_container for testing major upgrade 10->11 after clone with wal-e"
 
     # TEST SUITE 1
-    wait_backup "$container"
-    wait_zero_lag "$container"
-
-    drop_table_with_oids "$container"
     log_info "Testing in-place major upgrade 11->13"
     run_test test_successful_inplace_upgrade_to_13 "$container"
 
@@ -371,7 +377,7 @@ function test_spilo() {
 }
 
 function main() {
-    stop_containers
+    cleanup
     start_containers
 
     log_info "Waiting for leader..."
@@ -380,6 +386,6 @@ function main() {
     test_spilo "$leader"
 }
 
-trap stop_containers QUIT TERM EXIT
+trap cleanup QUIT TERM EXIT
 
 main
