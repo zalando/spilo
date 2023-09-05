@@ -207,7 +207,7 @@ function start_clone_with_wale_16_container() {
         -e CLONE_PGVERSION=16 \
         -e CLONE_METHOD=CLONE_WITH_WALE \
         -e CLONE_TARGET_TIME="$(date -d '1 hour' -u +'%F %T UTC')" \
-        --name "${PREFIX}clone15" \
+        --name "${PREFIX}clone16" \
         -d "spilo3"
 }
 
@@ -305,7 +305,7 @@ function test_spilo() {
 
     # TEST SUITE 4
     upgrade_container=$(start_clone_with_wale_upgrade_container)
-    log_info "Started $upgrade_container for testing major upgrade 12->14 after clone with wal-e"
+    log_info "Started $upgrade_container for testing major upgrade 11->12 after clone with wal-e"
 
     # TEST SUITE 1
     wait_backup "$container"
@@ -348,7 +348,7 @@ function test_spilo() {
     # TEST SUITE 4
     local basebackup_container
     basebackup_container=$(start_clone_with_basebackup_upgrade_container "$upgrade_container")
-    log_info "Started $basebackup_container for testing major upgrade 11->13 after clone with basebackup"
+    log_info "Started $basebackup_container for testing major upgrade 12->13 after clone with basebackup"
 
     # TEST SUITE 1
     run_test test_pg_upgrade_to_16_check_failed "$container"  # pg_upgrade --check complains about timescaledb
@@ -357,7 +357,7 @@ function test_spilo() {
 
     drop_timescaledb "$container"
 
-    log_info "Testing in-place major upgrade to 14->16"
+    log_info "Testing in-place major upgrade to 15->16"
     run_test test_successful_inplace_upgrade_to_16 "$container"
 
     wait_all_streaming "$container"
