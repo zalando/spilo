@@ -146,12 +146,16 @@ function test_failed_inplace_upgrade_big_replication_lag() {
     ! test_successful_inplace_upgrade_to_12 "$1"
 }
 
-function test_successful_inplace_upgrade_to_14() {
-    docker_exec "$1" "PGVERSION=14 $UPGRADE_SCRIPT 3"
+function test_successful_inplace_upgrade_to_13() {
+    docker_exec "$1" "PGVERSION=13 $UPGRADE_SCRIPT 3"
 }
 
-function test_pg_upgrade_to_14_check_failed() {
-    ! test_successful_inplace_upgrade_to_14 "$1"
+function test_pg_upgrade_to_13_check_failed() {
+    ! test_successful_inplace_upgrade_to_13 "$1"
+}
+
+function test_successful_inplace_upgrade_to_14() {
+    docker_exec "$1" "PGVERSION=14 $UPGRADE_SCRIPT 3"
 }
 
 function test_successful_inplace_upgrade_to_15() {
@@ -162,8 +166,8 @@ function test_successful_inplace_upgrade_to_16() {
     docker_exec "$1" "PGVERSION=16 $UPGRADE_SCRIPT 3"
 }
 
-function test_pg_upgrade_to_15_check_failed() {
-    ! test_successful_inplace_upgrade_to_15 "$1"
+function test_pg_upgrade_to_16_check_failed() {
+    ! test_successful_inplace_upgrade_to_16 "$1"
 }
 
 function start_clone_with_wale_upgrade_container() {
@@ -229,7 +233,7 @@ function verify_clone_with_wale_upgrade() {
 function verify_clone_with_basebackup_upgrade() {
     log_info "Waiting for clone with basebackup and upgrade 11->12 to complete..."
     find_leader "$1" 1
-    wait_query "$1" "SELECT current_setting('server_version_num')::int/10000" 12 2> /dev/null
+    wait_query "$1" "SELECT current_setting('server_version_num')::int/10000" 13 2> /dev/null
 }
 
 function verify_clone_with_wale_upgrade_to_16() {
@@ -274,6 +278,11 @@ function test_spilo() {
 
     # TEST SUITE 1
     wait_backup "$container"
+    sleep 30
+
+    create_schema2 "$container" || exit 1
+    run_test test_pg_upgrade_to_13_check_failed "$container"  # pg_upgrade --check complains about OID
+    drop_table_with_oids "$container"
 
     log_info "Testing in-place major upgrade 11->12"
     run_test test_successful_inplace_upgrade_to_12 "$container"
@@ -281,10 +290,6 @@ function test_spilo() {
     wait_all_streaming "$container"
 
     run_test test_envdir_updated_to_x 12
-
-    create_schema2 "$container" || exit 1
-
-    # run_test test_pg_upgrade_to_14_check_failed "$container"  # pg_upgrade --check complains about OID
 
     # TEST SUITE 2
     run_test verify_clone_with_wale_upgrade_to_16 "$upgrade_container"
@@ -346,11 +351,11 @@ function test_spilo() {
     log_info "Started $basebackup_container for testing major upgrade 11->13 after clone with basebackup"
 
     # TEST SUITE 1
-    # run_test test_pg_upgrade_to_15_check_failed "$container"  # pg_upgrade --check complains about timescaledb
+    run_test test_pg_upgrade_to_16_check_failed "$container"  # pg_upgrade --check complains about timescaledb
 
     wait_backup "$container"
 
-    # drop_timescaledb "$container"
+    drop_timescaledb "$container"
 
     log_info "Testing in-place major upgrade to 14->16"
     run_test test_successful_inplace_upgrade_to_16 "$container"
