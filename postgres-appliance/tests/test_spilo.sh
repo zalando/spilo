@@ -12,7 +12,7 @@ readonly TIMEOUT=120
 
 function cleanup() {
     stop_containers
-    docker ps -q --filter "ancestor=${SPILO_IMAGE},name=${PREFIX}" | xargs docker rm -f
+    docker ps -q --filter="ancestor=${SPILO_TEST_IMAGE}" --filter="name=${PREFIX}" | xargs docker rm -f
 }
 
 function get_non_leader() {
