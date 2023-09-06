@@ -253,7 +253,7 @@ function verify_archive_mode_is_on() {
 }
 
 
-# TEST SUITE 1 - In-place major upgrade 11->12->...->15
+# TEST SUITE 1 - In-place major upgrade 11->12->...->16
 # TEST SUITE 2 - Major upgrade 11->16 after wal-e clone
 # TEST SUITE 3 - PITR (clone with wal-e) with unreachable target (13+)
 # TEST SUITE 4 - Major upgrade 11->12 after wal-e clone
@@ -390,6 +390,6 @@ function main() {
     test_spilo "$leader"
 }
 
-# trap cleanup QUIT TERM EXIT
+trap cleanup QUIT TERM EXIT
 
 main
