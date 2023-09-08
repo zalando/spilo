@@ -130,21 +130,22 @@ class InplaceUpgrade(object):
             return logger.error('API request to %s name failed: %r', member.name, e)
 
     def toggle_pause(self, paused):
+        from patroni.config import get_global_config
         from patroni.utils import polling_loop
 
         cluster = self.dcs.get_cluster()
         config = cluster.config.data.copy()
-        if cluster.is_paused() == paused:
+        if get_global_config(cluster).is_paused == paused:
             return logger.error('Cluster is %spaused, can not continue', ('' if paused else 'not '))
 
         config['pause'] = paused
-        if not self.dcs.set_config_value(json.dumps(config, separators=(',', ':')), cluster.config.index):
+        if not self.dcs.set_config_value(json.dumps(config, separators=(',', ':')), cluster.config.version):
             return logger.error('Failed to pause cluster, can not continue')
 
         self.paused = paused
 
         old = {m.name: m.index for m in cluster.members if m.api_url}
-        ttl = cluster.config.data.get('ttl', self.dcs.ttl)
+        ttl = config.get('ttl', self.dcs.ttl)
         for _ in polling_loop(ttl + 1):
             cluster = self.dcs.get_cluster()
             if all(m.data.get('pause', False) == paused for m in cluster.members if m.name in old):
@@ -202,13 +203,15 @@ class InplaceUpgrade(object):
         return all(ensure_replica_state(member) for member in cluster.members if member.name != self.postgresql.name)
 
     def sanity_checks(self, cluster):
+        from patroni.config import get_global_config
+
         if not cluster.initialize:
             return logger.error('Upgrade can not be triggered because the cluster is not initialized')
 
         if len(cluster.members) != self.replica_count:
             return logger.error('Upgrade can not be triggered because the number of replicas does not match (%s != %s)',
                                 len(cluster.members), self.replica_count)
-        if cluster.is_paused():
+        if get_global_config(cluster).is_paused:
             return logger.error('Upgrade can not be triggered because Patroni is in maintenance mode')
 
         lock_owner = cluster.leader and cluster.leader.name
