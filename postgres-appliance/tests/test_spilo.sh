@@ -284,7 +284,7 @@ function test_spilo() {
 
     # TEST SUITE 1
     wait_backup "$container"
-    find_leader "$upgrade_container" # wait clone to finish and prevent timescale gets cloned
+    find_leader "$upgrade_container" # wait clone to finish and prevent timescale installation gets cloned
 
     create_schema2 "$container" || exit 1
     run_test test_pg_upgrade_to_13_check_failed "$container"  # pg_upgrade --check complains about OID
