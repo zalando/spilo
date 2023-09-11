@@ -29,19 +29,14 @@ pipeline:
       # create a Buildkit builder with CDP specific configuration
       docker buildx create --config /etc/cdp-buildkitd.toml --driver-opt network=host --bootstrap --use
 
-      if [ "x${CDP_SOURCE_BRANCH}" == "x" ] && ; then
-        docker buildx build --platform "linux/amd64,linux/arm64" \
-                            --build-arg PGVERSION="$PGVERSION" \
-                            --build-arg BASE_IMAGE="$BASE_IMAGE" \
-                            -t "$ECR_TEST_IMAGE" \
-                            --push .
-      elif [ "x${CDP_TARGET_BRANCH}" == "xdev-16" ]; then
-        docker buildx build --platform "linux/amd64,linux/arm64" \
-                            --build-arg PGVERSION=16 \
-                            --build-arg BASE_IMAGE="$BASE_IMAGE" \
-                            -t "$ECR_TEST_IMAGE" \
-                            --push .
+      if [ "x${CDP_TARGET_BRANCH}" == "xdev-16" ]; then
+        PGVERSION=16
       fi
+      docker buildx build --platform "linux/amd64,linux/arm64" \
+                          --build-arg PGVERSION="$PGVERSION" \
+                          --build-arg BASE_IMAGE="$BASE_IMAGE" \
+                          -t "$ECR_TEST_IMAGE" \
+                          --push .
       cdp-promote-image "$ECR_TEST_IMAGE"
 
 # - id: tag-spilo
