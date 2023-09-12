@@ -70,4 +70,4 @@ jobs:
         context: "postgres-appliance/"
         push: true
         tags: "${{ steps.image.outputs.NAME }}"
-        platforms: linux/amd64,linux/arm64
+        platforms: linux/amd64,linux/arm64,linux/ppc64le
