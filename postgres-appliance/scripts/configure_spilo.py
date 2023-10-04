@@ -728,7 +728,9 @@ def get_dcs_config(config, placeholders):
         config['kubernetes']['labels'] = kubernetes_labels
 
         if not config['kubernetes'].pop('use_configmaps'):
-            config['kubernetes'].update({'use_endpoints': True, 'ports': [{'port': 5432, 'name': 'postgresql'}]})
+            config['kubernetes'].update({'use_endpoints': True,
+                                         'pod_ip': placeholders['instance_data']['ip'],
+                                         'ports': [{'port': 5432, 'name': 'postgresql'}]})
         if str(config['kubernetes'].pop('bypass_api_service', None)).lower() == 'true':
             config['kubernetes']['bypass_api_service'] = True
     else:
