@@ -241,7 +241,7 @@ function verify_clone_upgrade() {
     local to_version=$4
     log_info "Waiting for clone with $type and upgrade $from_version->$to_version to complete..."
     find_leader "$1" 1
-    wait_query "$1" "SELECT current_setting('server_version_num')::int/10000" $to_version 2> /dev/null
+    wait_query "$1" "SELECT current_setting('server_version_num')::int/10000" "$to_version" 2> /dev/null
 }
 
 function verify_archive_mode_is_on() {
