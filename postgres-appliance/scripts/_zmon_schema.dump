@@ -477,4 +477,29 @@ CREATE OR REPLACE VIEW zmon_utils.last_status_active_cronjobs AS SELECT * FROM z
 REVOKE ALL ON TABLE zmon_utils.last_status_active_cronjobs FROM public;
 GRANT SELECT ON TABLE zmon_utils.last_status_active_cronjobs TO robot_zmon;
 
+CREATE OR REPLACE FUNCTION zmon_utils.get_replay_lag(
+ OUT pid integer,
+ OUT usesysid oid,
+ OUT usename name,
+ OUT application_name text,
+ OUT replay_lag interval
+ ) RETURNS SETOF record AS
+$BODY$
+SELECT pid,
+ usesysid,
+ usename,
+ application_name,
+ replay_lag
+ FROM pg_stat_replication
+ ORDER BY replay_lag DESC NULLS LAST;
+$BODY$
+LANGUAGE sql SECURITY DEFINER STRICT SET search_path to 'pg_catalog';
+
+CREATE OR REPLACE VIEW zmon_utils.replay_lag AS SELECT * FROM zmon_utils.get_replay_lag();
+
+REVOKE EXECUTE ON FUNCTION zmon_utils.get_replay_lag() FROM public;
+REVOKE ALL ON TABLE zmon_utils.replay_lag FROM public;
+
+GRANT SELECT ON TABLE zmon_utils.replay_lag TO robot_zmon;
+
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA zmon_utils TO robot_zmon;
