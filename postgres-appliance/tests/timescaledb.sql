@@ -1,8 +1,4 @@
-CREATE EXTENSION amcheck_next;  /* the upgrade script must delete it before running pg_upgrade --check! */
-
 \c test_db
-
-CREATE TABLE with_oids() WITH OIDS;
 
 CREATE EXTENSION timescaledb;
 
