@@ -83,8 +83,13 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
                 "postgresql-${version}-first-last-agg"
                 "postgresql-${version}-hll"
                 "postgresql-${version}-hypopg"
+                "postgresql-${version}-plproxy"
+                "postgresql-${version}-partman"
                 "postgresql-${version}-pgaudit"
                 "postgresql-${version}-pldebugger"
+                "postgresql-${version}-pglogical"
+                "postgresql-${version}-pglogical-ticker"
+                "postgresql-${version}-plpgsql-check"
                 "postgresql-${version}-pg-checksums"
                 "postgresql-${version}-pgq-node"
                 "postgresql-${version}-postgis-${POSTGIS_VERSION%.*}"
@@ -93,12 +98,7 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
                 "postgresql-${version}-wal2json")
         
         if [ "$version" != "16" ]; then
-            EXTRAS+=("postgresql-${version}-plproxy"
-                     "postgresql-${version}-partman"
-                     "postgresql-${version}-pglogical"
-                     "postgresql-${version}-pglogical-ticker"
-                     "postgresql-${version}-plpgsql-check"
-                     "postgresql-${version}-pgl-ddl-deploy")
+            EXTRAS+=("postgresql-${version}-pgl-ddl-deploy")
         fi
 
         if [ "$version" != "15" ]; then
@@ -139,20 +139,18 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
     # use subshell to avoid having to cd back (SC2103)
     (
         cd timescaledb
-        if [ "$version" != "16 " ]; then
-            for v in $TIMESCALEDB; do
-                git checkout "$v"
-                sed -i "s/VERSION 3.11/VERSION 3.10/" CMakeLists.txt
-                if BUILD_FORCE_REMOVE=true ./bootstrap -DREGRESS_CHECKS=OFF -DWARNINGS_AS_ERRORS=OFF \
-                        -DTAP_CHECKS=OFF -DPG_CONFIG="/usr/lib/postgresql/$version/bin/pg_config" \
-                        -DAPACHE_ONLY="$TIMESCALEDB_APACHE_ONLY" -DSEND_TELEMETRY_DEFAULT=NO; then
-                    make -C build install
-                    strip /usr/lib/postgresql/"$version"/lib/timescaledb*.so
-                fi
-                git reset --hard
-                git clean -f -d
-            done
-        fi
+        for v in $TIMESCALEDB; do
+            git checkout "$v"
+            sed -i "s/VERSION 3.11/VERSION 3.10/" CMakeLists.txt
+            if BUILD_FORCE_REMOVE=true ./bootstrap -DREGRESS_CHECKS=OFF -DWARNINGS_AS_ERRORS=OFF \
+                    -DTAP_CHECKS=OFF -DPG_CONFIG="/usr/lib/postgresql/$version/bin/pg_config" \
+                    -DAPACHE_ONLY="$TIMESCALEDB_APACHE_ONLY" -DSEND_TELEMETRY_DEFAULT=NO; then
+                make -C build install
+                strip /usr/lib/postgresql/"$version"/lib/timescaledb*.so
+            fi
+            git reset --hard
+            git clean -f -d
+        done
     )
 
     if [ "${TIMESCALEDB_APACHE_ONLY}" != "true" ] && [ "${TIMESCALEDB_TOOLKIT}" = "true" ]; then
@@ -174,7 +172,7 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
     EXTRA_EXTENSIONS=()
     if [ "$DEMO" != "true" ]; then
         if [ "$version" != "16" ]; then
-            EXTRA_EXTENSIONS+=("plantuner-${PLANTUNER_COMMIT}" plprofiler "pg_tm_aux-${PG_TM_AUX_COMMIT}")
+            EXTRA_EXTENSIONS+=("plantuner-${PLANTUNER_COMMIT}" plprofiler)
         fi
         if [ "${version%.*}" -ge 10 ]; then
             EXTRA_EXTENSIONS+=("pg_mon-${PG_MON_COMMIT}")
@@ -185,6 +183,7 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
             pg_auth_mon-${PG_AUTH_MON_COMMIT} \
             set_user \
             pg_permissions-${PG_PERMISSIONS_COMMIT} \
+            pg_tm_aux-${PG_TM_AUX_COMMIT} \
             pg_profile-${PG_PROFILE} \
             "${EXTRA_EXTENSIONS[@]}"; do
         make -C "$n" USE_PGXS=1 clean install-strip
