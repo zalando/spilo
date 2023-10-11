@@ -313,7 +313,7 @@ function test_spilo() {
     # TEST SUITE 3
     local clone16_container
     clone16_container=$(start_clone_with_wale_16_container) # SCOPE=clone15 CLONE: _SCOPE=upgrade3 _PGVERSION=16 _TARGET_TIME=<next_hour
-    log_info "Started $clone16_container for testing point-in-time recovery (clone with wal-e) with unreachable target on 13+"
+    log_info "[TS3] Started $clone16_container for testing point-in-time recovery (clone with wal-e) with unreachable target on 13+"
 
     # TEST SUITE 1
     log_info "[TS1] Testing in-place major upgrade 12->14"
@@ -336,9 +336,10 @@ function test_spilo() {
     run_test test_envdir_updated_to_x 15
 
     # TEST SUITE 4
-    log_info "[TS4] Testing in-place major upgrade 10->11 after clone with wal-e"
+    log_info "[TS4] Testing in-place major upgrade 11->12 after clone with wal-e"
     run_test verify_clone_upgrade "$upgrade_container" "wal-e" 11 12
 
+    run_test verify_archive_mode_is_on "$upgrade_container"
     wait_backup "$upgrade_container"
 
     # TEST SUITE 5
