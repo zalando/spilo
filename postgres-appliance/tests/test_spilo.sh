@@ -207,7 +207,7 @@ function start_clone_with_wale_upgrade_to_16_container() {
         -e CLONE_SCOPE=demo \
         -e CLONE_PGVERSION=11 \
         -e CLONE_METHOD=CLONE_WITH_WALE \
-        -e CLONE_TARGET_TIME="$(next_hour)" \
+        -e CLONE_TARGET_TIME="$(next_minute)" \
         --name "${PREFIX}upgrade4" \
         -d "spilo3"
 }
@@ -219,7 +219,7 @@ function start_clone_with_wale_16_container() {
         -e CLONE_SCOPE=upgrade3 \
         -e CLONE_PGVERSION=16 \
         -e CLONE_METHOD=CLONE_WITH_WALE \
-        -e CLONE_TARGET_TIME="$(next_minute)" \
+        -e CLONE_TARGET_TIME="$(next_hour)" \
         --name "${PREFIX}clone16" \
         -d "spilo3"
 }
