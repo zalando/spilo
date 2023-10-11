@@ -174,7 +174,7 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
     EXTRA_EXTENSIONS=()
     if [ "$DEMO" != "true" ]; then
         if [ "$version" != "16" ]; then
-            EXTRA_EXTENSIONS+=("plantuner-${PLANTUNER_COMMIT}" plprofiler)
+            EXTRA_EXTENSIONS+=("plantuner-${PLANTUNER_COMMIT}" plprofiler "pg_tm_aux-${PG_TM_AUX_COMMIT}")
         fi
         if [ "${version%.*}" -ge 10 ]; then
             EXTRA_EXTENSIONS+=("pg_mon-${PG_MON_COMMIT}")
@@ -185,7 +185,6 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
             pg_auth_mon-${PG_AUTH_MON_COMMIT} \
             set_user \
             pg_permissions-${PG_PERMISSIONS_COMMIT} \
-            pg_tm_aux-${PG_TM_AUX_COMMIT} \
             pg_profile-${PG_PROFILE} \
             "${EXTRA_EXTENSIONS[@]}"; do
         make -C "$n" USE_PGXS=1 clean install-strip
