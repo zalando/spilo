@@ -83,8 +83,13 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
                 "postgresql-${version}-first-last-agg"
                 "postgresql-${version}-hll"
                 "postgresql-${version}-hypopg"
+                "postgresql-${version}-plproxy"
+                "postgresql-${version}-partman"
                 "postgresql-${version}-pgaudit"
                 "postgresql-${version}-pldebugger"
+                "postgresql-${version}-pglogical"
+                "postgresql-${version}-pglogical-ticker"
+                "postgresql-${version}-plpgsql-check"
                 "postgresql-${version}-pg-checksums"
                 "postgresql-${version}-pgq-node"
                 "postgresql-${version}-postgis-${POSTGIS_VERSION%.*}"
@@ -93,12 +98,7 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
                 "postgresql-${version}-wal2json")
         
         if [ "$version" != "16" ]; then
-            EXTRAS+=("postgresql-${version}-plproxy"
-                     "postgresql-${version}-partman"
-                     "postgresql-${version}-pglogical"
-                     "postgresql-${version}-pglogical-ticker"
-                     "postgresql-${version}-plpgsql-check"
-                     "postgresql-${version}-pgl-ddl-deploy")
+            EXTRAS+=("postgresql-${version}-pgl-ddl-deploy")
         fi
 
         if [ "$version" != "15" ]; then
