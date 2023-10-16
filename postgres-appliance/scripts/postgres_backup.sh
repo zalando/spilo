@@ -9,22 +9,14 @@ function log
 
 log "I was called as: $0 $*"
 
-
 readonly PGDATA=$1
-DAYS_TO_RETAIN=$BACKUP_NUM_TO_RETAIN
 
-IN_RECOVERY=$(psql -tXqAc "select pg_catalog.pg_is_in_recovery()")
-readonly IN_RECOVERY
-if [[ $IN_RECOVERY == "f" ]]; then
-    [[ "$WALG_BACKUP_FROM_REPLICA" == "true" ]] && log "Cluster is not in recovery, not running backup" && exit 0
-elif [[ $IN_RECOVERY == "t" ]]; then
-    [[ "$WALG_BACKUP_FROM_REPLICA" != "true" ]] && log "Cluster is in recovery, not running backup" && exit 0
-else
-    log "ERROR: Recovery state unknown: $IN_RECOVERY" && exit 1
+# Check if DAYS_TO_RETAIN is set externally
+if [[ -z $DAYS_TO_RETAIN ]]; then
+    DAYS_TO_RETAIN=$BACKUP_NUM_TO_RETAIN
+    # leave at least 2 days base backups before creating a new one
+    [[ "$DAYS_TO_RETAIN" -lt 2 ]] && DAYS_TO_RETAIN=2
 fi
-
-# leave at least 2 days base backups before creating a new one
-[[ "$DAYS_TO_RETAIN" -lt 2 ]] && DAYS_TO_RETAIN=2
 
 if [[ "$USE_WALG_BACKUP" == "true" ]]; then
     readonly WAL_E="wal-g"
