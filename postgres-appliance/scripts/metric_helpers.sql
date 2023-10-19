@@ -193,6 +193,41 @@ $$ LANGUAGE sql IMMUTABLE SECURITY DEFINER STRICT;
 
 CREATE OR REPLACE VIEW pg_stat_statements AS SELECT * FROM pg_stat_statements(true);
 
+CREATE OR REPLACE FUNCTION get_nearly_exhausted_sequences(
+    IN  threshold float,
+    OUT schemaname name,
+    OUT sequencename name,
+    OUT max_value int8,
+    OUT increment_by int8,
+    OUT last_value int8,
+    OUT percent_used numeric
+ ) RETURNS SETOF record AS
+$_$
+WITH t AS (
+    SELECT
+      schemaname,
+      sequencename,
+      max_value,
+      increment_by,
+      last_value,
+      abs(last_value - start_value / increment_by)::numeric as used_sequence,
+      (max_value - min_value) / abs(increment_by)::numeric as sequence_capacity
+    FROM pg_sequences 
+    WHERE last_value IS NOT NULL
+) SELECT 
+    schemaname,
+    sequencename,
+    max_value,
+    increment_by,
+    last_value,
+    round(used_sequence / sequence_capacity * 100, 2) as percent_used
+  FROM t 
+  WHERE used_sequence / sequence_capacity > threshold
+$_$
+LANGUAGE sql SECURITY DEFINER STRICT SET search_path to 'pg_catalog';
+
+CREATE OR REPLACE VIEW nearly_exhausted_sequences AS SELECT * FROM get_nearly_exhausted_sequences(0.8);
+
 REVOKE ALL ON ALL TABLES IN SCHEMA metric_helpers FROM public;
 GRANT SELECT ON ALL TABLES IN SCHEMA metric_helpers TO admin, robot_zmon;
 
