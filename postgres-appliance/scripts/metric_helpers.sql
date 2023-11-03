@@ -197,32 +197,22 @@ CREATE OR REPLACE FUNCTION get_nearly_exhausted_sequences(
     IN  threshold float,
     OUT schemaname name,
     OUT sequencename name,
-    OUT max_value int8,
-    OUT increment_by int8,
-    OUT last_value int8,
-    OUT percent_used numeric
+    OUT seq_percent_used numeric
  ) RETURNS SETOF record AS
 $_$
-WITH t AS (
-    SELECT
-      schemaname,
-      sequencename,
-      max_value,
-      increment_by,
-      last_value,
-      abs(last_value - start_value / increment_by)::numeric as used_sequence,
-      (max_value - min_value) / abs(increment_by)::numeric as sequence_capacity
-    FROM pg_sequences 
-    WHERE last_value IS NOT NULL
-) SELECT 
+SELECT *
+FROM (
+  SELECT
     schemaname,
     sequencename,
-    max_value,
-    increment_by,
-    last_value,
-    round(used_sequence / sequence_capacity * 100, 2) as percent_used
-  FROM t 
-  WHERE used_sequence / sequence_capacity > threshold
+    round(
+      (abs(last_value::numeric - start_value) + 1) / 
+      (CASE WHEN increment_by > 0 THEN (max_value::numeric - start_value) ELSE (start_value::numeric - min_value) END + 1) * 100,
+    2) as seq_percent_used
+  FROM pg_sequences
+  WHERE NOT CYCLE AND last_value IS NOT NULL
+  ) AS s
+WHERE seq_percent_used >= threshold;
 $_$
 LANGUAGE sql SECURITY DEFINER STRICT SET search_path to 'pg_catalog';
 
