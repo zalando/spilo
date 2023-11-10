@@ -5,7 +5,7 @@ pipeline:
 - id: push-spilo-ecr
   env:
     BASE_IMAGE: container-registry.zalando.net/library/ubuntu-22.04
-    PGVERSION: 15
+    PGVERSION: 16
     MULTI_ARCH_REGISTRY: container-registry-test.zalando.net/acid
   type: script
   requires_human_approval: true

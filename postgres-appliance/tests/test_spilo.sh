@@ -174,8 +174,16 @@ function test_successful_inplace_upgrade_to_15() {
     docker_exec "$1" "PGVERSION=15 $UPGRADE_SCRIPT 3"
 }
 
+function test_successful_inplace_upgrade_to_16() {
+    docker_exec "$1" "PGVERSION=16 $UPGRADE_SCRIPT 3"
+}
+
 function test_pg_upgrade_to_15_check_failed() {
     ! test_successful_inplace_upgrade_to_15 "$1"
+}
+
+function test_pg_upgrade_to_16_check_failed() {
+    ! test_successful_inplace_upgrade_to_16 "$1"
 }
 
 function start_clone_with_wale_upgrade_container() {
@@ -208,6 +216,18 @@ function start_clone_with_wale_upgrade_to_15_container() {
         -d "spilo3"
 }
 
+function start_clone_with_wale_upgrade_to_16_container() {
+    docker-compose run \
+        -e SCOPE=upgrade3 \
+        -e PGVERSION=16 \
+        -e CLONE_SCOPE=demo \
+        -e CLONE_PGVERSION=10 \
+        -e CLONE_METHOD=CLONE_WITH_WALE \
+        -e CLONE_TARGET_TIME="$(next_minute)" \
+        --name "${PREFIX}upgrade5" \
+        -d "spilo3"
+}
+
 function start_clone_with_wale_15_container() {
     docker-compose run \
         -e SCOPE=clone15 \
@@ -217,6 +237,18 @@ function start_clone_with_wale_15_container() {
         -e CLONE_METHOD=CLONE_WITH_WALE \
         -e CLONE_TARGET_TIME="$(next_hour)" \
         --name "${PREFIX}clone15" \
+        -d "spilo3"
+}
+
+function start_clone_with_wale_16_container() {
+    docker-compose run \
+        -e SCOPE=clone16 \
+        -e PGVERSION=16 \
+        -e CLONE_SCOPE=upgrade3 \
+        -e CLONE_PGVERSION=16 \
+        -e CLONE_METHOD=CLONE_WITH_WALE \
+        -e CLONE_TARGET_TIME="$(next_hour)" \
+        --name "${PREFIX}clone16" \
         -d "spilo3"
 }
 
@@ -250,8 +282,8 @@ function verify_archive_mode_is_on() {
 }
 
 
-# TEST SUITE 1 - In-place major upgrade 10->11->...->15
-# TEST SUITE 2 - Major upgrade 10->15 after wal-e clone (with CLONE_PGVERSION set)
+# TEST SUITE 1 - In-place major upgrade 10->11->...->15->16
+# TEST SUITE 2 - Major upgrade 10->16 after wal-e clone (with CLONE_PGVERSION set)
 # TEST SUITE 3 - PITR (clone with wal-e) with unreachable target (13+)
 # TEST SUITE 4 - Major upgrade 10->11 after wal-e clone (no CLONE_PGVERSION)
 # TEST SUITE 5 - Replica bootstrap with wal-e
@@ -293,7 +325,7 @@ function test_spilo() {
     wait_all_streaming "$container"
     run_test test_envdir_updated_to_x 11
 
-    create_timescaledb "$container"  # we don't install it at the beginning, as we do 10->15 in a clone
+    create_timescaledb "$container"  # we don't install it at the beginning, as we do 10->16 in a clone
 
     log_info "[TS1] Testing in-place major upgrade 11->13 with failing check"
     create_table_with_oids "$container"
@@ -302,17 +334,17 @@ function test_spilo() {
 
 
     # TEST SUITE 2
-    log_info "[TS2] Testing in-place major upgrade 10->15 after wal-e clone"
-    run_test verify_clone_upgrade "$upgrade3_container" "wal-e" 10 15
+    log_info "[TS2] Testing in-place major upgrade 10->16 after wal-e clone"
+    run_test verify_clone_upgrade "$upgrade3_container" "wal-e" 10 16
 
     run_test verify_archive_mode_is_on "$upgrade3_container"
     wait_backup "$upgrade3_container"
 
 
     # TEST SUITE 3
-    local clone15_container
-    clone15_container=$(start_clone_with_wale_15_container) # SCOPE=clone15 CLONE: _SCOPE=upgrade3 _PGVERSION=15 _TARGET_TIME=<next_hour>
-    log_info "[TS3] Started $clone15_container for testing point-in-time recovery (clone with wal-e) with unreachable target on 13+"
+    local clone16_container
+    clone16_container=$(start_clone_with_wale_16_container) # SCOPE=clone16 CLONE: _SCOPE=upgrade3 _PGVERSION=16 _TARGET_TIME=<next_hour>
+    log_info "[TS3] Started $clone16_container for testing point-in-time recovery (clone with wal-e) with unreachable target on 13+"
 
 
     # TEST SUITE 1
@@ -323,8 +355,8 @@ function test_spilo() {
 
 
     # TEST SUITE 3
-    find_leader "$clone15_container"
-    run_test verify_archive_mode_is_on "$clone15_container"
+    find_leader "$clone16_container"
+    run_test verify_archive_mode_is_on "$clone16_container"
 
 
     # TEST SUITE 1

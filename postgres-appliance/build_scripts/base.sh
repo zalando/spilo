@@ -35,7 +35,7 @@ else
     make -C pam-oauth2 install
 
     # prepare 3rd sources
-    git clone -b "$PLPROFILER" https://github.com/hughcapet/plprofiler.git
+    git clone -b "$PLPROFILER" https://github.com/bigsql/plprofiler.git
     tar -xzf "plantuner-${PLANTUNER_COMMIT}.tar.gz"
     curl -sL "https://github.com/zalando-pg/pg_mon/archive/$PG_MON_COMMIT.tar.gz" | tar xz
 
@@ -98,8 +98,8 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
                 "postgresql-${version}-repack"
                 "postgresql-${version}-wal2json")
 
-        if [ "$version" != "15" ]; then
-            # not yet present for pg15
+        if [ "$version" -lt "15" ]; then
+            # not yet present for pg15+
             EXTRAS+=("postgresql-${version}-pllua")
         fi
 
