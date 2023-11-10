@@ -41,11 +41,19 @@ function next_hour() {
 }
 
 function start_containers() {
-    docker-compose up -d
+    if type docker-compose 2> /dev/null; then
+        docker-compose up -d
+    else
+        docker compose up -d
+    fi
 }
 
 function stop_containers() {
-    docker-compose rm -fs
+    if type docker-compose 2> /dev/null; then
+        docker-compose rm -fs
+    else
+        docker compose rm -fs
+    fi
 }
 
 function rm_container() {
