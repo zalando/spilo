@@ -39,7 +39,7 @@ RUN bash /builddeps/prepare.sh
 
 COPY --from=ubuntu-18 /usr/lib/locale/locale-archive /usr/lib/locale/locale-archive.18
 
-COPY cron_unprivileged.c dependencies/src /builddeps/
+COPY cron_unprivileged.c /builddeps/
 COPY build_scripts/base.sh /builddeps/
 COPY --from=dependencies-builder /builddeps/*.deb /builddeps/
 
@@ -56,17 +56,14 @@ ARG DEB_PG_SUPPORTED_VERSIONS="$PGOLDVERSIONS $PGVERSION"
 # Install PostgreSQL, extensions and contribs
 ENV POSTGIS_VERSION=3.4 \
     POSTGIS_LEGACY=3.3 \
-    POSTGIS_SUPER_LEGACY=3.2 \
     BG_MON_COMMIT=5959310104a11cb3f363bd65f3a4ef01119ca6d6 \
     PG_AUTH_MON_COMMIT=3d010e5959285c32b155e8064c9c9b57869aeca7 \
     PG_MON_COMMIT=382304bd6fa4804b2bea26c9bd9d420b3a998747 \
     SET_USER=REL4_0_1 \
-    PLPROFILER=fix/pg15-shmem \
+    PLPROFILER=REL4_2_4 \
     PG_PROFILE=4.2 \
     PAM_OAUTH2=v1.0.1 \
-    PLANTUNER_COMMIT=800d81bc85da64ff3ef66e12aed1d4e1e54fc006 \
-    PG_PERMISSIONS_COMMIT=314b9359e3d77c0b2ef7dbbde97fa4be80e31925 \
-    PG_TM_AUX_COMMIT=51cf42f6043608919802fcc48458471d0ea3a127
+    PG_PERMISSIONS_COMMIT=314b9359e3d77c0b2ef7dbbde97fa4be80e31925
 
 WORKDIR /builddeps
 RUN bash base.sh

@@ -35,8 +35,7 @@ else
     make -C pam-oauth2 install
 
     # prepare 3rd sources
-    git clone -b "$PLPROFILER" https://github.com/hughcapet/plprofiler.git
-    tar -xzf "plantuner-${PLANTUNER_COMMIT}.tar.gz"
+    git clone -b "$PLPROFILER" https://github.com/bigsql/plprofiler.git
     curl -sL "https://github.com/zalando-pg/pg_mon/archive/$PG_MON_COMMIT.tar.gz" | tar xz
 
     for p in python3-keyring python3-docutils ieee-data; do
@@ -91,36 +90,20 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
                 "postgresql-${version}-pglogical-ticker"
                 "postgresql-${version}-plpgsql-check"
                 "postgresql-${version}-pg-checksums"
+                "postgresql-${version}-pgl-ddl-deploy"
                 "postgresql-${version}-pgq-node"
                 "postgresql-${version}-postgis-${POSTGIS_VERSION%.*}"
                 "postgresql-${version}-postgis-${POSTGIS_VERSION%.*}-scripts"
                 "postgresql-${version}-repack"
-                "postgresql-${version}-wal2json")
-        
-        if [ "$version" != "16" ]; then
-            EXTRAS+=("postgresql-${version}-pgl-ddl-deploy")
-        fi
-
-        if [ "$version" != "15" ]; then
-            # not yet present for pg15
-            EXTRAS+=("postgresql-${version}-pllua")
-        fi
+                "postgresql-${version}-wal2json"
+                "postgresql-${version}-decoderbufs"
+                "postgresql-${version}-pllua"
+                "postgresql-${version}-pgvector")
 
         if [ "$WITH_PERL" = "true" ]; then
             EXTRAS+=("postgresql-plperl-${version}")
         fi
 
-        if [ "${version%.*}" -ge 10 ]; then
-            EXTRAS+=("postgresql-${version}-decoderbufs")
-        fi
-
-        if [ "${version%.*}" -ge 11 ]; then
-            EXTRAS+=("postgresql-${version}-pgvector")
-        fi
-
-        if [ "${version%.*}" -lt 11 ]; then
-            EXTRAS+=("postgresql-${version}-amcheck")
-        fi
     fi
 
     # Install PostgreSQL binaries, contrib, plproxy and multiple pl's
@@ -139,7 +122,7 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
     # use subshell to avoid having to cd back (SC2103)
     (
         cd timescaledb
-        if [ "$version" != "16 " ]; then
+        if [ "$version" != "16" ]; then
             for v in $TIMESCALEDB; do
                 git checkout "$v"
                 sed -i "s/VERSION 3.11/VERSION 3.10/" CMakeLists.txt
@@ -173,12 +156,7 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
 
     EXTRA_EXTENSIONS=()
     if [ "$DEMO" != "true" ]; then
-        if [ "$version" != "16" ]; then
-            EXTRA_EXTENSIONS+=("plantuner-${PLANTUNER_COMMIT}" plprofiler "pg_tm_aux-${PG_TM_AUX_COMMIT}")
-        fi
-        if [ "${version%.*}" -ge 10 ]; then
-            EXTRA_EXTENSIONS+=("pg_mon-${PG_MON_COMMIT}")
-        fi
+        EXTRA_EXTENSIONS+=("plprofiler")
     fi
 
     for n in bg_mon-${BG_MON_COMMIT} \
@@ -186,6 +164,7 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
             set_user \
             pg_permissions-${PG_PERMISSIONS_COMMIT} \
             pg_profile-${PG_PROFILE} \
+            pg_mon-${PG_MON_COMMIT} \
             "${EXTRA_EXTENSIONS[@]}"; do
         make -C "$n" USE_PGXS=1 clean install-strip
     done
@@ -286,17 +265,12 @@ if [ "$DEMO" != "true" ]; then
             if [ "$v1" = "$v2" ]; then
                 started=1
             elif [ $started = 1 ]; then
-
-                used_postgis_version=$POSTGIS_VERSION
-                if [ "${v1##*/}" = "11" ]; then used_postgis_version=$POSTGIS_LEGACY; fi
-
-                for d1 in extension contrib contrib/postgis-$used_postgis_version; do
+                for d1 in extension contrib contrib/postgis-$POSTGIS_VERSION; do
                     cd "$v1/$d1"
                     d2="$d1"
                     d1="../../${v1##*/}/$d1"
                     if [ "${d2%-*}" = "contrib/postgis" ]; then
-                        if [ "${v2##*/}" = "11" ]; then d2="${d2%-*}-$POSTGIS_LEGACY"
-                        elif [ "${v2##*/}" = "10" ]; then d2="${d2%-*}-$POSTGIS_SUPER_LEGACY"; fi
+                        if [ "${v2##*/}" = "11" ]; then d2="${d2%-*}-$POSTGIS_LEGACY"; fi
                         d1="../$d1"
                     fi
                     d2="$v2/$d2"
