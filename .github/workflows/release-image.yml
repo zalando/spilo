@@ -46,7 +46,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        registry: [ docker.io, registry.cn-hangzhou.aliyuncs.com ]
+        registry: [ docker.io, registry.cn-hangzhou.aliyuncs.com, infracreate-registry.cn-zhangjiakou.cr.aliyuncs.com ]
     runs-on: ubuntu-latest
     permissions:
       contents: 'read'
@@ -87,13 +87,21 @@ jobs:
           username: ${{ env.DOCKER_USER }}
           password: ${{ env.DOCKER_PASSWORD }}
 
-      - if: ${{ contains(matrix.registry, 'aliyuncs') }}
+      - if: ${{ contains(matrix.registry, 'aliyuncs') && ! contains(matrix.registry, 'infracreate') }}
         name: Login to ${{ matrix.registry }}
         uses: docker/login-action@v2
         with:
           registry: ${{ matrix.registry }}
           username: ${{ env.ALIYUN_USER }}
           password: ${{ env.ALIYUN_PASSWORD }}
+
+      - if: ${{ contains(matrix.registry, 'aliyuncs') && contains(matrix.registry, 'infracreate') }}
+        name: Login to ${{ matrix.registry }}
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ matrix.registry }}
+          username: ${{ env.ALIYUN_USER_NEW }}
+          password: ${{ env.ALIYUN_PASSWORD_NEW }}
 
       - name: Build and export to local docker for testing
         uses: docker/build-push-action@v3
