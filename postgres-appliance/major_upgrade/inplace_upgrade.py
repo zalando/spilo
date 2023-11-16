@@ -24,9 +24,8 @@ def patch_wale_prefix(value, new_version):
     """
     Patch the WAL prefix with the new version if the old version is valid and different from the new version.
 
-    Args:
-        value (str): The WAL prefix to patch.
-        new_version (str): The new version to use.
+    :param value: The WAL prefix to patch.
+    :param new_version: The new version to use.
 
     Returns:
         str: The patched WAL prefix if the old version is valid and different from the new version, otherwise the original value.
@@ -89,9 +88,6 @@ def kill_patroni():
     Restarts the Patroni process.
 
     This function finds the Patroni process and kills it. If the process is not found, nothing happens.
-
-    Returns:
-        None
     """
     logger.info('Restarting patroni')
     patroni = next(iter(filter(lambda p: p.info['name'] == 'patroni', psutil.process_iter(['name']))), None)
@@ -103,30 +99,25 @@ class InplaceUpgrade(object):
     """
     A class representing an in-place upgrade of a PostgreSQL cluster.
 
-    Attributes:
-        - config (dict): a dictionary containing the configuration parameters for the upgrade process.
-        - postgresql (PostgresqlUpgrade): a PostgresqlUpgrade object representing the PostgreSQL instance being upgraded.
-        - cluster_version (str): the version of the PostgreSQL cluster being upgraded.
-        - desired_version (str): the version of PostgreSQL to which the cluster is being upgraded.
-        - upgrade_required (bool): a flag indicating whether an upgrade is required.
-        - paused (bool): a flag indicating whether the upgrade process is currently paused.
-        - new_data_created (bool): a flag indicating whether new data has been created during the upgrade process.
-        - upgrade_complete (bool): a flag indicating whether the upgrade process has been completed.
-        - rsyncd_configs_created (bool): a flag indicating whether rsyncd configurations have been created during the upgrade process.
-        - rsyncd_started (bool): a flag indicating whether rsyncd has been started during the upgrade process.
-        - dcs: a distributed configuration store object.
-        - request: a PatroniRequest object representing a request to the PostgreSQL cluster.
+        :ivar config: a dictionary containing the configuration parameters for the upgrade process.
+        :ivar postgresql: a PostgresqlUpgrade object representing the PostgreSQL instance being upgraded.
+        :ivar cluster_version: the version of the PostgreSQL cluster being upgraded.
+        :ivar desired_version: the version of PostgreSQL to which the cluster is being upgraded.
+        :ivar upgrade_required: a flag indicating whether an upgrade is required.
+        :ivar paused: a flag indicating whether the upgrade process is currently paused.
+        :ivar new_data_created: a flag indicating whether new data has been created during the upgrade process.
+        :ivar upgrade_complete: a flag indicating whether the upgrade process has been completed.
+        :ivar rsyncd_configs_created: a flag indicating whether rsyncd configurations have been created during the upgrade process.
+        :ivar rsyncd_started: a flag indicating whether rsyncd has been started during the upgrade process.
+        :ivar dcs: a distributed configuration store object.
+        :ivar request: a PatroniRequest object representing a request to the PostgreSQL cluster.
     """
 
     def __init__(self, config):
         """
         Initializes the InplaceUpgrade object.
 
-        Args:
-            - config (dict): a dictionary containing the configuration parameters for the upgrade process.
-
-        Returns:
-            - None
+        :param config: a dictionary containing the configuration parameters for the upgrade process.
         """
         from patroni.dcs import get_dcs
         from patroni.request import PatroniRequest
@@ -180,8 +171,7 @@ class InplaceUpgrade(object):
         """
         Checks the Patroni API for a given member.
 
-        Args:
-            member: The member to check the API for.
+        :param member: The member to check the API for.
 
         Returns:
             True if the API request was successful and returned a 200 status code, False otherwise.
