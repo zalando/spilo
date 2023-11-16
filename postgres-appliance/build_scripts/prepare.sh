@@ -35,10 +35,13 @@ ln -s /usr/lib/locale/locale-archive.22 /run/locale-archive
 
 # Add PGDG repositories
 DISTRIB_CODENAME=$(sed -n 's/DISTRIB_CODENAME=//p' /etc/lsb-release)
-for t in deb deb-src; do
-    echo "$t http://apt.postgresql.org/pub/repos/apt/ ${DISTRIB_CODENAME}-pgdg main" >> /etc/apt/sources.list.d/pgdg.list
+for repo in "" "-archive"; do
+    for t in deb deb-src; do
+        echo "$t http://apt${repo}.postgresql.org/pub/repos/apt/ ${DISTRIB_CODENAME}-pgdg${repo} main" >> /etc/apt/sources.list.d/pgdg.list
+    done
 done
 curl -s -o - https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor > /etc/apt/trusted.gpg.d/apt.postgresql.org.gpg
+curl -s -o - https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor > /etc/apt/trusted.gpg.d/apt-archive.postgresql.org.gpg
 
 # Clean up
 apt-get purge -y libcap2-bin

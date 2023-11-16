@@ -49,7 +49,8 @@ else
     EXTRAS=""
 fi
 
-pip3 install "patroni[kubernetes$EXTRAS]==$PATRONIVERSION"
+patroni_version=$(jq -r ".pip.patroni" /builddeps/pinned_versions.json)
+pip3 install "patroni[kubernetes$EXTRAS]==${patroni_version}"
 
 for d in /usr/local/lib/python3.10 /usr/lib/python3; do
     cd $d/dist-packages

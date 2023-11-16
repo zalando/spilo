@@ -26,10 +26,13 @@ apt-get install -y curl ca-certificates
 apt-get install -y software-properties-common gpg-agent
 add-apt-repository ppa:longsleep/golang-backports
 apt-get update
-apt-get install -y golang-go liblzo2-dev brotli libsodium-dev git make cmake gcc libc-dev
+apt-get install -y golang-go liblzo2-dev brotli libsodium-dev git make cmake gcc libc-dev jq
 go version
 
-git clone -b "$WALG_VERSION" --recurse-submodules https://github.com/wal-g/wal-g.git
+# Build wal-g
+walg_repo=$(jq -r ".\"wal-g\".repo" /builddeps/pinned_versions.json)
+walg_version=$(jq -r ".\"wal-g\".version" /builddeps/pinned_versions.json)
+git clone -b "$walg_version" --recurse-submodules "${walg_repo}.git"
 cd /wal-g
 go get -v -t -d ./...
 go mod vendor

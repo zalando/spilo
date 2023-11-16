@@ -1,0 +1,294 @@
+{
+  "postgresql_pgdg":
+  {
+    "11": "11.22-1",
+    "12": "12.17-1",
+    "13": "13.13-1",
+    "14": "14.10-1",
+    "15": "15.5-1",
+    "16": "16.1-1"
+  },
+  "postgresql_extensions_pgdg":
+  {
+    "11":
+    {
+      "extra":
+      {
+        "dirtyread": "2.6-2",
+        "extra-window-functions": "1.0-5",
+        "first-last-agg": "0.1.4-4-gd63ea3b-7",
+        "hll": "2.18-1",
+        "hypopg": "1.4.0-2",
+        "plproxy": "2.11.0-11",
+        "partman": "4.7.4-2",
+        "pgaudit": "1:1.3.4-1",
+        "pldebugger": "1:1.5-2",
+        "pglogical": "2.4.4-1",
+        "pglogical-ticker": "1.4.1-6",
+        "plpgsql-check": "2.3.4-1",
+        "pg-checksums": "1.1-6",
+        "pgl-ddl-deploy": "2.2.0-1",
+        "pgq-node": "3.5-5",
+        "postgis-3": "3.3.4+dfsg-1",
+        "postgis-3-scripts": "3.3.4+dfsg-1",
+        "repack": "1.4.8-2",
+        "wal2json": "2.5-2",
+        "decoderbufs": "2.4.0-1",
+        "pllua": "1:2.0.12-2",
+        "pgvector": "0.5.1-1"
+      },
+      "base":
+      {
+        "cron": "1.6.2-1",
+        "pgextwlist": "1.17-2",
+        "pgq3": "3.5-3",
+        "pg-stat-kcache": "2.2.2-2"
+      }
+    },
+    "12": {
+      "extra":
+      {
+        "dirtyread": "2.6-2",
+        "extra-window-functions": "1.0-5",
+        "first-last-agg": "0.1.4-4-gd63ea3b-7",
+        "hll": "2.18-1",
+        "hypopg": "1.4.0-2",
+        "plproxy": "2.11.0-11",
+        "partman": "4.7.4-2",
+        "pgaudit": "1.4.3-1",
+        "pldebugger": "1:1.5-2",
+        "pglogical": "2.4.4-1",
+        "pglogical-ticker": "1.4.1-6",
+        "plpgsql-check": "2.5.4-1",
+        "pg-checksums": "1.1-6",
+        "pgl-ddl-deploy": "2.2.0-1",
+        "pgq-node": "3.5-5",
+        "postgis-3": "3.4.0+dfsg-1",
+        "postgis-3-scripts": "3.4.0+dfsg-1",
+        "repack": "1.4.8-2",
+        "wal2json": "2.5-2",
+        "decoderbufs": "2.4.0-1",
+        "pllua": "1:2.0.12-2",
+        "pgvector": "0.5.1-1"
+      },
+      "base":
+      {
+        "cron": "1.6.2-1",
+        "pgextwlist": "1.17-2",
+        "pgq3": "3.5-3",
+        "pg-stat-kcache": "2.2.2-2"
+      }
+    },
+    "13": {
+      "extra":
+      {
+        "dirtyread": "2.6-2",
+        "extra-window-functions": "1.0-5",
+        "first-last-agg": "0.1.4-4-gd63ea3b-7",
+        "hll": "2.18-1",
+        "hypopg": "1.4.0-2",
+        "plproxy": "2.11.0-11",
+        "partman": "4.7.4-2",
+        "pgaudit": "1.5.2-1",
+        "pldebugger": "1:1.5-2",
+        "pglogical": "2.4.4-1",
+        "pglogical-ticker": "1.4.1-6",
+        "plpgsql-check": "2.5.4-1",
+        "pg-checksums": "1.1-6",
+        "pgl-ddl-deploy": "2.2.0-1",
+        "pgq-node": "3.5-5",
+        "postgis-3": "3.4.0+dfsg-1",
+        "postgis-3-scripts": "3.4.0+dfsg-1",
+        "repack": "1.4.8-2",
+        "wal2json": "2.5-2",
+        "decoderbufs": "2.4.0-1",
+        "pllua": "1:2.0.12-2",
+        "pgvector": "0.5.1-1"
+      },
+      "base":
+      {
+        "cron": "1.6.2-1",
+        "pgextwlist": "1.17-2",
+        "pgq3": "3.5-3",
+        "pg-stat-kcache": "2.2.2-2"
+      }
+    },
+    "14": {
+      "extra":
+      {
+        "dirtyread": "2.6-2",
+        "extra-window-functions": "1.0-5",
+        "first-last-agg": "0.1.4-4-gd63ea3b-7",
+        "hll": "2.18-1",
+        "hypopg": "1.4.0-2",
+        "plproxy": "2.11.0-11",
+        "partman": "5.0.0-1",
+        "pgaudit": "1.6.2-1",
+        "pldebugger": "1:1.5-2",
+        "pglogical": "2.4.4-1",
+        "pglogical-ticker": "1.4.1-6",
+        "plpgsql-check": "2.5.4-1",
+        "pg-checksums": "1.1-6",
+        "pgl-ddl-deploy": "2.2.0-1",
+        "pgq-node": "3.5-5",
+        "postgis-3": "3.4.0+dfsg-1",
+        "postgis-3-scripts": "3.4.0+dfsg-1",
+        "repack": "1.4.8-2",
+        "wal2json": "2.5-2",
+        "decoderbufs": "2.4.0-1",
+        "pllua": "1:2.0.12-2",
+        "pgvector": "0.5.1-1"
+      },
+      "base":
+      {
+        "cron": "1.6.2-1",
+        "pgextwlist": "1.17-2",
+        "pgq3": "3.5-3",
+        "pg-stat-kcache": "2.2.2-2"
+      }
+    },
+    "15":  {
+      "extra":
+      {
+        "dirtyread": "2.6-2",
+        "extra-window-functions": "1.0-5",
+        "first-last-agg": "0.1.4-4-gd63ea3b-7",
+        "hll": "2.18-1",
+        "hypopg": "1.4.0-2",
+        "plproxy": "2.11.0-11",
+        "partman": "5.0.0-1",
+        "pgaudit": "1.7.0-2",
+        "pldebugger": "1:1.5-2",
+        "pglogical": "2.4.4-1",
+        "pglogical-ticker": "1.4.1-6",
+        "plpgsql-check": "2.5.4-1",
+        "pg-checksums": "1.1-6",
+        "pgl-ddl-deploy": "2.2.0-1",
+        "pgq-node": "3.5-5",
+        "postgis-3": "3.4.0+dfsg-1",
+        "postgis-3-scripts": "3.4.0+dfsg-1",
+        "repack": "1.4.8-2",
+        "wal2json": "2.5-2",
+        "decoderbufs": "2.4.0-1",
+        "pllua": "1:2.0.12-2",
+        "pgvector": "0.5.1-1"
+      },
+      "base":
+      {
+        "cron": "1.6.2-1",
+        "pgextwlist": "1.17-2",
+        "pgq3": "3.5-3",
+        "pg-stat-kcache": "2.2.2-2"
+      }
+    },
+    "16": {
+      "extra":
+      {
+        "dirtyread": "2.6-2",
+        "extra-window-functions": "1.0-5",
+        "first-last-agg": "0.1.4-4-gd63ea3b-7",
+        "hll": "2.18-1",
+        "hypopg": "1.4.0-2",
+        "plproxy": "2.11.0-11",
+        "partman": "5.0.0-1",
+        "pgaudit": "16.0-1",
+        "pldebugger": "1:1.5-2",
+        "pglogical": "2.4.4-1",
+        "pglogical-ticker": "1.4.1-6",
+        "plpgsql-check": "2.5.4-1",
+        "pg-checksums": "1.1-6",
+        "pgl-ddl-deploy": "2.2.0-1",
+        "pgq-node": "3.5-5",
+        "postgis-3": "3.4.0+dfsg-1",
+        "postgis-3-scripts": "3.4.0+dfsg-1",
+        "repack": "1.4.8-2",
+        "wal2json": "2.5-2",
+        "decoderbufs": "2.4.0-1",
+        "pllua": "1:2.0.12-2",
+        "pgvector": "0.5.1-1"
+      },
+      "base":
+      {
+        "cron": "1.6.2-1",
+        "pgextwlist": "1.17-2",
+        "pgq3": "3.5-3",
+        "pg-stat-kcache": "2.2.2-2"
+      }
+    }      
+  },
+  "postgresql_extensions_source":
+  {
+    "branch":
+    {
+      "base": 
+      {
+        "set_user":
+        {
+          "repo": "https://github.com/pgaudit/set_user",
+          "version": "REL4_0_1"
+        }
+      },
+      "extra":
+      {
+        "plprofiler":
+        {
+          "repo": "https://github.com/bigsql/plprofiler",
+          "version": "REL4_2_4"
+        }
+      }
+    },
+    "commit_tag":
+    {
+      "base":
+      {
+        "bg_mon":
+        {
+          "repo": "https://github.com/zalando-pg/bg_mon",
+          "version": "5959310104a11cb3f363bd65f3a4ef01119ca6d6"
+        },
+        "pg_auth_mon":
+        {
+          "repo": "https://github.com/zalando-pg/pg_auth_mon",
+          "version": "3d010e5959285c32b155e8064c9c9b57869aeca7"
+        },
+        "pg_permissions":
+        {
+          "repo": "https://github.com/cybertec-postgresql/pg_permissions",
+          "version": "314b9359e3d77c0b2ef7dbbde97fa4be80e31925"
+        },
+        "pg_profile":
+        {
+          "repo": "https://github.com/zubkov-andrei/pg_profile",
+          "version": "4.2"
+        }
+      },
+      "extra": 
+      {
+        "pg_mon":
+        {
+          "repo": "https://github.com/zalando-pg/pg_mon",
+          "version": "382304bd6fa4804b2bea26c9bd9d420b3a998747"
+        }
+      }
+    },
+    "timescaledb":
+    {
+      "repo": "https://github.com/timescale/timescaledb",
+      "version": "1.7.5 2.3.1 2.11.1"
+    }
+  },
+  "pip":
+  {
+    "patroni": "3.0.2"
+  },
+  "pam-oauth2":
+  {
+    "repo": "https://github.com/zalando-pg/pam-oauth2",
+    "version": "v1.0.1"
+  },
+  "wal-g":
+  {
+    "repo": "https://github.com/wal-g/wal-g",
+    "version": "v2.0.1"
+  }
+}
