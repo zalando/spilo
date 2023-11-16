@@ -447,7 +447,8 @@ def get_instance_metadata(provider):
         mapping = {}  # Disable multi-url fetch
         url = 'http://169.254.169.254/openstack/latest/meta_data.json'
         openstack_metadata = requests.get(url, timeout=5).json()
-        metadata['zone'] = openstack_metadata['availability_zone']
+        if 'availability_zone' in openstack_metadata:
+            metadata['zone'] = openstack_metadata['availability_zone']
         if not USE_KUBERNETES:
             # Try get IP via OpenStack EC2-compatible API, if can't then fail back to auto-discovered one.
             metadata['id'] = openstack_metadata['uuid']
