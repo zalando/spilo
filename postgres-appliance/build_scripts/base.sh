@@ -125,40 +125,42 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
         "${EXTRA_EXT[@]}" \
         # "postgresql-contrib-${version}"
 
-    # build timescaledb
-    # use subshell to avoid having to cd back (SC2103)
-    (
-        cd timescaledb
-        if [ "$version" != "16" ]; then
-            for v in $(jq -r ".postgresql_extensions_source.timescaledb.version" ../pinned_versions.json); do
-                git checkout "$v"
-                sed -i "s/VERSION 3.11/VERSION 3.10/" CMakeLists.txt
-                if BUILD_FORCE_REMOVE=true ./bootstrap -DREGRESS_CHECKS=OFF -DWARNINGS_AS_ERRORS=OFF \
-                        -DTAP_CHECKS=OFF -DPG_CONFIG="/usr/lib/postgresql/$version/bin/pg_config" \
-                        -DAPACHE_ONLY="$TIMESCALEDB_APACHE_ONLY" -DSEND_TELEMETRY_DEFAULT=NO; then
-                    make -C build install
-                    strip /usr/lib/postgresql/"$version"/lib/timescaledb*.so
-                fi
-                git reset --hard
-                git clean -f -d
-            done
-        fi
-    )
+    # install/build timescaledb
+    ts_versions=($(jq -r ".timescaledb_pkg.\"${version}\"" pinned_versions.json))
+    if [ "$version" != "16" ]; then
+        for v in "${ts_versions[@]}"; do
+            if [ "${TIMESCALEDB_APACHE_ONLY}" != "true" ]; then
+                pkg="timescaledb-2-${v}-postgresql-${version}"
+            else
+                pkg="timescaledb-2-oss-${v}-postgresql-${version}"
+            fi
+            if [ "$(apt-cache search --names-only "^${pkg}$" | wc -l)" -eq 1 ]; then
+                apt-get install -y "$pkg"
+            else
+                # use subshell to avoid having to cd back (SC2103)
+                (
+                    cd timescaledb
+                    git checkout "$v"
+                    sed -i "s/VERSION 3.11/VERSION 3.10/" CMakeLists.txt
+                    if BUILD_FORCE_REMOVE=true ./bootstrap -DREGRESS_CHECKS=OFF -DWARNINGS_AS_ERRORS=OFF \
+                            -DTAP_CHECKS=OFF -DPG_CONFIG="/usr/lib/postgresql/$version/bin/pg_config" \
+                            -DAPACHE_ONLY="$TIMESCALEDB_APACHE_ONLY" -DSEND_TELEMETRY_DEFAULT=NO; then
+                        make -C build install
+                        strip /usr/lib/postgresql/"$version"/lib/timescaledb*.so
+                    fi
+                    git reset --hard
+                    git clean -f -d
+                )
+            fi
+        done
+    fi
 
     if [ "${TIMESCALEDB_APACHE_ONLY}" != "true" ] && [ "${TIMESCALEDB_TOOLKIT}" = "true" ]; then
-        __versionCodename=$(sed </etc/os-release -ne 's/^VERSION_CODENAME=//p')
-        echo "deb [signed-by=/usr/share/keyrings/timescale_E7391C94080429FF.gpg] https://packagecloud.io/timescale/timescaledb/ubuntu/ ${__versionCodename} main" | tee /etc/apt/sources.list.d/timescaledb.list
-        curl -L https://packagecloud.io/timescale/timescaledb/gpgkey | gpg --dearmor > /usr/share/keyrings/timescale_E7391C94080429FF.gpg
-
-        apt-get update
         if [ "$(apt-cache search --names-only "^timescaledb-toolkit-postgresql-${version}$" | wc -l)" -eq 1 ]; then
             apt-get install "timescaledb-toolkit-postgresql-$version"
         else
             echo "Skipping timescaledb-toolkit-postgresql-$version as it's not found in the repository"
         fi
-
-        rm /etc/apt/sources.list.d/timescaledb.list
-        rm /usr/share/keyrings/timescale_E7391C94080429FF.gpg
     fi
 
     # Build extensions from source

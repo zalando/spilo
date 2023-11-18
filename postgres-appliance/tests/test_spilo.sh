@@ -394,6 +394,6 @@ function main() {
     test_spilo "$leader"
 }
 
-trap cleanup QUIT TERM EXIT
+# trap cleanup QUIT TERM EXIT
 
 main
