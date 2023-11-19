@@ -4,17 +4,58 @@
 ## Install PostgreSQL, extensions and contribs
 ## -------------------------------------------
 
+
+## Auxiliary functions and vars ##
 export DEBIAN_FRONTEND=noninteractive
 MAKEFLAGS="-j $(grep -c ^processor /proc/cpuinfo)"
 export MAKEFLAGS
 
 set -ex
-sed -i 's/^#\s*\(deb.*universe\)$/\1/g' /etc/apt/sources.list
+
+VER_FILE='pinned_versions.json'
+
+function get_list_from_entries() {
+    local path=$1
+    local map_pattern=$2
+    jq -r "${path} | to_entries | map(\"${map_pattern}\") | @sh" "$VER_FILE" | sed -e "s/'/ /g"
+}
+
+function get_exts_source() {
+    local suffix=$1
+    get_list_from_entries ".postgresql_extensions_source.${suffix}" '\(.key)'
+}
+
+function get_exts_pgdg() {
+    local version=$1
+    local suffix=$2
+    get_list_from_entries ".postgresql_extensions_pgdg.\"${version}\".${suffix}" "postgresql-${version}-\(.key)=\(.value).pgdg22.04+1"
+}
+
+function get_ext_source_branch_repo() {
+    local ext=$1
+    local suffix=$2
+    jq -r ".postgresql_extensions_source.branch.${suffix}.\"${ext}\".repo" "$VER_FILE"
+}
+
+function get_ext_source_branch_version() {
+    local ext=$1
+    local suffix=$2
+    jq -r ".postgresql_extensions_source.branch.${suffix}.\"${ext}\".version" "$VER_FILE"
+}
+
+function get_ext_source_commit_tag_url() {
+    local ext=$1
+    local suffix=$2
+    jq -r ".postgresql_extensions_source.commit_tag.${suffix}.${ext} | \"\(.repo)/archive/\(.version).tar.gz\"" "$VER_FILE"
+}
+
+
+
+## Prepare everything required for the builds ##
+sed -i 's/^#\s*\(deb.*universe\)$/\1/g' /etc/apt/sources.list  #TODO: wtf
 
 apt-get update
 
-
-# Install packages required for the builds
 BUILD_PACKAGES=(devscripts equivs build-essential fakeroot debhelper git gcc libc6-dev make cmake libevent-dev libbrotli-dev libssl-dev libkrb5-dev)
 if [ "$DEMO" = "true" ]; then
     export DEB_PG_SUPPORTED_VERSIONS="$PGVERSION"
@@ -32,60 +73,61 @@ else
                     pkg-config)
     apt-get install -y "${BUILD_PACKAGES[@]}" libcurl4
 
-    # TODO: comment
+    # Prepare "fake" packages
     for p in python3-keyring python3-docutils ieee-data; do
         version=$(apt-cache show $p | sed -n 's/^Version: //p' | sort -rV | head -n 1)
         printf "Section: misc\nPriority: optional\nStandards-Version: 3.9.8\nPackage: %s\nVersion: %s\nDescription: %s" "$p" "$version" "$p" > "$p"
         equivs-build "$p"
     done
 
-    # Prepare PG extensions sources (non-demo) only required for the full image
-    EXTRA_BUILD_COMMIT_TAG_EXT=($(jq -r ".postgresql_extensions_source.commit_tag.extra | to_entries | map(\"\(.key)\") | @sh" pinned_versions.json | sed -e "s/'/ /g"))
+    # PG extensions sources
+    EXTRA_BUILD_COMMIT_TAG_EXT=($(get_exts_source 'commit_tag.extra'))
     for ext in "${EXTRA_BUILD_COMMIT_TAG_EXT[@]}"; do
-        url=$(jq -r ".postgresql_extensions_source.commit_tag.extra.${ext} | \"\(.repo)/archive/\(.version).tar.gz\"" pinned_versions.json)
+        url=$(get_ext_source_commit_tag_url "$ext" 'extra')
         curl -sL "$url" | tar xz
     done
 
-    EXTRA_BUILD_BRANCH_EXT=($(jq -r ".postgresql_extensions_source.branch.extra | to_entries | map(\"\(.key)\") | @sh" pinned_versions.json | sed -e "s/'/ /g"))
+    EXTRA_BUILD_BRANCH_EXT=($(get_exts_source 'branch.extra'))
     for ext in "${EXTRA_BUILD_BRANCH_EXT[@]}"; do
-        branch=$(jq -r ".postgresql_extensions_source.branch.extra.\"${ext}\".version" pinned_versions.json)
-        repo=$(jq -r ".postgresql_extensions_source.branch.extra.\"${ext}\".repo" pinned_versions.json)
+        branch=$(get_ext_source_branch_version "$ext" 'extra')
+        repo=$(get_ext_source_branch_repo "$ext" 'extra')
         git clone -b "$branch" --recurse-submodules "$repo" "${ext}-${branch}"
     done
 
-    pam_oauth_branch=$(jq -r ".\"pam-oauth2\".version" pinned_versions.json)
-    pam_oauth_repo=$(jq -r ".\"pam-oauth2\".repo" pinned_versions.json)
+    # Build pam_oauth2 straight away
+    pam_oauth_branch=$(jq -r ".\"pam-oauth2\".version" "$VER_FILE")
+    pam_oauth_repo=$(jq -r ".\"pam-oauth2\".repo" "$VER_FILE")
     git clone -b "$pam_oauth_branch" --recurse-submodules "$pam_oauth_repo"
-    make -C pam-oauth2 install # build pam_oauth2 straight away
+    make -C pam-oauth2 install
 fi
 
-
-# TODO: comment
+# If perl is not required, prepare a "fake" package
 if [ "$WITH_PERL" != "true" ]; then
     version=$(apt-cache show perl | sed -n 's/^Version: //p' | sort -rV | head -n 1)
     printf "Priority: standard\nStandards-Version: 3.9.8\nPackage: perl\nMulti-Arch: allowed\nReplaces: perl-base, perl-modules\nVersion: %s\nDescription: perl" "$version" > perl
     equivs-build perl
 fi
 
-# Prepare srouces for PG extensions available in both demo and full image
-BASE_BUILD_COMMIT_TAG_EXT=($(jq -r ".postgresql_extensions_source.commit_tag.base | to_entries | map(\"\(.key)\") | @sh" pinned_versions.json | sed -e "s/'/ /g"))
+# PG extensions sources (available in both demo and full image)
+BASE_BUILD_COMMIT_TAG_EXT=($(get_exts_source 'commit_tag.base'))
 for ext in "${BASE_BUILD_COMMIT_TAG_EXT[@]}"; do
-    url=$(jq -r ".postgresql_extensions_source.commit_tag.base.${ext} | \"\(.repo)/archive/\(.version).tar.gz\"" pinned_versions.json)
+    url=$(get_ext_source_commit_tag_url "$ext" 'base')
     curl -sL "$url" | tar xz
 done
 
-BASE_BUILD_BRANCH_EXT=($(jq -r ".postgresql_extensions_source.branch.base | to_entries | map(\"\(.key)\") | @sh" pinned_versions.json | sed -e "s/'/ /g"))
+BASE_BUILD_BRANCH_EXT=($(get_exts_source 'branch.base'))
 for ext in "${BASE_BUILD_BRANCH_EXT[@]}"; do
-    branch=$(jq -r ".postgresql_extensions_source.branch.base.\"${ext}\".version" pinned_versions.json)
-    repo=$(jq -r ".postgresql_extensions_source.branch.base.\"${ext}\".repo" pinned_versions.json)
+    branch=$(get_ext_source_branch_version "$ext" 'base')
+    repo=$(get_ext_source_branch_repo "$ext" 'base')
     git clone -b "$branch" --recurse-submodules "$repo" "${ext}-${branch}"
 done
 
-timescaledb_repo=$(jq -r ".postgresql_extensions_source.timescaledb.repo" pinned_versions.json)
-git clone "${timescaledb_repo}.git"
+# Clone timescaldb in case there is no package for the required version available
+git clone https://github.com/timescale/timescaledb.git
 
 
-# Install base packages
+
+## Install packages / build extensions ##
 apt-get install -y \
     postgresql-common \
     libevent-2.1 \
@@ -98,18 +140,18 @@ apt-get install -y \
 # forbid creation of a main cluster when package is installed
 sed -ri 's/#(create_main_cluster) .*$/\1 = false/' /etc/postgresql-common/createcluster.conf
 
-# Install/build PG extensions for each supported major version
+# Install/build components for each supported major version
 for version in $DEB_PG_SUPPORTED_VERSIONS; do
     sed -i "s/ main.*$/ main $version/g" /etc/apt/sources.list.d/pgdg.list
     apt-get update
-    minor_version=$(jq -r ".postgresql_pgdg.\"${version}\"" pinned_versions.json)
+    minor_version=$(jq -r ".postgresql_pgdg.\"${version}\"" "$VER_FILE")
 
-    # Base extensions available in both demo and full image
-    BASE_EXT=($(jq -r ".postgresql_extensions_pgdg.\"${version}\".base | to_entries | map(\"postgresql-${version}-\(.key)=\(.value).pgdg22.04+1\") | @sh" pinned_versions.json | sed -e "s/'/ /g"))
+    # Extensions for both demo and full image available in pgdg
+    BASE_EXT=($(get_exts_pgdg "$version" 'base'))
 
-    # Extra extensions installed in the full image
+    # Extensions for the full image only vailable in pgdg
     if [ "$DEMO" != "true" ]; then
-        EXTRA_EXT=($(jq -r ".postgresql_extensions_pgdg.\"${version}\".extra | to_entries | map(\"postgresql-${version}-\(.key)=\(.value).pgdg22.04+1\") | @sh" pinned_versions.json | sed -e "s/'/ /g"))
+        EXTRA_EXT=($(get_exts_pgdg "$version" 'extra'))
         EXTRA_EXT+=("postgresql-pltcl-${version}=${minor_version}.pgdg22.04+1")
 
         if [ "$WITH_PERL" = "true" ]; then
@@ -125,8 +167,8 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
         "${EXTRA_EXT[@]}" \
         # "postgresql-contrib-${version}"
 
-    # install/build timescaledb
-    ts_versions=($(jq -r ".timescaledb_pkg.\"${version}\"" pinned_versions.json))
+    # Install/build timescaledb
+    ts_versions=($(jq -r ".timescaledb_pkg.\"${version}\"" "$VER_FILE"))
     if [ "$version" != "16" ]; then
         for v in "${ts_versions[@]}"; do
             if [ "${TIMESCALEDB_APACHE_ONLY}" != "true" ]; then
@@ -168,21 +210,22 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
                 "${EXTRA_BUILD_BRANCH_EXT[@]}" \
                 "${BASE_BUILD_COMMIT_TAG_EXT[@]}" \
                 "${BASE_BUILD_BRANCH_EXT[@]}"; do
-        dir=$(jq -r ".. | select(.\"${repo}\"?).\"${repo}\" | \"${repo}-\(.version)\"" pinned_versions.json)
+        dir=$(jq -r ".. | select(.\"${repo}\"?).\"${repo}\" | \"${repo}-\(.version)\"" "$VER_FILE")
         make -C "$dir" USE_PGXS=1 clean install-strip
     done
 done
 
+# Install components that don't depend on the PG version
 apt-get install -y skytools3-ticker pgbouncer
 
-# TODO: comment
-sed -i "s/ main.*$/ main/g" /etc/apt/sources.list.d/pgdg.list
-apt-get update
-apt-get install -y postgresql postgresql-server-dev-all postgresql-all libpq-dev
-for version in $DEB_PG_SUPPORTED_VERSIONS; do
-    minor_version=$(jq -r ".postgresql_pgdg.\"${version}\"" pinned_versions.json)
-    apt-get install -y "postgresql-server-dev-${version}=${minor_version}.pgdg22.04+1"
-done
+# # TODO: comment
+# sed -i "s/ main.*$/ main/g" /etc/apt/sources.list.d/pgdg.list
+# apt-get update
+# apt-get install -y postgresql postgresql-server-dev-all postgresql-all libpq-dev
+# for version in $DEB_PG_SUPPORTED_VERSIONS; do
+#     minor_version=$(jq -r ".postgresql_pgdg.\"${version}\"" "$VER_FILE")
+#     apt-get install -y "postgresql-server-dev-${version}=${minor_version}.pgdg22.04+1"
+# done
 
 # make it possible for cron to work without root
 gcc -s -shared -fPIC -o /usr/local/lib/cron_unprivileged.so cron_unprivileged.c
@@ -190,7 +233,7 @@ gcc -s -shared -fPIC -o /usr/local/lib/cron_unprivileged.so cron_unprivileged.c
 apt-get purge -y "${BUILD_PACKAGES[@]}"
 apt-get autoremove -y
 
-# TODO: comment
+# Install *.deb packages (incl. libgdal)
 if [ "$WITH_PERL" != "true" ] || [ "$DEMO" != "true" ]; then
     dpkg -i ./*.deb || apt-get -y -f install
 fi
@@ -210,10 +253,12 @@ apt-get autoremove -y
 apt-get clean
 dpkg -l | grep '^rc' | awk '{print $2}' | xargs apt-get purge -y
 
-# Try to minimize size by creating symlinks instead of duplicate files
+
+
+## Try to minimize size by creating symlinks instead of duplicate files ##
 if [ "$DEMO" != "true" ]; then
-    POSTGIS_VERSION=$(jq -r ".postgresql_extensions_pgdg.\"12\".extra.\"postgis-3\"" pinned_versions.json)
-    POSTGIS_LEGACY=$(jq -r ".postgresql_extensions_pgdg.\"11\".extra.\"postgis-3\"" pinned_versions.json)
+    POSTGIS_VERSION=$(jq -r ".postgresql_extensions_pgdg.\"12\".extra.\"postgis-3\"" "$VER_FILE")
+    POSTGIS_LEGACY=$(jq -r ".postgresql_extensions_pgdg.\"11\".extra.\"postgis-3\"" "$VER_FILE")
     cd "/usr/lib/postgresql/$PGVERSION/bin"
     for u in clusterdb \
             pg_archivecleanup \
@@ -288,7 +333,9 @@ if [ "$DEMO" != "true" ]; then
     set -x
 fi
 
-# Clean up
+
+
+## Final clean up ##
 rm -rf /var/lib/apt/lists/* \
         /var/cache/debconf/* \
         /builddeps \
