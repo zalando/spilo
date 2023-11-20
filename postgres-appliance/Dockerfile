@@ -19,11 +19,8 @@ FROM $BASE_IMAGE as dependencies-builder
 ARG DEMO
 
 COPY build_scripts/pinned_versions.json /builddeps/
-COPY build_scripts/dependencies.sh /builddeps/
-
-COPY dependencies/debs /builddeps/
-
-RUN bash /builddeps/dependencies.sh
+COPY build_scripts/walg.sh /builddeps/
+RUN bash /builddeps/walg.sh
 
 
 FROM $BASE_IMAGE as builder-false
@@ -31,8 +28,8 @@ FROM $BASE_IMAGE as builder-false
 ARG DEMO
 ARG ADDITIONAL_LOCALES
 
+COPY dependencies/debs/*.deb /builddeps/
 COPY build_scripts/prepare.sh build_scripts/locales.sh /builddeps/
-
 RUN bash /builddeps/prepare.sh
 
 COPY --from=ubuntu-18 /usr/lib/locale/locale-archive /usr/lib/locale/locale-archive.18
@@ -40,7 +37,6 @@ COPY --from=ubuntu-18 /usr/lib/locale/locale-archive /usr/lib/locale/locale-arch
 COPY cron_unprivileged.c /builddeps/
 COPY build_scripts/pinned_versions.json /builddeps/
 COPY build_scripts/base.sh /builddeps/
-COPY --from=dependencies-builder /builddeps/*.deb /builddeps/
 
 ARG PGVERSION
 ARG TIMESCALEDB_APACHE_ONLY=true
@@ -59,11 +55,8 @@ RUN bash base.sh
 # Install wal-g
 COPY --from=dependencies-builder /builddeps/wal-g /usr/local/bin/
 
-COPY build_scripts/pinned_versions.json /builddeps/
 COPY build_scripts/patroni_wale.sh build_scripts/compress_build.sh /builddeps/
-
 WORKDIR /
-
 RUN bash /builddeps/patroni_wale.sh
 
 RUN if [ "$COMPRESS" = "true" ]; then bash /builddeps/compress_build.sh; fi

@@ -338,7 +338,6 @@ fi
 ## Final clean up ##
 rm -rf /var/lib/apt/lists/* \
         /var/cache/debconf/* \
-        /builddeps \
         /usr/share/doc \
         /usr/share/man \
         /usr/share/info \
