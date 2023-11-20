@@ -3,7 +3,7 @@
 export DEBIAN_FRONTEND=noninteractive
 
 # We want to remove all libgdal30 debs except one that is for current architecture.
-printf "shopt -s extglob\nrm /builddeps/!(*_%s.deb)" "$(dpkg --print-architecture)" | bash -s
+find /builddeps -type f -name '*.deb' ! -name "*_$(dpkg --print-architecture).deb" -delete
 
 echo -e 'APT::Install-Recommends "0";\nAPT::Install-Suggests "0";' > /etc/apt/apt.conf.d/01norecommend
 
