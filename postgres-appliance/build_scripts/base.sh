@@ -52,8 +52,6 @@ function get_ext_source_commit_tag_url() {
 
 
 ## Prepare everything required for the builds ##
-sed -i 's/^#\s*\(deb.*universe\)$/\1/g' /etc/apt/sources.list  #TODO: wtf
-
 apt-get update
 
 BUILD_PACKAGES=(devscripts equivs build-essential fakeroot debhelper git gcc libc6-dev make cmake libevent-dev libbrotli-dev libssl-dev libkrb5-dev)
@@ -164,8 +162,7 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
         "postgresql-plpython3-${version}=${minor_version}.pgdg22.04+1" \
         "postgresql-server-dev-${version}=${minor_version}.pgdg22.04+1" \
         "${BASE_EXT[@]}" \
-        "${EXTRA_EXT[@]}" \
-        # "postgresql-contrib-${version}"
+        "${EXTRA_EXT[@]}"
 
     # Install/build timescaledb
     ts_versions=($(jq -r ".timescaledb_pkg.\"${version}\"" "$VER_FILE"))
@@ -183,7 +180,6 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
                 (
                     cd timescaledb
                     git checkout "$v"
-                    sed -i "s/VERSION 3.11/VERSION 3.10/" CMakeLists.txt
                     if BUILD_FORCE_REMOVE=true ./bootstrap -DREGRESS_CHECKS=OFF -DWARNINGS_AS_ERRORS=OFF \
                             -DTAP_CHECKS=OFF -DPG_CONFIG="/usr/lib/postgresql/$version/bin/pg_config" \
                             -DAPACHE_ONLY="$TIMESCALEDB_APACHE_ONLY" -DSEND_TELEMETRY_DEFAULT=NO; then
@@ -217,15 +213,6 @@ done
 
 # Install components that don't depend on the PG version
 apt-get install -y skytools3-ticker pgbouncer
-
-# # TODO: comment
-# sed -i "s/ main.*$/ main/g" /etc/apt/sources.list.d/pgdg.list
-# apt-get update
-# apt-get install -y postgresql postgresql-server-dev-all postgresql-all libpq-dev
-# for version in $DEB_PG_SUPPORTED_VERSIONS; do
-#     minor_version=$(jq -r ".postgresql_pgdg.\"${version}\"" "$VER_FILE")
-#     apt-get install -y "postgresql-server-dev-${version}=${minor_version}.pgdg22.04+1"
-# done
 
 # make it possible for cron to work without root
 gcc -s -shared -fPIC -o /usr/local/lib/cron_unprivileged.so cron_unprivileged.c

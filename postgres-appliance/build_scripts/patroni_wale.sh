@@ -37,6 +37,9 @@ if [ "$DEMO" != "true" ]; then
         python3-s3transfer \
         python3-swiftclient
 
+    # Required for wal-e
+    apt-get install -y pv lzop
+
     find /usr/share/python-babel-localedata/locale-data -type f ! -name 'en_US*.dat' -delete
 
     pip3 install filechunkio protobuf \

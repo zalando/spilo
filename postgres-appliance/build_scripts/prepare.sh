@@ -2,10 +2,10 @@
 
 export DEBIAN_FRONTEND=noninteractive
 
-echo -e 'APT::Install-Recommends "0";\nAPT::Install-Suggests "0";' > /etc/apt/apt.conf.d/01norecommend
-
 # We want to remove all libgdal30 debs except one that is for current architecture.
 printf "shopt -s extglob\nrm /builddeps/!(*_%s.deb)" "$(dpkg --print-architecture)" | bash -s
+
+echo -e 'APT::Install-Recommends "0";\nAPT::Install-Suggests "0";' > /etc/apt/apt.conf.d/01norecommend
 
 apt-get update
 apt-get -y upgrade
@@ -22,8 +22,6 @@ rm -fr /etc/cron.??*
 truncate --size 0 /etc/crontab
 
 if [ "$DEMO" != "true" ]; then
-    # Required for wal-e
-    apt-get install -y pv lzop
     # install etcdctl
     ETCDVERSION=3.3.27
     curl -L https://github.com/coreos/etcd/releases/download/v${ETCDVERSION}/etcd-v${ETCDVERSION}-linux-"$(dpkg --print-architecture)".tar.gz \
