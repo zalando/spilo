@@ -79,13 +79,13 @@ else
     done
 
     # PG extensions sources
-    EXTRA_BUILD_COMMIT_TAG_EXT=($(get_exts_source 'commit_tag.extra'))
+    IFS=" " read -r -a EXTRA_BUILD_COMMIT_TAG_EXT <<< "$(get_exts_source 'commit_tag.extra')"
     for ext in "${EXTRA_BUILD_COMMIT_TAG_EXT[@]}"; do
         url=$(get_ext_source_commit_tag_url "$ext" 'extra')
         curl -sL "$url" | tar xz
     done
 
-    EXTRA_BUILD_BRANCH_EXT=($(get_exts_source 'branch.extra'))
+    IFS=" " read -r -a EXTRA_BUILD_BRANCH_EXT <<< "$(get_exts_source 'branch.extra')"
     for ext in "${EXTRA_BUILD_BRANCH_EXT[@]}"; do
         branch=$(get_ext_source_branch_version "$ext" 'extra')
         repo=$(get_ext_source_branch_repo "$ext" 'extra')
@@ -107,13 +107,13 @@ if [ "$WITH_PERL" != "true" ]; then
 fi
 
 # PG extensions sources (available in both demo and full image)
-BASE_BUILD_COMMIT_TAG_EXT=($(get_exts_source 'commit_tag.base'))
+IFS=" " read -r -a  BASE_BUILD_COMMIT_TAG_EXT <<< "$(get_exts_source 'commit_tag.base')"
 for ext in "${BASE_BUILD_COMMIT_TAG_EXT[@]}"; do
     url=$(get_ext_source_commit_tag_url "$ext" 'base')
     curl -sL "$url" | tar xz
 done
 
-BASE_BUILD_BRANCH_EXT=($(get_exts_source 'branch.base'))
+IFS=" " read -r -a BASE_BUILD_BRANCH_EXT <<< "$(get_exts_source 'branch.base')"
 for ext in "${BASE_BUILD_BRANCH_EXT[@]}"; do
     branch=$(get_ext_source_branch_version "$ext" 'base')
     repo=$(get_ext_source_branch_repo "$ext" 'base')
@@ -145,11 +145,11 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
     minor_version=$(jq -r ".postgresql_pgdg.\"${version}\"" "$VER_FILE")
 
     # Extensions for both demo and full image available in pgdg
-    BASE_EXT=($(get_exts_pgdg "$version" 'base'))
+    IFS=" " read -r -a BASE_EXT <<< "$(get_exts_pgdg "$version" 'base')"
 
     # Extensions for the full image only vailable in pgdg
     if [ "$DEMO" != "true" ]; then
-        EXTRA_EXT=($(get_exts_pgdg "$version" 'extra'))
+        IFS=" " read -r -a EXTRA_EXT <<< "$(get_exts_pgdg "$version" 'extra')"
         EXTRA_EXT+=("postgresql-pltcl-${version}=${minor_version}.pgdg22.04+1")
 
         if [ "$WITH_PERL" = "true" ]; then
@@ -165,7 +165,7 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
         "${EXTRA_EXT[@]}"
 
     # Install/build timescaledb
-    ts_versions=($(jq -r ".timescaledb_pkg.\"${version}\"" "$VER_FILE"))
+    IFS=" " read -r -a ts_versions <<< "$(jq -r ".timescaledb_pkg.\"${version}\"" "$VER_FILE")"
     if [ "$version" != "16" ]; then
         for v in "${ts_versions[@]}"; do
             if [ "${TIMESCALEDB_APACHE_ONLY}" != "true" ]; then
