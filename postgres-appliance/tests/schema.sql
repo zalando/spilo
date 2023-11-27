@@ -1,5 +1,4 @@
-CREATE EXTENSION pg_repack;
-CREATE EXTENSION amcheck_next;  /* the upgrade script must delete it before running pg_upgrade --check! */
+CREATE EXTENSION pg_repack; /* the upgrade script must delete it before running pg_upgrade --check! */
 
 CREATE DATABASE test_db;
 \c test_db
