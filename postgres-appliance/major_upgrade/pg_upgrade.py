@@ -238,6 +238,8 @@ class _PostgresqlUpgrade(Postgresql):
         """
         Switche the PostgreSQL data directory by renaming the current data directory to a old directory,
         and renaming the new data directory to the current data directory.
+        
+        :returns: bool: True if the PostgreSQL data directory was successfully switched, False otherwise.
         """
         self._old_data_dir = self._data_dir + '_old'
         self.cleanup_old_pgdata()
