@@ -11,8 +11,8 @@ logger = logging.getLogger(__name__)
 
 class _PostgresqlUpgrade(Postgresql):
     """
-    A class representing the PostgreSQL upgrade process.
-    This class extends the `Postgresql` class and provides methods for adjusting shared_preload_libraries,
+    Representing the PostgreSQL upgrade process.
+    Extend the `Postgresql` class and provides methods for adjusting shared_preload_libraries,
     starting the old cluster, dropping incompatible extensions and objects, updating extensions,
     cleaning up old and new pgdata directories, switching pgdata directories, performing pg_upgrade,
     preparing new pgdata, and analyzing the database.
@@ -29,7 +29,7 @@ class _PostgresqlUpgrade(Postgresql):
 
     def adjust_shared_preload_libraries(self, version):
         """
-        Adjusts the shared_preload_libraries parameter based on the given version.
+        Adjust the shared_preload_libraries parameter based on the given version.
 
         :param version: The string version of PostgreSQL being upgraded to.
         """
@@ -45,9 +45,8 @@ class _PostgresqlUpgrade(Postgresql):
     def no_bg_mon(self):
         """
         Remove 'bg_mon' from the 'shared_preload_libraries' configuration parameter.
-        Checks if the 'shared_preload_libraries' configuration parameter is set, and if it is, 
-        remove the 'bg_mon' library from the list of libraries.
-        
+        Check if the 'shared_preload_libraries' configuration parameter is set, and if it is, 
+        remove the 'bg_mon' library from the list of libraries.        
         """
         shared_preload_libraries = self.config.get('parameters').get('shared_preload_libraries')
         if shared_preload_libraries:
@@ -56,11 +55,11 @@ class _PostgresqlUpgrade(Postgresql):
 
     def restore_shared_preload_libraries(self):
         """
-        Restores the value of shared_preload_libraries to its original value.
+        Restore the value of shared_preload_libraries to its original value.
         If the _old_shared_preload_libraries attribute is set, it restores the value of shared_preload_libraries
         to the stored value in the _old_shared_preload_libraries attribute.
 
-        Returns: bool: True if the shared_preload_libraries value was successfully restored, False otherwise.
+        :returns: bool: True if the shared_preload_libraries value was successfully restored, False otherwise.
         """
         if getattr(self, '_old_shared_preload_libraries'):
             self.config.get('parameters')['shared_preload_libraries'] = self._old_shared_preload_libraries
@@ -68,12 +67,12 @@ class _PostgresqlUpgrade(Postgresql):
 
     def start_old_cluster(self, config, version):
         """
-        Starts the old cluster with the specified configuration and version.
+        Start the old cluster with the specified configuration and version.
 
         :param config (dict): The configuration for the old cluster.
         :param version (float): The version of the old cluster.
 
-        Returns: bool: True if the old cluster was successfully started, False otherwise.
+        :returns: bool: True if the old cluster was successfully started, False otherwise.
         """
         self.set_bin_dir(version)
 
@@ -97,7 +96,7 @@ class _PostgresqlUpgrade(Postgresql):
 
     def set_bin_dir(self, version):
         """
-        Sets the binary directory for the specified version.
+        Set the binary directory for the specified version.
 
         :param version: The string version of PostgreSQL.
         """
@@ -109,12 +108,11 @@ class _PostgresqlUpgrade(Postgresql):
     @property
     def local_conn_kwargs(self):
         """
-        Returns the connection kwargs for the local database.
-
+        Return the connection kwargs for the local database.
         The returned kwargs include options for synchronous_commit, statement_timeout, and search_path.
         The connect_timeout option is removed from the kwargs.
 
-        Returns: dict: The connection kwargs for the local database.
+        :returns: dict: The connection kwargs for the local database.
         """
         conn_kwargs = self.config.local_connect_kwargs
         conn_kwargs['options'] = '-c synchronous_commit=local -c statement_timeout=0 -c search_path='
@@ -125,16 +123,16 @@ class _PostgresqlUpgrade(Postgresql):
         """
         Retrieve a list of all databases in the PostgreSQL cluster.
 
-        Returns: list: A list of database names.
+        :returns: list: A list of database names.
         """
         return [d[0] for d in self.query('SELECT datname FROM pg_catalog.pg_database WHERE datallowconn')]
 
     def drop_possibly_incompatible_extensions(self):
         """
-        Drops extensions from the cluster which could be incompatible.
-        It iterates over all databases in the cluster and drops the extensions
+        Drop extensions from the cluster which could be incompatible.
+        Iterate over all databases in the cluster and drops the extensions
         specified in the `_INCOMPATIBLE_EXTENSIONS` list if they exist.
-        It uses the `patroni.postgresql.connection.get_connection_cursor` function to establish a connection to each database.
+        Use the `patroni.postgresql.connection.get_connection_cursor` function to establish a connection to each database.
         """
         from patroni.postgresql.connection import get_connection_cursor
 
@@ -150,9 +148,9 @@ class _PostgresqlUpgrade(Postgresql):
 
     def drop_possibly_incompatible_objects(self):
         """
-        Drops objects from the cluster which could be incompatible.
-        It iterates over all databases in the cluster and drops the objects from `_INCOMPATIBLE_EXTENSIONS`.
-        It uses the `patroni.postgresql.connection.get_connection_cursor` function to establish a connection to each database.
+        Drop objects from the cluster which could be incompatible.
+        Iterate over all databases in the cluster and drops the objects from `_INCOMPATIBLE_EXTENSIONS`.
+        Use the `patroni.postgresql.connection.get_connection_cursor` function to establish a connection to each database.
         """
         from patroni.postgresql.connection import get_connection_cursor
 
@@ -185,11 +183,11 @@ class _PostgresqlUpgrade(Postgresql):
 
     def update_extensions(self):
         """
-        Updates the extensions in the PostgreSQL databases.
-        Connects to each database and executes the 'ALTER EXTENSION UPDATE' command
+        Update the extensions in the PostgreSQL databases.
+        Connect to each database and executes the 'ALTER EXTENSION UPDATE' command
         for each extension found in the database.
 
-        Raises: Any exception raised during the execution of the 'ALTER EXTENSION UPDATE' command.
+        :raises: Any exception raised during the execution of the 'ALTER EXTENSION UPDATE' command.
         """
         from patroni.postgresql.connection import get_connection_cursor
 
@@ -219,7 +217,7 @@ class _PostgresqlUpgrade(Postgresql):
 
     def cleanup_new_pgdata(self):
         """
-        Cleans up the new PostgreSQL data directory.
+        Clean up the new PostgreSQL data directory.
         If the `_new_data_dir` attribute is set, this method removes the new data directory.
         """
         if getattr(self, '_new_data_dir', None):
@@ -227,9 +225,9 @@ class _PostgresqlUpgrade(Postgresql):
 
     def cleanup_old_pgdata(self):
         """
-        Removes the old data directory if it exists.
+        Remove the old data directory if it exists.
 
-        Returns: bool: True if the old data directory was successfully removed, False otherwise.
+        :returns: bool: True if the old data directory was successfully removed, False otherwise.
         """
         if os.path.exists(self._old_data_dir):
             logger.info('Removing %s', self._old_data_dir)
@@ -238,7 +236,7 @@ class _PostgresqlUpgrade(Postgresql):
 
     def switch_pgdata(self):
         """
-        Switches the PostgreSQL data directory by renaming the current data directory to a old directory,
+        Switche the PostgreSQL data directory by renaming the current data directory to a old directory,
         and renaming the new data directory to the current data directory.
         """
         self._old_data_dir = self._data_dir + '_old'
@@ -251,7 +249,7 @@ class _PostgresqlUpgrade(Postgresql):
 
     def switch_back_pgdata(self):
         """
-        Switches back to the original data directory by renaming the new data directory to the original data directory name.
+        Switche back to the original data directory by renaming the new data directory to the original data directory name.
         If the original data directory exists, it is renamed to a backup name before renaming the new data directory.
         """
         if os.path.exists(self._data_dir):
@@ -262,14 +260,14 @@ class _PostgresqlUpgrade(Postgresql):
 
     def pg_upgrade(self, check=False):
         """
-        It performs the pg_upgrade process using the `pg_upgrade` command to perform the upgrade process.
+        Perform the pg_upgrade process using the `pg_upgrade` command to perform the upgrade process.
         The `psutil.cpu_count` set the number of CPUs to use in the upgrade, `shutil.rmtree` remove the upgrade directory, 
         `os.makedirs` creates the upgrade directory, `os.chdir` changes the current directory to the upgrade directory, 
         `subprocess.call` execute the `pg_upgrade` command.
         
         :param check: A boolean value indicating whether to perform a check or not.
 
-        Returns: bool: True if the pg_upgrade process was successful, False otherwise.
+        :returns: bool: True if the pg_upgrade process was successful, False otherwise.
         """
         upgrade_dir = self._data_dir + '_upgrade'
         if os.path.exists(upgrade_dir) and os.path.isdir(upgrade_dir):
@@ -300,6 +298,17 @@ class _PostgresqlUpgrade(Postgresql):
             return True
 
     def prepare_new_pgdata(self, version):
+        """
+        Prepare a new data directory for a PostgreSQL database cluster upgrade.
+        Set the initdb config, which is used to initialize a new PostgreSQL database cluster. 
+        Add the data-checksums option to the initdb.
+        Prepare the paths for the old and new data directories. The old data directory is the current data directory, 
+        and the new data directory is where the new database cluster will be initialized.
+
+        :param version: The string version of PostgreSQL.
+
+        :returns: bool: True if the new data directory was successfully prepared, False otherwise.
+        """
         from spilo_commons import append_extensions
 
         locale = self.query('SHOW lc_collate').fetchone()[0]
@@ -361,14 +370,24 @@ class _PostgresqlUpgrade(Postgresql):
 
     def do_upgrade(self):
         """
-        Performs the upgrade process for the PostgreSQL appliance.
+        Perform the upgrade process for the PostgreSQL appliance.
 
-        Returns: bool: True if the upgrade process is successful, False otherwise.
+        :returns: bool: True if the upgrade process is successful, False otherwise.
         """
         return self.pg_upgrade() and self.restore_shared_preload_libraries()\
                  and self.switch_pgdata() and self.cleanup_old_pgdata()
 
     def analyze(self, in_stages=False):
+        """
+        Rebuild the statistics for the PostgreSQL cluster.
+        Use the `patroni.postgresql.connection.get_connection_cursor` function to establish a connection to each database.
+        If the `in_stages` parameter is True, the `vacuumdb` command is executed with the `--analyze-in-stages` option.
+        Otherwise, the `vacuumdb` command is executed with the `-Z` and `-j` options.
+
+        :param in_stages: A boolean value indicating whether to perform the analyze in stages or not.
+        
+        :returns: bool: True if the analyze process is successful, False otherwise.
+        """
         vacuumdb_args = ['--analyze-in-stages'] if in_stages else []
         logger.info('Rebuilding statistics (vacuumdb%s)', (' ' + vacuumdb_args[0] if in_stages else ''))
         if 'username' in self.config.superuser:
@@ -402,7 +421,7 @@ def PostgresqlUpgrade(config):
 
     :param config: A dictionary containing the PostgreSQL configuration.
 
-    Returns: _PostgresqlUpgrade: An instance of the _PostgresqlUpgrade class.
+    :returns: _PostgresqlUpgrade: An instance of the _PostgresqlUpgrade class.
     """
     config['postgresql'].update({'callbacks': {}, 'pg_ctl_timeout': 3600*24*7})
 

@@ -28,8 +28,7 @@ def patch_wale_prefix(value, new_version):
     :param value: The WAL prefix to patch.
     :param new_version: The new version to use.
 
-    Returns:
-        str: The patched WAL prefix if the old version is valid and different from the new version, otherwise the original value.
+    :returns: The patched string WAL prefix if the old version is valid and different from the new version, otherwise the original value.
     """
     from spilo_commons import is_valid_pg_version
 
@@ -44,12 +43,12 @@ def update_configs(new_version):
     """
     Update the Patroni configuration file by setting the new Postgres version and updating the shared_preload_libraries.
     Update the WAL-E/WAL-G envdir files by patching the WAL prefix with the new version if the old version is valid and different from the new version.
-    Checks if the extwlist.extensions parameter is set in the Patroni configuration file and appends the new extensions to it.
-    Writes the update Patroni configuration file and WAL-E/WAL-G envdir files.
+    Check if the extwlist.extensions parameter is set in the Patroni configuration file and appends the new extensions to it.
+    Write the update Patroni configuration file and WAL-E/WAL-G envdir files.
     
     :param new_version: The new Postgres version to be upgrade.
     
-    Returns: The path to the WAL-E/WAL-G envdir files if they exist, None otherwise.
+    :returns: The path to the WAL-E/WAL-G envdir files if they exist, None otherwise.
     """
     from spilo_commons import append_extensions, get_bin_dir, get_patroni_config, write_file, write_patroni_config
 
@@ -96,8 +95,7 @@ def update_configs(new_version):
 
 def kill_patroni():
     """
-    Restarts the Patroni process.
-
+    Restart the Patroni process.
     This function finds the Patroni process and kills it. If the process is not found, nothing happens.
     """
     logger.info('Restarting patroni')
@@ -126,7 +124,7 @@ class InplaceUpgrade(object):
 
     def __init__(self, config):
         """
-        Initializes the InplaceUpgrade object.
+        Initialize the InplaceUpgrade object.
 
         :param config: a dictionary containing the configuration parameters for the upgrade process.
         """
@@ -156,13 +154,12 @@ class InplaceUpgrade(object):
     @staticmethod
     def get_desired_version():
         """
-        Returns the desired version of the PostgreSQL binary to be used for the upgrade.
-
-        This function first attempts to retrieve the binary directory from the SPILO_CONFIGURATION environment variable.
+        Return the desired version of the PostgreSQL binary to be used for the upgrade.
+        First attempts to retrieve the binary directory from the SPILO_CONFIGURATION environment variable.
         If that fails, it retrieves the binary directory from the PGVERSION environment variable.
         Finally, it returns the version of the PostgreSQL binary located in the binary directory.
 
-        Returns: str: The version of the PostgreSQL binary to be used for the upgrade.
+        :returns: str: The version of the PostgreSQL binary to be used for the upgrade.
         """
         from spilo_commons import get_bin_dir, get_binary_version
 
@@ -179,11 +176,11 @@ class InplaceUpgrade(object):
 
     def check_patroni_api(self, member):
         """
-        Checks the Patroni API for a given member.
+        Check the Patroni API for a given member.
 
         :param member: The member to check the API for.
 
-        Returns: True if the API request was successful and returned a 200 status code, False otherwise.
+        :returns: True if the API request was successful and returned a 200 status code, False otherwise.
         """
         try:
             response = self.request(member, timeout=2, retries=0)
@@ -193,14 +190,14 @@ class InplaceUpgrade(object):
 
     def toggle_pause(self, paused):
         """
-        It's responsible for enabling or disabling maintenance mode.
+        Responsible for enabling or disabling maintenance mode.
         If the cluster is currently paused, this method will attempt to disable maintenance mode and 
         resume normal operation. If the cluster is not currently paused, this method will attempt to 
         enable maintenance mode and pause normal operation.        
 
         :param paused: A boolean value indicating whether to enable or disable maintenance mode.
 
-        Returns: bool: True if the maintenance mode was successfully enabled or disabled, False otherwise.
+        :returns: bool: True if the maintenance mode was successfully enabled or disabled, False otherwise.
         """
         from patroni.config import get_global_config
         from patroni.utils import polling_loop
@@ -231,11 +228,11 @@ class InplaceUpgrade(object):
 
     def resume_cluster(self):
         """
-        Resumes the cluster by disabling maintenance mode.
+        Resume the cluster by disabling maintenance mode.
         If the cluster is currently paused, this method will attempt to disable
         maintenance mode and resume normal operation.
 
-        Raises: Exception: If an error occurs while resuming the cluster.
+        :raises: Exception: If an error occurs while resuming the cluster.
         """
         if self.paused:
             try:
@@ -246,12 +243,12 @@ class InplaceUpgrade(object):
 
     def ensure_replicas_state(self, cluster):
         """
-        This method checks the satatus of all replicas and also tries to open connections
+        Check the status of all replicas and also tries to open connections
         to all of them and puts into the `self.replica_connections` dict for a future usage.
         
         :param cluster: cluster object representing the PostgreSQL cluster.
         
-        Returns: bool: True if all replicas are streaming from the primary and are healthy, False otherwise.
+        :returns: bool: True if all replicas are streaming from the primary and are healthy, False otherwise.
         """
         self.replica_connections = {}
         streaming = {a: l for a, l in self.postgresql.query(
@@ -261,14 +258,14 @@ class InplaceUpgrade(object):
 
         def ensure_replica_state(member):
             """
-            Checks the state of a sinble replica and opens a connection to it.
-            checks if the replication lag on the replica is too high (more than 16 MB). 
+            Check the state of a sinble replica and opens a connection to it.
+            Check if the replication lag on the replica is too high (more than 16 MB). 
             If the replica is streaming from the primary and is healthy, it opens a connection to it and
             puts it into the `self.replica_connections` dictionary for a future usage.
             
             :param member: A member object representing the replica.
 
-            Returns: bool: True if the replica is streaming from the primary and is healthy, False otherwise.
+            :returns: bool: True if the replica is streaming from the primary and is healthy, False otherwise.
             """
             ip = member.conn_kwargs().get('host')
             lag = streaming.get(ip)
@@ -301,7 +298,7 @@ class InplaceUpgrade(object):
 
         :param cluster: cluster object representing the PostgreSQL cluster.
 
-        Raises: Exception: If any of the sanity checks fail.
+        :raises: Exception: If any of the sanity checks fail.
         """
         from patroni.config import get_global_config
 
@@ -322,11 +319,11 @@ class InplaceUpgrade(object):
 
     def remove_initialize_key(self):
         """
-        Removes the initialize key from the cluster.
-        This method checks if the cluster has an initialize key set, and if so, attempts to remove it by canceling the
+        Remove the initialize key from the cluster.
+        Check if the cluster has an initialize key set, and if so, attempts to remove it by canceling the
         initialization process. It uses a polling loop to check the cluster's state multiple times before giving up.
 
-        Returns: bool: True if the initialize key was successfully removed, False otherwise.
+        :returns: bool: True if the initialize key was successfully removed, False otherwise.
         """
         from patroni.utils import polling_loop
 
@@ -348,7 +345,7 @@ class InplaceUpgrade(object):
 
         :param checkpoint_lsn: Sequence Number (LSN) up to which the replica nodes need to catch up
 
-        Returns: bool: True if all replicas have caught up to the checkpoint_lsn. False otherwise.
+        :returns: bool: True if all replicas have caught up to the checkpoint_lsn. False otherwise.
         """
         from patroni.utils import polling_loop
 
@@ -384,7 +381,7 @@ class InplaceUpgrade(object):
 
     def create_rsyncd_configs(self):
         """
-        It is responsible for creating configuration files for rsyncd, a daemon for rsync, which is a tool used 
+        Responsible for creating configuration files for rsyncd, a daemon for rsync, which is a tool used 
         for copying and synchronizing files across systems.
         
         :param rsyncd_configs_created: A boolean attribute set to True indicating that the rsyncd configurations have been created.
@@ -431,8 +428,8 @@ hosts deny = *
 
     def start_rsyncd(self):
         """
-        Starts the rsync daemon for file synchronization.
-        This method creates the rsync daemon configuration file and starts the rsync daemon process.
+        Start the rsync daemon for file synchronization.
+        Create the rsync daemon configuration file and starts the rsync daemon process.
         The rsync daemon is started with the specified configuration file and runs in the foreground.
         """
         self.create_rsyncd_configs()
@@ -441,11 +438,11 @@ hosts deny = *
 
     def stop_rsyncd(self):
         """
-        Stops the rsync daemon and removes the rsync configuration directory.
+        Stop the rsync daemon and removes the rsync configuration directory.
         If the rsync daemon is running, it will be killed. If the rsync configuration
         directory exists, it will be removed.
 
-        Raises: OSError: If there is an error killing the rsync daemon or removing the
+        :raises: OSError: If there is an error killing the rsync daemon or removing the
                 rsync configuration directory.
         """
         if self.rsyncd_started:
@@ -469,7 +466,7 @@ hosts deny = *
         
         :param member: A tuple containing the name and the database connection of the member.
 
-        Returns: A tuple containing the name of the member and a boolean indicating whether the checkpoint was successful.
+        :returns: A tuple containing the name of the member and a boolean indicating whether the checkpoint was successful.
         """
         name, (_, cur) = member
         try:
@@ -481,13 +478,13 @@ hosts deny = *
 
     def rsync_replicas(self, primary_ip):
         """
-        It is responsible for synchronizing replicas using rsync, a tool used for copying and synchronizing files across systems.
+        Responsible for synchronizing replicas using rsync, a tool used for copying and synchronizing files across systems.
 
         :param primary_ip: A string representing the IP address of the primary node.
         :param ret: A boolean attribute set to True indicating that the rsync was successful.
         :param status: A dictionary containing the status of the rsync operation.
 
-        Returns: bool: True if the rsync operation was successful, False otherwise.
+        :returns: bool: True if the rsync operation was successful, False otherwise.
         """
         from patroni.utils import polling_loop
 
@@ -547,11 +544,11 @@ hosts deny = *
 
     def wait_replica_restart(self, member):
         """
-        Waits for the replica to restart after a major upgrade.
+        Wait for the replica to restart after a major upgrade.
 
         :param member: The replica member object.
 
-        Returns: str: The name of the replica member if it has restarted successfully, None otherwise.
+        :returns: str: The name of the replica member if it has restarted successfully, None otherwise.
         """
         from patroni.utils import polling_loop
 
@@ -569,11 +566,11 @@ hosts deny = *
 
     def wait_replicas_restart(self, cluster):
         """
-        Waits for the restart of patroni on replicas.
+        Wait for the restart of patroni on replicas.
 
         :param cluster: The cluster object representing the Postgres cluster.
 
-        Returns: bool: True if all replicas successfully restarted, False otherwise.
+        :returns: bool: True if all replicas successfully restarted, False otherwise.
         """
         members = [member for member in cluster.members if member.name in self.replica_connections]
         logger.info('Waiting for restart of patroni on replicas %s', ', '.join(m.name for m in members))
@@ -586,11 +583,11 @@ hosts deny = *
 
     def reset_custom_statistics_target(self):
         """
-        Resets the non-default statistics target before performing analyze.
-        This method retrieves the list of databases and their corresponding tables and columns
+        Reset the non-default statistics target before performing analyze.
+        Retrieve the list of databases and their corresponding tables and columns
         that have a custom statistics target set. It then resets the statistics target to -1
         for each column, effectively disabling custom statistics for those columns.
-        Also this method requires the `patroni.postgresql.connection` module.
+        Also require the `patroni.postgresql.connection` module.
         """
         from patroni.postgresql.connection import get_connection_cursor
 
@@ -612,10 +609,10 @@ hosts deny = *
 
     def restore_custom_statistics_target(self):
         """
-        Restores the default statistics targets after an upgrade.
-        This method connects to each database specified in the `_statistics` attribute and executes
+        Restore the default statistics targets after an upgrade.
+        Connect to each database specified in the `_statistics` attribute and executes
         an ALTER TABLE statement for each table and column specified in the `_statistics` attribute.
-        The ALTER TABLE statement sets the statistics target for the column to the value specified.
+        The ALTER TABLE statement set the statistics target for the column to the value specified.
         """
         from patroni.postgresql.connection import get_connection_cursor
 
@@ -639,12 +636,12 @@ hosts deny = *
 
     def reanalyze(self):
         """
-        Reanalyzes the tables in the PostgreSQL database using the ANALYZE command.
-        This method iterates over the statistics stored in the `_statistics` attribute and executes the ANALYZE command
+        Reanalyze the tables in the PostgreSQL database using the ANALYZE command.
+        Iterate over the statistics stored in the `_statistics` attribute and executes the ANALYZE command
         for each table in each database. It uses the `get_connection_cursor` function from the `patroni.postgresql.connection`
         module to establish a connection to the local PostgreSQL instance.
 
-        Raises: Exception: If there is an error executing the ANALYZE command for any table.
+        :raises: Exception: If there is an error executing the ANALYZE command for any table.
         """
         from patroni.postgresql.connection import get_connection_cursor
 
@@ -666,12 +663,12 @@ hosts deny = *
 
     def analyze(self):
         """
-        Analyzes the database by resetting and restoring custom statistics targets.
-        This method first resets the custom statistics targets, then performs a database analysis,
+        Analyze the database by resetting and restoring custom statistics targets.
+        First resets the custom statistics targets, then performs a database analysis,
         and finally restores the custom statistics targets. If any error occurs during the process,
         it logs the error message.
 
-        Raises: Exception: If an error occurs during the reset or restore of custom statistics targets.
+        :raises: Exception: If an error occurs during the reset or restore of custom statistics targets.
         """
         try:
             self.reset_custom_statistics_target()
@@ -685,8 +682,8 @@ hosts deny = *
 
     def do_upgrade(self):
         """
-        This method is responsible for upgrading a PostgreSQL database cluster.
-        It performs the following steps, checks if the upgrade, checks if the PostgreSQL instance is running and there is a leader,
+        Responsible for upgrading a PostgreSQL database cluster.
+        Perform the following steps, checks if the upgrade, checks if the PostgreSQL instance is running and there is a leader,
         checks if the cluster is ready to be upgraded, prepares the new PGDATA directory, drops possibly incompatible extensions,
         run a pg_upgrade check, drops possibly incompatible objects, enable maintenance mode, stops the PostgreSQL instance,
         starts rsyncd, waits for replicas to catch up, run a CHECKPOINT on replicas, execute the pg_upgrade, switches PGDATA directories,
@@ -694,7 +691,7 @@ hosts deny = *
         updates the configuration files, performs a CHECKPOINT on replicas, rsyncs replicas, wait for replicas to restart, 
         run a database analyze, updates the extensions, run a post-upgrade cleanup, run a backup and execute a post-cleanup.
         
-        Returns: bool: True if the upgrade was successful, False otherwise.        
+        :returns: bool: True if the upgrade was successful, False otherwise.        
         """
         from patroni.utils import polling_loop
 
@@ -864,8 +861,8 @@ hosts deny = *
 
     def post_cleanup(self):
         """
-        Performs post-cleanup tasks after the upgrade process.
-        This method stops the rsync daemon, resumes the cluster, and cleans up the new PGDATA directory if it was created.
+        Perform post-cleanup tasks after the upgrade process.
+        Stop the rsync daemon, resumes the cluster, and cleans up the new PGDATA directory if it was created.
         """
         self.stop_rsyncd()
         self.resume_cluster()
@@ -879,11 +876,11 @@ hosts deny = *
     def try_upgrade(self, replica_count):
         """
         Tries to perform the upgrade by setting the replica count and calling the do_upgrade method.
-        Finally, it performs post-cleanup operations.
+        Finally, performs post-cleanup operations.
             
         :param  replica_count: The number of replicas to set before performing the upgrade.
             
-        Returns: The result of the do_upgrade method.
+        :returns: The result of the do_upgrade method.
         """
         try:
             self.replica_count = replica_count
@@ -893,7 +890,7 @@ hosts deny = *
 
     def start_backup(self, envdir):
         """
-        Initiates a new backup by calling the postgres_backup.sh script with the specified environment directory and data directory.
+        Initiate a new backup by calling the postgres_backup.sh script with the specified environment directory and data directory.
 
         :param  envdir: The path string to the environment directory.
         """
@@ -906,18 +903,18 @@ hosts deny = *
 # this function will be running in a clean environment, therefore we can't rely on DCS connection
 def rsync_replica(config, desired_version, primary_ip, pid):
     """
-    It is responsible for synch of the replica and primary during the upgrade process.
-    It imports the PostgresqlUpgrade class from the pg_upgrade module and the polling_loop function from the patroni.utils module.
+    Responsible for synch of the replica and primary during the upgrade process.
+    Import the PostgresqlUpgrade class from the pg_upgrade module and the polling_loop function from the patroni.utils module.
     Check if the PostgreSQL version in replica matches the desired version, stops PostgreSQL instance and switches the PGDATA directory.
     Update the configuration files and restarts Patroni, remove the recovery.conf file and restarts Patroni again.
-    Returns the result of the cleanup_old_pgdata method.
+    Return the result of the cleanup_old_pgdata method.
         
     :param config: A Config object representing the Patroni configuration.
     :param desired_version: A string representing the desired version of the PostgreSQL binary to be used for the upgrade.
     :param primary_ip: A string representing the IP address of the primary node.
     :param pid: An integer representing the process ID of the PostgreSQL backend process.    
 
-    Returns: int: 0 if the rsync was successful, 1 otherwise.
+    :returns: int: 0 if the rsync was successful, 1 otherwise.
     """
     from pg_upgrade import PostgresqlUpgrade
     from patroni.utils import polling_loop
@@ -1006,8 +1003,9 @@ def rsync_replica(config, desired_version, primary_ip, pid):
 def main():
     """
     Starting point of the script.
-    Parses command line arguments and performs either an rsync_replica operation or an inplace upgrade.
-    Returns:
+    Parse command line arguments and performs either an rsync_replica operation or an inplace upgrade.
+    
+    :returns:
         0 if the operation is successful,
         1 if the operation fails,
         2 if the command line arguments are invalid.
