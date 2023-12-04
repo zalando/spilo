@@ -48,6 +48,8 @@ def upload_to_s3(local_file_path):
     bucket = s3.Bucket(bucket_name)
 
     key_name = os.path.join(os.getenv('LOG_S3_KEY'), os.path.basename(local_file_path))
+    if os.getenv('LOG_GROUP_BY_DATE'):
+        key_name = key_name.format(**{'DATE': os.path.basename(local_file_path).split('.')[0]})
 
     chunk_size = 52428800  # 50 MiB
     config = TransferConfig(multipart_threshold=chunk_size, multipart_chunksize=chunk_size)
