@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-import datetime
 import logging
 import os
 import subprocess
@@ -15,6 +14,7 @@ def tail_postgres_logs():
     # Find the last modified CSV file
     logfile = max(csv_files, key=os.path.getmtime)
     return subprocess.check_output(['tail', '-n5', logfile]).decode('utf-8')
+
 
 def wait_end_of_recovery(postgresql):
     from patroni.utils import polling_loop
