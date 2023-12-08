@@ -12,7 +12,7 @@ LIB_DIR = '/usr/lib/postgresql'
 
 # (min_version, max_version, shared_preload_libraries, extwlist.extensions)
 extensions = {
-    'timescaledb':    (9.6, 15, True,  True),
+    'timescaledb':    (9.6, 16, True,  True),
     'pg_cron':        (9.5, 16, True,  False),
     'pg_stat_kcache': (9.4, 16, True,  False),
     'pg_partman':     (9.4, 16, False, True)
