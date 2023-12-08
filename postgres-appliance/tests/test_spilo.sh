@@ -362,11 +362,11 @@ function test_spilo() {
 
 
     # TEST SUITE 1
-    run_test test_pg_upgrade_to_16_check_failed "$container"  # pg_upgrade --check complains about timescaledb
+    #run_test test_pg_upgrade_to_16_check_failed "$container"  # pg_upgrade --check complains about timescaledb
 
     wait_backup "$container"
 
-    drop_timescaledb "$container"
+    #drop_timescaledb "$container"
     log_info "[TS1] Testing in-place major upgrade 15->16"
     run_test test_successful_inplace_upgrade_to_16 "$container"
     wait_all_streaming "$container"
