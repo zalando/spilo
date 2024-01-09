@@ -202,16 +202,21 @@ CREATE OR REPLACE FUNCTION get_nearly_exhausted_sequences(
 $_$
 SELECT *
 FROM (
-  SELECT
+  SELECT 
     schemaname,
     sequencename,
-    round(
-      (abs(last_value::numeric - start_value) + 1) / 
-      (CASE WHEN increment_by > 0 THEN (max_value::numeric - start_value) ELSE (start_value::numeric - min_value) END + 1) * 100,
-    2) as seq_percent_used
+    round(abs(
+      ceil((abs(last_value::numeric - start_value) + 1) / increment_by) / 
+        floor((CASE WHEN increment_by > 0
+                    THEN (max_value::numeric - start_value)
+                    ELSE (start_value::numeric - min_value)
+                    END + 1) / increment_by
+              ) * 100 
+      ), 
+    2) AS seq_percent_used
   FROM pg_sequences
   WHERE NOT CYCLE AND last_value IS NOT NULL
-  ) AS s
+) AS s
 WHERE seq_percent_used >= threshold;
 $_$
 LANGUAGE sql SECURITY DEFINER STRICT SET search_path to 'pg_catalog';
