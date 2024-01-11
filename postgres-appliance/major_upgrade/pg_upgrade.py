@@ -117,9 +117,12 @@ class _PostgresqlUpgrade(Postgresql):
         for d in self._get_all_databases():
             conn_kwargs['dbname'] = d
             with get_connection_cursor(**conn_kwargs) as cur:
-                cur.execute('SELECT quote_ident(extname) FROM pg_catalog.pg_extension')
-                for extname in cur.fetchall():
-                    query = 'ALTER EXTENSION {0} UPDATE'.format(extname[0])
+                cur.execute('SELECT quote_ident(extname), extversion FROM pg_catalog.pg_extension')
+                for extname, version in cur.fetchall():
+                    # require manual update to 5.X+
+                    if extname == 'pg_partman' and int(version[0]) < 5:
+                        continue
+                    query = 'ALTER EXTENSION {0} UPDATE'.format(extname)
                     logger.info("Executing '%s' in the database=%s", query, d)
                     try:
                         cur.execute(query)
