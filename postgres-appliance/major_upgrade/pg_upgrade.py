@@ -121,6 +121,9 @@ class _PostgresqlUpgrade(Postgresql):
                 for extname, version in cur.fetchall():
                     # require manual update to 5.X+
                     if extname == 'pg_partman' and int(version[0]) < 5:
+                        logger.warning("Skipping update of '%s' in database=%s. "
+                                       "Extension version: %s. Consider manual update",
+                                       extname, d, version)
                         continue
                     query = 'ALTER EXTENSION {0} UPDATE'.format(extname)
                     logger.info("Executing '%s' in the database=%s", query, d)
