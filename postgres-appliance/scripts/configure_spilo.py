@@ -413,6 +413,14 @@ def get_provider():
 
             # is accessible from both AWS and Openstack, Possiblity of misidentification if previous try fails
             r = requests.get('http://169.254.169.254/latest/meta-data/ami-id')
+            if r.ok:
+                return PROVIDER_AWS
+            
+            # is accessible on AWS instances running IMDSv2 
+            # https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-service.html
+            imdsv2Headers = {"X-aws-ec2-metadata-token-ttl-seconds": 60}
+            r = requests.put('http://169.254.169.254/latest/api/token', headers=imdsv2Headers, timeout=2)
+            
             return PROVIDER_AWS if r.ok else PROVIDER_UNSUPPORTED
     except (requests.exceptions.ConnectTimeout, requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout):
         logging.info("Could not connect to 169.254.169.254, assuming local Docker setup")
