@@ -35,7 +35,9 @@ class _PostgresqlUpgrade(Postgresql):
         return True
 
     def start_old_cluster(self, config, version):
+        self._new_bin_dir = self._bin_dir
         self.set_bin_dir(version)
+        self._old_bin_dir = self._bin_dir
 
         # make sure we don't archive wals from the old version
         self._old_config_values = {'archive_mode': self.config.get('parameters').get('archive_mode')}
@@ -53,7 +55,6 @@ class _PostgresqlUpgrade(Postgresql):
     def set_bin_dir(self, version):
         from spilo_commons import get_bin_dir
 
-        self._old_bin_dir = self._bin_dir
         self._bin_dir = get_bin_dir(version)
 
     @property
@@ -168,7 +169,7 @@ class _PostgresqlUpgrade(Postgresql):
         os.chdir(upgrade_dir)
 
         pg_upgrade_args = ['-k', '-j', str(psutil.cpu_count()),
-                           '-b', self._old_bin_dir, '-B', self._bin_dir,
+                           '-b', self._old_bin_dir, '-B', self._new_bin_dir,
                            '-d', self._data_dir, '-D', self._new_data_dir,
                            '-O', "-c timescaledb.restoring='on'",
                            '-O', "-c archive_mode='off'"]
@@ -180,8 +181,12 @@ class _PostgresqlUpgrade(Postgresql):
         else:
             self.config.write_postgresql_conf()
 
+        self._bin_dir = self._new_bin_dir
+
         logger.info('Executing pg_upgrade%s', (' --check' if check else ''))
         if subprocess.call([self.pgcommand('pg_upgrade')] + pg_upgrade_args) == 0:
+            if check:
+                self._bin_dir = self._old_bin_dir
             os.chdir(old_cwd)
             shutil.rmtree(upgrade_dir)
             return True
@@ -206,7 +211,9 @@ class _PostgresqlUpgrade(Postgresql):
         old_version_file = self._version_file
         self._version_file = os.path.join(self._data_dir, 'PG_VERSION')
 
+        self._old_bin_dir = self._bin_dir
         self.set_bin_dir(version)
+        self._new_bin_dir = self._bin_dir
 
         # shared_preload_libraries for the old cluster, cleaned from incompatible/missing libs
         old_shared_preload_libraries = self.config.get('parameters').get('shared_preload_libraries')
@@ -239,6 +246,7 @@ class _PostgresqlUpgrade(Postgresql):
         self._new_data_dir, self._data_dir = self._data_dir, self._new_data_dir
         self.config._postgresql_conf = old_postgresql_conf
         self._version_file = old_version_file
+        self._bin_dir = self._old_bin_dir
 
         if old_shared_preload_libraries:
             self.config.get('parameters')['shared_preload_libraries'] = old_shared_preload_libraries

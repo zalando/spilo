@@ -46,6 +46,7 @@ services:
                   postgresql:
                     parameters:
                       wal_keep_segments: 8
+                      jit: 'off'
               postgresql:
                 parameters:
                   shared_buffers: 32MB
