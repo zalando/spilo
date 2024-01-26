@@ -36,7 +36,7 @@ class _PostgresqlUpgrade(Postgresql):
 
     def start_old_cluster(self, config, version):
         self._new_bin_dir = self._bin_dir
-        self.set_bin_dir(version)
+        self.set_bin_dir_for_version(version)
         self._old_bin_dir = self._bin_dir
 
         # make sure we don't archive wals from the old version
@@ -52,10 +52,15 @@ class _PostgresqlUpgrade(Postgresql):
         with open(self._version_file) as f:
             return f.read().strip()
 
-    def set_bin_dir(self, version):
+    def set_bin_dir_for_version(self, version):
         from spilo_commons import get_bin_dir
 
         self._bin_dir = get_bin_dir(version)
+        self._available_gucs = None
+
+    def set_bin_dir(self, bin_dir):
+        self._bin_dir = bin_dir
+        self._available_gucs = None
 
     @property
     def local_conn_kwargs(self):
@@ -181,12 +186,12 @@ class _PostgresqlUpgrade(Postgresql):
         else:
             self.config.write_postgresql_conf()
 
-        self._bin_dir = self._new_bin_dir
+        self.set_bin_dir(self._new_bin_dir)
 
         logger.info('Executing pg_upgrade%s', (' --check' if check else ''))
         if subprocess.call([self.pgcommand('pg_upgrade')] + pg_upgrade_args) == 0:
             if check:
-                self._bin_dir = self._old_bin_dir
+                self.set_bin_dir(self._old_bin_dir)
             os.chdir(old_cwd)
             shutil.rmtree(upgrade_dir)
             return True
@@ -212,7 +217,7 @@ class _PostgresqlUpgrade(Postgresql):
         self._version_file = os.path.join(self._data_dir, 'PG_VERSION')
 
         self._old_bin_dir = self._bin_dir
-        self.set_bin_dir(version)
+        self.set_bin_dir_for_version(version)
         self._new_bin_dir = self._bin_dir
 
         # shared_preload_libraries for the old cluster, cleaned from incompatible/missing libs
@@ -246,7 +251,7 @@ class _PostgresqlUpgrade(Postgresql):
         self._new_data_dir, self._data_dir = self._data_dir, self._new_data_dir
         self.config._postgresql_conf = old_postgresql_conf
         self._version_file = old_version_file
-        self._bin_dir = self._old_bin_dir
+        self.set_bin_dir(self._old_bin_dir)
 
         if old_shared_preload_libraries:
             self.config.get('parameters')['shared_preload_libraries'] = old_shared_preload_libraries
