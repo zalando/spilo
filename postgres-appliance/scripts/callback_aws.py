@@ -31,10 +31,11 @@ def get_instance_metadata():
         headers={'X-aws-ec2-metadata-token-ttl-seconds': '60'}
     )
     token = response.text
-    headers = {'X-aws-ec2-metadata-token': token}
-
-    instance_id = requests.get('http://169.254.169.254/latest/dynamic/instance-identity/document', headers=headers)
-    return instance_id.json()
+    instance_identity = requests.get(
+        url='http://169.254.169.254/latest/dynamic/instance-identity/document',
+        headers={'X-aws-ec2-metadata-token': token}
+    )
+    return instance_identity.json()
 
 
 @retry
