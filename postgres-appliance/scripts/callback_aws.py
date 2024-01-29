@@ -24,13 +24,18 @@ def retry(func):
 
     return wrapped
 
+
 def get_instance_metadata():
-    response = requests.put('http://169.254.169.254/latest/api/token', headers={'X-aws-ec2-metadata-token-ttl-seconds': '60'})
+    response = requests.put(
+        url='http://169.254.169.254/latest/api/token',
+        headers={'X-aws-ec2-metadata-token-ttl-seconds': '60'}
+    )
     token = response.text
     headers = {'X-aws-ec2-metadata-token': token}
 
     instance_id = requests.get('http://169.254.169.254/latest/dynamic/instance-identity/document', headers=headers)
     return instance_id.json()
+
 
 @retry
 def associate_address(ec2, allocation_id, instance_id):
