@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 
-import boto.ec2
-import boto.utils
+import boto3
 import logging
 import sys
 import time
+import requests
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +15,7 @@ def retry(func):
         while True:
             try:
                 return func(*args, **kwargs)
-            except boto.exception.BotoServerError as e:
+            except boto3.exceptions.Boto3Error as e:
                 if count >= 10 or str(e.error_code) not in ('Throttling', 'RequestLimitExceeded'):
                     raise
                 logger.info('Throttling AWS API requests...')
@@ -24,10 +24,13 @@ def retry(func):
 
     return wrapped
 
-
 def get_instance_metadata():
-    return boto.utils.get_instance_identity()['document']
+    response = requests.put('http://169.254.169.254/latest/api/token', headers={'X-aws-ec2-metadata-token-ttl-seconds': '60'})
+    token = response.text
+    headers = {'X-aws-ec2-metadata-token': token}
 
+    instance_id = requests.get('http://169.254.169.254/latest/dynamic/instance-identity/document', headers=headers)
+    return instance_id.json()
 
 @retry
 def associate_address(ec2, allocation_id, instance_id):
@@ -63,7 +66,10 @@ def main():
 
     instance_id = metadata['instanceId']
 
-    ec2 = boto.ec2.connect_to_region(metadata['region'])
+    ec2 = boto3.client(
+        service_name='ec2',
+        region_name=metadata['region']
+    )
 
     if argc == 5 and role in ('master', 'standby_leader') and action in ('on_start', 'on_role_change'):
         associate_address(ec2, sys.argv[1], instance_id)
