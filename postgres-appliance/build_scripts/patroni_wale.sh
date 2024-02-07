@@ -27,6 +27,7 @@ if [ "$DEMO" != "true" ]; then
         python3-consul \
         python3-kazoo \
         python3-boto3 \
+        python3-boto \
         python3-botocore \
         python3-cachetools \
         python3-cffi \
@@ -43,7 +44,7 @@ if [ "$DEMO" != "true" ]; then
             'git+https://github.com/zalando/pg_view.git@master#egg=pg-view'
 
     # https://github.com/wal-e/wal-e/issues/318
-    sed -i 's/^\(    for i in range(0,\) num_retries):.*/\1 100):/g' /usr/lib/python3/dist-packages/boto3/utils.py
+    sed -i 's/^\(    for i in range(0,\) num_retries):.*/\1 100):/g' /usr/lib/python3/dist-packages/boto/utils.py
 else
     EXTRAS=""
 fi

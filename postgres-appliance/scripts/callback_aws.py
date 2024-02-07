@@ -40,22 +40,22 @@ def get_instance_metadata():
 
 @retry
 def associate_address(ec2, allocation_id, instance_id):
-    return ec2.associate_address(instance_id=instance_id, allocation_id=allocation_id, allow_reassociation=True)
+    return ec2.associate_address(InstanceId=instance_id, AllocationId=allocation_id, AllowReassociation=True)
 
 
 @retry
 def tag_resource(ec2, resource_id, tags):
-    return ec2.create_tags([resource_id], tags)
+    return ec2.create_tags(Resources=[resource_id], Tags=tags)
 
 
 @retry
 def list_volumes(ec2, instance_id):
-    return ec2.get_all_volumes(filters={'attachment.instance-id': instance_id})
+    return ec2.describe_volumes(Filters=[{'Name': 'attachment.instance-id', 'Values': [instance_id]}])
 
 
 @retry
 def get_instance(ec2, instance_id):
-    return ec2.get_only_instances([instance_id])[0]
+    return ec2.describe_instances(InstanceIds=[instance_id])['Reservations'][0]['Instances'][0]
 
 
 def main():
@@ -72,10 +72,7 @@ def main():
 
     instance_id = metadata['instanceId']
 
-    ec2 = boto3.client(
-        service_name='ec2',
-        region_name=metadata['region']
-    )
+    ec2 = boto3.client('ec2', region_name=metadata['region'])
 
     if argc == 5 and role in ('master', 'standby_leader') and action in ('on_start', 'on_role_change'):
         associate_address(ec2, sys.argv[1], instance_id)
@@ -88,15 +85,16 @@ def main():
     tags.update({'Instance': instance_id})
 
     volumes = list_volumes(ec2, instance_id)
-    for v in volumes:
-        if 'Name' in v.tags:
+    for v in volumes['Volumes']:
+        if any(tag['Key'] == 'Name' for tag in v.get('Tags', [])):
             tags_to_update = tags
         else:
-            if v.attach_data.device == instance.root_device_name:
-                volume_device = 'root'
-            else:
-                volume_device = 'data'
-            tags_to_update = dict(tags, Name='spilo_{}_{}'.format(cluster, volume_device))
+            for attachment in v['Attachments']:
+                if attachment['Device'] == instance.get('RootDeviceName'):
+                    volume_device = 'root'
+                else:
+                    volume_device = 'data'
+                tags_to_update = dict(tags, Name='spilo_{}_{}'.format(cluster, volume_device))
 
         tag_resource(ec2, v.id, tags_to_update)
 
