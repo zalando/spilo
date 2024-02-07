@@ -399,12 +399,23 @@ def get_provider():
 
     try:
         logging.info("Figuring out my environment (Google? AWS? Openstack? Local?)")
-        r = requests.get('http://169.254.169.254', timeout=2)
+        response = requests.put(
+            url='http://169.254.169.254/latest/api/token',
+            headers={'X-aws-ec2-metadata-token-ttl-seconds': '60'}
+        )
+        token = response.text
+        r = requests.get(
+            url='http://169.254.169.254',
+            headers={'X-aws-ec2-metadata-token': token}
+        )
         if r.headers.get('Metadata-Flavor', '') == 'Google':
             return PROVIDER_GOOGLE
         else:
             # accessible on Openstack, will fail on AWS
-            r = requests.get('http://169.254.169.254/openstack/latest/meta_data.json')
+            r = requests.get(
+                url='http://169.254.169.254/openstack/latest/meta_data.json',
+                headers={'X-aws-ec2-metadata-token': token}
+            )
             if r.ok:
                 # make sure the response is parsable - https://github.com/Azure/aad-pod-identity/issues/943 and
                 # https://github.com/zalando/spilo/issues/542
@@ -412,7 +423,10 @@ def get_provider():
                 return PROVIDER_OPENSTACK
 
             # is accessible from both AWS and Openstack, Possiblity of misidentification if previous try fails
-            r = requests.get('http://169.254.169.254/latest/meta-data/ami-id')
+            r = requests.get(
+                url='http://169.254.169.254/latest/meta-data/ami-id',
+                headers={'X-aws-ec2-metadata-token': token}
+            )
             return PROVIDER_AWS if r.ok else PROVIDER_UNSUPPORTED
     except (requests.exceptions.ConnectTimeout, requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout):
         logging.info("Could not connect to 169.254.169.254, assuming local Docker setup")
@@ -451,7 +465,15 @@ def get_instance_metadata(provider):
             # Try get IP via OpenStack EC2-compatible API, if can't then fail back to auto-discovered one.
             metadata['id'] = openstack_metadata['uuid']
             url = 'http://169.254.169.254/2009-04-04/meta-data'
-            r = requests.get(url)
+            response = requests.put(
+                url='http://169.254.169.254/latest/api/token',
+                headers={'X-aws-ec2-metadata-token-ttl-seconds': '60'}
+            )
+            token = response.text
+            r = requests.get(
+                url=url,
+                headers={'X-aws-ec2-metadata-token': token}
+            )
             if r.ok:
                 mapping.update({'ip': 'local-ipv4', 'id': 'instance-id'})
     else:
