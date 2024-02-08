@@ -26,8 +26,8 @@ if [ "$DEMO" != "true" ]; then
         python3-etcd \
         python3-consul \
         python3-kazoo \
-        python3-boto3 \
         python3-boto \
+        python3-boto3 \
         python3-botocore \
         python3-cachetools \
         python3-cffi \

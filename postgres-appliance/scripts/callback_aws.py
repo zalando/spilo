@@ -1,28 +1,12 @@
 #!/usr/bin/env python
 
+from botocore.config import Config
 import boto3
 import logging
 import sys
-import time
 import requests
 
 logger = logging.getLogger(__name__)
-
-
-def retry(func):
-    def wrapped(*args, **kwargs):
-        count = 0
-        while True:
-            try:
-                return func(*args, **kwargs)
-            except boto3.exceptions.Boto3Error as e:
-                if count >= 10 or str(e.error_code) not in ('Throttling', 'RequestLimitExceeded'):
-                    raise
-                logger.info('Throttling AWS API requests...')
-                time.sleep(2 ** count * 0.5)
-                count += 1
-
-    return wrapped
 
 
 def get_instance_metadata():
@@ -38,22 +22,18 @@ def get_instance_metadata():
     return instance_identity.json()
 
 
-@retry
 def associate_address(ec2, allocation_id, instance_id):
     return ec2.associate_address(InstanceId=instance_id, AllocationId=allocation_id, AllowReassociation=True)
 
 
-@retry
 def tag_resource(ec2, resource_id, tags):
     return ec2.create_tags(Resources=[resource_id], Tags=tags)
 
 
-@retry
 def list_volumes(ec2, instance_id):
     return ec2.describe_volumes(Filters=[{'Name': 'attachment.instance-id', 'Values': [instance_id]}])
 
 
-@retry
 def get_instance(ec2, instance_id):
     return ec2.describe_instances(InstanceIds=[instance_id])['Reservations'][0]['Instances'][0]
 
@@ -72,7 +52,14 @@ def main():
 
     instance_id = metadata['instanceId']
 
-    ec2 = boto3.client('ec2', region_name=metadata['region'])
+    config = Config(
+        region_name=metadata['region'],
+        retries={
+            'max_attempts': 10,
+            'mode': 'standard'
+        }
+    )
+    ec2 = boto3.client('ec2', config=config)
 
     if argc == 5 and role in ('master', 'standby_leader') and action in ('on_start', 'on_role_change'):
         associate_address(ec2, sys.argv[1], instance_id)
