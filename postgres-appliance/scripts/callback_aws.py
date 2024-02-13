@@ -66,10 +66,10 @@ def main():
 
     instance = get_instance(ec2, instance_id)
 
-    tags = {'Role': role}
+    tags = [{'Key': 'Role', 'Value': role}]
     tag_resource(ec2, instance_id, tags)
 
-    tags.update({'Instance': instance_id})
+    tags.append({'Key': 'Instance', 'Value': instance_id})
 
     volumes = list_volumes(ec2, instance_id)
     for v in volumes['Volumes']:
@@ -81,9 +81,9 @@ def main():
                     volume_device = 'root'
                 else:
                     volume_device = 'data'
-                tags_to_update = dict(tags, Name='spilo_{}_{}'.format(cluster, volume_device))
+                tags_to_update = tags + [{'Key': 'Name', 'Value': 'spilo_{}_{}'.format(cluster, volume_device)}]
 
-        tag_resource(ec2, v.id, tags_to_update)
+        tag_resource(ec2, v.get('VolumeId'), tags_to_update)
 
 
 if __name__ == '__main__':
