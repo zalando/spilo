@@ -45,6 +45,7 @@ services:
                   loop_wait: 2
                   postgresql:
                     parameters:
+                      wal_decode_buffer_size: '521kB'
                       wal_keep_segments: 8
                       jit: 'off'
               postgresql:

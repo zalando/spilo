@@ -54,9 +54,7 @@ class _PostgresqlUpgrade(Postgresql):
 
     def set_bin_dir_for_version(self, version):
         from spilo_commons import get_bin_dir
-
-        self._bin_dir = get_bin_dir(version)
-        self._available_gucs = None
+        self.set_bin_dir(get_bin_dir(version))
 
     def set_bin_dir(self, bin_dir):
         self._bin_dir = bin_dir
