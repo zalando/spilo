@@ -36,7 +36,7 @@ def wait_end_of_recovery(postgresql):
 
     for _ in polling_loop(postgresql.config.get('pg_ctl_timeout'), 10):
         postgresql.reset_cluster_info_state(None)
-        if postgresql.is_leader():
+        if postgresql.is_primary():
             break
         logger.info('waiting for end of recovery of the old cluster')
 
