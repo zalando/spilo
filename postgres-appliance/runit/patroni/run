@@ -21,7 +21,6 @@ fi
 if ! ulimit -c unlimited
 then
    echo "Failed to set unlimited size for coredump"
-   echo "Consider adding the SYS_RESOURCE capability"
 fi
 
 # Only small subset of environment variables is allowed. We don't want accidentally disclose sensitive information
