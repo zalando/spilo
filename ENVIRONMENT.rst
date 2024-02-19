@@ -96,6 +96,7 @@ Environment Configuration Settings
 - **LOG_S3_ENDPOINT**: (optional) S3 Endpoint to use with Boto3
 - **LOG_BUCKET_SCOPE_PREFIX**: (optional) using to build S3 file path like `/spilo/{LOG_BUCKET_SCOPE_PREFIX}{SCOPE}{LOG_BUCKET_SCOPE_SUFFIX}/log/`
 - **LOG_BUCKET_SCOPE_SUFFIX**: (optional) same as above
+- **LOG_GROUP_BY_DATE**: (optional) enable grouping log by date. Default is False - group the log files based on the instance ID.
 - **DCS_ENABLE_KUBERNETES_API**: a non-empty value forces Patroni to use Kubernetes as a DCS. Default is empty.
 - **KUBERNETES_USE_CONFIGMAPS**: a non-empty value makes Patroni store its metadata in ConfigMaps instead of Endpoints when running on Kubernetes. Default is empty.
 - **KUBERNETES_ROLE_LABEL**: name of the label containing Postgres role when running on Kubernetens. Default is 'spilo-role'.

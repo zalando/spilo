@@ -579,6 +579,7 @@ def get_placeholders(provider):
     placeholders.setdefault('CLONE_TARGET_TIME', '')
     placeholders.setdefault('CLONE_TARGET_INCLUSIVE', True)
 
+    placeholders.setdefault('LOG_GROUP_BY_DATE', False)
     placeholders.setdefault('LOG_SHIP_SCHEDULE', '1 0 * * *')
     placeholders.setdefault('LOG_S3_BUCKET', '')
     placeholders.setdefault('LOG_S3_ENDPOINT', '')
@@ -728,7 +729,9 @@ def get_dcs_config(config, placeholders):
         config['kubernetes']['labels'] = kubernetes_labels
 
         if not config['kubernetes'].pop('use_configmaps'):
-            config['kubernetes'].update({'use_endpoints': True, 'ports': [{'port': 5432, 'name': 'postgresql'}]})
+            config['kubernetes'].update({'use_endpoints': True,
+                                         'pod_ip': placeholders['instance_data']['ip'],
+                                         'ports': [{'port': 5432, 'name': 'postgresql'}]})
         if str(config['kubernetes'].pop('bypass_api_service', None)).lower() == 'true':
             config['kubernetes']['bypass_api_service'] = True
     else:
@@ -756,6 +759,8 @@ def write_log_environment(placeholders):
     log_env['LOG_AWS_REGION'] = aws_region
 
     log_s3_key = 'spilo/{LOG_BUCKET_SCOPE_PREFIX}{SCOPE}{LOG_BUCKET_SCOPE_SUFFIX}/log/'.format(**log_env)
+    if os.getenv('LOG_GROUP_BY_DATE'):
+        log_s3_key += '{DATE}/'
     log_s3_key += placeholders['instance_data']['id']
     log_env['LOG_S3_KEY'] = log_s3_key
 
