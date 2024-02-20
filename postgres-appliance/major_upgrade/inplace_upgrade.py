@@ -490,7 +490,7 @@ hosts deny = *
                         self.cluster_version, self.desired_version)
             return True
 
-        if not (self.postgresql.is_running() and self.postgresql.is_leader()):
+        if not (self.postgresql.is_running() and self.postgresql.is_primary()):
             return logger.error('PostgreSQL is not running or in recovery')
 
         cluster = self.dcs.get_cluster()
