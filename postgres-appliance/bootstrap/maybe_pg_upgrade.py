@@ -1,34 +1,19 @@
 #!/usr/bin/env python
-import datetime
 import logging
 import os
 import subprocess
 import sys
+import glob
 
 logger = logging.getLogger(__name__)
 
 
-def tail_postgres_log(weekday):
-    logdir = os.environ.get('PGLOG', '/home/postgres/pgdata/pgroot/pg_log')
-    logfile = os.path.join(logdir, 'postgresql-{0}.csv'.format(weekday))
-    return subprocess.check_output(['tail', '-n5', logfile]).decode('utf-8')
-
-
 def tail_postgres_logs():
-    weekday = datetime.datetime.today().isoweekday()
-    try:
-        ret = tail_postgres_log(weekday)
-    except Exception:
-        ret = ''
-    if not ret:
-        weekday += 6
-        if weekday > 7:
-            weekday %= 7
-        try:
-            ret = tail_postgres_log(weekday)  # maybe log just switched? try yesterday
-        except Exception:
-            ret = ''
-    return ret
+    logdir = os.environ.get('PGLOG', '/home/postgres/pgdata/pgroot/pg_log')
+    csv_files = glob.glob(os.path.join(logdir, '*.csv'))
+    # Find the last modified CSV file
+    logfile = max(csv_files, key=os.path.getmtime)
+    return subprocess.check_output(['tail', '-n5', logfile]).decode('utf-8')
 
 
 def wait_end_of_recovery(postgresql):
