@@ -62,7 +62,7 @@ class _PostgresqlUpgrade(Postgresql):
 
     @property
     def local_conn_kwargs(self):
-        conn_kwargs = self.config.local_connect_kwargs
+        conn_kwargs = self.connection_pool.conn_kwargs
         conn_kwargs['options'] = '-c synchronous_commit=local -c statement_timeout=0 -c search_path='
         conn_kwargs.pop('connect_timeout', None)
         return conn_kwargs
@@ -203,10 +203,10 @@ class _PostgresqlUpgrade(Postgresql):
     def prepare_new_pgdata(self, version):
         from spilo_commons import append_extensions
 
-        locale = self.query('SHOW lc_collate').fetchone()[0]
-        encoding = self.query('SHOW server_encoding').fetchone()[0]
+        locale = self.query('SHOW lc_collate')[0][0]
+        encoding = self.query('SHOW server_encoding')[0][0]
         initdb_config = [{'locale': locale}, {'encoding': encoding}]
-        if self.query("SELECT current_setting('data_checksums')::bool").fetchone()[0]:
+        if self.query("SELECT current_setting('data_checksums')::bool")[0][0]:
             initdb_config.append('data-checksums')
 
         logger.info('initdb config: %s', initdb_config)
