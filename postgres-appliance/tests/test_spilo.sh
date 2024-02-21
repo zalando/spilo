@@ -316,7 +316,7 @@ function test_spilo() {
 
     # TEST SUITE 3
     local clone16_container
-    clone16_container=$(start_clone_with_wale_16_container) # SCOPE=clone15 CLONE: _SCOPE=upgrade3 _PGVERSION=16 _TARGET_TIME=<next_hour
+    clone16_container=$(start_clone_with_wale_16_container) # SCOPE=clone15 CLONE: _SCOPE=upgrade3 _PGVERSION=16 _TARGET_TIME=<next_hour>
     log_info "[TS3] Started $clone16_container for testing point-in-time recovery (clone with wal-e) with unreachable target on 13+"
 
 
@@ -351,7 +351,7 @@ function test_spilo() {
 
     # TEST SUITE 5
     local upgrade_replica_container
-    upgrade_replica_container=$(start_clone_with_wale_upgrade_replica_container) # SCOPE=upgrade
+    upgrade_replica_container=$(start_clone_with_wale_upgrade_replica_container)  # SCOPE=upgrade
     log_info "[TS5] Started $upgrade_replica_container for testing replica bootstrap with wal-e"
 
 
@@ -362,11 +362,11 @@ function test_spilo() {
 
 
     # TEST SUITE 1
-    #run_test test_pg_upgrade_to_16_check_failed "$container"  # pg_upgrade --check complains about timescaledb
+    # run_test test_pg_upgrade_to_16_check_failed "$container"  # pg_upgrade --check complains about timescaledb
 
     wait_backup "$container"
 
-    #drop_timescaledb "$container"
+    # drop_timescaledb "$container"
     log_info "[TS1] Testing in-place major upgrade 15->16"
     run_test test_successful_inplace_upgrade_to_16 "$container"
     wait_all_streaming "$container"
