@@ -267,7 +267,17 @@ apt-get purge -y \
                 postgresql-server-dev-* \
                 libpq-dev=* \
                 libmagic1 \
-                bsdmainutils
+                bsdmainutils \
+                libreadline-dev \
+                flex \
+                bison \
+                libxml2-dev \
+                libxslt-dev \
+                libxml2-utils \
+                clang \
+                gnupg \
+                lsb-release \
+                clang-16
 apt-get autoremove -y
 apt-get clean
 dpkg -l | grep '^rc' | awk '{print $2}' | xargs apt-get purge -y
@@ -357,6 +367,8 @@ fi
 rm -rf /var/lib/apt/lists/* \
         /var/cache/debconf/* \
         /builddeps \
+        /root/.rustup \
+        /root/.cargo \
         /usr/share/doc \
         /usr/share/man \
         /usr/share/info \
