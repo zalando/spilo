@@ -305,7 +305,7 @@ postgresql:
     {{/SSL_CRL_FILE}}
     ssl_cert_file: {{SSL_CERTIFICATE_FILE}}
     ssl_key_file: {{SSL_PRIVATE_KEY_FILE}}
-    shared_preload_libraries: 'bg_mon,pg_stat_statements,pgextwlist,pg_auth_mon,set_user'
+    shared_preload_libraries: 'bg_mon,pg_stat_statements,pgextwlist,pg_auth_mon,set_user{{#USE_PGVECTO_RS}},vectors{{/USE_PGVECTO_RS}}'
     bg_mon.listen_address: '{{BGMON_LISTEN_IP}}'
     bg_mon.history_buckets: 120
     pg_stat_statements.track_utility: 'off'
@@ -561,6 +561,7 @@ def get_placeholders(provider):
     placeholders.setdefault('WAL_RESTORE_TIMEOUT', '0')
     placeholders.setdefault('WALE_ENV_DIR', os.path.join(placeholders['RW_DIR'], 'etc', 'wal-e.d', 'env'))
     placeholders.setdefault('USE_WALE', False)
+    placeholders.setdefault('USE_PGVECTO_RS', False)
     cpu_count = str(min(psutil.cpu_count(), 10))
     placeholders.setdefault('WALG_DOWNLOAD_CONCURRENCY', cpu_count)
     placeholders.setdefault('WALG_UPLOAD_CONCURRENCY', cpu_count)
