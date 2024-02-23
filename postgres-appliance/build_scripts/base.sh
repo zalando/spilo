@@ -174,6 +174,8 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
             fi
             cargo pgrx init "--pg${version}=/usr/lib/postgresql/${version}/bin/pg_config"
             cargo pgrx install --release
+            cp sql/install/vectors--${PGVECTORS_VERSION}.sql /usr/share/postgresql/${version}/extension/ &&\
+            cp sql/upgrade/*.sql /usr/share/postgresql/${version}/extension/
         )
     fi
     # pgvecto.rs end
