@@ -14,6 +14,9 @@ while getopts ":-:" optchar; do
         retries=* )
             RETRIES=${OPTARG#*=}
             ;;
+        wal_dir=* )
+            WAL_DIR=${OPTARG#*=}
+            ;;
     esac
 done
 
@@ -25,6 +28,12 @@ if which pg_receivewal &> /dev/null; then
 else
     PG_RECEIVEWAL=pg_receivexlog
     PG_BASEBACKUP_OPTS=()
+fi
+
+if [[ -n "$WAL_DIR" ]]; then
+  PG_WAL_OPTS=(--waldir="$WAL_DIR")
+else
+  PG_WAL_OPTS=()
 fi
 
 WAL_FAST=$(dirname "$DATA_DIR")/wal_fast
@@ -97,7 +106,7 @@ fi
 
 ATTEMPT=0
 while [[ $((ATTEMPT++)) -le $RETRIES ]]; do
-    pg_basebackup --pgdata="${DATA_DIR}" "${PG_BASEBACKUP_OPTS[@]}" --dbname="${CONNSTR}" &
+    pg_basebackup --pgdata="${DATA_DIR}" "${PG_WAL_OPTS[@]}" "${PG_BASEBACKUP_OPTS[@]}" --dbname="${CONNSTR}" &
     basebackup_pid=$!
     wait $basebackup_pid
     EXITCODE=$?
