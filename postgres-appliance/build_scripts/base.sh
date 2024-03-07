@@ -153,7 +153,7 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
 
     EXTRA_EXTENSIONS=()
     if [ "$DEMO" != "true" ]; then
-        EXTRA_EXTENSIONS+=("plprofiler")
+        EXTRA_EXTENSIONS+=("plprofiler" "pg_mon-${PG_MON_COMMIT}")
     fi
 
     for n in bg_mon-${BG_MON_COMMIT} \
@@ -161,7 +161,6 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
             set_user \
             pg_permissions-${PG_PERMISSIONS_COMMIT} \
             pg_profile-${PG_PROFILE} \
-            pg_mon-${PG_MON_COMMIT} \
             "${EXTRA_EXTENSIONS[@]}"; do
         make -C "$n" USE_PGXS=1 clean install-strip
     done
