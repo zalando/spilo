@@ -10,10 +10,6 @@ on:
       pg_version:
         description: 'The version of postgres'
         required: true
-      compress:
-        description: 'Compress the image, will use scratch as base image'
-        required: false
-        default: true
 
   release:
     types:
@@ -119,7 +115,6 @@ jobs:
           build-args: |
             PGVERSION=${{ inputs.pg_version }}
             PGOLDVERSIONS=${{ inputs.pg_old_versions }}
-            COMPRESS=${{ inputs.compress }}
 
       - name: Test spilo docker image
         continue-on-error: true
