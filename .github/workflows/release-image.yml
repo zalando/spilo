@@ -29,6 +29,7 @@ env:
   ALIYUN_USER_NEW: ${{ secrets.ALIYUN_USER_NEW }}
   ALIYUN_PASSWORD_NEW: ${{ secrets.ALIYUN_PASSWORD_NEW }}
 
+run-name: release image_tag:${{ inputs.image_tag }} pg_version:${{ inputs.pg_version }}
 
 jobs:
   image-tag:
