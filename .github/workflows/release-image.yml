@@ -37,10 +37,10 @@ jobs:
         id: get_tag_name
         run: |
           TAG_NAME=${{ inputs.image_tag }}
-          if [ -z "$TAG_NAME" ]; then
-              TAG_NAME=${{ env.RELEASE_VERSION }}
-          fi
-          TAG_NAME="${TAG_NAME/v/}"
+          #if [ -z "$TAG_NAME" ]; then
+          #    TAG_NAME=${{ env.RELEASE_VERSION }}
+          #fi
+          #TAG_NAME="${TAG_NAME/v/}"
           echo tag_name=$TAG_NAME >> $GITHUB_OUTPUT
 
   release-image:
