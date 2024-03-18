@@ -17,7 +17,7 @@ on:
 
 env:
   RELEASE_VERSION: ${{ github.ref_name }}
-  IMAGE_NAME: ${{ github.repository }}
+  IMAGE_NAME: "apecloud/spilo"
   DOCKER_USER: ${{ secrets.DOCKER_REGISTRY_USER }}
   DOCKER_PASSWORD: ${{ secrets.DOCKER_REGISTRY_PASSWORD }}
   ALIYUN_USER: ${{ secrets.ALIYUN_REGISTRY_USER }}
