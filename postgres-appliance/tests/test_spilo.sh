@@ -235,6 +235,16 @@ function start_clone_with_basebackup_upgrade_container() {
         -d spilo3
 }
 
+function start_separate_wal_directory_container() {
+  local ID=$1
+
+  docker-compose run \
+      -e SCOPE=separatewal \
+      -e WAL_DIRECTORY="/home/postgres/wal" \
+      --name "${PREFIX}separatewal$ID" \
+      -d "spilo$ID"
+}
+
 function verify_clone_upgrade() {
     local type=$2
     local from_version=$3
@@ -249,6 +259,18 @@ function verify_archive_mode_is_on() {
     [ "$archive_mode" = "on" ]
 }
 
+function verify_wal_outside_data_directory() {
+  local target_path="/home/postgres/wal"
+  is_symbolic_link=$(
+      docker_exec "$1" "
+          [ -L '/home/postgres/pgdata/pgroot/data/pg_wal' ] &&
+          readlink -f '/home/postgres/pgdata/pgroot/data/pg_wal' | grep -q \"$target_path\" &&
+          echo true ||
+          echo false"
+  )
+  [ "$is_symbolic_link" = true ]
+}
+
 
 # TEST SUITE 1 - In-place major upgrade 10->11->...->15
 # TEST SUITE 2 - Major upgrade 10->15 after wal-e clone (with CLONE_PGVERSION set)
@@ -256,6 +278,7 @@ function verify_archive_mode_is_on() {
 # TEST SUITE 4 - Major upgrade 10->11 after wal-e clone (no CLONE_PGVERSION)
 # TEST SUITE 5 - Replica bootstrap with wal-e
 # TEST SUITE 6 - Major upgrade 11->12 after clone with basebackup
+# TEST SUITE 7 - Form a fresh cluster that persists WALs outside of data directory
 function test_spilo() {
     # TEST SUITE 1
     local container=$1
@@ -355,6 +378,11 @@ function test_spilo() {
     basebackup_container=$(start_clone_with_basebackup_upgrade_container "$upgrade_container")  # SCOPE=upgrade2 PGVERSION=12 CLONE: _SCOPE=upgrade
     log_info "[TS6] Started $basebackup_container for testing major upgrade 11->12 after clone with basebackup"
 
+    # TEST SUITE 7
+    local seapate_wal_container="${PREFIX}separatewal1"
+    start_separate_wal_directory_container 1 # WAL_DIRECTORY="/home/postgres/wal" SCOPE=separatewal
+    start_separate_wal_directory_container 2 # WAL_DIRECTORY="/home/postgres/wal" SCOPE=separatewal
+    log_info "[TS7] Started a fresh cluster to test for persisting WALs on a specified location"
 
     # TEST SUITE 1
     # run_test test_pg_upgrade_to_15_check_failed "$container"  # pg_upgrade --check complains about timescaledb
@@ -377,6 +405,12 @@ function test_spilo() {
     log_info "[TS6] Testing in-place major upgrade 11->12 after clone with basebackup"
     run_test verify_clone_upgrade "$basebackup_container" "basebackup" 11 12
     run_test verify_archive_mode_is_on "$basebackup_container"
+
+    # TEST SUITE 7
+    wait_all_streaming "$seapate_wal_container" 1
+    wait_zero_lag "$seapate_wal_container" 1
+    run_test verify_wal_outside_data_directory "$seapate_wal_container"
+    run_test verify_wal_outside_data_directory "${PREFIX}separatewal2"
 }
 
 function main() {
