@@ -182,6 +182,21 @@ if [ "$DEMO" != "true" ]; then
     done
 fi
 
+# Install pgmq dependencies
+apt-get update && apt-get install -y \
+    curl \
+    build-essential \
+    pkg-config \
+    libssl-dev
+
+# Install Rust
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+export PATH="$HOME/.cargo/bin:$PATH"
+
+# Install pg-trunk and pgmq
+cargo install pg-trunk
+trunk install pgmq
+
 # make it possible for cron to work without root
 gcc -s -shared -fPIC -o /usr/local/lib/cron_unprivileged.so cron_unprivileged.c
 

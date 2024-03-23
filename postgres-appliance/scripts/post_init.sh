@@ -111,6 +111,8 @@ BEGIN
     END IF;
 END;\$\$;
 
+CREATE EXTENSION IF NOT EXISTS pgmq CASCADE;
+
 CREATE TABLE IF NOT EXISTS public.postgres_log (
     log_time timestamp(3) with time zone,
     user_name text,
