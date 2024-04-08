@@ -412,10 +412,7 @@ def get_provider():
             return PROVIDER_GOOGLE
         else:
             # accessible on Openstack, will fail on AWS
-            r = requests.get(
-                url='http://169.254.169.254/openstack/latest/meta_data.json',
-                headers={'X-aws-ec2-metadata-token': token}
-            )
+            r = requests.get('http://169.254.169.254/openstack/latest/meta_data.json')
             if r.ok:
                 # make sure the response is parsable - https://github.com/Azure/aad-pod-identity/issues/943 and
                 # https://github.com/zalando/spilo/issues/542
@@ -465,15 +462,7 @@ def get_instance_metadata(provider):
             # Try get IP via OpenStack EC2-compatible API, if can't then fail back to auto-discovered one.
             metadata['id'] = openstack_metadata['uuid']
             url = 'http://169.254.169.254/2009-04-04/meta-data'
-            response = requests.put(
-                url='http://169.254.169.254/latest/api/token',
-                headers={'X-aws-ec2-metadata-token-ttl-seconds': '60'}
-            )
-            token = response.text
-            r = requests.get(
-                url=url,
-                headers={'X-aws-ec2-metadata-token': token}
-            )
+            r = requests.get(url)
             if r.ok:
                 mapping.update({'ip': 'local-ipv4', 'id': 'instance-id'})
     else:
