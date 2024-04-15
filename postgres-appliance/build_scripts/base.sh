@@ -115,6 +115,10 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
             EXTRAS+=("postgresql-${version}-pgvector")
         fi
 
+        if [ "${version%.*}" -ge 12 ]; then
+            EXTRAS+=("postgresql-${version}-pg-hint-plan")
+        fi
+
         if [ "${version%.*}" -lt 11 ]; then
             EXTRAS+=("postgresql-${version}-amcheck")
         fi
