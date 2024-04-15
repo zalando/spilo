@@ -12,8 +12,6 @@ pipeline:
   when:
     - event: push
       branch: master
-    - event: push
-      branch: dev-16
   timeout: 10h
   vm_config:
     type: linux
