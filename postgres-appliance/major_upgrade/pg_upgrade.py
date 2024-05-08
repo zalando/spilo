@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 class _PostgresqlUpgrade(Postgresql):
 
-    _INCOMPATIBLE_EXTENSIONS = ('amcheck_next', 'pg_repack',)
+    _INCOMPATIBLE_EXTENSIONS = ('pg_repack',)
 
     def adjust_shared_preload_libraries(self, version):
         from spilo_commons import adjust_extensions
