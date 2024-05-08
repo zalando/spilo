@@ -39,8 +39,8 @@ pipeline:
   type: script
   requires_human_approval: true
   when:
-    - event: push
-      branch: master
+    event: push
+    branch: master
   commands:
   - desc: Tag release spilo image
     cmd: |

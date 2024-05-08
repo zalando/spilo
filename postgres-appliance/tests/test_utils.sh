@@ -3,7 +3,7 @@
 if ! docker info &> /dev/null; then
     if podman info &> /dev/null; then
         alias docker=podman
-        alias xargs='xargs ' # allows '| xargs docker'
+        alias xargs='xargs '  # allows '| xargs docker'
         shopt -s expand_aliases
     else
         echo "docker/podman: command not found"
