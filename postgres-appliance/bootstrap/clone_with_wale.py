@@ -57,7 +57,7 @@ def fix_output(output):
     started = None
     for line in output.decode('utf-8').splitlines():
         if not started:
-            started = re.match(r'^name\s+last_modified\s+', line) or re.match(r'^name\s+modified\s+', line)
+            started = re.match(r'^(backup_)?name\s+(last_)?modified\s+', line)
             if started:
                 line = line.replace(' modified ', ' last_modified ')
         if started:
@@ -75,7 +75,7 @@ def choose_backup(backup_list, recovery_target_time):
                 match = backup
                 match_timestamp = last_modified
     if match is not None:
-        return match['name']
+        return match.get('name', match['backup_name'])
 
 
 def list_backups(env):
