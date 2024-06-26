@@ -35,6 +35,10 @@ go get -v -t -d ./...
 go mod vendor
 
 bash link_brotli.sh
+
+sed -i -e 's/1.0.17/1.0.18/g' link_libsodium.sh
+sed -i -e "s/download\/\$LIBSODIUM_VERSION/download\/\$LIBSODIUM_VERSION-RELEASE/g" link_libsodium.sh
+
 bash link_libsodium.sh
 
 export USE_LIBSODIUM=1
