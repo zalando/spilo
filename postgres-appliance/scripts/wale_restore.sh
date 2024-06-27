@@ -43,7 +43,7 @@ ATTEMPT=0
 server_version="-1"
 while true; do
     [[ -z $wal_segment_backup_start ]] && wal_segment_backup_start=$($WAL_E backup-list 2> /dev/null \
-        | sed '0,/^name\s*\(last_\)\?modified\s*/d' | sort -bk2 | tail -n1 | awk '{print $3;}' | sed 's/_.*$//')
+        | sed '0,/^(backup_\)?name\s*\(last_\)\?modified\s*/d' | sort -bk2 | tail -n1 | awk '{print $3;}' | sed 's/_.*$//')
 
     [[ -n "$CONNSTR" && $server_version == "-1" ]] && server_version=$(psql -d "$CONNSTR" -tAc 'show server_version_num' 2> /dev/null || echo "-1")
 
