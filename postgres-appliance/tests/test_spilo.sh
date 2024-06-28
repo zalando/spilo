@@ -343,7 +343,7 @@ function test_spilo() {
     # TEST SUITE 6
     local basebackup_container
     basebackup_container=$(start_clone_with_basebackup_upgrade_container "$upgrade_container")  # SCOPE=upgrade2 PGVERSION=14 CLONE: _SCOPE=upgrade
-    log_info "[TS6] Started $basebackup_container for testing major upgrade 12->14 after clone with basebackup"
+    log_info "[TS6] Started $basebackup_container for testing major upgrade 13->14 after clone with basebackup"
 
 
     # TEST SUITE 1
