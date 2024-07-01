@@ -45,29 +45,16 @@ DECLARE
 BEGIN
   server_version_num := current_setting('server_version_num')::integer;
   SELECT pg_is_in_recovery() INTO in_recovery;
-  IF server_version_num >= 100000
-  THEN
-    SELECT CASE WHEN in_recovery THEN pg_last_wal_replay_lsn()
-           ELSE pg_current_wal_lsn()
-           END INTO xlog_location_string;
-    SELECT pg_last_wal_receive_lsn() INTO receive_location;
-  ELSE
-    SELECT CASE WHEN in_recovery THEN pg_last_xlog_replay_location()
-           ELSE pg_current_xlog_location()
-           END INTO xlog_location_string;
-    SELECT pg_last_xlog_receive_location() INTO receive_location;
-  END IF;
+  SELECT CASE WHEN in_recovery THEN pg_last_wal_replay_lsn()
+        ELSE pg_current_wal_lsn()
+        END INTO xlog_location_string;
+  SELECT pg_last_wal_receive_lsn() INTO receive_location;
   SELECT ('x'||lpad(split_part(xlog_location_string, '/', 1), 16, '0'))::bit(64)::bigint INTO wal_segment;
   SELECT ('x'||lpad(split_part(xlog_location_string, '/', 2), 16, '0'))::bit(64)::bigint INTO wal_offset;
   SELECT 1 FROM pg_ls_dir('.') as t(name) WHERE name = 'dontsync' INTO nosync;
-  IF server_version_num >= 90300
-  THEN
-    wal_multiplier = CAST(x'FFFFFFFF' as bigint);
-  ELSE
-    wal_multiplier = CAST(x'FF000000' as bigint);
-  END IF;
+  wal_multiplier = CAST(x'FFFFFFFF' as bigint);
 
-  IF server_version_num >= 90100 AND in_recovery
+  IF in_recovery
   THEN
     wal_delay_seconds := extract(epoch from now() - pg_last_xact_replay_timestamp())::bigint;
   END IF;
@@ -100,7 +87,7 @@ BEGIN
                   'synchronous_commit'
                  )
    UNION ALL
-  SELECT 'cluster_name', COALESCE(CASE WHEN server_version_num >= 90500 THEN current_setting('cluster_name') ELSE NULL END, substring(s.setting from E'/pgsql_([^/]+)/[^/]+/data$'))
+  SELECT 'cluster_name', COALESCE(current_setting('cluster_name'), substring(s.setting from E'/pgsql_([^/]+)/[^/]+/data$'))
     FROM pg_settings as s
    WHERE s.name = 'data_directory'
    UNION ALL
@@ -119,11 +106,9 @@ BEGIN
   SELECT 'is_streaming' as name, CAST(receive_location IS NOT NULL AND in_recovery AS TEXT) as setting
     UNION ALL
   SELECT 'archive_nosync' as name, CAST(nosync IS NOT NULL AS TEXT) as setting;
-  -- pg_stat_activity column names differ depending on server version
-  IF server_version_num >= 90600 THEN
-    RETURN QUERY
-    SELECT a.name, a.setting
-      FROM unnest((select array[('active_connections'::text,
+  RETURN QUERY
+  SELECT a.name, a.setting
+    FROM unnest((select array[('active_connections'::text,
                                  count(CASE WHEN state = 'active' THEN 1 END)::text),
                                 ('idle_in_transaction_connections'::text,
                                  count(CASE WHEN state = 'idle in transaction' THEN 1 END)::text),
@@ -137,28 +122,8 @@ BEGIN
                                  -- exclude autovacuum transactions
                                  coalesce(extract(epoch from statement_timestamp() - min(CASE WHEN query like 'autovacuum:%' THEN NULL ELSE xact_start END)),0)::text)
                                ]
-                     from pg_stat_activity
-                 )) AS a (name text, setting text);
-  ELSE
-    RETURN QUERY
-    SELECT a.name, a.setting
-      FROM unnest((select array[('active_connections'::text,
-                                 count(CASE WHEN state = 'active' THEN 1 END)::text),
-                                ('idle_in_transaction_connections'::text,
-                                 count(CASE WHEN state = 'idle in transaction' THEN 1 END)::text),
-                                ('idle_in_transaction_max_age'::text,
-                                 coalesce(max(CASE WHEN state = 'idle in transaction' THEN extract(epoch from statement_timestamp() - state_change) END), 0)::text),
-                                ('locked_connections'::text,
-                                 count(CASE WHEN waiting THEN 1 END)::text),
-                                ('current_connections'::text,
-                                 count(1)::text),
-                                ('transaction_max_age'::text,
-                                 -- exclude autovacuum transactions
-                                 coalesce(extract(epoch from statement_timestamp() - min(CASE WHEN query like 'autovacuum:%' THEN NULL ELSE xact_start END)),0)::text)
-                               ]
-                     from pg_stat_activity
-                 )) AS a (name text, setting text);
-  END IF;
+                    from pg_stat_activity
+                )) AS a (name text, setting text);
 END
 $BODY$
 LANGUAGE plpgsql
@@ -412,7 +377,7 @@ for r in rv:
 data_directory = s["data_directory"]
 log_directory = s["log_directory"] = os.path.join(data_directory, s["log_directory"])
 pg_tblspc = os.path.join(data_directory, "pg_tblspc")
-pg_xlog = os.path.join(data_directory, "pg_xlog" if int(s["server_version_num"]) < 100000 else "pg_wal")
+pg_xlog = os.path.join(data_directory, "pg_wal")
 
 result = {}
 
