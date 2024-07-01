@@ -266,7 +266,6 @@ if [ "$DEMO" != "true" ]; then
                     d2="$d1"
                     d1="../../${v1##*/}/$d1"
                     if [ "${d2%-*}" = "contrib/postgis" ]; then
-                        if [ "${v2##*/}" = "11" ]; then d2="${d2%-*}-$POSTGIS_LEGACY"; fi
                         d1="../$d1"
                     fi
                     d2="$v2/$d2"
