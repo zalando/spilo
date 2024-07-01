@@ -5,6 +5,7 @@ import subprocess
 import psutil
 
 from patroni.postgresql import Postgresql
+from patroni.postgresql.mpp import get_mpp
 
 logger = logging.getLogger(__name__)
 
@@ -302,6 +303,6 @@ def PostgresqlUpgrade(config):
     is_running = _PostgresqlUpgrade.is_running
     _PostgresqlUpgrade.is_running = lambda s: False
     try:
-        return _PostgresqlUpgrade(config['postgresql'])
+        return _PostgresqlUpgrade(config['postgresql'], get_mpp(config))
     finally:
         _PostgresqlUpgrade.is_running = is_running
