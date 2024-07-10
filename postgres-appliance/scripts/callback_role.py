@@ -13,8 +13,9 @@ KUBE_SERVICE_DIR = '/var/run/secrets/kubernetes.io/serviceaccount/'
 KUBE_NAMESPACE_FILENAME = KUBE_SERVICE_DIR + 'namespace'
 KUBE_TOKEN_FILENAME = KUBE_SERVICE_DIR + 'token'
 KUBE_CA_CERT = KUBE_SERVICE_DIR + 'ca.crt'
+KUBE_CLUSTER_DOMAIN = os.environ.get("KUBERNETES_CLUSTER_DOMAIN", 'cluster.local')
 
-KUBE_API_URL = 'https://kubernetes.default.svc.cluster.local/api/v1/namespaces'
+KUBE_API_URL = 'https://kubernetes.default.svc.' + KUBE_CLUSTER_DOMAIN + '/api/v1/namespaces'
 
 logger = logging.getLogger(__name__)
 
