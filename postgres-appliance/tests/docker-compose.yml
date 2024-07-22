@@ -59,8 +59,6 @@ services:
             CLONE_AWS_ENDPOINT: *aws_endpoint
             CLONE_AWS_S3_FORCE_PATH_STYLE: *aws_s3_force_path_style
             CLONE_WALE_DISABLE_S3_SSE: *wale_disable_s3_sse
-            USE_WALG: 'true'
-            WALG_BACKUP_COMPRESSION_METHOD: brotli
         hostname: spilo1
         container_name: demo-spilo1
 
