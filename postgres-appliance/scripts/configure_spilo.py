@@ -260,7 +260,7 @@ bootstrap:
   {{#USE_ADMIN}}
   users:
     {{PGUSER_ADMIN}}:
-      password: {{PGPASSWORD_ADMIN}}
+      password: {{{PGPASSWORD_ADMIN}}}
       options:
         - createrole
         - createdb
@@ -345,10 +345,10 @@ hstore,hypopg,intarray,ltree,pgcrypto,pgq,pgq_node,pg_trgm,postgres_fdw,tablefun
   authentication:
     superuser:
       username: {{PGUSER_SUPERUSER}}
-      password: '{{PGPASSWORD_SUPERUSER}}'
+      password: '{{{PGPASSWORD_SUPERUSER}}}'
     replication:
       username: {{PGUSER_STANDBY}}
-      password: '{{PGPASSWORD_STANDBY}}'
+      password: '{{{PGPASSWORD_STANDBY}}}'
   callbacks:
   {{#CALLBACK_SCRIPT}}
     on_start: {{CALLBACK_SCRIPT}}
