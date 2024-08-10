@@ -19,7 +19,7 @@ FROM $BASE_IMAGE as dependencies-builder
 
 ARG DEMO
 
-ENV WALG_VERSION=v3.0.0
+ENV WALG_VERSION=v3.0.3
 
 COPY build_scripts/dependencies.sh /builddeps/
 
@@ -60,7 +60,7 @@ ENV POSTGIS_VERSION=3.4 \
     PG_MON_COMMIT=a6c5982368edd876edbee01e51b91e7387071e21 \
     SET_USER=REL4_0_1 \
     PLPROFILER=REL4_2_4 \
-    PG_PROFILE=4.5 \
+    PG_PROFILE=4.6 \
     PAM_OAUTH2=v1.0.1 \
     PG_PERMISSIONS_COMMIT=314b9359e3d77c0b2ef7dbbde97fa4be80e31925
 
