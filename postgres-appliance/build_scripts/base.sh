@@ -55,7 +55,9 @@ curl -sL "https://github.com/zalando-pg/bg_mon/archive/$BG_MON_COMMIT.tar.gz" | 
 curl -sL "https://github.com/zalando-pg/pg_auth_mon/archive/$PG_AUTH_MON_COMMIT.tar.gz" | tar xz
 curl -sL "https://github.com/cybertec-postgresql/pg_permissions/archive/$PG_PERMISSIONS_COMMIT.tar.gz" | tar xz
 curl -sL "https://github.com/zubkov-andrei/pg_profile/archive/$PG_PROFILE.tar.gz" | tar xz
-git clone -b "$SET_USER" https://github.com/pgaudit/set_user.git
+curl -sL "https://github.com/pgaudit/set_user/archive/$SET_USER_COMMT.tar.gz" | tar xz
+# git clone -b "$SET_USER" https://github.com/pgaudit/set_user.git # pg17 support is not released
+curl -sL "https://github.com/powa-team/pg_stat_kcache/archive/$PG_STAT_KCACHE_COMMIT.tar.gz" | tar xz # pg17 support is not released
 git clone https://github.com/timescale/timescaledb.git
 
 apt-get install -y \
@@ -82,22 +84,25 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
                 "postgresql-${version}-hll"
                 "postgresql-${version}-hypopg"
                 "postgresql-${version}-plproxy"
-                "postgresql-${version}-partman"
                 "postgresql-${version}-pgaudit"
                 "postgresql-${version}-pldebugger"
-                "postgresql-${version}-pglogical"
-                "postgresql-${version}-pglogical-ticker"
                 "postgresql-${version}-plpgsql-check"
-                "postgresql-${version}-pg-checksums"
-                "postgresql-${version}-pgl-ddl-deploy"
                 "postgresql-${version}-pgq-node"
-                "postgresql-${version}-postgis-${POSTGIS_VERSION%.*}"
-                "postgresql-${version}-postgis-${POSTGIS_VERSION%.*}-scripts"
-                "postgresql-${version}-repack"
                 "postgresql-${version}-wal2json"
-                "postgresql-${version}-decoderbufs"
                 "postgresql-${version}-pllua"
                 "postgresql-${version}-pgvector")
+        
+        if [ "$version" != "17" ]; then
+            EXTRAS+=("postgresql-${version}-partman"
+                     "postgresql-${version}-pglogical"
+                     "postgresql-${version}-pglogical-ticker"
+                     "postgresql-${version}-pg-checksums"
+                     "postgresql-${version}-pgl-ddl-deploy"
+                     "postgresql-${version}-postgis-${POSTGIS_VERSION%.*}"
+                     "postgresql-${version}-postgis-${POSTGIS_VERSION%.*}-scripts"
+                     "postgresql-${version}-repack"
+                     "postgresql-${version}-decoderbufs")
+        fi
 
         if [ "$WITH_PERL" = "true" ]; then
             EXTRAS+=("postgresql-plperl-${version}")
@@ -113,7 +118,6 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
         "postgresql-plpython3-${version}" \
         "postgresql-server-dev-${version}" \
         "postgresql-${version}-pgq3" \
-        "postgresql-${version}-pg-stat-kcache" \
         "${EXTRAS[@]}"
 
     # Install 3rd party stuff
@@ -121,18 +125,20 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
     # use subshell to avoid having to cd back (SC2103)
     (
         cd timescaledb
-        for v in $TIMESCALEDB; do
-            git checkout "$v"
-            sed -i "s/VERSION 3.11/VERSION 3.10/" CMakeLists.txt
-            if BUILD_FORCE_REMOVE=true ./bootstrap -DREGRESS_CHECKS=OFF -DWARNINGS_AS_ERRORS=OFF \
-                    -DTAP_CHECKS=OFF -DPG_CONFIG="/usr/lib/postgresql/$version/bin/pg_config" \
-                    -DAPACHE_ONLY="$TIMESCALEDB_APACHE_ONLY" -DSEND_TELEMETRY_DEFAULT=NO; then
-                make -C build install
-                strip /usr/lib/postgresql/"$version"/lib/timescaledb*.so
-            fi
-            git reset --hard
-            git clean -f -d
-        done
+        if [ "$version" != "17" ]; then
+            for v in $TIMESCALEDB; do
+                git checkout "$v"
+                sed -i "s/VERSION 3.11/VERSION 3.10/" CMakeLists.txt
+                if BUILD_FORCE_REMOVE=true ./bootstrap -DREGRESS_CHECKS=OFF -DWARNINGS_AS_ERRORS=OFF \
+                        -DTAP_CHECKS=OFF -DPG_CONFIG="/usr/lib/postgresql/$version/bin/pg_config" \
+                        -DAPACHE_ONLY="$TIMESCALEDB_APACHE_ONLY" -DSEND_TELEMETRY_DEFAULT=NO; then
+                    make -C build install
+                    strip /usr/lib/postgresql/"$version"/lib/timescaledb*.so
+                fi
+                git reset --hard
+                git clean -f -d
+            done
+        fi
     )
 
     if [ "${TIMESCALEDB_APACHE_ONLY}" != "true" ] && [ "${TIMESCALEDB_TOOLKIT}" = "true" ]; then
@@ -153,14 +159,18 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
 
     EXTRA_EXTENSIONS=()
     if [ "$DEMO" != "true" ]; then
-        EXTRA_EXTENSIONS+=("plprofiler" "pg_mon-${PG_MON_COMMIT}")
+        EXTRA_EXTENSIONS+=("pg_mon-${PG_MON_COMMIT}")
+        if [ "$version" != "17" ]; then
+            EXTRA_EXTENSIONS+=("plprofiler")
+        fi
     fi
 
     for n in bg_mon-${BG_MON_COMMIT} \
             pg_auth_mon-${PG_AUTH_MON_COMMIT} \
-            set_user \
+            set_user-${SET_USER_COMMT} \
             pg_permissions-${PG_PERMISSIONS_COMMIT} \
             pg_profile-${PG_PROFILE} \
+            pg_stat_kcache-${PG_STAT_KCACHE_COMMIT} \
             "${EXTRA_EXTENSIONS[@]}"; do
         make -C "$n" USE_PGXS=1 clean install-strip
     done
@@ -177,6 +187,9 @@ done
 
 if [ "$DEMO" != "true" ]; then
     for version in $DEB_PG_SUPPORTED_VERSIONS; do
+        if [ "$version" = "17" ]; then
+            continue
+        fi
         # create postgis symlinks to make it possible to perform update
         ln -s "postgis-${POSTGIS_VERSION%.*}.so" "/usr/lib/postgresql/${version}/lib/postgis-2.5.so"
     done
@@ -258,6 +271,9 @@ if [ "$DEMO" != "true" ]; then
         # relink files with the same name and content across different major versions
         started=0
         for v2 in $(find /usr/share/postgresql -type d -mindepth 1 -maxdepth 1 | sort -Vr); do
+            if [ "${v2##*/}" = "17" ]; then
+                continue
+            fi
             if [ "$v1" = "$v2" ]; then
                 started=1
             elif [ $started = 1 ]; then
