@@ -173,6 +173,8 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
                 cargo install cargo-pgrx --version "$PGRX_VERSION"
             fi
             cargo pgrx init "--pg${version}=/usr/lib/postgresql/${version}/bin/pg_config"
+            sed -i -e "s/@CARGO_VERSION@/$PGRX_VERSION/g" ./vectors.control
+            sed -i -e "s/default_version = '0.0.0'/default_version = '$PGRX_VERSION'/g" ./vectors.control
             cargo pgrx install --release
             cp sql/install/vectors--${PGVECTO_RS}.sql /usr/share/postgresql/${version}/extension/ &&\
             cp sql/upgrade/*.sql /usr/share/postgresql/${version}/extension/
