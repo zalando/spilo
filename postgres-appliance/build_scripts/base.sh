@@ -150,16 +150,10 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
         (
             cd pgvecto.rs
             git checkout "v${PGVECTO_RS}"
-            PGRX_REV=$(grep 'pgrx =' Cargo.toml | awk -F'rev = "' '{print $2}' | cut -d'"' -f1)
-            PGRX_VERSION=$(grep '^pgrx ' Cargo.toml | awk -F'\"' '{print $2}')
-            if [ -n "$PGRX_REV" ]; then
-                cargo install cargo-pgrx --git https://github.com/tensorchord/pgrx.git --rev "$PGRX_REV"
-            else
-                cargo install cargo-pgrx --version "$PGRX_VERSION"
-            fi
+            PGRX_VERSION=$(grep -o 'pgrx = { version = "=[^"]*' Cargo.toml | cut -d = -f 4)
+            cargo install cargo-pgrx --version "$PGRX_VERSION"
             cargo pgrx init "--pg${version}=/usr/lib/postgresql/${version}/bin/pg_config"
             sed -i -e "s/@CARGO_VERSION@/$PGRX_VERSION/g" ./vectors.control
-            sed -i -e "s/default_version = '0.0.0'/default_version = '$PGRX_VERSION'/g" ./vectors.control
             cargo pgrx install --release
             cp sql/install/vectors--${PGVECTO_RS}.sql /usr/share/postgresql/${version}/extension/ &&\
             cp sql/upgrade/*.sql /usr/share/postgresql/${version}/extension/
