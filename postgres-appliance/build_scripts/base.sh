@@ -67,6 +67,34 @@ apt-get install -y \
     python3.10 \
     python3-psycopg2
 
+# pgvecto.rs deps start
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+export PATH=$HOME/.cargo/bin:$PATH
+git clone https://github.com/tensorchord/pgvecto.rs.git
+
+apt-get install -y --no-install-recommends \
+    libreadline-dev \
+    flex \
+    bison \
+    libxml2-dev \
+    libxslt-dev \
+    libxml2-utils \
+    xsltproc \
+    ccache \
+    clang \
+    gnupg \
+    lsb-release \
+    tzdata \
+    ca-certificates \
+    curl \
+    software-properties-common
+
+curl -L https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --dearmor > /usr/share/keyrings/llvm-snapshot.gpg.key
+echo "deb [signed-by=/usr/share/keyrings/llvm-snapshot.gpg.key] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-16 main" | tee /etc/apt/sources.list.d/llvm-toolchain.list
+apt-get update
+apt-get install -y --no-install-recommends clang-16
+# pgvecto.rs deps end
+
 # forbid creation of a main cluster when package is installed
 sed -ri 's/#(create_main_cluster) .*$/\1 = false/' /etc/postgresql-common/createcluster.conf
 
@@ -117,6 +145,27 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
         "${EXTRAS[@]}"
 
     # Install 3rd party stuff
+    # pgvecto.rs start
+    if [ "${version%.*}" -ge 14 ]; then
+        (
+            cd pgvecto.rs
+            git checkout "v${PGVECTO_RS}"
+            PGRX_REV=$(grep 'pgrx =' Cargo.toml | awk -F'rev = "' '{print $2}' | cut -d'"' -f1)
+            PGRX_VERSION=$(grep '^pgrx ' Cargo.toml | awk -F'\"' '{print $2}')
+            if [ -n "$PGRX_REV" ]; then
+                cargo install cargo-pgrx --git https://github.com/tensorchord/pgrx.git --rev "$PGRX_REV"
+            else
+                cargo install cargo-pgrx --version "$PGRX_VERSION"
+            fi
+            cargo pgrx init "--pg${version}=/usr/lib/postgresql/${version}/bin/pg_config"
+            sed -i -e "s/@CARGO_VERSION@/$PGRX_VERSION/g" ./vectors.control
+            sed -i -e "s/default_version = '0.0.0'/default_version = '$PGRX_VERSION'/g" ./vectors.control
+            cargo pgrx install --release
+            cp sql/install/vectors--${PGVECTO_RS}.sql /usr/share/postgresql/${version}/extension/ &&\
+            cp sql/upgrade/*.sql /usr/share/postgresql/${version}/extension/
+        )
+    fi
+    # pgvecto.rs end
 
     # use subshell to avoid having to cd back (SC2103)
     (
@@ -202,7 +251,17 @@ apt-get purge -y \
                 postgresql-server-dev-* \
                 libpq-dev=* \
                 libmagic1 \
-                bsdmainutils
+                bsdmainutils \
+                libreadline-dev \
+                flex \
+                bison \
+                libxml2-dev \
+                libxslt-dev \
+                libxml2-utils \
+                clang \
+                gnupg \
+                lsb-release \
+                clang-16
 apt-get autoremove -y
 apt-get clean
 dpkg -l | grep '^rc' | awk '{print $2}' | xargs apt-get purge -y
@@ -286,6 +345,8 @@ fi
 rm -rf /var/lib/apt/lists/* \
         /var/cache/debconf/* \
         /builddeps \
+        /root/.rustup \
+        /root/.cargo \
         /usr/share/doc \
         /usr/share/man \
         /usr/share/info \
