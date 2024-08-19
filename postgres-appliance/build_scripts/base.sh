@@ -68,31 +68,16 @@ apt-get install -y \
     python3-psycopg2
 
 # pgvecto.rs deps start
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
-export PATH=$HOME/.cargo/bin:$PATH
-git clone https://github.com/tensorchord/pgvecto.rs.git
-
 apt-get install -y --no-install-recommends \
-    libreadline-dev \
-    flex \
-    bison \
     libxml2-dev \
     libxslt-dev \
     libxml2-utils \
     xsltproc \
-    ccache \
-    clang \
-    gnupg \
-    lsb-release \
     tzdata \
     ca-certificates \
     curl \
     software-properties-common
 
-curl -L https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --dearmor > /usr/share/keyrings/llvm-snapshot.gpg.key
-echo "deb [signed-by=/usr/share/keyrings/llvm-snapshot.gpg.key] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-16 main" | tee /etc/apt/sources.list.d/llvm-toolchain.list
-apt-get update
-apt-get install -y --no-install-recommends clang-16
 # pgvecto.rs deps end
 
 # forbid creation of a main cluster when package is installed
@@ -149,14 +134,9 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
     if [ "${version%.*}" -ge 14 ]; then
         (
             cd pgvecto.rs
-            git checkout "v${PGVECTO_RS}"
-            PGRX_VERSION=$(grep -o 'pgrx = { version = "=[^"]*' Cargo.toml | cut -d = -f 4)
-            cargo install cargo-pgrx --version "$PGRX_VERSION"
-            cargo pgrx init "--pg${version}=/usr/lib/postgresql/${version}/bin/pg_config"
-            sed -i -e "s/@CARGO_VERSION@/$PGRX_VERSION/g" ./vectors.control
-            cargo pgrx install --release
-            cp sql/install/vectors--${PGVECTO_RS}.sql /usr/share/postgresql/${version}/extension/ &&\
-            cp sql/upgrade/*.sql /usr/share/postgresql/${version}/extension/
+            curl -O "https://github.com/tensorchord/pgvecto.rs/releases/download/v${PGVECTO_RS}/vectors-pg${version}_${PGVECTO_RS}_amd64.deb"
+            apt-get install -y "vectors-pg${version}_${PGVECTO_RS}_amd64.deb"
+            rm -Rf "vectors-pg${version}_${PGVECTO_RS}_amd64.deb"
         )
     fi
     # pgvecto.rs end
@@ -339,8 +319,6 @@ fi
 rm -rf /var/lib/apt/lists/* \
         /var/cache/debconf/* \
         /builddeps \
-        /root/.rustup \
-        /root/.cargo \
         /usr/share/doc \
         /usr/share/man \
         /usr/share/info \
