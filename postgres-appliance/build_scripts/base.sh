@@ -131,6 +131,7 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
         (
             mkdir -p pgvecto.rs
             cd pgvecto.rs
+            ARCH="$(dpkg --print-architecture)"
             if [ "$ARCH" = "amd64" ]; then
                 PGVECTORS_ARCH='amd64'
             else
