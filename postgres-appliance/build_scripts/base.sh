@@ -133,6 +133,7 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
     # pgvecto.rs start
     if [ "${version%.*}" -ge 14 ]; then
         (
+            mkdir pgvecto.rs
             cd pgvecto.rs
             curl -O "https://github.com/tensorchord/pgvecto.rs/releases/download/v${PGVECTO_RS}/vectors-pg${version}_${PGVECTO_RS}_amd64.deb"
             apt-get install -y "vectors-pg${version}_${PGVECTO_RS}_amd64.deb"
