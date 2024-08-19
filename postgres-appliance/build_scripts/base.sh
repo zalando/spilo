@@ -69,10 +69,6 @@ apt-get install -y \
 
 # pgvecto.rs deps start
 apt-get install -y --no-install-recommends \
-    libxml2-dev \
-    libxslt-dev \
-    libxml2-utils \
-    xsltproc \
     tzdata \
     ca-certificates \
     curl \
@@ -226,17 +222,7 @@ apt-get purge -y \
                 postgresql-server-dev-* \
                 libpq-dev=* \
                 libmagic1 \
-                bsdmainutils \
-                libreadline-dev \
-                flex \
-                bison \
-                libxml2-dev \
-                libxslt-dev \
-                libxml2-utils \
-                clang \
-                gnupg \
-                lsb-release \
-                clang-16
+                bsdmainutils
 apt-get autoremove -y
 apt-get clean
 dpkg -l | grep '^rc' | awk '{print $2}' | xargs apt-get purge -y
