@@ -43,7 +43,7 @@ ATTEMPT=0
 server_version="-1"
 while true; do
     [[ -z $wal_segment_backup_start ]] && wal_segment_backup_start=$($WAL_E backup-list 2> /dev/null \
-        | sed '0,/^name\s*\(last_\)\?modified\s*/d' | sort -bk2 | tail -n1 | awk '{print $3;}' | sed 's/_.*$//')
+        | sed '0,/^\(backup_\)\?name\s*\(last_\)\?modified\s*/d' | sort -bk2 | tail -n1 | awk '{print $3;}' | sed 's/_.*$//')
 
     [[ -n "$CONNSTR" && $server_version == "-1" ]] && server_version=$(psql -d "$CONNSTR" -tAc 'show server_version_num' 2> /dev/null || echo "-1")
 
@@ -61,11 +61,7 @@ if [[ $server_version != "-1" ]]; then
     readonly lsn_offset=$((16#${wal_segment_backup_start:16:8}))
     printf -v backup_start_lsn "%X/%X" $lsn_segment $((lsn_offset << 24))
 
-    if [[ $server_version -ge 100000 ]]; then
-        readonly query="SELECT CASE WHEN pg_is_in_recovery() THEN GREATEST(pg_wal_lsn_diff(COALESCE(pg_last_wal_receive_lsn(), '0/0'), '$backup_start_lsn')::bigint, pg_wal_lsn_diff(pg_last_wal_replay_lsn(), '$backup_start_lsn')::bigint) ELSE pg_wal_lsn_diff(pg_current_wal_lsn(), '$backup_start_lsn')::bigint END"
-    else
-        readonly query="SELECT CASE WHEN pg_is_in_recovery() THEN GREATEST(pg_xlog_location_diff(COALESCE(pg_last_xlog_receive_location(), '0/0'), '$backup_start_lsn')::bigint, pg_xlog_location_diff(pg_last_xlog_replay_location(), '$backup_start_lsn')::bigint) ELSE pg_xlog_location_diff(pg_current_xlog_location(), '$backup_start_lsn')::bigint END"
-    fi
+    readonly query="SELECT CASE WHEN pg_is_in_recovery() THEN GREATEST(pg_wal_lsn_diff(COALESCE(pg_last_wal_receive_lsn(), '0/0'), '$backup_start_lsn')::bigint, pg_wal_lsn_diff(pg_last_wal_replay_lsn(), '$backup_start_lsn')::bigint) ELSE pg_wal_lsn_diff(pg_current_wal_lsn(), '$backup_start_lsn')::bigint END"
 
     ATTEMPT=0
     while true; do

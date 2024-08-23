@@ -1,5 +1,0 @@
-# Spilo Test
-
-## docker-compose.yml
-The Spilo image to be tested can be defined using the environment variable `SPILO_TEST_IMAGE`.
-If ommitted it will default to `spilo`.
