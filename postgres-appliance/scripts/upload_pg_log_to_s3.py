@@ -63,7 +63,11 @@ def upload_to_s3(local_file_path):
 
     chunk_size = 52428800  # 50 MiB
     config = TransferConfig(multipart_threshold=chunk_size, multipart_chunksize=chunk_size)
-    tags = {'LogEndpoint': os.getenv('LOG_S3_ENDPOINT'), 'Namespace': os.getenv('POD_NAMESPACE'), 'ClusterName': os.getenv('SCOPE')}
+    tags = {
+        'LogEndpoint': os.getenv('LOG_S3_ENDPOINT'),
+        'Namespace': os.getenv('POD_NAMESPACE'),
+        'ClusterName': os.getenv('SCOPE')
+    }
 
     try:
         bucket.upload_file(local_file_path, key_name, Config=config, ExtraArgs=tags)
