@@ -7,6 +7,7 @@ import logging
 import subprocess
 import sys
 import time
+import croniter
 
 from datetime import datetime, timedelta
 
@@ -16,12 +17,21 @@ from boto3.s3.transfer import TransferConfig
 logger = logging.getLogger(__name__)
 
 
-def compress_pg_log():
+def generate_file_name():
+    schedule = os.getenv('LOG_SHIP_SCHEDULE')
+    itr = croniter(schedule, datetime.now() - timedelta(minutes=1))
+    prev_log = itr.get_prev(datetime.datetime)
     yesterday = datetime.now() - timedelta(days=1)
     yesterday_day_number = yesterday.strftime('%u')
 
     log_file = os.path.join(os.getenv('PGLOG'), 'postgresql-' + yesterday_day_number + '.csv')
-    archived_log_file = os.path.join(os.getenv('LOG_TMPDIR'), yesterday.strftime('%F') + '.csv.gz')
+    archived_log_file = os.path.join(os.getenv('LOG_TMPDIR'), prev_log.strftime('%F') + '.csv.gz')
+
+    return log_file, archived_log_file
+
+
+def compress_pg_log():
+    log_file, archived_log_file = generate_file_name()
 
     if os.path.getsize(log_file) == 0:
         logger.warning("Postgres log from yesterday '%s' is empty.", log_file)
@@ -53,9 +63,10 @@ def upload_to_s3(local_file_path):
 
     chunk_size = 52428800  # 50 MiB
     config = TransferConfig(multipart_threshold=chunk_size, multipart_chunksize=chunk_size)
+    tags = {'LogEndpoint': os.getenv('LOG_S3_ENDPOINT'), 'Namespace': os.getenv('POD_NAMESPACE'), 'ClusterName': os.getenv('SCOPE')}
 
     try:
-        bucket.upload_file(local_file_path, key_name, Config=config)
+        bucket.upload_file(local_file_path, key_name, Config=config, ExtraArgs=tags)
     except S3UploadFailedError as e:
         logger.exception('Failed to upload the %s to the bucket %s under the key %s. Exception: %r',
                          local_file_path, bucket_name, key_name, e)
