@@ -64,13 +64,13 @@ def upload_to_s3(local_file_path):
     chunk_size = 52428800  # 50 MiB
     config = TransferConfig(multipart_threshold=chunk_size, multipart_chunksize=chunk_size)
     tags = {
-        'LogEndpoint': os.getenv('LOG_S3_ENDPOINT'),
         'Namespace': os.getenv('POD_NAMESPACE'),
         'ClusterName': os.getenv('SCOPE')
     }
+    tags_str = "&".join(f"{key}={value}" for key, value in tags.items())
 
     try:
-        bucket.upload_file(local_file_path, key_name, Config=config, ExtraArgs=tags)
+        bucket.upload_file(local_file_path, key_name, Config=config, ExtraArgs={'Tagging': tags_str})
     except S3UploadFailedError as e:
         logger.exception('Failed to upload the %s to the bucket %s under the key %s. Exception: %r',
                          local_file_path, bucket_name, key_name, e)
