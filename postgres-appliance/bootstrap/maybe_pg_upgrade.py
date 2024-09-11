@@ -8,7 +8,7 @@ import sys
 logger = logging.getLogger(__name__)
 
 
-def tail_postgres_log(weekday, hour):
+def tail_postgres_log(weekday):
     logdir = os.environ.get('PGLOG', '/home/postgres/pgdata/pgroot/pg_log')
     logfile = os.path.join(logdir, 'postgresql-{0}.csv'.format(weekday))
     if os.getenv('LOG_SHIP_HOURLY'):
