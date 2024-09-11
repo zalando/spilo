@@ -22,7 +22,7 @@ import yaml
 import pystache
 import requests
 
-from spilo_commons import RW_DIR, PATRONI_CONFIG_FILE, append_extensions,\
+from spilo_commons import RW_DIR, PATRONI_CONFIG_FILE, append_extensions, \
         get_binary_version, get_bin_dir, is_valid_pg_version, write_file, write_patroni_config
 
 
@@ -292,9 +292,19 @@ postgresql:
     logging_collector: 'on'
     log_destination: csvlog
     log_directory: ../pg_log
+    {{#LOG_SHIP_HOURLY}}
     log_filename: 'postgresql-%u.log'
+    {{/LOG_SHIP_HOURLY}}
+    {{^LOG_SHIP_HOURLY}}
+    log_filename: 'postgresql-%u-%H.log'
+    {{/LOG_SHIP_HOURLY}}
     log_file_mode: '0644'
+    {{#LOG_SHIP_HOURLY}}
+    log_rotation_age: '1h'
+    {{/LOG_SHIP_HOURLY}}
+    {{^LOG_SHIP_HOURLY}}
     log_rotation_age: '1d'
+    {{/LOG_SHIP_HOURLY}}
     log_truncate_on_rotation: 'on'
     ssl: 'on'
     {{#SSL_CA_FILE}}
@@ -580,6 +590,7 @@ def get_placeholders(provider):
     placeholders.setdefault('CLONE_TARGET_INCLUSIVE', True)
 
     placeholders.setdefault('LOG_GROUP_BY_DATE', False)
+    placeholders.setdefault('LOG_SHIP_HOURLY', False)
     placeholders.setdefault('LOG_SHIP_SCHEDULE', '1 0 * * *')
     placeholders.setdefault('LOG_S3_BUCKET', '')
     placeholders.setdefault('LOG_S3_ENDPOINT', '')
@@ -761,6 +772,11 @@ def write_log_environment(placeholders):
     log_s3_key = 'spilo/{LOG_BUCKET_SCOPE_PREFIX}{SCOPE}{LOG_BUCKET_SCOPE_SUFFIX}/log/'.format(**log_env)
     if os.getenv('LOG_GROUP_BY_DATE'):
         log_s3_key += '{DATE}/'
+
+    log_schedule = os.getenv('LOG_SHIP_SCHEDULE')
+    if '/' in log_schedule.split()[1]:
+        log_env['LOG_SHIP_HOURLY'] = True
+
     log_s3_key += placeholders['instance_data']['id']
     log_env['LOG_S3_KEY'] = log_s3_key
 
