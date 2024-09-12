@@ -12,7 +12,7 @@ def tail_postgres_log(weekday):
     logdir = os.environ.get('PGLOG', '/home/postgres/pgdata/pgroot/pg_log')
     logfile = os.path.join(logdir, 'postgresql-{0}.csv'.format(weekday))
     if os.getenv('LOG_SHIP_HOURLY') == 'true':
-        logfile = os.path.join(logdir, 'postgresql-{0}-{1}.csv'.format(weekday, datetime.datetime.today().hour))
+        logfile = os.path.join(logdir, 'postgresql-{0}-{1}.csv'.format(weekday, datetime.datetime.today().hour()))
     return subprocess.check_output(['tail', '-n5', logfile]).decode('utf-8')
 
 
