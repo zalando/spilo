@@ -590,7 +590,7 @@ def get_placeholders(provider):
     placeholders.setdefault('CLONE_TARGET_INCLUSIVE', True)
 
     placeholders.setdefault('LOG_GROUP_BY_DATE', False)
-    placeholders.setdefault('LOG_SHIP_HOURLY', '')
+    placeholders.setdefault('LOG_SHIP_HOURLY', 'false')
     placeholders.setdefault('LOG_SHIP_SCHEDULE', '1 0 * * *')
     placeholders.setdefault('LOG_S3_BUCKET', '')
     placeholders.setdefault('LOG_S3_ENDPOINT', '')
@@ -787,7 +787,13 @@ def write_log_environment(placeholders):
     if not os.path.exists(log_env['LOG_ENV_DIR']):
         os.makedirs(log_env['LOG_ENV_DIR'])
 
-    for var in ('LOG_TMPDIR', 'LOG_AWS_REGION', 'LOG_S3_ENDPOINT', 'LOG_S3_KEY', 'LOG_S3_BUCKET', 'PGLOG'):
+    for var in ('LOG_TMPDIR',
+                'LOG_AWS_REGION',
+                'LOG_S3_ENDPOINT',
+                'LOG_S3_KEY',
+                'LOG_S3_BUCKET',
+                'LOG_SHIP_HOURLY',
+                'PGLOG'):
         write_file(log_env[var], os.path.join(log_env['LOG_ENV_DIR'], var), True)
 
 
