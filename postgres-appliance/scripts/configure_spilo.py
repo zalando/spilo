@@ -773,10 +773,6 @@ def write_log_environment(placeholders):
     if os.getenv('LOG_GROUP_BY_DATE'):
         log_s3_key += '{DATE}/'
 
-    log_schedule = os.getenv('LOG_SHIP_SCHEDULE')
-    if '/' in log_schedule.split()[1]:
-        log_env['LOG_SHIP_HOURLY'] = 'true'
-
     log_s3_key += placeholders['instance_data']['id']
     log_env['LOG_S3_KEY'] = log_s3_key
 
@@ -787,13 +783,7 @@ def write_log_environment(placeholders):
     if not os.path.exists(log_env['LOG_ENV_DIR']):
         os.makedirs(log_env['LOG_ENV_DIR'])
 
-    for var in ('LOG_TMPDIR',
-                'LOG_AWS_REGION',
-                'LOG_S3_ENDPOINT',
-                'LOG_S3_KEY',
-                'LOG_S3_BUCKET',
-                'LOG_SHIP_HOURLY',
-                'PGLOG'):
+    for var in ('LOG_TMPDIR', 'LOG_AWS_REGION', 'LOG_S3_ENDPOINT', 'LOG_S3_KEY', 'LOG_S3_BUCKET', 'PGLOG'):
         write_file(log_env[var], os.path.join(log_env['LOG_ENV_DIR'], var), True)
 
 
@@ -1023,8 +1013,12 @@ def write_crontab(placeholders, overwrite):
                    ' "{PGDATA}"').format(**placeholders)]
 
     if bool(placeholders.get('LOG_S3_BUCKET')):
-        lines += [('{LOG_SHIP_SCHEDULE} nice -n 5 envdir "{LOG_ENV_DIR}"' +
-                   ' /scripts/upload_pg_log_to_s3.py').format(**placeholders)]
+        log_dir = placeholders.get('LOG_ENV_DIR')
+        schedule = placeholders.get('LOG_SHIP_SCHEDULE')
+        if placeholders.get('LOG_SHIP_HOURLY') == 'true':
+            schedule = '1 */1 * * *'
+        lines += [('{0} nice -n 5 envdir "{1}"' +
+                   ' /scripts/upload_pg_log_to_s3.py').format(schedule, log_dir)]
 
     lines += yaml.safe_load(placeholders['CRONTAB'])
 

@@ -34,7 +34,7 @@ fi
 ## Ensure all logfiles exist, most appliances will have
 ## a foreign data wrapper pointing to these files
 for i in $(seq 0 7); do
-    if [ "$LOG_SHIP_HOURLY" != 'true' ]; then
+    if [ "$LOG_SHIP_HOURLY" != "true" ]; then
         if [ ! -f "${PGLOG}/postgresql-${i}.csv" ]; then
             touch "${PGLOG}/postgresql-${i}.csv"
         fi
