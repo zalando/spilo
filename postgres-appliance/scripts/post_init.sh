@@ -148,7 +148,7 @@ fi
 
 # Sunday could be 0 or 7 depending on the format, we just create both
 for i in $(seq 0 7); do
-    if [ "$LOG_SHIP_HOURLY" != true ]; then
+    if [ "$LOG_SHIP_HOURLY" != 'true' ]; then
         echo "CREATE FOREIGN TABLE IF NOT EXISTS public.postgres_log_${i} () INHERITS (public.postgres_log) SERVER pglog
         OPTIONS (filename '../pg_log/postgresql-${i}.csv', format 'csv', header 'false');
         GRANT SELECT ON public.postgres_log_${i} TO admin;"
