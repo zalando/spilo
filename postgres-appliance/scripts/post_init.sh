@@ -147,6 +147,7 @@ if [ "$PGVER" -ge 14 ]; then
 fi
 
 # Sunday could be 0 or 7 depending on the format, we just create both
+LOG_SHIP_HOURLY=$(echo -e "SELECT text(current_setting('log_rotation_age') = '1h')" | psql -tAX -d postgres 2> /dev/null | tail -n 1)
 for i in $(seq 0 7); do
     if [ "$LOG_SHIP_HOURLY" != "true" ]; then
         echo "CREATE FOREIGN TABLE IF NOT EXISTS public.postgres_log_${i} () INHERITS (public.postgres_log) SERVER pglog
