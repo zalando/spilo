@@ -293,10 +293,10 @@ postgresql:
     log_destination: csvlog
     log_directory: ../pg_log
     {{#LOG_SHIP_HOURLY}}
-    log_filename: 'postgresql-%u.log'
+    log_filename: 'postgresql-%u-%H.log'
     {{/LOG_SHIP_HOURLY}}
     {{^LOG_SHIP_HOURLY}}
-    log_filename: 'postgresql-%u-%H.log'
+    log_filename: 'postgresql-%u.log'
     {{/LOG_SHIP_HOURLY}}
     log_file_mode: '0644'
     {{#LOG_SHIP_HOURLY}}
