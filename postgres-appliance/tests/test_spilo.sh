@@ -227,6 +227,19 @@ function start_clone_with_basebackup_upgrade_container() {
         -d spilo3
 }
 
+function start_clone_with_hourly_log_rotation() {
+    docker-compose run \
+        -e SCOPE=upgrade \
+        -e PGVERSION=16 \
+        -e LOG_SHIP_HOURLY="true" \
+        -e CLONE_SCOPE=demo \
+        -e CLONE_PGVERSION=16 \
+        -e CLONE_METHOD=CLONE_WITH_WALE \
+        -e CLONE_TARGET_TIME="$(next_minute)" \
+        --name "${PREFIX}1hlogs" \
+        -d "spilo3"
+}
+
 function verify_clone_upgrade() {
     local type=$2
     local from_version=$3
@@ -241,6 +254,14 @@ function verify_archive_mode_is_on() {
     [ "$archive_mode" = "on" ]
 }
 
+function verify_hourly_log_rotation() {
+    log_rotation_age=$(docker_exec "$1" "psql -U postgres -tAc \"SHOW log_rotation_age\"")
+    log_filename=$(docker_exec "$1" "psql -U postgres -tAc \"SHOW log_filename\"")
+    # we expect 8x24 foreign tables (+8 already existing tables when init with daily rotation)
+    postgres_log_ftables=$(docker exec "$1" "psql -U postgres -tAc \"SELECT count(*) FROM pg_foreign_table WHERE ftrelid::regclass::text LIKE 'postgres_log_%'\"")
+
+    [ "$log_rotation_age" = "1h" && "$log_filename" = "postgresql-%u-%H.log" && "$postgres_log_ftables" -ge 192 ]
+}
 
 # TEST SUITE 1 - In-place major upgrade 12->13->...->16
 # TEST SUITE 2 - Major upgrade 12->16 after wal-e clone (with CLONE_PGVERSION set)
@@ -248,6 +269,7 @@ function verify_archive_mode_is_on() {
 # TEST SUITE 4 - Major upgrade 12->13 after wal-e clone (no CLONE_PGVERSION)
 # TEST SUITE 5 - Replica bootstrap with wal-e
 # TEST SUITE 6 - Major upgrade 13->14 after clone with basebackup
+# TEST SUITE 7 - Hourly log rotation
 function test_spilo() {
     # TEST SUITE 1
     local container=$1
@@ -367,6 +389,14 @@ function test_spilo() {
     log_info "[TS6] Testing in-place major upgrade 13->14 after clone with basebackup"
     run_test verify_clone_upgrade "$basebackup_container" "basebackup" 13 14
     run_test verify_archive_mode_is_on "$basebackup_container"
+
+    # TEST SUITE 7
+    local 1hlogs_container
+    1hlogs_container=$(start_clone_with_hourly_log_rotation "$container")
+    wait_all_streaming "$1hlogs_container"
+
+    log_info "[TS7] Testing hourly log rotation"
+    run_test verify_hourly_log_rotation "$1hlogs_container"
 }
 
 function main() {
