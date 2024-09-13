@@ -236,7 +236,7 @@ function start_clone_with_hourly_log_rotation() {
         -e CLONE_PGVERSION=16 \
         -e CLONE_METHOD=CLONE_WITH_WALE \
         -e CLONE_TARGET_TIME="$(next_minute)" \
-        --name "${PREFIX}1hlogs" \
+        --name "${PREFIX}hourlylogs" \
         -d "spilo3"
 }
 
@@ -391,12 +391,12 @@ function test_spilo() {
     run_test verify_archive_mode_is_on "$basebackup_container"
 
     # TEST SUITE 7
-    local 1hlogs_container
-    1hlogs_container=$(start_clone_with_hourly_log_rotation "$container")
-    wait_all_streaming "$1hlogs_container"
+    local hourlylogs_container
+    hourlylogs_container=$(start_clone_with_hourly_log_rotation "$container")
+    wait_all_streaming "$hourlylogs_container"
 
     log_info "[TS7] Testing hourly log rotation"
-    run_test verify_hourly_log_rotation "$1hlogs_container"
+    run_test verify_hourly_log_rotation "$hourlylogs_container"
 }
 
 function main() {
