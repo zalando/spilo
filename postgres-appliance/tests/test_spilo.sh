@@ -392,7 +392,7 @@ function test_spilo() {
 
     # TEST SUITE 7
     local hourlylogs_container
-    hourlylogs_container=$(start_clone_with_hourly_log_rotation "$container")
+    hourlylogs_container=$(start_clone_with_hourly_log_rotation "$upgrade_container")
     wait_all_streaming "$hourlylogs_container"
 
     log_info "[TS7] Testing hourly log rotation"
