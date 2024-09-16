@@ -367,11 +367,7 @@ function test_spilo() {
     local basebackup_container
     basebackup_container=$(start_clone_with_basebackup_upgrade_container "$upgrade_container")  # SCOPE=upgrade2 PGVERSION=14 CLONE: _SCOPE=upgrade
     log_info "[TS6] Started $basebackup_container for testing major upgrade 13->14 after clone with basebackup"
-
-    # TEST SUITE 7
-    local hourlylogs_container
-    hourlylogs_container=$(start_clone_with_hourly_log_rotation "$upgrade_container")
-    log_info "[TS7] Started $hourlylogs_container for testing hourly log rotation"
+    wait_backup "$basebackup_container"
 
     # TEST SUITE 1
     # run_test test_pg_upgrade_to_16_check_failed "$container"  # pg_upgrade --check complains about timescaledb
@@ -389,6 +385,10 @@ function test_spilo() {
     log_info "[TS5] Waiting for postgres to start in the $upgrade_replica_container and stream from primary..."
     wait_all_streaming "$upgrade_container" 1
 
+    # TEST SUITE 7
+    local hourlylogs_container
+    hourlylogs_container=$(start_clone_with_hourly_log_rotation "$upgrade_container")
+    log_info "[TS7] Started $hourlylogs_container for testing hourly log rotation"
 
     # TEST SUITE 6
     log_info "[TS6] Testing in-place major upgrade 13->14 after clone with basebackup"
