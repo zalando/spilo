@@ -233,7 +233,7 @@ function start_clone_with_hourly_log_rotation() {
         -e PGVERSION=16 \
         -e LOG_SHIP_HOURLY="true" \
         -e CLONE_SCOPE=upgrade2 \
-        -e CLONE_PGVERSION=16 \
+        -e CLONE_PGVERSION=14 \
         -e CLONE_METHOD=CLONE_WITH_WALE \
         -e CLONE_TARGET_TIME="$(next_minute)" \
         --name "${PREFIX}hourlylogs" \
