@@ -17,11 +17,10 @@ logger = logging.getLogger(__name__)
 
 
 def get_file_names():
-    hourly_schedule = os.getenv('LOG_SHIP_HOURLY')
     prev_interval = datetime.now() - timedelta(days=1)
     prev_interval_number = prev_interval.strftime('%u')
 
-    if hourly_schedule:
+    if os.getenv('LOG_SHIP_HOURLY') == 'true':
         prev_interval = datetime.now() - timedelta(hours=1)
         prev_interval_number = prev_interval.strftime('%u-%H')
 

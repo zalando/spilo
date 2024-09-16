@@ -590,7 +590,7 @@ def get_placeholders(provider):
     placeholders.setdefault('CLONE_TARGET_INCLUSIVE', True)
 
     placeholders.setdefault('LOG_GROUP_BY_DATE', False)
-    placeholders.setdefault('LOG_SHIP_HOURLY', 'false')
+    placeholders.setdefault('LOG_SHIP_HOURLY', '')
     placeholders.setdefault('LOG_SHIP_SCHEDULE', '1 0 * * *')
     placeholders.setdefault('LOG_S3_BUCKET', '')
     placeholders.setdefault('LOG_S3_ENDPOINT', '')
