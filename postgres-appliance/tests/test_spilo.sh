@@ -258,7 +258,7 @@ function verify_hourly_log_rotation() {
     log_rotation_age=$(docker_exec "$1" "psql -U postgres -tAc \"SHOW log_rotation_age\"")
     log_filename=$(docker_exec "$1" "psql -U postgres -tAc \"SHOW log_filename\"")
     # we expect 8x24 foreign tables (+8 already existing tables when init with daily rotation)
-    postgres_log_ftables=$(docker exec "$1" "psql -U postgres -tAc \"SELECT count(*) FROM pg_foreign_table WHERE ftrelid::regclass::text LIKE 'postgres_log_%'\"")
+    postgres_log_ftables=$(docker_exec "$1" "psql -U postgres -tAc \"SELECT count(*) FROM pg_foreign_table WHERE ftrelid::regclass::text LIKE 'postgres_log_%'\"")
 
     [ "$log_rotation_age" = "1h" ] && [ "$log_filename" = "postgresql-%u-%H.log" ] && [ "$postgres_log_ftables" -ge 192 ]
 }
