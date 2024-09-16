@@ -772,7 +772,6 @@ def write_log_environment(placeholders):
     log_s3_key = 'spilo/{LOG_BUCKET_SCOPE_PREFIX}{SCOPE}{LOG_BUCKET_SCOPE_SUFFIX}/log/'.format(**log_env)
     if os.getenv('LOG_GROUP_BY_DATE'):
         log_s3_key += '{DATE}/'
-
     log_s3_key += placeholders['instance_data']['id']
     log_env['LOG_S3_KEY'] = log_s3_key
 
