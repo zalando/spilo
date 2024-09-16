@@ -259,8 +259,9 @@ function verify_hourly_log_rotation() {
     log_filename=$(docker_exec "$1" "psql -U postgres -tAc \"SHOW log_filename\"")
     # we expect 8x24 foreign tables (+8 already existing tables when init with daily rotation)
     postgres_log_ftables=$(docker_exec "$1" "psql -U postgres -tAc \"SELECT count(*) FROM pg_foreign_table WHERE ftrelid::regclass::text LIKE 'postgres_log_%'\"")
+    postgres_failed_auth_views=$(docker_exec "$1" "psql -U postgres -tAc \"SELECT count(*) FROM pg_views WHERE viewname LIKE 'failed_authentication_%''\"")
 
-    [ "$log_rotation_age" = "1h" ] && [ "$log_filename" = "postgresql-%u-%H.log" ] && [ "$postgres_log_ftables" -ge 192 ]
+    [ "$log_rotation_age" = "1h" ] && [ "$log_filename" = "postgresql-%u-%H.log" ] && [ "$postgres_log_ftables" -ge 192 ] && [ "$postgres_failed_auth_views" -ge 192 ]
 }
 
 # TEST SUITE 1 - In-place major upgrade 12->13->...->16
@@ -367,6 +368,10 @@ function test_spilo() {
     basebackup_container=$(start_clone_with_basebackup_upgrade_container "$upgrade_container")  # SCOPE=upgrade2 PGVERSION=14 CLONE: _SCOPE=upgrade
     log_info "[TS6] Started $basebackup_container for testing major upgrade 13->14 after clone with basebackup"
 
+    # TEST SUITE 7
+    local hourlylogs_container
+    hourlylogs_container=$(start_clone_with_hourly_log_rotation "$upgrade_container")
+    log_info "[TS7] Started $hourlylogs_container for testing hourly log rotation"
 
     # TEST SUITE 1
     # run_test test_pg_upgrade_to_16_check_failed "$container"  # pg_upgrade --check complains about timescaledb
@@ -391,11 +396,8 @@ function test_spilo() {
     run_test verify_archive_mode_is_on "$basebackup_container"
 
     # TEST SUITE 7
-    local hourlylogs_container
-    hourlylogs_container=$(start_clone_with_hourly_log_rotation "$upgrade_container")
-    wait_all_streaming "$hourlylogs_container"
-
-    log_info "[TS7] Testing hourly log rotation"
+    find_leader "$hourlylogs_container"
+    log_info "[TS7] Testing correct setup with hourly log rotation"
     run_test verify_hourly_log_rotation "$hourlylogs_container"
 }
 
