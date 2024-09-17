@@ -204,9 +204,8 @@ class _PostgresqlUpgrade(Postgresql):
     def prepare_new_pgdata(self, version):
         from spilo_commons import append_extensions
 
-        locale = self.query('SHOW lc_collate')[0][0]
         encoding = self.query('SHOW server_encoding')[0][0]
-        initdb_config = [{'locale': locale}, {'encoding': encoding}]
+        initdb_config = [{'encoding': encoding}]
         if self.query("SELECT current_setting('data_checksums')::bool")[0][0]:
             initdb_config.append('data-checksums')
 
