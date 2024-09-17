@@ -45,11 +45,13 @@ services:
                   loop_wait: 2
                   postgresql:
                     parameters:
+                      wal_decode_buffer_size: '521kB'
                       wal_keep_segments: 8
+                      jit: 'off'
               postgresql:
                 parameters:
                   shared_buffers: 32MB
-            PGVERSION: '10'
+            PGVERSION: '12'
             # Just to test upgrade with clone. Without CLONE_SCOPE they don't work
             CLONE_WAL_S3_BUCKET: *bucket
             CLONE_AWS_ACCESS_KEY_ID: *access_key
