@@ -54,11 +54,7 @@ def upload_to_s3(local_file_path):
     chunk_size = 52428800  # 50 MiB
     config = TransferConfig(multipart_threshold=chunk_size, multipart_chunksize=chunk_size)
     tags = eval(os.getenv('LOG_S3_TAGS'))
-    s3_tags = {}
-    for key, value in tags.items():
-        s3_tags[key] = os.getenv(value)
-
-    s3_tags_str = "&".join(f"{key}={value}" for key, value in s3_tags.items())
+    s3_tags_str = "&".join(f"{key}={os.getenv(value)}" for key, value in tags.items())
 
     try:
         bucket.upload_file(local_file_path, key_name, Config=config, ExtraArgs={'Tagging': s3_tags_str})
