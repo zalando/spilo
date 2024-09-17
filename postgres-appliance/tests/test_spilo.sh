@@ -347,9 +347,8 @@ function test_spilo() {
 
     wait_backup "$container"
 
-    # drop_timescaledb "$container"
+    drop_timescaledb "$container"
     log_info "[TS1] Testing in-place major upgrade 16->17"
-    drop_timescaledb "$container" # drop timescaledb as it is not yet supported in 17
     run_test test_successful_inplace_upgrade_to_17 "$container"
     wait_all_streaming "$container"
     run_test test_envdir_updated_to_x 17
