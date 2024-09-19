@@ -784,6 +784,7 @@ def write_log_environment(placeholders):
         os.makedirs(log_env['LOG_ENV_DIR'])
 
     for var in ('LOG_TMPDIR',
+                'LOG_SHIP_HOURLY',
                 'LOG_AWS_REGION',
                 'LOG_S3_ENDPOINT',
                 'LOG_S3_KEY',
