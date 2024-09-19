@@ -17,6 +17,7 @@ Environment Configuration Settings
 - **PGROOT**: a directory where we put the pgdata (by default /home/postgres/pgroot). One may adjust it to point to the mount point of the persistent volume, such as EBS.
 - **WALE_TMPDIR**: directory to store WAL-E temporary files. PGROOT/../tmp by default, make sure it has a few GBs of free space.
 - **PGDATA**: location of PostgreSQL data directory, by default PGROOT/pgdata.
+- **WAL_DIRECTORY**: location where the write-ahead log should be stored. By default stored inside PGDATA. This option is useful if you plan to use separate disks for WAL and data.
 - **PGUSER_STANDBY**: username for the replication user, 'standby' by default.
 - **PGPASSWORD_STANDBY**: a password for the replication user, 'standby' by default.
 - **STANDBY_HOST**: hostname or IP address of the primary to stream from.

@@ -27,6 +27,9 @@ while getopts ":-:" optchar; do
         no_master=*|no-master=* )
             NO_MASTER=${OPTARG#*=}
             ;;
+        wal_dir=* )
+            WAL_DIR=${OPTARG#*=}
+            ;;
     esac
 done
 
@@ -87,8 +90,16 @@ while true; do
     if $WAL_E backup-fetch "$DATA_DIR" LATEST; then
         version=$(<"$DATA_DIR/PG_VERSION")
         [[ "$version" =~ \. ]] && wal_name=xlog || wal_name=wal
-        readonly wal_dir=$DATA_DIR/pg_$wal_name
-        [[ ! -d $wal_dir ]] && rm -f "$wal_dir" && mkdir "$wal_dir"
+        readonly pg_wal_location=$DATA_DIR/pg_$wal_name
+
+        # Only create a symbolic link when a separate WAL directory is specified.
+        if [[ -n "$WAL_DIR" ]]; then
+          PG_WAL_OPTS=(ln -s "$WAL_DIR" "$pg_wal_location")
+        else
+          PG_WAL_OPTS=(mkdir "$pg_wal_location")
+        fi
+
+        [[ ! -d $pg_wal_location ]] && rm -f "$pg_wal_location" && "${PG_WAL_OPTS[@]}"
         # remove broken symlinks from PGDATA
         find "$DATA_DIR" -xtype l -delete
         exit 0
