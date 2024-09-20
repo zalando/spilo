@@ -257,11 +257,12 @@ function verify_archive_mode_is_on() {
 function verify_hourly_log_rotation() {
     log_rotation_age=$(docker_exec "$1" "psql -U postgres -tAc \"SHOW log_rotation_age\"")
     log_filename=$(docker_exec "$1" "psql -U postgres -tAc \"SHOW log_filename\"")
-    # we expect 8x24 foreign tables (+8 already existing tables when init with daily rotation)
+    # we expect 8x24 foreign tables and views + 8 views for daily logs and failed authentications
     postgres_log_ftables=$(docker_exec "$1" "psql -U postgres -tAc \"SELECT count(*) FROM pg_foreign_table WHERE ftrelid::regclass::text LIKE 'postgres_log_%'\"")
+    postgres_log_views=$(docker_exec "$1" "psql -U postgres -tAc \"SELECT count(*) FROM pg_views WHERE viewname LIKE 'postgres_log_%'\"")
     postgres_failed_auth_views=$(docker_exec "$1" "psql -U postgres -tAc \"SELECT count(*) FROM pg_views WHERE viewname LIKE 'failed_authentication_%'\"")
 
-    [ "$log_rotation_age" = "1h" ] && [ "$log_filename" = "postgresql-%u-%H.log" ] && [ "$postgres_log_ftables" -ge 192 ] && [ "$postgres_failed_auth_views" -ge 192 ]
+    [ "$log_rotation_age" = "1h" ] && [ "$log_filename" = "postgresql-%u-%H.log" ] && [ "$postgres_log_ftables" -eq 192 ] && [ "$postgres_log_views" -eq 8 ] && [ "$postgres_failed_auth_views" -eq 200 ]
 }
 
 # TEST SUITE 1 - In-place major upgrade 12->13->...->16
