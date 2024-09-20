@@ -39,7 +39,7 @@ for i in $(seq 0 7); do
             touch "${PGLOG}/postgresql-${i}.csv"
         fi
     else
-        for h in $(seq 0 23); do
+        for h in $(seq -w 0 23); do
             if [ ! -f "${PGLOG}/postgresql-${i}-${h}.csv" ]; then
                 touch "${PGLOG}/postgresql-${i}-${h}.csv"
             fi
