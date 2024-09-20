@@ -150,7 +150,8 @@ fi
 LOG_SHIP_HOURLY=$(echo "SELECT text(current_setting('log_rotation_age') = '1h')" | psql -tAX -d postgres 2> /dev/null | tail -n 1)
 for i in $(seq 0 7); do
     if [ "$LOG_SHIP_HOURLY" != "true" ]; then
-        echo "CREATE FOREIGN TABLE IF NOT EXISTS public.postgres_log_${i} () INHERITS (public.postgres_log) SERVER pglog
+        echo "DROP VIEW IF EXISTS public.postgres_log_${i} CASCADE;
+        CREATE FOREIGN TABLE IF NOT EXISTS public.postgres_log_${i} () INHERITS (public.postgres_log) SERVER pglog
         OPTIONS (filename '../pg_log/postgresql-${i}.csv', format 'csv', header 'false');
         GRANT SELECT ON public.postgres_log_${i} TO admin;
 
@@ -165,8 +166,6 @@ for i in $(seq 0 7); do
         daily_log="CREATE OR REPLACE VIEW public.postgres_log_${i} AS\n"
         daily_auth="CREATE OR REPLACE VIEW public.failed_authentication_${i} WITH (security_barrier) AS\n"
         daily_union=""
-
-        echo "DROP FOREIGN TABLE IF EXISTS public.postgres_log_${i} CASCADE;"
 
         for h in $(seq -w 0 23); do
             filter_logs="SELECT * FROM public.postgres_log_${i}_${h} WHERE command_tag = 'authentication' AND error_severity = 'FATAL'"
@@ -185,7 +184,7 @@ for i in $(seq 0 7); do
             daily_union="UNION ALL\n"
         done
 
-        echo -e "${daily_log};"
+        echo -e "DROP FOREIGN TABLE IF EXISTS public.postgres_log_${i} CASCADE;\n${daily_log};"
         echo -e "${daily_auth};"
     fi
 done
