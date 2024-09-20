@@ -166,7 +166,7 @@ for i in $(seq 0 7); do
         daily_auth="CREATE OR REPLACE VIEW public.failed_authentication_${i} WITH (security_barrier) AS\n"
         daily_union=""
 
-        echo "DROP FOREIGN TABLE IF EXISTS public.postgres_log_${i};"
+        echo "DROP FOREIGN TABLE IF EXISTS public.postgres_log_${i} CASCADE;"
 
         for h in $(seq -w 0 23); do
             filter_logs="SELECT * FROM public.postgres_log_${i}_${h} WHERE command_tag = 'authentication' AND error_severity = 'FATAL'"
