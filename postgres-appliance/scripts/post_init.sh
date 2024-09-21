@@ -149,9 +149,20 @@ fi
 # Sunday could be 0 or 7 depending on the format, we just create both
 LOG_SHIP_HOURLY=$(echo "SELECT text(current_setting('log_rotation_age') = '1h')" | psql -tAX -d postgres 2> /dev/null | tail -n 1)
 for i in $(seq 0 7); do
+    echo "DO \$\$
+DECLARE
+  obj_type TEXT;
+BEGIN
+  SELECT CASE WHEN relkind = 'f'
+    THEN 'FOREIGN TABLE' ELSE 'VIEW'
+     END INTO obj_type
+    FROM pg_class
+   WHERE oid = 'public.postgres_log_${i}'::regclass;
+ EXECUTE format('DROP %s IF EXISTS public.postgres_log_${i} CASCADE', obj_type);
+END;\$\$;"
+
     if [ "$LOG_SHIP_HOURLY" != "true" ]; then
-        echo "DROP VIEW IF EXISTS public.postgres_log_${i} CASCADE;
-        CREATE FOREIGN TABLE IF NOT EXISTS public.postgres_log_${i} () INHERITS (public.postgres_log) SERVER pglog
+        echo "CREATE FOREIGN TABLE IF NOT EXISTS public.postgres_log_${i} () INHERITS (public.postgres_log) SERVER pglog
         OPTIONS (filename '../pg_log/postgresql-${i}.csv', format 'csv', header 'false');
         GRANT SELECT ON public.postgres_log_${i} TO admin;
 
@@ -184,7 +195,7 @@ for i in $(seq 0 7); do
             daily_union="UNION ALL\n"
         done
 
-        echo -e "DROP FOREIGN TABLE IF EXISTS public.postgres_log_${i} CASCADE;\n${daily_log};"
+        echo -e "${daily_log};"
         echo -e "${daily_auth};"
     fi
 done
