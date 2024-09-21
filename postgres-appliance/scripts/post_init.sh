@@ -159,7 +159,9 @@ BEGIN
     FROM pg_class
    WHERE relname = 'postgres_log_${i}'
      AND relnamespace = 'public'::pg_catalog.regnamespace;
- EXECUTE format('DROP %s IF EXISTS public.postgres_log_${i} CASCADE', obj_type);
+  IF obj_type IS NOT NULL THEN
+    EXECUTE format('DROP %s IF EXISTS public.postgres_log_${i} CASCADE', obj_type);
+  END IF;
 END;\$\$;"
 
     if [ "$LOG_SHIP_HOURLY" != "true" ]; then
