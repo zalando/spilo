@@ -157,7 +157,8 @@ BEGIN
     THEN 'FOREIGN TABLE' ELSE 'VIEW'
      END INTO obj_type
     FROM pg_class
-   WHERE oid = 'public.postgres_log_${i}'::regclass;
+   WHERE relname = 'postgres_log_${i}'
+     AND relnamespace = 'public'::pg_catalog.regnamespace;
  EXECUTE format('DROP %s IF EXISTS public.postgres_log_${i} CASCADE', obj_type);
 END;\$\$;"
 
