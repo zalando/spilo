@@ -1083,6 +1083,9 @@ def main():
     placeholders = get_placeholders(provider)
     logging.info('Looks like you are running %s', provider)
 
+    # only accept true as value or else it will be empty = disabled
+    placeholders['LOG_SHIP_HOURLY'] = os.environ.get('LOG_SHIP_HOURLY', '') in ['true', 'TRUE']
+
     config = yaml.safe_load(pystache_render(TEMPLATE, placeholders))
     config.update(get_dcs_config(config, placeholders))
 
