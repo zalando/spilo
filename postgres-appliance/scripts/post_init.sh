@@ -148,22 +148,23 @@ fi
 
 # Sunday could be 0 or 7 depending on the format, we just create both
 LOG_SHIP_HOURLY=$(echo "SELECT text(current_setting('log_rotation_age') = '1h')" | psql -tAX -d postgres 2> /dev/null | tail -n 1)
-for i in $(seq 0 7); do
-    echo "DO \$\$
-DECLARE
-  obj_type TEXT;
-BEGIN
-  SELECT CASE WHEN relkind = 'f'
-    THEN 'FOREIGN TABLE' ELSE 'VIEW'
-     END INTO obj_type
-    FROM pg_class
-   WHERE relname = 'postgres_log_${i}'
-     AND relnamespace = 'public'::pg_catalog.regnamespace;
-  IF obj_type IS NOT NULL THEN
-    EXECUTE format('DROP %s IF EXISTS public.postgres_log_${i} CASCADE', obj_type);
-  END IF;
+if [ "$LOG_SHIP_HOURLY" != "true" ]; then
+    tbl_regex='postgres_log_\d_\d{2}$'
+else
+    tbl_regex='postgres_log_\d$'
+fi
+echo "DO \$\$DECLARE tbl_name TEXT;
+    BEGIN
+    FOR tbl_name IN SELECT 'public' || '.' || quote_ident(relname) FROM pg_class
+                    WHERE relname ~ '${tbl_regex}' AND relnamespace = 'public'::pg_catalog.regnamespace AND relkind = 'f'
+    LOOP
+        IF tbl_name IS NOT NULL THEN
+            EXECUTE format('DROP FOREIGN TABLE IF EXISTS %s CASCADE', tbl_name);
+        END IF;
+    END LOOP;
 END;\$\$;"
 
+for i in $(seq 0 7); do
     if [ "$LOG_SHIP_HOURLY" != "true" ]; then
         echo "CREATE FOREIGN TABLE IF NOT EXISTS public.postgres_log_${i} () INHERITS (public.postgres_log) SERVER pglog
         OPTIONS (filename '../pg_log/postgresql-${i}.csv', format 'csv', header 'false');
