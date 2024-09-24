@@ -90,6 +90,7 @@ Environment Configuration Settings
 - **AZURE_TENANT_ID**: (optional) Tenant ID of the Service Principal
 - **CALLBACK_SCRIPT**: the callback script to run on various cluster actions (on start, on stop, on restart, on role change). The script will receive the cluster name, connection string and the current action. See `Patroni <http://patroni.readthedocs.io/en/latest/SETTINGS.html?highlight=callback#postgresql>`__ documentation for details.
 - **LOG_S3_BUCKET**: path to the S3 bucket used for PostgreSQL daily log files (i.e. foobar, without `s3://` prefix). Spilo will add `/spilo/{LOG_BUCKET_SCOPE_PREFIX}{SCOPE}{LOG_BUCKET_SCOPE_SUFFIX}/log/` to that path. Logs are shipped if this variable is set.
+- **LOG_S3_TAGS**: map of key value pairs to be used for tagging files uploaded to S3. Values should be referencing existing environment variables e.g. ``{"ClusterName": "SCOPE", "Namespace": "POD_NAMESPACE"}``
 - **LOG_SHIP_SCHEDULE**: cron schedule for shipping compressed logs from ``pg_log`` (if this feature is enabled, '00 02 * * *' by default)
 - **LOG_ENV_DIR**: directory to store environment variables necessary for log shipping
 - **LOG_TMPDIR**: directory to store temporary compressed daily log files. PGROOT/../tmp by default.
