@@ -55,7 +55,8 @@ curl -sL "https://github.com/zalando-pg/bg_mon/archive/$BG_MON_COMMIT.tar.gz" | 
 curl -sL "https://github.com/zalando-pg/pg_auth_mon/archive/$PG_AUTH_MON_COMMIT.tar.gz" | tar xz
 curl -sL "https://github.com/cybertec-postgresql/pg_permissions/archive/$PG_PERMISSIONS_COMMIT.tar.gz" | tar xz
 curl -sL "https://github.com/zubkov-andrei/pg_profile/archive/$PG_PROFILE.tar.gz" | tar xz
-git clone -b "$SET_USER" https://github.com/pgaudit/set_user.git
+curl -sL "https://github.com/pgaudit/set_user/archive/$SET_USER_COMMT.tar.gz" | tar xz
+# git clone -b "$SET_USER" https://github.com/pgaudit/set_user.git # pg17 support is not released
 curl -sL "https://github.com/powa-team/pg_stat_kcache/archive/$PG_STAT_KCACHE_COMMIT.tar.gz" | tar xz # pg17 support is not released
 git clone https://github.com/timescale/timescaledb.git
 
@@ -166,6 +167,7 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
 
     for n in bg_mon-${BG_MON_COMMIT} \
             pg_auth_mon-${PG_AUTH_MON_COMMIT} \
+            set_user-${SET_USER_COMMT} \
             pg_permissions-${PG_PERMISSIONS_COMMIT} \
             pg_profile-${PG_PROFILE} \
             pg_stat_kcache-${PG_STAT_KCACHE_COMMIT} \
