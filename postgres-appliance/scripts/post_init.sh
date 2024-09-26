@@ -5,7 +5,11 @@ cd "$(dirname "${BASH_SOURCE[0]}")" || exit 1
 export PGOPTIONS="-c synchronous_commit=local -c search_path=pg_catalog"
 
 PGVER=$(psql -d "$2" -XtAc "SELECT pg_catalog.current_setting('server_version_num')::int/10000")
-RESET_ARGS="oid, oid, bigint"
+if [ "$PGVER" -lt 17 ]; then
+    RESET_ARGS="oid, oid, bigint"
+else
+    RESET_ARGS="oid, oid, bigint, bool"
+fi
 
 (echo "\set ON_ERROR_STOP on"
 echo "DO \$\$
