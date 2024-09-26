@@ -11,7 +11,7 @@ pipeline:
   requires_human_approval: true
   when:
     - event: push
-      branch: feature/postgresql-17
+      branch: dev-17
   timeout: 10h
   vm_config:
     type: linux
