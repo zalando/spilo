@@ -1,9 +1,9 @@
 #!/usr/bin/env python
+import glob
 import logging
 import os
 import subprocess
 import sys
-import glob
 
 logger = logging.getLogger(__name__)
 

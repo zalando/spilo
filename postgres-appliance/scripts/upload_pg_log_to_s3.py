@@ -16,15 +16,25 @@ from boto3.s3.transfer import TransferConfig
 logger = logging.getLogger(__name__)
 
 
-def compress_pg_log():
-    yesterday = datetime.now() - timedelta(days=1)
-    yesterday_day_number = yesterday.strftime('%u')
+def get_file_names():
+    prev_interval = datetime.now() - timedelta(days=1)
+    prev_interval_number = prev_interval.strftime('%u')
 
-    log_file = os.path.join(os.getenv('PGLOG'), 'postgresql-' + yesterday_day_number + '.csv')
-    archived_log_file = os.path.join(os.getenv('LOG_TMPDIR'), yesterday.strftime('%F') + '.csv.gz')
+    if os.getenv('LOG_SHIP_HOURLY') == 'true':
+        prev_interval = datetime.now() - timedelta(hours=1)
+        prev_interval_number = prev_interval.strftime('%u-%H')
+
+    log_file = os.path.join(os.getenv('PGLOG'), 'postgresql-' + prev_interval_number + '.csv')
+    archived_log_file = os.path.join(os.getenv('LOG_TMPDIR'), prev_interval.strftime('%F-%H') + '.csv.gz')
+
+    return log_file, archived_log_file
+
+
+def compress_pg_log():
+    log_file, archived_log_file = get_file_names()
 
     if os.path.getsize(log_file) == 0:
-        logger.warning("Postgres log from yesterday '%s' is empty.", log_file)
+        logger.warning("Postgres log '%s' is empty.", log_file)
         sys.exit(0)
 
     try:
