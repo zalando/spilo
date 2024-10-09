@@ -599,7 +599,7 @@ def get_placeholders(provider):
     placeholders.setdefault('LOG_BUCKET_SCOPE_SUFFIX', '')
 
     # only accept true as value or else it will be empty = disabled
-    if placeholders['LOG_SHIP_HOURLY'] and os.environ.get('LOG_SHIP_HOURLY').lower() == 'true':
+    if placeholders.get('LOG_SHIP_HOURLY', '').lower() == 'true':
         placeholders['LOG_SHIP_HOURLY'] = 'true'
     else:
         placeholders['LOG_SHIP_HOURLY'] = ''
