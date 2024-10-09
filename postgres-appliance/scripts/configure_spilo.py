@@ -599,8 +599,10 @@ def get_placeholders(provider):
     placeholders.setdefault('LOG_BUCKET_SCOPE_SUFFIX', '')
 
     # only accept true as value or else it will be empty = disabled
-    if placeholders['LOG_SHIP_HOURLY']:
-        placeholders['LOG_SHIP_HOURLY'] = os.environ.get('LOG_SHIP_HOURLY', '') in ['true', 'TRUE']
+    if placeholders.get('LOG_SHIP_HOURLY', '').lower() == 'true':
+        placeholders['LOG_SHIP_HOURLY'] = 'true'
+    else:
+        placeholders['LOG_SHIP_HOURLY'] = ''
 
     # see comment for wal-e bucket prefix
     placeholders.setdefault('LOG_BUCKET_SCOPE_PREFIX', '{0}-'.format(placeholders['NAMESPACE'])
