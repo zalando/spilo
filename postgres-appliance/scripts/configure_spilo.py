@@ -787,7 +787,7 @@ def write_log_environment(placeholders):
     if not os.path.exists(log_env['LOG_ENV_DIR']):
         os.makedirs(log_env['LOG_ENV_DIR'])
 
-    tags = eval(os.getenv('LOG_S3_TAGS'))
+    tags = json.loads(os.getenv('LOG_S3_TAGS'))
     log_env['LOG_S3_TAGS'] = "&".join(f"{key}={os.getenv(value)}" for key, value in tags.items())
 
     for var in ('LOG_TMPDIR',
