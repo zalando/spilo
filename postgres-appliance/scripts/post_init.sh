@@ -173,87 +173,90 @@ while IFS= read -r db_name; do
     # In case if timescaledb binary is missing the first query fails with the error
     # ERROR:  could not access file "$libdir/timescaledb-$OLD_VERSION": No such file or directory
     UPGRADE_TIMESCALEDB=$(echo -e "SELECT NULL;\nSELECT default_version != installed_version FROM pg_catalog.pg_available_extensions WHERE name = 'timescaledb'" | psql -tAX -d "${db_name}" 2> /dev/null | tail -n 1)
+    IS_VERSION_BELOW_215=$(echo -e "SELECT (installed_version < '2.15')::bool FROM pg_catalog.pg_available_extensions WHERE name = 'timescaledb'" | psql -tAX -d "${db_name}" 2> /dev/null | tail -n 1)
     if [ "$UPGRADE_TIMESCALEDB" = "t" ]; then
         echo "ALTER EXTENSION timescaledb UPDATE;"
-        echo """
-                -- Fix compressed hypertables with FOREIGN KEY constraints that were created with TimescaleDB versions before 2.15.0
-                CREATE OR REPLACE FUNCTION pg_temp.constraint_columns(regclass, int2[]) RETURNS text[] AS
-                $$
-                SELECT array_agg(attname) FROM unnest($2) un(attnum) LEFT JOIN pg_attribute att ON att.attrelid=$1 AND att.attnum = un.attnum;
-                $$ LANGUAGE SQL SET search_path TO pg_catalog, pg_temp;
-                DO $$
-                    DECLARE
-                    ht_id int;
-                    ht regclass;
-                    chunk regclass;
-                    con_oid oid;
-                    con_frelid regclass;
-                    con_name text;
-                    con_columns text[];
-                    chunk_id int;
+        if [ "$IS_VERSION_BELOW_215" = "t" ]; then
+            echo """
+                    -- Fix compressed hypertables with FOREIGN KEY constraints that were created with TimescaleDB versions before 2.15.0
+                    CREATE OR REPLACE FUNCTION pg_temp.constraint_columns(regclass, int2[]) RETURNS text[] AS
+                    $$
+                    SELECT array_agg(attname) FROM unnest($2) un(attnum) LEFT JOIN pg_attribute att ON att.attrelid=$1 AND att.attnum = un.attnum;
+                    $$ LANGUAGE SQL SET search_path TO pg_catalog, pg_temp;
+                    DO $$
+                        DECLARE
+                        ht_id int;
+                        ht regclass;
+                        chunk regclass;
+                        con_oid oid;
+                        con_frelid regclass;
+                        con_name text;
+                        con_columns text[];
+                        chunk_id int;
 
-                    BEGIN
+                        BEGIN
 
-                    -- iterate over all hypertables that have foreign key constraints
-                    FOR ht_id, ht in
-                        SELECT
-                        ht.id,
-                        format('%I.%I',ht.schema_name,ht.table_name)::regclass
-                        FROM _timescaledb_catalog.hypertable ht
-                        WHERE
-                        EXISTS (
-                            SELECT FROM pg_constraint con
+                        -- iterate over all hypertables that have foreign key constraints
+                        FOR ht_id, ht in
+                            SELECT
+                            ht.id,
+                            format('%I.%I',ht.schema_name,ht.table_name)::regclass
+                            FROM _timescaledb_catalog.hypertable ht
                             WHERE
-                            con.contype='f' AND
-                            con.conrelid=format('%I.%I',ht.schema_name,ht.table_name)::regclass
-                        )
-                    LOOP
-                        RAISE NOTICE 'Hypertable % has foreign key constraint', ht;
-
-                        -- iterate over all foreign key constraints on the hypertable
-                        -- and check that they are present on every chunk
-                        FOR con_oid, con_frelid, con_name, con_columns IN
-                        SELECT con.oid, con.confrelid, con.conname, pg_temp.constraint_columns(con.conrelid,con.conkey)
-                        FROM pg_constraint con
-                        WHERE
-                            con.contype='f' AND
-                            con.conrelid=ht
-                        LOOP
-                            RAISE NOTICE 'Checking constraint % %', con_name, con_columns;
-                            -- check that the foreign key constraint is present on the chunk
-
-                            FOR chunk_id, chunk IN
-                                SELECT
-                                ch.id,
-                                format('%I.%I',ch.schema_name,ch.table_name)::regclass
-                                FROM _timescaledb_catalog.chunk ch
-                                WHERE
-                                ch.hypertable_id=ht_id
-                            LOOP
-                                RAISE NOTICE 'Checking chunk %', chunk;
-                                IF NOT EXISTS (
+                            EXISTS (
                                 SELECT FROM pg_constraint con
                                 WHERE
-                                    con.contype='f' AND
-                                    con.conrelid=chunk AND
-                                    con.confrelid=con_frelid  AND
-                                    pg_temp.constraint_columns(con.conrelid,con.conkey) = con_columns
-                                ) THEN
-                                RAISE WARNING 'Restoring constraint % on chunk %', con_name, chunk;
-                                PERFORM _timescaledb_functions.constraint_clone(con_oid, chunk);
-                                INSERT INTO _timescaledb_catalog.chunk_constraint(chunk_id, dimension_slice_id, constraint_name, hypertable_constraint_name) VALUES (chunk_id, NULL, con_name, con_name);
-                                END IF;
+                                con.contype='f' AND
+                                con.conrelid=format('%I.%I',ht.schema_name,ht.table_name)::regclass
+                            )
+                        LOOP
+                            RAISE NOTICE 'Hypertable % has foreign key constraint', ht;
 
+                            -- iterate over all foreign key constraints on the hypertable
+                            -- and check that they are present on every chunk
+                            FOR con_oid, con_frelid, con_name, con_columns IN
+                            SELECT con.oid, con.confrelid, con.conname, pg_temp.constraint_columns(con.conrelid,con.conkey)
+                            FROM pg_constraint con
+                            WHERE
+                                con.contype='f' AND
+                                con.conrelid=ht
+                            LOOP
+                                RAISE NOTICE 'Checking constraint % %', con_name, con_columns;
+                                -- check that the foreign key constraint is present on the chunk
+
+                                FOR chunk_id, chunk IN
+                                    SELECT
+                                    ch.id,
+                                    format('%I.%I',ch.schema_name,ch.table_name)::regclass
+                                    FROM _timescaledb_catalog.chunk ch
+                                    WHERE
+                                    ch.hypertable_id=ht_id
+                                LOOP
+                                    RAISE NOTICE 'Checking chunk %', chunk;
+                                    IF NOT EXISTS (
+                                    SELECT FROM pg_constraint con
+                                    WHERE
+                                        con.contype='f' AND
+                                        con.conrelid=chunk AND
+                                        con.confrelid=con_frelid  AND
+                                        pg_temp.constraint_columns(con.conrelid,con.conkey) = con_columns
+                                    ) THEN
+                                    RAISE WARNING 'Restoring constraint % on chunk %', con_name, chunk;
+                                    PERFORM _timescaledb_functions.constraint_clone(con_oid, chunk);
+                                    INSERT INTO _timescaledb_catalog.chunk_constraint(chunk_id, dimension_slice_id, constraint_name, hypertable_constraint_name) VALUES (chunk_id, NULL, con_name, con_name);
+                                    END IF;
+
+                                END LOOP;
                             END LOOP;
+
                         END LOOP;
 
-                    END LOOP;
+                    END
+                    $$;
 
-                END
-                $$;
-
-                DROP FUNCTION pg_temp.constraint_columns(regclass, int2[]);
-            """
+                    DROP FUNCTION pg_temp.constraint_columns(regclass, int2[]);
+                """
+        fi
     fi
     UPGRADE_TIMESCALEDB_TOOLKIT=$(echo -e "SELECT NULL;\nSELECT default_version != installed_version FROM pg_catalog.pg_available_extensions WHERE name = 'timescaledb_toolkit'" | psql -tAX -d "${db_name}" 2> /dev/null | tail -n 1)
     if [ "$UPGRADE_TIMESCALEDB_TOOLKIT" = "t" ]; then
