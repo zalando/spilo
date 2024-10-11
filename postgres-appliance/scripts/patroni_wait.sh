@@ -62,8 +62,32 @@ done
 if [ $# -gt 0 ]; then
     [ -n "$TIMEOUT" ] && CUTOFF=$(($(date +%s)+TIMEOUT))
 
-    while [ "$(curl -so /dev/null -w '%{http_code}' "http://localhost:8008/$ROLE")" != "200" ]; do
-        [ -n "$TIMEOUT" ] && [ $CUTOFF -le "$(date +%s)" ] && exit 2
+    PORT=8008
+    if [ -n "$APIPORT" ]
+    then
+        PORT="$APIPORT"
+    fi
+
+    options=""
+    protocol="http"
+
+    # If Patroni is configured in SSL we need to query the Patroni REST API using the 
+    # HTTPS protocol and certificates.
+    if [ "$SSL_RESTAPI_CERTIFICATE_FILE" != "" ] && [ "$SSL_RESTAPI_PRIVATE_KEY_FILE" != "" ]
+    then
+        protocol="https"
+        options="$options --cert $SSL_RESTAPI_CERTIFICATE_FILE --key $SSL_RESTAPI_PRIVATE_KEY_FILE"
+    fi
+
+    if [ "$SSL_RESTAPI_CA_FILE" != "" ]
+    then
+        protocol="https"
+        options="$options --cacert $SSL_RESTAPI_CA_FILE"
+    fi
+
+    # shellcheck disable=SC2086
+    while [ "$(curl -so /dev/null -w '%{http_code}' $options "$protocol://localhost:$PORT/$ROLE")" != "200" ]; do
+        [ -n "$TIMEOUT" ] && [ "$CUTOFF" -le "$(date +%s)" ] && exit 2
         sleep "$INTERVAL"
     done
 
