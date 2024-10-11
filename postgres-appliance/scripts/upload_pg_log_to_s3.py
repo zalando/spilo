@@ -19,13 +19,15 @@ logger = logging.getLogger(__name__)
 def get_file_names():
     prev_interval = datetime.now() - timedelta(days=1)
     prev_interval_number = prev_interval.strftime('%u')
+    upload_filename = prev_interval.strftime('%F')
 
     if os.getenv('LOG_SHIP_HOURLY') == 'true':
         prev_interval = datetime.now() - timedelta(hours=1)
         prev_interval_number = prev_interval.strftime('%u-%H')
+        upload_filename = prev_interval.strftime('%F-%H')
 
     log_file = os.path.join(os.getenv('PGLOG'), 'postgresql-' + prev_interval_number + '.csv')
-    archived_log_file = os.path.join(os.getenv('LOG_TMPDIR'), prev_interval.strftime('%F-%H') + '.csv.gz')
+    archived_log_file = os.path.join(os.getenv('LOG_TMPDIR'), upload_filename + '.csv.gz')
 
     return log_file, archived_log_file
 
