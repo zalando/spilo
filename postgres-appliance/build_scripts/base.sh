@@ -56,7 +56,6 @@ curl -sL "https://github.com/zalando-pg/pg_auth_mon/archive/$PG_AUTH_MON_COMMIT.
 curl -sL "https://github.com/cybertec-postgresql/pg_permissions/archive/$PG_PERMISSIONS_COMMIT.tar.gz" | tar xz
 curl -sL "https://github.com/zubkov-andrei/pg_profile/archive/$PG_PROFILE.tar.gz" | tar xz
 git clone -b "$SET_USER" https://github.com/pgaudit/set_user.git
-git clone https://github.com/timescale/timescaledb.git
 
 apt-get install -y \
     postgresql-common \
@@ -69,6 +68,11 @@ apt-get install -y \
 
 # forbid creation of a main cluster when package is installed
 sed -ri 's/#(create_main_cluster) .*$/\1 = false/' /etc/postgresql-common/createcluster.conf
+
+DISTRIB_CODENAME=$(sed -n 's/DISTRIB_CODENAME=//p' /etc/lsb-release)
+# add TimescaleDB repository
+echo "deb [signed-by=/etc/apt/keyrings/timescale_timescaledb-archive-keyring.gpg] https://packagecloud.io/timescale/timescaledb/ubuntu/ ${DISTRIB_CODENAME} main" | tee /etc/apt/sources.list.d/timescaledb.list
+curl -fsSL https://packagecloud.io/timescale/timescaledb/gpgkey | gpg --dearmor | tee /etc/apt/keyrings/timescale_timescaledb-archive-keyring.gpg > /dev/null
 
 for version in $DEB_PG_SUPPORTED_VERSIONS; do
     sed -i "s/ main.*$/ main $version/g" /etc/apt/sources.list.d/pgdg.list
@@ -96,7 +100,8 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
                 "postgresql-${version}-repack"
                 "postgresql-${version}-wal2json"
                 "postgresql-${version}-pllua"
-                "postgresql-${version}-pgvector")
+                "postgresql-${version}-pgvector"
+                "timescaledb-2-postgresql-${version}")
         
         if [ "$version" != "17" ]; then
             EXTRAS+=("postgresql-${version}-decoderbufs")
@@ -120,23 +125,6 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
         "${EXTRAS[@]}"
 
     # Install 3rd party stuff
-
-    # use subshell to avoid having to cd back (SC2103)
-    (
-        cd timescaledb
-        for v in $TIMESCALEDB; do
-            git checkout "$v"
-            sed -i "s/VERSION 3.11/VERSION 3.10/" CMakeLists.txt
-            if BUILD_FORCE_REMOVE=true ./bootstrap -DREGRESS_CHECKS=OFF -DWARNINGS_AS_ERRORS=OFF \
-                    -DTAP_CHECKS=OFF -DPG_CONFIG="/usr/lib/postgresql/$version/bin/pg_config" \
-                    -DAPACHE_ONLY="$TIMESCALEDB_APACHE_ONLY" -DSEND_TELEMETRY_DEFAULT=NO; then
-                make -C build install
-                strip /usr/lib/postgresql/"$version"/lib/timescaledb*.so
-            fi
-            git reset --hard
-            git clean -f -d
-        done
-    )
 
     if [ "${TIMESCALEDB_APACHE_ONLY}" != "true" ] && [ "${TIMESCALEDB_TOOLKIT}" = "true" ]; then
         __versionCodename=$(sed </etc/os-release -ne 's/^VERSION_CODENAME=//p')
