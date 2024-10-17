@@ -70,9 +70,9 @@ apt-get install -y \
 sed -ri 's/#(create_main_cluster) .*$/\1 = false/' /etc/postgresql-common/createcluster.conf
 
 # add TimescaleDB repository
-__versionCodename=$(sed </etc/os-release -ne 's/^VERSION_CODENAME=//p')
-echo "deb [signed-by=/usr/share/keyrings/timescale_E7391C94080429FF.gpg] https://packagecloud.io/timescale/timescaledb/ubuntu/ ${__versionCodename} main" | tee /etc/apt/sources.list.d/timescaledb.list
-curl -L https://packagecloud.io/timescale/timescaledb/gpgkey | gpg --dearmor > /usr/share/keyrings/timescale_E7391C94080429FF.gpg
+DISTRIB_CODENAME=$(sed </etc/os-release -ne 's/^VERSION_CODENAME=//p')
+echo "deb [signed-by=/etc/apt/keyrings/timescale_timescaledb-archive-keyring.gpg] https://packagecloud.io/timescale/timescaledb/ubuntu/ ${DISTRIB_CODENAME} main" | tee /etc/apt/sources.list.d/timescaledb.list
+curl -fsSL https://packagecloud.io/timescale/timescaledb/gpgkey | gpg --dearmor | tee /etc/apt/keyrings/timescale_timescaledb-archive-keyring.gpg > /dev/null
 
 for version in $DEB_PG_SUPPORTED_VERSIONS; do
     sed -i "s/ main.*$/ main $version/g" /etc/apt/sources.list.d/pgdg.list
@@ -110,12 +110,12 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
             EXTRAS+=("postgresql-plperl-${version}")
         fi
 
-        if [ "${TIMESCALEDB_APACHE_ONLY}" = "true" ]; then
-            EXTRAS+=("timescaledb-2-oss-postgresql-${version}")
-        else
-            EXTRAS+=("timescaledb-2-postgresql-${version}")
-        fi
+    fi
 
+    if [ "${TIMESCALEDB_APACHE_ONLY}" = "true" ]; then
+        EXTRAS+=("timescaledb-2-oss-postgresql-${version}")
+    else
+        EXTRAS+=("timescaledb-2-postgresql-${version}")
     fi
 
     # Install PostgreSQL binaries, contrib, plproxy and multiple pl's
