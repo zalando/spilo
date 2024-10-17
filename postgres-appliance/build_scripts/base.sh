@@ -100,8 +100,7 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
                 "postgresql-${version}-repack"
                 "postgresql-${version}-wal2json"
                 "postgresql-${version}-pllua"
-                "postgresql-${version}-pgvector"
-                "timescaledb-2-postgresql-${version}")
+                "postgresql-${version}-pgvector")
         
         if [ "$version" != "17" ]; then
             EXTRAS+=("postgresql-${version}-decoderbufs")
@@ -109,6 +108,12 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
 
         if [ "$WITH_PERL" = "true" ]; then
             EXTRAS+=("postgresql-plperl-${version}")
+        fi
+
+        if [ "${TIMESCALEDB_APACHE_ONLY}" = "true" ]; then
+            EXTRAS+=("timescaledb-2-oss-postgresql-${version}")
+        else
+            EXTRAS+=("timescaledb-2-postgresql-${version}")
         fi
 
     fi
