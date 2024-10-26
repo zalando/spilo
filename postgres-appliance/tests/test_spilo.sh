@@ -227,6 +227,19 @@ function start_clone_with_basebackup_upgrade_container() {
         -d spilo3
 }
 
+function start_clone_with_hourly_log_rotation() {
+    docker-compose run \
+        -e SCOPE=hourlylogs \
+        -e PGVERSION=16 \
+        -e LOG_SHIP_HOURLY="true" \
+        -e CLONE_SCOPE=upgrade2 \
+        -e CLONE_PGVERSION=14 \
+        -e CLONE_METHOD=CLONE_WITH_WALE \
+        -e CLONE_TARGET_TIME="$(next_minute)" \
+        --name "${PREFIX}hourlylogs" \
+        -d "spilo3"
+}
+
 function verify_clone_upgrade() {
     local type=$2
     local from_version=$3
@@ -241,6 +254,16 @@ function verify_archive_mode_is_on() {
     [ "$archive_mode" = "on" ]
 }
 
+function verify_hourly_log_rotation() {
+    log_rotation_age=$(docker_exec "$1" "psql -U postgres -tAc \"SHOW log_rotation_age\"")
+    log_filename=$(docker_exec "$1" "psql -U postgres -tAc \"SHOW log_filename\"")
+    # we expect 8x24 foreign tables and views + 8 views for daily logs and failed authentications
+    postgres_log_ftables=$(docker_exec "$1" "psql -U postgres -tAc \"SELECT count(*) FROM pg_foreign_table WHERE ftrelid::regclass::text LIKE 'postgres_log_%'\"")
+    postgres_log_views=$(docker_exec "$1" "psql -U postgres -tAc \"SELECT count(*) FROM pg_views WHERE viewname LIKE 'postgres_log_%'\"")
+    postgres_failed_auth_views=$(docker_exec "$1" "psql -U postgres -tAc \"SELECT count(*) FROM pg_views WHERE viewname LIKE 'failed_authentication_%'\"")
+
+    [ "$log_rotation_age" = "1h" ] && [ "$log_filename" = "postgresql-%u-%H.log" ] && [ "$postgres_log_ftables" -eq 192 ] && [ "$postgres_log_views" -eq 8 ] && [ "$postgres_failed_auth_views" -eq 200 ]
+}
 
 # TEST SUITE 1 - In-place major upgrade 12->13->...->16
 # TEST SUITE 2 - Major upgrade 12->16 after wal-e clone (with CLONE_PGVERSION set)
@@ -248,6 +271,7 @@ function verify_archive_mode_is_on() {
 # TEST SUITE 4 - Major upgrade 12->13 after wal-e clone (no CLONE_PGVERSION)
 # TEST SUITE 5 - Replica bootstrap with wal-e
 # TEST SUITE 6 - Major upgrade 13->14 after clone with basebackup
+# TEST SUITE 7 - Hourly log rotation
 function test_spilo() {
     # TEST SUITE 1
     local container=$1
@@ -344,7 +368,7 @@ function test_spilo() {
     local basebackup_container
     basebackup_container=$(start_clone_with_basebackup_upgrade_container "$upgrade_container")  # SCOPE=upgrade2 PGVERSION=14 CLONE: _SCOPE=upgrade
     log_info "[TS6] Started $basebackup_container for testing major upgrade 13->14 after clone with basebackup"
-
+    wait_backup "$basebackup_container"
 
     # TEST SUITE 1
     # run_test test_pg_upgrade_to_16_check_failed "$container"  # pg_upgrade --check complains about timescaledb
@@ -362,11 +386,20 @@ function test_spilo() {
     log_info "[TS5] Waiting for postgres to start in the $upgrade_replica_container and stream from primary..."
     wait_all_streaming "$upgrade_container" 1
 
+    # TEST SUITE 7
+    local hourlylogs_container
+    hourlylogs_container=$(start_clone_with_hourly_log_rotation "$upgrade_container")
+    log_info "[TS7] Started $hourlylogs_container for testing hourly log rotation"
 
     # TEST SUITE 6
     log_info "[TS6] Testing in-place major upgrade 13->14 after clone with basebackup"
     run_test verify_clone_upgrade "$basebackup_container" "basebackup" 13 14
     run_test verify_archive_mode_is_on "$basebackup_container"
+
+    # TEST SUITE 7
+    find_leader "$hourlylogs_container"
+    log_info "[TS7] Testing correct setup with hourly log rotation"
+    run_test verify_hourly_log_rotation "$hourlylogs_container"
 }
 
 function main() {

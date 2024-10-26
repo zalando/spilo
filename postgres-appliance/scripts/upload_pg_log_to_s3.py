@@ -16,15 +16,27 @@ from boto3.s3.transfer import TransferConfig
 logger = logging.getLogger(__name__)
 
 
-def compress_pg_log():
-    yesterday = datetime.now() - timedelta(days=1)
-    yesterday_day_number = yesterday.strftime('%u')
+def get_file_names():
+    prev_interval = datetime.now() - timedelta(days=1)
+    prev_interval_number = prev_interval.strftime('%u')
+    upload_filename = prev_interval.strftime('%F')
 
-    log_file = os.path.join(os.getenv('PGLOG'), 'postgresql-' + yesterday_day_number + '.csv')
-    archived_log_file = os.path.join(os.getenv('LOG_TMPDIR'), yesterday.strftime('%F') + '.csv.gz')
+    if os.getenv('LOG_SHIP_HOURLY') == 'true':
+        prev_interval = datetime.now() - timedelta(hours=1)
+        prev_interval_number = prev_interval.strftime('%u-%H')
+        upload_filename = prev_interval.strftime('%F-%H')
+
+    log_file = os.path.join(os.getenv('PGLOG'), 'postgresql-' + prev_interval_number + '.csv')
+    archived_log_file = os.path.join(os.getenv('LOG_TMPDIR'), upload_filename + '.csv.gz')
+
+    return log_file, archived_log_file
+
+
+def compress_pg_log():
+    log_file, archived_log_file = get_file_names()
 
     if os.path.getsize(log_file) == 0:
-        logger.warning("Postgres log from yesterday '%s' is empty.", log_file)
+        logger.warning("Postgres log '%s' is empty.", log_file)
         sys.exit(0)
 
     try:
@@ -53,11 +65,9 @@ def upload_to_s3(local_file_path):
 
     chunk_size = 52428800  # 50 MiB
     config = TransferConfig(multipart_threshold=chunk_size, multipart_chunksize=chunk_size)
-    tags = eval(os.getenv('LOG_S3_TAGS'))
-    s3_tags_str = "&".join(f"{key}={os.getenv(value)}" for key, value in tags.items())
 
     try:
-        bucket.upload_file(local_file_path, key_name, Config=config, ExtraArgs={'Tagging': s3_tags_str})
+        bucket.upload_file(local_file_path, key_name, Config=config, ExtraArgs={'Tagging': os.getenv('LOG_S3_TAGS')})
     except S3UploadFailedError as e:
         logger.exception('Failed to upload the %s to the bucket %s under the key %s. Exception: %r',
                          local_file_path, bucket_name, key_name, e)
