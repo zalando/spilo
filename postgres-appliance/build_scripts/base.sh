@@ -140,7 +140,7 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
         fi
 
         rm /etc/apt/sources.list.d/timescaledb.list
-        rm /usr/share/keyrings/timescale_E7391C94080429FF.gpg
+        rm /etc/apt/keyrings/timescale_timescaledb-archive-keyring.gpg
     fi
 
     EXTRA_EXTENSIONS=()
