@@ -71,12 +71,6 @@ sed -ri 's/#(create_main_cluster) .*$/\1 = false/' /etc/postgresql-common/create
 
 for version in $DEB_PG_SUPPORTED_VERSIONS; do
     sed -i "s/ main.*$/ main $version/g" /etc/apt/sources.list.d/pgdg.list
-
-    # add TimescaleDB repository
-    DISTRIB_CODENAME=$(sed </etc/os-release -ne 's/^VERSION_CODENAME=//p')
-    echo "deb [signed-by=/etc/apt/keyrings/timescale_timescaledb-archive-keyring.gpg] https://packagecloud.io/timescale/timescaledb/ubuntu/ ${DISTRIB_CODENAME} main" | tee /etc/apt/sources.list.d/timescaledb.list
-    curl -fsSL https://packagecloud.io/timescale/timescaledb/gpgkey | gpg --dearmor | tee /etc/apt/keyrings/timescale_timescaledb-archive-keyring.gpg > /dev/null
-
     apt-get update
 
     if [ "$DEMO" != "true" ]; then
@@ -139,9 +133,6 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
         else
             echo "Skipping timescaledb-toolkit-postgresql-$version as it's not found in the repository"
         fi
-
-        rm /etc/apt/sources.list.d/timescaledb.list
-        rm /etc/apt/keyrings/timescale_timescaledb-archive-keyring.gpg
     fi
 
     EXTRA_EXTENSIONS=()
