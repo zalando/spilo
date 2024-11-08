@@ -124,6 +124,15 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
         "postgresql-${version}-pg-stat-kcache" \
         "${EXTRAS[@]}"
 
+    # Clean up timescaledb versions except the highest compatible version
+    highest_version=$(find /usr/lib/postgresql/"${version}"/lib/timescaledb-2.*.so | sort -V | tail -n 1)
+    find /usr/lib/postgresql/"${version}"/lib/ -name 'timescaledb-2.*.so' ! -path "${highest_version}" -exec rm -f {} \;
+
+    if [ "${TIMESCALEDB_APACHE_ONLY}" = "false" ]; then
+        highest_version_tsl=$(find /usr/lib/postgresql/"${version}"/lib/timescaledb-tsl-2.*.so | sort -V | tail -n 1)
+        find /usr/lib/postgresql/"${version}"/lib/ -name 'timescaledb-tsl-2.*.so' ! -path "${highest_version_tsl}" -exec rm -f {} \;
+    fi
+
     # Install 3rd party stuff
 
     if [ "${TIMESCALEDB_APACHE_ONLY}" != "true" ] && [ "${TIMESCALEDB_TOOLKIT}" = "true" ]; then
