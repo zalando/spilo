@@ -133,7 +133,7 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
     done
     find /usr/lib/postgresql/"${version}"/lib/ -name 'timescaledb-2.*.so' "${exclude_patterns[@]}" -delete;
 
-    if [ "${TIMESCALEDB_APACHE_ONLY}" = "false" ]; then
+    if [ "${TIMESCALEDB_APACHE_ONLY}" != "true" ]; then
         find /usr/lib/postgresql/"${version}"/lib/ -name 'timescaledb-tsl-2.*.so' "${exclude_patterns_tsl[@]}" -delete;
     fi
 
