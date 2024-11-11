@@ -125,12 +125,16 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
         "${EXTRAS[@]}"
 
     # Clean up timescaledb versions except the highest compatible version
-    highest_version=$(find /usr/lib/postgresql/"${version}"/lib/timescaledb-2.*.so | sort -V | tail -n 1)
-    find /usr/lib/postgresql/"${version}"/lib/ -name 'timescaledb-2.*.so' ! -path "${highest_version}" -exec rm -f {} \;
+    exclude_patterns=()
+    exclude_patterns_tsl=()
+    for ts_version in ${TIMESCALEDB}; do
+        exclude_patterns+=(! -name timescaledb-"${ts_version}".so)
+        exclude_patterns_tsl+=(! -name timescaledb-tsl-"${ts_version}".so)
+    done
+    find /usr/lib/postgresql/"${version}"/lib/ -name 'timescaledb-2.*.so' "${exclude_patterns[@]}" -delete;
 
     if [ "${TIMESCALEDB_APACHE_ONLY}" = "false" ]; then
-        highest_version_tsl=$(find /usr/lib/postgresql/"${version}"/lib/timescaledb-tsl-2.*.so | sort -V | tail -n 1)
-        find /usr/lib/postgresql/"${version}"/lib/ -name 'timescaledb-tsl-2.*.so' ! -path "${highest_version_tsl}" -exec rm -f {} \;
+        find /usr/lib/postgresql/"${version}"/lib/ -name 'timescaledb-tsl-2.*.so' "${exclude_patterns_tsl[@]}" -delete;
     fi
 
     # Install 3rd party stuff

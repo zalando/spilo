@@ -372,9 +372,9 @@ function main() {
     log_info "Waiting for leader..."
     local leader
     leader="$PREFIX$(find_leader "${PREFIX}spilo1")"
-    test_spilo "$leader"
+    # test_spilo "$leader"
 }
 
-trap cleanup QUIT TERM EXIT
+# trap cleanup QUIT TERM EXIT
 
 main

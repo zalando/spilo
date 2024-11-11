@@ -1,5 +1,6 @@
 ARG BASE_IMAGE=ubuntu:22.04
 ARG PGVERSION=17
+ARG TIMESCALEDB="2.15.3 2.17.2"
 ARG DEMO=false
 ARG COMPRESS=false
 ARG ADDITIONAL_LOCALES=
@@ -43,6 +44,7 @@ COPY build_scripts/base.sh /builddeps/
 COPY --from=dependencies-builder /builddeps/*.deb /builddeps/
 
 ARG PGVERSION
+ARG TIMESCALEDB
 ARG TIMESCALEDB_APACHE_ONLY=true
 ARG TIMESCALEDB_TOOLKIT=true
 ARG COMPRESS
