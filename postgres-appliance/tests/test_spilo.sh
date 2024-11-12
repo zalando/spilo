@@ -226,10 +226,10 @@ function start_clone_with_basebackup_upgrade_container() {
 function start_clone_with_hourly_log_rotation() {
     docker-compose run \
         -e SCOPE=hourlylogs \
-        -e PGVERSION=16 \
+        -e PGVERSION=17 \
         -e LOG_SHIP_HOURLY="true" \
         -e CLONE_SCOPE=upgrade2 \
-        -e CLONE_PGVERSION=14 \
+        -e CLONE_PGVERSION=15 \
         -e CLONE_METHOD=CLONE_WITH_WALE \
         -e CLONE_TARGET_TIME="$(next_minute)" \
         --name "${PREFIX}hourlylogs" \
@@ -364,7 +364,7 @@ function test_spilo() {
     local basebackup_container
     basebackup_container=$(start_clone_with_basebackup_upgrade_container "$upgrade_container")  # SCOPE=upgrade2 PGVERSION=15 CLONE: _SCOPE=upgrade
     log_info "[TS6] Started $basebackup_container for testing major upgrade 14->15 after clone with basebackup"
-
+    wait_backup "$basebackup_container"
 
     # TEST SUITE 1
     # run_test test_pg_upgrade_to_17_check_failed "$container"  # pg_upgrade --check complains about timescaledb
