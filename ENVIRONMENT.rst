@@ -101,7 +101,9 @@ Environment Configuration Settings
 - **LOG_GROUP_BY_DATE**: (optional) enable grouping log by date. Default is False - group the log files based on the instance ID.
 - **DCS_ENABLE_KUBERNETES_API**: a non-empty value forces Patroni to use Kubernetes as a DCS. Default is empty.
 - **KUBERNETES_USE_CONFIGMAPS**: a non-empty value makes Patroni store its metadata in ConfigMaps instead of Endpoints when running on Kubernetes. Default is empty.
-- **KUBERNETES_ROLE_LABEL**: name of the label containing Postgres role when running on Kubernetens. Default is 'spilo-role'.
+- **KUBERNETES_ROLE_LABEL**: name of the label containing Postgres role when running on Kubernetes. Default is 'spilo-role'.
+- **KUBERNETES_LEADER_LABEL_VALUE**: value of the pod label if Postgres role is primary when running on Kubernetes. Default is 'master'.
+- **KUBERNETES_STANDBY_LEADER_LABEL_VALUE**: value of the pod label if Postgres role is standby_leader when running on Kubernetes. Default is 'master'.
 - **KUBERNETES_SCOPE_LABEL**: name of the label containing cluster name. Default is 'version'.
 - **KUBERNETES_LABELS**: a JSON describing names and values of other labels used by Patroni on Kubernetes to locate its metadata. Default is '{"application": "spilo"}'.
 - **INITDB_LOCALE**: database cluster's default UTF-8 locale (en_US by default)
