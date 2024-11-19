@@ -76,7 +76,7 @@ pipeline:
   requires_human_approval: true
   when:
     - event: push
-      branch: dev-17
+      branch: master
   timeout: 10h
   vm_config:
     type: linux
