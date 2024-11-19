@@ -94,12 +94,9 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
                 "postgresql-${version}-postgis-${POSTGIS_VERSION%.*}-scripts"
                 "postgresql-${version}-repack"
                 "postgresql-${version}-wal2json"
+                "postgresql-${version}-decoderbufs"
                 "postgresql-${version}-pllua"
                 "postgresql-${version}-pgvector")
-        
-        if [ "$version" != "17" ]; then
-            EXTRAS+=("postgresql-${version}-decoderbufs")
-        fi
 
         if [ "$WITH_PERL" = "true" ]; then
             EXTRAS+=("postgresql-plperl-${version}")
