@@ -1,12 +1,73 @@
 version: "2017-09-20"
 allow_concurrent_steps: true
 
+build_env: &BUILD_ENV
+  BASE_IMAGE: container-registry.zalando.net/library/ubuntu-22.04
+  PGVERSION: 16
+  MULTI_ARCH_REGISTRY: container-registry-test.zalando.net/acid
+
 pipeline:
-- id: push-spilo-ecr
+- id: push-spilo-cdp-pr
   env:
-    BASE_IMAGE: container-registry.zalando.net/library/ubuntu-22.04
-    PGVERSION: 16
-    MULTI_ARCH_REGISTRY: container-registry-test.zalando.net/acid
+    <<: *BUILD_ENV
+  type: script
+  requires_human_approval: true
+  when:
+    - event: pull_request
+  timeout: 10h
+  vm_config:
+    type: linux
+    size: large
+  commands:
+  - desc: Tag and push spilo-cdp image without promotion
+    cmd: |
+      cd postgres-appliance
+
+      PATRONIVERSION=$(sed -n 's/^ENV PATRONIVERSION=\([1-9][0-9]*\.[0-9]*\).*$/\1/p' Dockerfile)
+      ECR_TEST_IMAGE="$MULTI_ARCH_REGISTRY/spilo-cdp-pr$CDP_PULL_REQUEST_NUMBER-$PGVERSION:$PATRONIVERSION-p$CDP_PULL_REQUEST_COUNTER"
+
+      # create a Buildkit builder with CDP specific configuration
+      docker buildx create --config /etc/cdp-buildkitd.toml --driver-opt network=host --bootstrap --use
+
+      # single platform build for PR images!
+      docker buildx build --platform "linux/amd64" \
+                          --build-arg PGVERSION="$PGVERSION" \
+                          --build-arg BASE_IMAGE="$BASE_IMAGE" \
+                          -t "$ECR_TEST_IMAGE" \
+                          --push .
+
+- id: push-spilo-cdp
+  env:
+    <<: *BUILD_ENV
+  type: script
+  when:
+    - event: push
+      branch: trigger
+  timeout: 10h
+  vm_config:
+    type: linux
+    size: extra_large
+  commands:
+  - desc: Tag and push spilo-cdp image
+    cmd: |
+      cd postgres-appliance
+
+      PATRONIVERSION=$(sed -n 's/^ENV PATRONIVERSION=\([1-9][0-9]*\.[0-9]*\).*$/\1/p' Dockerfile)
+      ECR_TEST_IMAGE="$MULTI_ARCH_REGISTRY/spilo-cdp-$PGVERSION:trigger-$PATRONIVERSION-p$CDP_TARGET_BRANCH_COUNTER"
+
+      # create a Buildkit builder with CDP specific configuration
+      docker buildx create --config /etc/cdp-buildkitd.toml --driver-opt network=host --bootstrap --use
+
+      docker buildx build --platform "linux/amd64,linux/arm64" \
+                          --build-arg PGVERSION="$PGVERSION" \
+                          --build-arg BASE_IMAGE="$BASE_IMAGE" \
+                          -t "$ECR_TEST_IMAGE" \
+                          --push .
+      cdp-promote-image "$ECR_TEST_IMAGE"
+
+- id: push-spilo-cdp-master
+  env:
+    <<: *BUILD_ENV
   type: script
   requires_human_approval: true
   when:
@@ -35,7 +96,6 @@ pipeline:
       cdp-promote-image "$ECR_TEST_IMAGE"
 
 - id: tag-spilo
-  depends_on: [push-spilo-ecr]
   type: script
   requires_human_approval: true
   when:
