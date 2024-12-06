@@ -578,6 +578,8 @@ def get_placeholders(provider):
     placeholders.setdefault('CALLBACK_SCRIPT', '')
     placeholders.setdefault('DCS_ENABLE_KUBERNETES_API', '')
     placeholders.setdefault('KUBERNETES_ROLE_LABEL', 'spilo-role')
+    placeholders.setdefault('KUBERNETES_LEADER_LABEL_VALUE', 'master')
+    placeholders.setdefault('KUBERNETES_STANDBY_LEADER_LABEL_VALUE', 'master')
     placeholders.setdefault('KUBERNETES_SCOPE_LABEL', 'version')
     placeholders.setdefault('KUBERNETES_LABELS', KUBERNETES_DEFAULT_LABELS)
     placeholders.setdefault('KUBERNETES_USE_CONFIGMAPS', '')
