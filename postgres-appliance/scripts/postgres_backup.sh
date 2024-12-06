@@ -55,7 +55,7 @@ while read -r name last_modified rest; do
         # count how many backups will remain after we remove everything up to certain date
         ((LEFT=LEFT+1))
     fi
-done < <($WAL_E backup-list 2> /dev/null | sed '0,/^name\s*\(last_\)\?modified\s*/d')
+done < <($WAL_E backup-list 2> /dev/null | sed '0,/^\(backup_\)\?name\s*\(last_\)\?modified\s*/d')
 
 # we want keep at least N backups even if the number of days exceeded
 if [ -n "$BEFORE" ] && [ $LEFT -ge $DAYS_TO_RETAIN ]; then
