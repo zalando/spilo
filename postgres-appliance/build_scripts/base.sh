@@ -56,7 +56,6 @@ curl -sL "https://github.com/zalando-pg/pg_auth_mon/archive/$PG_AUTH_MON_COMMIT.
 curl -sL "https://github.com/cybertec-postgresql/pg_permissions/archive/$PG_PERMISSIONS_COMMIT.tar.gz" | tar xz
 curl -sL "https://github.com/zubkov-andrei/pg_profile/archive/$PG_PROFILE.tar.gz" | tar xz
 git clone -b "$SET_USER" https://github.com/pgaudit/set_user.git
-git clone https://github.com/timescale/timescaledb.git
 
 apt-get install -y \
     postgresql-common \
@@ -81,8 +80,8 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
                 "postgresql-${version}-first-last-agg"
                 "postgresql-${version}-hll"
                 "postgresql-${version}-hypopg"
-                "postgresql-${version}-plproxy"
                 "postgresql-${version}-partman"
+                "postgresql-${version}-plproxy"
                 "postgresql-${version}-pgaudit"
                 "postgresql-${version}-pldebugger"
                 "postgresql-${version}-pglogical"
@@ -105,6 +104,12 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
 
     fi
 
+    if [ "${TIMESCALEDB_APACHE_ONLY}" = "true" ]; then
+        EXTRAS+=("timescaledb-2-oss-postgresql-${version}")
+    else
+        EXTRAS+=("timescaledb-2-postgresql-${version}")
+    fi
+
     # Install PostgreSQL binaries, contrib, plproxy and multiple pl's
     apt-get install --allow-downgrades -y \
         "postgresql-${version}-cron" \
@@ -116,39 +121,28 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
         "postgresql-${version}-pg-stat-kcache" \
         "${EXTRAS[@]}"
 
+    # Clean up timescaledb versions except the highest compatible version
+    exclude_patterns=()
+    exclude_patterns_tsl=()
+    for ts_version in ${TIMESCALEDB}; do
+        exclude_patterns+=(! -name timescaledb-"${ts_version}".so)
+        exclude_patterns_tsl+=(! -name timescaledb-tsl-"${ts_version}".so)
+    done
+    find /usr/lib/postgresql/"${version}"/lib/ -name 'timescaledb-2.*.so' "${exclude_patterns[@]}" -delete;
+
+    if [ "${TIMESCALEDB_APACHE_ONLY}" != "true" ]; then
+        find /usr/lib/postgresql/"${version}"/lib/ -name 'timescaledb-tsl-2.*.so' "${exclude_patterns_tsl[@]}" -delete;
+    fi
+
     # Install 3rd party stuff
 
-    # use subshell to avoid having to cd back (SC2103)
-    (
-        cd timescaledb
-        for v in $TIMESCALEDB; do
-            git checkout "$v"
-            sed -i "s/VERSION 3.11/VERSION 3.10/" CMakeLists.txt
-            if BUILD_FORCE_REMOVE=true ./bootstrap -DREGRESS_CHECKS=OFF -DWARNINGS_AS_ERRORS=OFF \
-                    -DTAP_CHECKS=OFF -DPG_CONFIG="/usr/lib/postgresql/$version/bin/pg_config" \
-                    -DAPACHE_ONLY="$TIMESCALEDB_APACHE_ONLY" -DSEND_TELEMETRY_DEFAULT=NO; then
-                make -C build install
-                strip /usr/lib/postgresql/"$version"/lib/timescaledb*.so
-            fi
-            git reset --hard
-            git clean -f -d
-        done
-    )
-
     if [ "${TIMESCALEDB_APACHE_ONLY}" != "true" ] && [ "${TIMESCALEDB_TOOLKIT}" = "true" ]; then
-        __versionCodename=$(sed </etc/os-release -ne 's/^VERSION_CODENAME=//p')
-        echo "deb [signed-by=/usr/share/keyrings/timescale_E7391C94080429FF.gpg] https://packagecloud.io/timescale/timescaledb/ubuntu/ ${__versionCodename} main" | tee /etc/apt/sources.list.d/timescaledb.list
-        curl -L https://packagecloud.io/timescale/timescaledb/gpgkey | gpg --dearmor > /usr/share/keyrings/timescale_E7391C94080429FF.gpg
-
         apt-get update
         if [ "$(apt-cache search --names-only "^timescaledb-toolkit-postgresql-${version}$" | wc -l)" -eq 1 ]; then
             apt-get install "timescaledb-toolkit-postgresql-$version"
         else
             echo "Skipping timescaledb-toolkit-postgresql-$version as it's not found in the repository"
         fi
-
-        rm /etc/apt/sources.list.d/timescaledb.list
-        rm /usr/share/keyrings/timescale_E7391C94080429FF.gpg
     fi
 
     EXTRA_EXTENSIONS=()
