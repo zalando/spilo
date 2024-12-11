@@ -261,12 +261,12 @@ function verify_hourly_log_rotation() {
     [ "$log_rotation_age" = "1h" ] && [ "$log_filename" = "postgresql-%u-%H.log" ] && [ "$postgres_log_ftables" -eq 192 ] && [ "$postgres_log_views" -eq 8 ] && [ "$postgres_failed_auth_views" -eq 200 ]
 }
 
-# TEST SUITE 1 - In-place major upgrade 15->16->...->17
+# TEST SUITE 1 - In-place major upgrade 13->14->...->17
 # TEST SUITE 2 - Major upgrade 13->17 after wal-e clone (with CLONE_PGVERSION set)
 # TEST SUITE 3 - PITR (clone with wal-e) with unreachable target (14+)
-# TEST SUITE 4 - Major upgrade 15->16 after wal-e clone (no CLONE_PGVERSION)
+# TEST SUITE 4 - Major upgrade 13->14 after wal-e clone (no CLONE_PGVERSION)
 # TEST SUITE 5 - Replica bootstrap with wal-e
-# TEST SUITE 6 - Major upgrade 15->16 after clone with basebackup
+# TEST SUITE 6 - Major upgrade 14->15 after clone with basebackup
 # TEST SUITE 7 - Hourly log rotation
 function test_spilo() {
     # TEST SUITE 1
