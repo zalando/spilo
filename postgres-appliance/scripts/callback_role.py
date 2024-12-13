@@ -19,6 +19,7 @@ KUBE_API_URL = 'https://kubernetes.default.svc.cluster.local/api/v1/namespaces'
 logger = logging.getLogger(__name__)
 
 LABEL = os.environ.get("KUBERNETES_ROLE_LABEL", 'spilo-role')
+LEADER_LABEL_VALUE = os.environ.get("KUBERNETES_LEADER_LABEL_VALUE", 'master')
 
 
 def read_first_line(filename):
@@ -78,7 +79,7 @@ def record_role_change(action, new_role, cluster):
     new_role = None if action == 'on_stop' else new_role
     logger.debug("Changing the pod's role to %s", new_role)
     pod_namespace = os.environ.get('POD_NAMESPACE', read_first_line(KUBE_NAMESPACE_FILENAME)) or 'default'
-    if new_role == 'master':
+    if new_role == LEADER_LABEL_VALUE:
         change_endpoints(pod_namespace, cluster)
     change_pod_role_label(pod_namespace, new_role)
 
