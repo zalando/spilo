@@ -65,7 +65,7 @@ def main():
 
     ec2 = boto.ec2.connect_to_region(metadata['region'])
 
-    if argc == 5 and role in ('master', 'standby_leader') and action in ('on_start', 'on_role_change'):
+    if argc == 5 and role in ('primary', 'standby_leader') and action in ('on_start', 'on_role_change'):
         associate_address(ec2, sys.argv[1], instance_id)
 
     instance = get_instance(ec2, instance_id)
