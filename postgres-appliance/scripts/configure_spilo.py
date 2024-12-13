@@ -409,7 +409,15 @@ def get_provider():
 
     try:
         logging.info("Figuring out my environment (Google? AWS? Openstack? Local?)")
-        r = requests.get('http://169.254.169.254', timeout=2)
+        response = requests.put(
+            url='http://169.254.169.254/latest/api/token',
+            headers={'X-aws-ec2-metadata-token-ttl-seconds': '60'}
+        )
+        token = response.text
+        r = requests.get(
+            url='http://169.254.169.254',
+            headers={'X-aws-ec2-metadata-token': token}
+        )
         if r.headers.get('Metadata-Flavor', '') == 'Google':
             return PROVIDER_GOOGLE
         else:
@@ -422,7 +430,10 @@ def get_provider():
                 return PROVIDER_OPENSTACK
 
             # is accessible from both AWS and Openstack, Possiblity of misidentification if previous try fails
-            r = requests.get('http://169.254.169.254/latest/meta-data/ami-id')
+            r = requests.get(
+                url='http://169.254.169.254/latest/meta-data/ami-id',
+                headers={'X-aws-ec2-metadata-token': token}
+            )
             return PROVIDER_AWS if r.ok else PROVIDER_UNSUPPORTED
     except (requests.exceptions.ConnectTimeout, requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout):
         logging.info("Could not connect to 169.254.169.254, assuming local Docker setup")
