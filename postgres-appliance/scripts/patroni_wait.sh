@@ -1,6 +1,6 @@
 #!/bin/bash
 
-ROLE=master
+ROLE=primary
 INTERVAL=60
 TIMEOUT=""
 
