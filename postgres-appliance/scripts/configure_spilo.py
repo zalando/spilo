@@ -498,6 +498,7 @@ def set_walg_placeholders(placeholders, prefix=''):
     for name in ('USE_WALG_BACKUP', 'USE_WALG_RESTORE'):
         value = str(placeholders.get(prefix + name, placeholders[prefix + 'USE_WALG'])).lower()
         placeholders[prefix + name] = 'true' if value == 'true' and walg_supported else None
+    placeholders.setdefault(prefix + 'WALG_READ_BACKUP_METADATA', placeholders.get('WALG_READ_BACKUP_METADATA'))
 
 
 def get_listen_ip():
@@ -651,6 +652,8 @@ def get_placeholders(provider):
         placeholders.setdefault('USE_WALG_BACKUP', 'true')
     if all(placeholders.get(n) for n in WALG_SSH_NAMES):
         placeholders.setdefault('USE_WALG_BACKUP', 'true')
+    if os.environ.get('WALG_READ_BACKUP_METADATA') == 'true':
+        placeholders.setdefault('WALG_READ_BACKUP_METADATA', 'true')
     set_walg_placeholders(placeholders)
 
     placeholders['USE_WALE'] = any(placeholders.get(n) for n in AUTO_ENABLE_WALG_RESTORE +
@@ -826,7 +829,7 @@ def write_wale_environment(placeholders, prefix, overwrite):
                   'USE_WALG_RESTORE', 'WALG_BACKUP_COMPRESSION_METHOD', 'WALG_BACKUP_FROM_REPLICA',
                   'WALG_SENTINEL_USER_DATA', 'WALG_PREVENT_WAL_OVERWRITE', 'WALG_S3_CA_CERT_FILE',
                   'WALG_LIBSODIUM_KEY', 'WALG_LIBSODIUM_KEY_PATH', 'WALG_LIBSODIUM_KEY_TRANSFORM',
-                  'WALG_PGP_KEY', 'WALG_PGP_KEY_PATH', 'WALG_PGP_KEY_PASSPHRASE',
+                  'WALG_PGP_KEY', 'WALG_PGP_KEY_PATH', 'WALG_PGP_KEY_PASSPHRASE', 'WALG_READ_BACKUP_METADATA',
                   'no_proxy', 'http_proxy', 'https_proxy']
 
     wale = defaultdict(lambda: '')

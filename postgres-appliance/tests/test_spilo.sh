@@ -236,6 +236,30 @@ function start_clone_with_hourly_log_rotation() {
         -d "spilo3"
 }
 
+function start_walg_metadata_container() {
+    docker-compose run \
+        -e SCOPE=metadata \
+        -e PGVERSION=16 \
+        -e USE_WALG=true \
+        -e WALG_READ_BACKUP_METADATA=true \
+        --name "${PREFIX}metadata" \
+        -d "spilo3"
+}
+
+function start_clone_with_walg_metadata_container() {
+    docker-compose run \
+        -e SCOPE=metadata-clone \
+        -e PGVERSION=16 \
+        -e CLONE_SCOPE=metadata \
+        -e CLONE_PGVERSION=16 \
+        -e CLONE_METHOD=CLONE_WITH_WALE \
+        -e CLONE_TARGET_TIME="$(next_minute)" \
+        -e USE_WALG=true \
+        -e WALG_READ_BACKUP_METADATA=true \
+        --name "${PREFIX}metadata-clone" \
+        -d "spilo3"
+}
+
 function verify_clone_upgrade() {
     local type=$2
     local from_version=$3
@@ -325,6 +349,19 @@ function test_spilo() {
     log_info "[TS3] Started $clone17_container for testing point-in-time recovery (clone with wal-e) with unreachable target on 14+"
 
 
+    # TEST SUITE 4
+    local metadata_container
+    metadata_container=$(start_walg_metadata_container)
+    log_info "[TS4] Started $metadata_container for backup with wal-g metadata"
+    find_leader "$metadata_container"
+    run_test verify_archive_mode_is_on "$metadata_container"
+    wait_backup "$metadata_container"
+
+    local clone_metadata_container
+    clone_metadata_container=$(start_clone_with_walg_metadata_container)
+    log_info "[TS4] Started $clone_metadata_container for testing point-in-time recovery (clone with wal-g) with support for reading metadata"
+
+
     # TEST SUITE 1
     log_info "[TS1] Testing in-place major upgrade 14->15"
     run_test test_successful_inplace_upgrade_to_15 "$container"
@@ -335,6 +372,11 @@ function test_spilo() {
     # TEST SUITE 3
     find_leader "$clone17_container"
     run_test verify_archive_mode_is_on "$clone17_container"
+
+
+    # TEST SUITE 4
+    find_leader "$clone_metadata_container"
+    run_test verify_archive_mode_is_on "$clone_metadata_container"
 
 
     # TEST SUITE 1
