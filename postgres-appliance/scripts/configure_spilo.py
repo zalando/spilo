@@ -278,6 +278,9 @@ restapi:
   {{#SSL_RESTAPI_PRIVATE_KEY_FILE}}
   keyfile: {{SSL_RESTAPI_PRIVATE_KEY_FILE}}
   {{/SSL_RESTAPI_PRIVATE_KEY_FILE}}
+  {{#SSL_RESTAPI_VERIFY_CLIENT}}
+  verify_client: {{SSL_RESTAPI_VERIFY_CLIENT}}
+  {{/SSL_RESTAPI_VERIFY_CLIENT}}
 postgresql:
   pgpass: /run/postgresql/pgpass
   use_unix_socket: true
@@ -555,6 +558,7 @@ def get_placeholders(provider):
     placeholders.setdefault('SSL_RESTAPI_CA_FILE', '')
     placeholders.setdefault('SSL_RESTAPI_CERTIFICATE_FILE', '')
     placeholders.setdefault('SSL_RESTAPI_PRIVATE_KEY_FILE', '')
+    placeholders.setdefault('SSL_RESTAPI_VERIFY_CLIENT', '')
     placeholders.setdefault('WALE_BACKUP_THRESHOLD_MEGABYTES', 102400)
     placeholders.setdefault('WALE_BACKUP_THRESHOLD_PERCENTAGE', 30)
     placeholders.setdefault('INITDB_LOCALE', 'en_US')
