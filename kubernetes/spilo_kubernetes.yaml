@@ -79,6 +79,10 @@ spec:
           value: spilo-cluster
         - name: KUBERNETES_ROLE_LABEL
           value: role
+        - name: KUBERNETES_LEADER_LABEL_VALUE
+          value: master
+        - name: KUBERNETES_STANDBY_LEADER_LABEL_VALUE
+          value: master
         - name: SPILO_CONFIGURATION
           value: | ## https://github.com/zalando/patroni#yaml-configuration
             bootstrap:
