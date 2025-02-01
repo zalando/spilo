@@ -34,7 +34,6 @@ pipeline:
                           --build-arg PGVERSION="$PGVERSION" \
                           --build-arg BASE_IMAGE="$BASE_IMAGE" \
                           --build-arg PGOLDVERSIONS="14 15 16" \
-                          --build-arg TIMESCALEDB="2.17.2" \
                           -t "$ECR_TEST_IMAGE" \
                           --push .
 
@@ -64,7 +63,6 @@ pipeline:
                           --build-arg PGVERSION="$PGVERSION" \
                           --build-arg BASE_IMAGE="$BASE_IMAGE" \
                           --build-arg PGOLDVERSIONS="14 15 16" \
-                          --build-arg TIMESCALEDB="2.17.2" \
                           -t "$ECR_TEST_IMAGE" \
                           --push .
       cdp-promote-image "$ECR_TEST_IMAGE"
@@ -96,7 +94,6 @@ pipeline:
                           --build-arg PGVERSION="$PGVERSION" \
                           --build-arg BASE_IMAGE="$BASE_IMAGE" \
                           --build-arg PGOLDVERSIONS="14 15 16" \
-                          --build-arg TIMESCALEDB="2.17.2" \
                           -t "$ECR_TEST_IMAGE" \
                           --push .
       cdp-promote-image "$ECR_TEST_IMAGE"
