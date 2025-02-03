@@ -30,6 +30,7 @@ Environment Configuration Settings
 - **ALLOW_NOSSL**: set to allow clients to connect without SSL enabled.
 - **PGPORT**: port PostgreSQL listens to for client connections, 5432 by default
 - **PGVERSION**: Specifies the version of postgreSQL to reference in the bin_dir variable (/usr/lib/postgresql/PGVERSION/bin) if postgresql.bin_dir wasn't set in SPILO_CONFIGURATION
+- **PGCONNECT_ADDRESS**: When you configure postgreSQL behind NAT or you set a hostname based SSL certificate for it you might need to advertise different connect address (for example external IP, hostname instead of IP) for the replicas.
 - **SCOPE**: cluster name, multiple Spilos belonging to the same cluster must have identical scope.
 - **SSL_CA_FILE**: path to the SSL CA certificate file inside the container (by default: '')
 - **SSL_CRL_FILE**: path to the SSL Certificate Revocation List file inside the container (by default: '')
