@@ -5,6 +5,15 @@ function log
     echo "$(date "+%Y-%m-%d %H:%M:%S.%3N") - $0 - $*"
 }
 
+function get_last_modified_timestamps
+{
+    if [[ "$USE_WALG_BACKUP" == "true" && "$WALG_READ_BACKUP_METADATA" == "true" ]]; then
+        $WAL_E backup-list --detail 2> /dev/null | sed '0,/^\(backup_\)\?name\s*\(last_\)\?modified\s*/d' | awk '{print $1, $6;}'
+    else
+        $WAL_E backup-list 2> /dev/null | sed '0,/^\(backup_\)\?name\s*\(last_\)\?modified\s*/d'
+    fi
+}
+
 [[ -z $1 ]] && echo "Usage: $0 PGDATA" && exit 1
 
 log "I was called as: $0 $*"
@@ -44,7 +53,7 @@ LEFT=0
 
 NOW=$(date +%s -u)
 readonly NOW
-while read -r name last_modified rest; do
+while read -r name last_modified; do
     last_modified=$(date +%s -ud "$last_modified")
     if [ $(((NOW-last_modified)/86400)) -ge $DAYS_TO_RETAIN ]; then
         if [ -z "$BEFORE" ] || [ "$last_modified" -gt "$BEFORE_TIME" ]; then
@@ -55,7 +64,7 @@ while read -r name last_modified rest; do
         # count how many backups will remain after we remove everything up to certain date
         ((LEFT=LEFT+1))
     fi
-done < <($WAL_E backup-list 2> /dev/null | sed '0,/^\(backup_\)\?name\s*\(last_\)\?modified\s*/d')
+done < <(get_last_modified_timestamps)
 
 # we want keep at least N backups even if the number of days exceeded
 if [ -n "$BEFORE" ] && [ $LEFT -ge $DAYS_TO_RETAIN ]; then

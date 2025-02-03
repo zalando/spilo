@@ -1,5 +1,21 @@
 #!/bin/bash
 
+function get_wal_segment_backup_start() {
+    local detail
+    local timestamp_column
+    if [[ "$USE_WALG_BACKUP" == "true" && "$WALG_READ_BACKUP_METADATA" == "true" ]]; then
+        detail="--detail"
+        timestamp_column=6
+    else
+        detail=""
+        timestamp_column=2
+    fi
+
+    $WAL_E backup-list $detail 2> /dev/null \
+        | sed '0,/^\(backup_\)\?name\s*\(last_\)\?modified\s*/d' \
+        | sort -bk$timestamp_column | tail -n1 | awk '{print $3;}' | sed 's/_.*$//'
+}
+
 RETRIES=2
 THRESHOLD_PERCENTAGE=30
 THRESHOLD_MEGABYTES=10240
@@ -42,8 +58,7 @@ fi
 ATTEMPT=0
 server_version="-1"
 while true; do
-    [[ -z $wal_segment_backup_start ]] && wal_segment_backup_start=$($WAL_E backup-list 2> /dev/null \
-        | sed '0,/^\(backup_\)\?name\s*\(last_\)\?modified\s*/d' | sort -bk2 | tail -n1 | awk '{print $3;}' | sed 's/_.*$//')
+    [[ -z $wal_segment_backup_start ]] && wal_segment_backup_start=$(get_wal_segment_backup_start)
 
     [[ -n "$CONNSTR" && $server_version == "-1" ]] && server_version=$(psql -d "$CONNSTR" -tAc 'show server_version_num' 2> /dev/null || echo "-1")
 

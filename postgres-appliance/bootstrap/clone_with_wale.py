@@ -46,7 +46,10 @@ def build_wale_command(command, datadir=None, backup=None):
         if datadir is None or backup is None:
             raise Exception("backup-fetch requires datadir and backup arguments")
         cmd.extend([datadir, backup])
-    elif command != 'backup-list':
+    elif command == 'backup-list':
+        if can_read_walg_metadata():
+            cmd.extend(['--detail'])
+    else:
         raise Exception("invalid {0} command {1}".format(cmd[0], command))
     return cmd
 
@@ -59,7 +62,8 @@ def fix_output(output):
         if not started:
             started = re.match(r'^(backup_)?name\s+(last_)?modified\s+', line)
             if started:
-                line = line.replace(' modified ', ' last_modified ')
+                column = ' finish_time ' if can_read_walg_metadata() else ' modified '
+                line = line.replace(column, ' last_modified ')
         if started:
             yield '\t'.join(line.split())
 
@@ -137,6 +141,10 @@ def get_wale_environments(env):
 
     # Last, try the original value
     yield name, orig_value
+
+
+def can_read_walg_metadata():
+    return os.getenv('USE_WALG_RESTORE') == 'true' and os.getenv('WALG_READ_BACKUP_METADATA') == 'true'
 
 
 def find_backup(recovery_target_time, env):
