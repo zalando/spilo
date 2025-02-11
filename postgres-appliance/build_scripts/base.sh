@@ -160,7 +160,7 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
     done
 done
 
-apt-get install -y skytools3-ticker pgbouncer
+apt-get install -y skytools3-ticker pgbouncer pgbackrest
 
 sed -i "s/ main.*$/ main/g" /etc/apt/sources.list.d/pgdg.list
 apt-get update

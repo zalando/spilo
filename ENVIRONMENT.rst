@@ -157,3 +157,60 @@ For authentication with the Microsoft Azure Blob Storage, choose one of the avai
   - **AZURE_TENANT_ID**
 
 - Managed Service Identity (MSI): No configuration options required.
+
+pgBackRest
+----------
+`pgbackrest` can be used as an alternative to `wal-g` for backups and restores.
+To enable `pgbackrest` set at least one of the following environment variables:
+
+- **PGBACKREST_CONFIG**: (optional) the path to the pgBackRest configuration file.
+- **PGBACKREST_REPO1_TYPE**: (optional) the type of the pgBackRest repository (e.g. s3, gcs, swift, etc.).
+
+`spilo` supports all required parameters to backup and restore to/from a single repository (S3, GCS, Azure) using `pgbackrest`.
+For more advanced configurations, you have to provide a configuration file.
+
+
+Additional environment variables:
+`````
+If you are using `pgBackRest` additional environment variables can be set schedule backups:
+
+- **INCR_BACKUP_SCHEDULE**
+- **DIFF_BACKUP_SCHEDULE**
+
+They behave the same as `BACKUP_SCHEDULE` but are used for incremental and differential backups respectively.
+
+Supported parameters:
+`````
+For a full documentation on the meaning of below parameters,
+refer to the `pgBackRest documentation <https://pgbackrest.org/configuration.html>`__.
+
+- **PGBACKREST_REPO1_AZURE_ACCOUNT**
+- **PGBACKREST_REPO1_AZURE_CONTAINER**
+- **PGBACKREST_REPO1_AZURE_ENDPOINT**
+- **PGBACKREST_REPO1_AZURE_KEY**
+- **PGBACKREST_REPO1_AZURE_KEY_TYPE**
+- **PGBACKREST_REPO1_AZURE_URI_STYLE**
+- **PGBACKREST_REPO1_GCS_BUCKET**
+- **PGBACKREST_REPO1_GCS_ENDPOINT**
+- **PGBACKREST_REPO1_GCS_KEY**
+- **PGBACKREST_REPO1_GCS_KEY_TYPE**
+- **PGBACKREST_REPO1_PATH**
+- **PGBACKREST_REPO1_S3_BUCKET**
+- **PGBACKREST_REPO1_S3_ENDPOINT**
+- **PGBACKREST_REPO1_S3_KEY**
+- **PGBACKREST_REPO1_S3_KEY_SECRET**
+- **PGBACKREST_REPO1_S3_KEY_TYPE**
+- **PGBACKREST_REPO1_S3_KMS_KEY_ID**
+- **PGBACKREST_REPO1_S3_REGION**
+- **PGBACKREST_REPO1_S3_ROLE**
+- **PGBACKREST_REPO1_S3_SSE_CUSTOMER_KEY**
+- **PGBACKREST_REPO1_S3_TOKEN**
+- **PGBACKREST_REPO1_S3_URI_STYLE**
+- **PGBACKREST_REPO1_STORAGE_CA_FILE**
+- **PGBACKREST_REPO1_STORAGE_CA_PATH**
+- **PGBACKREST_REPO1_STORAGE_HOST**
+- **PGBACKREST_REPO1_STORAGE_PORT**
+- **PGBACKREST_REPO1_STORAGE_VERIFY_TLS**
+- **PGBACKREST_REPO1_TYPE**
+- **PGBACKREST_SPOOL_PATH**
+- **PGBACKREST_STANZA**
