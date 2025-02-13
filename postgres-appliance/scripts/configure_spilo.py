@@ -633,6 +633,7 @@ def get_placeholders(provider):
     placeholders.setdefault('WALE_ENV_DIR', os.path.join(placeholders['RW_DIR'], 'etc', 'wal-e.d', 'env'))
     placeholders.setdefault('PGBACKREST_ENV_DIR', os.path.join(placeholders['RW_DIR'], 'etc', 'pgbackrest.d', 'env'))
     placeholders.setdefault('USE_WALE', False)
+    placeholders.setdefault('USE_PGBACKREST', False)
     cpu_count = str(min(psutil.cpu_count(), 10))
     placeholders.setdefault('WALG_DOWNLOAD_CONCURRENCY', cpu_count)
     placeholders.setdefault('WALG_UPLOAD_CONCURRENCY', cpu_count)
@@ -745,6 +746,8 @@ def get_placeholders(provider):
     elif placeholders['USE_PGBACKREST']:
         placeholders['postgresql']['parameters']['archive_command'] = \
             'envdir "{PGBACKREST_ENV_DIR}" pgbackrest archive-push %p'.format(**placeholders)
+    else:
+        placeholders['postgresql']['parameters']['archive_command'] = '/bin/true'
 
     cgroup_memory_limit_path = '/sys/fs/cgroup/memory/memory.limit_in_bytes'
     cgroup_v2_memory_limit_path = '/sys/fs/cgroup/memory.max'
