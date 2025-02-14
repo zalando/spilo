@@ -29,7 +29,7 @@ run-name: release image_tag:${{ inputs.image_tag }} pg_version:${{ inputs.pg_ver
 
 jobs:
   image-tag:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     outputs:
       tag-name: ${{ steps.get_tag_name.outputs.tag_name }}
     steps:
@@ -50,7 +50,7 @@ jobs:
       fail-fast: false
       matrix:
         registry: [ docker.io, apecloud-registry.cn-zhangjiakou.cr.aliyuncs.com, infracreate-registry.cn-zhangjiakou.cr.aliyuncs.com ]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     permissions:
       contents: 'read'
       packages: 'write'
