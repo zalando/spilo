@@ -200,7 +200,12 @@ class InplaceUpgrade(object):
             cur.execute('SELECT pg_catalog.pg_is_in_recovery()')
             if not cur.fetchone()[0]:
                 return logger.error('Member %s is not running as replica!', member.name)
-            self.replica_connections[member.name] = (ip, cur)
+            
+            # Find the streaming address for this member
+            streaming_addr = next((addr for (addr, app_name), _ in streaming.items() 
+                                if app_name == member.name), None)
+            
+            self.replica_connections[member.name] = (ip, cur, streaming_addr)
             return True
 
         return all(ensure_replica_state(member) for member in cluster.members if member.name != self.postgresql.name)
@@ -246,7 +251,7 @@ class InplaceUpgrade(object):
 
         for _ in polling_loop(60):
             synced = True
-            for name, (_, cur) in self.replica_connections.items():
+            for name, (_, cur, _) in self.replica_connections.items():
                 prev = status.get(name)
                 if prev and prev >= checkpoint_lsn:
                     continue
@@ -279,8 +284,14 @@ class InplaceUpgrade(object):
         secrets_file = os.path.join(self.rsyncd_conf_dir, 'rsyncd.secrets')
 
         auth_users = ','.join(self.replica_connections.keys())
-        replica_ips = ','.join(str(v[0]) for v in self.replica_connections.values())
 
+        # Collect both connection and streaming IPs from replica_connections
+        replica_ips = {str(v[0]) for v in self.replica_connections.values()}  # Connection IPs
+        replica_ips.update(str(v[2]) for v in self.replica_connections.values() if v[2])  # Streaming IPs
+        
+        # Filter out None values and join IPs
+        replica_ips = ','.join(filter(None, replica_ips))
+        
         with open(self.rsyncd_conf, 'w') as f:
             f.write("""port = {0}
 use chroot = false
@@ -324,7 +335,7 @@ hosts deny = *
                 logger.error('Failed to remove %s: %r', self.rsyncd_conf_dir, e)
 
     def checkpoint(self, member):
-        name, (_, cur) = member
+        name, (_, cur, _) = member
         try:
             cur.execute('CHECKPOINT')
             return name, True
@@ -338,7 +349,7 @@ hosts deny = *
         logger.info('Notifying replicas %s to start rsync', ','.join(self.replica_connections.keys()))
         ret = True
         status = {}
-        for name, (ip, cur) in self.replica_connections.items():
+        for name, (ip, cur, _) in self.replica_connections.items():
             try:
                 cur.execute("SELECT pg_catalog.pg_backend_pid()")
                 pid = cur.fetchone()[0]
