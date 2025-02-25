@@ -57,6 +57,7 @@ jobs:
         context: "postgres-appliance/"
         load: true
         tags: ${{ steps.image.outputs.NAME }}
+        build-args: TIMESCALEDB_APACHE_ONLY=false
 
     - name: Test spilo docker image 
       env:
@@ -71,3 +72,4 @@ jobs:
         push: true
         tags: "${{ steps.image.outputs.NAME }}"
         platforms: linux/amd64,linux/arm64
+        build-args: TIMESCALEDB_APACHE_ONLY=false
