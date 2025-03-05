@@ -10,6 +10,7 @@ import time
 logger = logging.getLogger(__name__)
 LEADER_TAG_VALUE = os.environ.get('AWS_LEADER_TAG_VALUE', 'master')
 
+
 def retry(func):
     def wrapped(*args, **kwargs):
         count = 0
