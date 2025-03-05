@@ -577,6 +577,7 @@ def get_placeholders(provider):
     placeholders.setdefault('PAM_OAUTH2', '')
     placeholders.setdefault('CALLBACK_SCRIPT', '')
     placeholders.setdefault('DCS_ENABLE_KUBERNETES_API', '')
+    placeholders.setdefault('AWS_LEADER_TAG_VALUE', 'master')
     placeholders.setdefault('KUBERNETES_ROLE_LABEL', 'spilo-role')
     placeholders.setdefault('KUBERNETES_LEADER_LABEL_VALUE', 'master')
     placeholders.setdefault('KUBERNETES_STANDBY_LEADER_LABEL_VALUE', 'master')
