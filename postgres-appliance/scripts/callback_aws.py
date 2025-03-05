@@ -3,10 +3,12 @@
 import boto.ec2
 import boto.utils
 import logging
+import os
 import sys
 import time
 
 logger = logging.getLogger(__name__)
+LEADER_TAG_VALUE = os.environ.get('AWS_LEADER_TAG_VALUE', 'master')
 
 
 def retry(func):
@@ -70,7 +72,7 @@ def main():
 
     instance = get_instance(ec2, instance_id)
 
-    tags = {'Role': role}
+    tags = {'Role': LEADER_TAG_VALUE if role == 'primary' else role}
     tag_resource(ec2, instance_id, tags)
 
     tags.update({'Instance': instance_id})
