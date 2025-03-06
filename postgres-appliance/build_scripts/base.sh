@@ -121,16 +121,15 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
         "postgresql-${version}-pg-stat-kcache" \
         "${EXTRAS[@]}"
 
-    # Clean up timescaledb versions except the highest compatible and transition version
+    # Clean up timescaledb versions except the last 5 minor versions
     exclude_patterns=()
-    prev_highest_ver="$ts_highest_ver"
-    ts_highest_ver=$(find "/usr/lib/postgresql/$version/lib/" -name 'timescaledb-2.*.so' | sed -rn 's/.*timescaledb-([1-9]+\.[0-9]+\.[0-9]+)\.so$/\1/p' | sort -rV | head -n1)
-    if [ "$prev_highest_ver" != "$ts_highest_ver" ]; then
-        ts_transition_version="$prev_highest_ver"
-    fi
-    for ts_version in "$ts_transition_version" "$ts_highest_ver"; do
-        exclude_patterns+=(! -name timescaledb-"${ts_version}".so)
-        exclude_patterns+=(! -name timescaledb-tsl-"${ts_version}".so)
+    versions=$(find "/usr/lib/postgresql/$version/lib/" -name 'timescaledb-2.*.so' | sed -rn 's/.*timescaledb-([1-9]+\.[0-9]+\.[0-9]+)\.so$/\1/p' | sort -rV)
+    latest_minor_versions=$(echo "$versions" | awk -F. '{print $1"."$2}' | uniq | head -n 5)
+    for minor in $latest_minor_versions; do
+        for full_version in $(echo "$versions" | grep "^$minor"); do
+            exclude_patterns+=(! -name timescaledb-"${full_version}".so)
+            exclude_patterns+=(! -name timescaledb-tsl-"${full_version}".so)
+        done
     done
     find "/usr/lib/postgresql/$version/lib/" \( -name 'timescaledb-2.*.so' -o -name 'timescaledb-tsl-2.*.so' \) "${exclude_patterns[@]}" -delete
 
