@@ -112,6 +112,9 @@ ENV USE_OLD_LOCALES=false
 
 WORKDIR $PGHOME
 
+# 0_postgres.yml is used to customize postgres GUCs validation (https://github.com/patroni/patroni/pull/2671).
+COPY 0_postgres.yml patroni/postgresql/available_parameters/
+
 COPY motd /etc/
 COPY runit /etc/service/
 COPY pgq_ticker.ini $PGHOME/
