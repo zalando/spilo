@@ -54,6 +54,7 @@ do
     *)
         echo "Unknown option: $1"
         exit 1
+
         ;;
     esac
     shift
@@ -62,7 +63,13 @@ done
 if [ $# -gt 0 ]; then
     [ -n "$TIMEOUT" ] && CUTOFF=$(($(date +%s)+TIMEOUT))
 
-    while [ "$(curl -so /dev/null -w '%{http_code}' "http://localhost:8008/$ROLE")" != "200" ]; do
+    if [ -z "$RESTAPI_CONNECT_ADDRESS" ]; then
+      ADDRESS="localhost"
+        else
+      ADDRESS="$RESTAPI_CONNECT_ADDRESS"
+    fi
+
+    while [ "$(curl --cert $SSL_RESTAPI_CERTIFICATE_FILE --key $SSL_PRIVATE_KEY_FILE --cacert $SSL_RESTAPI_CA_FILE -so /dev/null -w '%{http_code}' "https://$ADDRESS:8008/$ROLE")" != "200" ]; do
         [ -n "$TIMEOUT" ] && [ $CUTOFF -le "$(date +%s)" ] && exit 2
         sleep "$INTERVAL"
     done
