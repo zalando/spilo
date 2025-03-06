@@ -40,7 +40,6 @@ else
 fi
 
 BEFORE=""
-LEFT=0
 
 NOW=$(date +%s -u)
 readonly NOW
@@ -51,14 +50,10 @@ while read -r name last_modified rest; do
             BEFORE_TIME=$last_modified
             BEFORE=$name
         fi
-    else
-        # count how many backups will remain after we remove everything up to certain date
-        ((LEFT=LEFT+1))
     fi
 done < <($WAL_E backup-list 2> /dev/null | sed '0,/^\(backup_\)\?name\s*\(last_\)\?modified\s*/d')
 
-# we want keep at least N backups even if the number of days exceeded
-if [ -n "$BEFORE" ] && [ $LEFT -ge $DAYS_TO_RETAIN ]; then
+if [ -n "$BEFORE" ]; then
     if [[ "$USE_WALG_BACKUP" == "true" ]]; then
         $WAL_E delete before FIND_FULL "$BEFORE" --confirm
     else
