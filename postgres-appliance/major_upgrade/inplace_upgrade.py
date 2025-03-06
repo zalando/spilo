@@ -179,7 +179,7 @@ class InplaceUpgrade(object):
         def ensure_replica_state(member):
             ip = member.conn_kwargs().get('host')
             lag = streaming.get((ip, member.name))
-            if lag is None and os.getenv('USE_APPLICATION_NAME_IN_UPGRADE'):
+            if lag is None and os.getenv('USE_APPLICATION_NAME_IN_UPGRADE') == 'true':
                 # Try looking up by any IP address matching the member name
                 lag = next((lag for (_, app_name), lag in streaming.items() if app_name == member.name), None)
             if lag is None:
