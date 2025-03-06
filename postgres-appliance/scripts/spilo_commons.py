@@ -15,10 +15,21 @@ extensions = {
     'timescaledb':    (9.6, 17, True,  True),
     'pg_cron':        (9.5, 17, True,  False),
     'pg_stat_kcache': (9.4, 17, True,  False),
-    'pg_partman':     (9.4, 17, False, True)
+    'pg_partman':     (9.4, 17, False, True),
+    'citus':          (13, 17, True, False)
 }
 if os.environ.get('ENABLE_PG_MON') == 'true':
     extensions['pg_mon'] = (11,  17, True,  False)
+
+
+def capture_shell_command_output(command):
+    result = subprocess.run(command, capture_output=True, text=True, shell=True)
+    output = result.stdout.strip()
+    return output
+
+
+def check_if_amd64_arch():
+    return capture_shell_command_output("dpkg --print-architecture") == "amd64"
 
 
 def adjust_extensions(old, version, extwlist=False):
@@ -27,7 +38,11 @@ def adjust_extensions(old, version, extwlist=False):
         name = name.strip()
         value = extensions.get(name)
         if name not in ret and value is None or value[0] <= version <= value[1] and (not extwlist or value[3]):
-            ret.append(name)
+            if name == "citus" and check_if_amd64_arch():
+                # Put Citus in first place in hared_preload_libraries
+                ret.insert(0, name)
+            else:
+                ret.append(name)
     return ','.join(ret)
 
 
@@ -38,7 +53,11 @@ def append_extensions(old, version, extwlist=False):
     def maybe_append(name):
         value = extensions.get(name)
         if name not in ret and (value is None or value[0] <= version <= value[1] and value[extwlist]):
-            ret.append(name)
+            if name == "citus" and check_if_amd64_arch():
+                # Put Citus in first place in hared_preload_libraries
+                ret.insert(0, name)
+            else:
+                ret.append(name)
 
     for name in old.split(','):
         maybe_append(name.strip())
