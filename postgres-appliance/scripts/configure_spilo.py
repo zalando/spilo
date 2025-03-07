@@ -585,6 +585,7 @@ def get_placeholders(provider):
     placeholders.setdefault('KUBERNETES_LABELS', KUBERNETES_DEFAULT_LABELS)
     placeholders.setdefault('KUBERNETES_USE_CONFIGMAPS', '')
     placeholders.setdefault('KUBERNETES_BYPASS_API_SERVICE', 'true')
+    placeholders.setdefault('KUBERNETES_BOOTSTRAP_LABELS', '')
     placeholders.setdefault('USE_PAUSE_AT_RECOVERY_TARGET', False)
     placeholders.setdefault('CLONE_METHOD', '')
     placeholders.setdefault('CLONE_WITH_WALE', '')
@@ -741,13 +742,15 @@ def get_dcs_config(config, placeholders):
 
     if USE_KUBERNETES and placeholders.get('DCS_ENABLE_KUBERNETES_API'):
         config = {'kubernetes': dcs_configs['kubernetes']}
-        try:
-            kubernetes_labels = json.loads(config['kubernetes'].get('labels'))
-        except (TypeError, ValueError) as e:
-            logging.warning("could not parse kubernetes labels as a JSON: %r, "
-                            "reverting to the default: %s", e, KUBERNETES_DEFAULT_LABELS)
-            kubernetes_labels = json.loads(KUBERNETES_DEFAULT_LABELS)
-        config['kubernetes']['labels'] = kubernetes_labels
+
+        for param, default_val in (('labels', KUBERNETES_DEFAULT_LABELS), ('bootstrap_labels', '{}')):
+            try:
+                kubernetes_labels = json.loads(config['kubernetes'].get(param))
+            except (TypeError, ValueError) as e:
+                logging.warning("could not parse kubernetes %s as a JSON: %r, "
+                                "reverting to the default: %s", param, e, default_val)
+                kubernetes_labels = json.loads(default_val)
+            config['kubernetes'][param] = kubernetes_labels
 
         if not config['kubernetes'].pop('use_configmaps'):
             config['kubernetes'].update({'use_endpoints': True,
@@ -792,7 +795,12 @@ def write_log_environment(placeholders):
     if not os.path.exists(log_env['LOG_ENV_DIR']):
         os.makedirs(log_env['LOG_ENV_DIR'])
 
-    tags = json.loads(os.getenv('LOG_S3_TAGS'))
+    try:
+        tags = json.loads(os.getenv('LOG_S3_TAGS'))
+    except (TypeError, ValueError) as e:
+        logging.warning("could not parse LOG_S3_TAGS as a JSON: %r, reverting to the default empty dict", e)
+        tags = {}
+
     log_env['LOG_S3_TAGS'] = "&".join(f"{key}={os.getenv(value)}" for key, value in tags.items())
 
     for var in ('LOG_TMPDIR',
