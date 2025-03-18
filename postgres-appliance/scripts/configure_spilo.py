@@ -585,7 +585,7 @@ def get_placeholders(provider):
     placeholders.setdefault('KUBERNETES_LABELS', KUBERNETES_DEFAULT_LABELS)
     placeholders.setdefault('KUBERNETES_USE_CONFIGMAPS', '')
     placeholders.setdefault('KUBERNETES_BYPASS_API_SERVICE', 'true')
-    placeholders.setdefault('KUBERNETES_BOOTSTRAP_LABELS', '')
+    placeholders.setdefault('KUBERNETES_BOOTSTRAP_LABELS', '{}')
     placeholders.setdefault('USE_PAUSE_AT_RECOVERY_TARGET', False)
     placeholders.setdefault('CLONE_METHOD', '')
     placeholders.setdefault('CLONE_WITH_WALE', '')
