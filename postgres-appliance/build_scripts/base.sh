@@ -36,7 +36,6 @@ else
 
     # prepare 3rd sources
     git clone -b "$PLPROFILER" https://github.com/bigsql/plprofiler.git
-    tar -xzf "plantuner-${PLANTUNER_COMMIT}.tar.gz"
     curl -sL "https://github.com/zalando-pg/pg_mon/archive/$PG_MON_COMMIT.tar.gz" | tar xz
 
     for p in python3-keyring python3-docutils ieee-data; do
@@ -55,10 +54,8 @@ fi
 curl -sL "https://github.com/zalando-pg/bg_mon/archive/$BG_MON_COMMIT.tar.gz" | tar xz
 curl -sL "https://github.com/zalando-pg/pg_auth_mon/archive/$PG_AUTH_MON_COMMIT.tar.gz" | tar xz
 curl -sL "https://github.com/cybertec-postgresql/pg_permissions/archive/$PG_PERMISSIONS_COMMIT.tar.gz" | tar xz
-curl -sL "https://github.com/hughcapet/pg_tm_aux/archive/$PG_TM_AUX_COMMIT.tar.gz" | tar xz
 curl -sL "https://github.com/zubkov-andrei/pg_profile/archive/$PG_PROFILE.tar.gz" | tar xz
 git clone -b "$SET_USER" https://github.com/pgaudit/set_user.git
-git clone https://github.com/timescale/timescaledb.git
 
 apt-get install -y \
     postgresql-common \
@@ -83,8 +80,8 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
                 "postgresql-${version}-first-last-agg"
                 "postgresql-${version}-hll"
                 "postgresql-${version}-hypopg"
-                "postgresql-${version}-plproxy"
                 "postgresql-${version}-partman"
+                "postgresql-${version}-plproxy"
                 "postgresql-${version}-pgaudit"
                 "postgresql-${version}-pldebugger"
                 "postgresql-${version}-pglogical"
@@ -96,24 +93,21 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
                 "postgresql-${version}-postgis-${POSTGIS_VERSION%.*}"
                 "postgresql-${version}-postgis-${POSTGIS_VERSION%.*}-scripts"
                 "postgresql-${version}-repack"
-                "postgresql-${version}-wal2json")
-
-        if [ "$version" != "15" ]; then
-            # not yet present for pg15
-            EXTRAS+=("postgresql-${version}-pllua")
-        fi
+                "postgresql-${version}-wal2json"
+                "postgresql-${version}-decoderbufs"
+                "postgresql-${version}-pllua"
+                "postgresql-${version}-pgvector")
 
         if [ "$WITH_PERL" = "true" ]; then
             EXTRAS+=("postgresql-plperl-${version}")
         fi
 
-        if [ "${version%.*}" -ge 10 ]; then
-            EXTRAS+=("postgresql-${version}-decoderbufs")
-        fi
+    fi
 
-        if [ "${version%.*}" -lt 11 ]; then
-            EXTRAS+=("postgresql-${version}-amcheck")
-        fi
+    if [ "${TIMESCALEDB_APACHE_ONLY}" = "true" ]; then
+        EXTRAS+=("timescaledb-2-oss-postgresql-${version}")
+    else
+        EXTRAS+=("timescaledb-2-postgresql-${version}")
     fi
 
     # Install PostgreSQL binaries, contrib, plproxy and multiple pl's
@@ -127,58 +121,38 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
         "postgresql-${version}-pg-stat-kcache" \
         "${EXTRAS[@]}"
 
+    # Clean up timescaledb versions except the last 5 minor versions
+    exclude_patterns=()
+    versions=$(find "/usr/lib/postgresql/$version/lib/" -name 'timescaledb-2.*.so' | sed -rn 's/.*timescaledb-([1-9]+\.[0-9]+\.[0-9]+)\.so$/\1/p' | sort -rV)
+    latest_minor_versions=$(echo "$versions" | awk -F. '{print $1"."$2}' | uniq | head -n 5)
+    for minor in $latest_minor_versions; do
+        for full_version in $(echo "$versions" | grep "^$minor"); do
+            exclude_patterns+=(! -name timescaledb-"${full_version}".so)
+            exclude_patterns+=(! -name timescaledb-tsl-"${full_version}".so)
+        done
+    done
+    find "/usr/lib/postgresql/$version/lib/" \( -name 'timescaledb-2.*.so' -o -name 'timescaledb-tsl-2.*.so' \) "${exclude_patterns[@]}" -delete
+
     # Install 3rd party stuff
 
-    # don't try to build timescaledb for pg15. Remove, when it is officially supported.
-    if [ "$version" != "15" ]; then
-        # use subshell to avoid having to cd back (SC2103)
-        (
-            cd timescaledb
-            for v in $TIMESCALEDB; do
-                git checkout "$v"
-                sed -i "s/VERSION 3.11/VERSION 3.10/" CMakeLists.txt
-                if BUILD_FORCE_REMOVE=true ./bootstrap -DREGRESS_CHECKS=OFF -DWARNINGS_AS_ERRORS=OFF \
-                        -DTAP_CHECKS=OFF -DPG_CONFIG="/usr/lib/postgresql/$version/bin/pg_config" \
-                        -DAPACHE_ONLY="$TIMESCALEDB_APACHE_ONLY" -DSEND_TELEMETRY_DEFAULT=NO; then
-                    make -C build install
-                    strip /usr/lib/postgresql/"$version"/lib/timescaledb*.so
-                fi
-                git reset --hard
-                git clean -f -d
-            done
-        )
-    fi
-
     if [ "${TIMESCALEDB_APACHE_ONLY}" != "true" ] && [ "${TIMESCALEDB_TOOLKIT}" = "true" ]; then
-        __versionCodename=$(sed </etc/os-release -ne 's/^VERSION_CODENAME=//p')
-        echo "deb [signed-by=/usr/share/keyrings/timescale_E7391C94080429FF.gpg] https://packagecloud.io/timescale/timescaledb/ubuntu/ ${__versionCodename} main" | tee /etc/apt/sources.list.d/timescaledb.list
-        curl -L https://packagecloud.io/timescale/timescaledb/gpgkey | gpg --dearmor > /usr/share/keyrings/timescale_E7391C94080429FF.gpg
-
         apt-get update
         if [ "$(apt-cache search --names-only "^timescaledb-toolkit-postgresql-${version}$" | wc -l)" -eq 1 ]; then
             apt-get install "timescaledb-toolkit-postgresql-$version"
         else
             echo "Skipping timescaledb-toolkit-postgresql-$version as it's not found in the repository"
         fi
-
-        rm /etc/apt/sources.list.d/timescaledb.list
-        rm /usr/share/keyrings/timescale_E7391C94080429FF.gpg
     fi
 
+    EXTRA_EXTENSIONS=()
     if [ "$DEMO" != "true" ]; then
-        EXTRA_EXTENSIONS=("plantuner-${PLANTUNER_COMMIT}" plprofiler)
-        if [ "${version%.*}" -ge 10 ]; then
-            EXTRA_EXTENSIONS+=("pg_mon-${PG_MON_COMMIT}")
-        fi
-    else
-        EXTRA_EXTENSIONS=()
+        EXTRA_EXTENSIONS+=("plprofiler" "pg_mon-${PG_MON_COMMIT}")
     fi
 
     for n in bg_mon-${BG_MON_COMMIT} \
             pg_auth_mon-${PG_AUTH_MON_COMMIT} \
             set_user \
             pg_permissions-${PG_PERMISSIONS_COMMIT} \
-            pg_tm_aux-${PG_TM_AUX_COMMIT} \
             pg_profile-${PG_PROFILE} \
             "${EXTRA_EXTENSIONS[@]}"; do
         make -C "$n" USE_PGXS=1 clean install-strip
@@ -277,9 +251,6 @@ if [ "$DEMO" != "true" ]; then
         # relink files with the same name and content across different major versions
         started=0
         for v2 in $(find /usr/share/postgresql -type d -mindepth 1 -maxdepth 1 | sort -Vr); do
-            if [ "${v2##*/}" = "15" ]; then
-                continue
-            fi
             if [ "$v1" = "$v2" ]; then
                 started=1
             elif [ $started = 1 ]; then
@@ -288,7 +259,6 @@ if [ "$DEMO" != "true" ]; then
                     d2="$d1"
                     d1="../../${v1##*/}/$d1"
                     if [ "${d2%-*}" = "contrib/postgis" ]; then
-                        if [ "${v2##*/}" = "10" ]; then d2="${d2%-*}-$POSTGIS_LEGACY"; fi
                         d1="../$d1"
                     fi
                     d2="$v2/$d2"

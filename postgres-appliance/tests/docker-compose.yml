@@ -16,7 +16,7 @@ services:
         command: -c 'mkdir -p /export/testbucket && /usr/bin/minio server /export'
 
     etcd:
-        image: ${SPILO_IMAGE:-spilo}
+        image: ${SPILO_TEST_IMAGE:-spilo}
         networks: [ demo ]
         container_name: demo-etcd
         hostname: etcd
@@ -24,7 +24,7 @@ services:
 
     spilo1: &spilo
         depends_on: [ minio ]
-        image: ${SPILO_IMAGE:-spilo}
+        image: ${SPILO_TEST_IMAGE:-spilo}
         networks: [ demo ]
         environment:
             SPILO_PROVIDER: 'local'
@@ -45,11 +45,13 @@ services:
                   loop_wait: 2
                   postgresql:
                     parameters:
+                      wal_decode_buffer_size: '521kB'
                       wal_keep_segments: 8
+                      jit: 'off'
               postgresql:
                 parameters:
                   shared_buffers: 32MB
-            PGVERSION: '10'
+            PGVERSION: '13'
             # Just to test upgrade with clone. Without CLONE_SCOPE they don't work
             CLONE_WAL_S3_BUCKET: *bucket
             CLONE_AWS_ACCESS_KEY_ID: *access_key

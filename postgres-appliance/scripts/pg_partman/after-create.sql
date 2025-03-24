@@ -8,9 +8,7 @@ BEGIN
         CREATE ROLE part_man ADMIN admin;
     END IF;
 
-    IF current_setting('server_version_num')::integer >= 110000 THEN
-        EXECUTE 'GRANT EXECUTE ON ALL PROCEDURES IN SCHEMA @extschema@ TO part_man';
-    END IF;
+    EXECUTE 'GRANT EXECUTE ON ALL PROCEDURES IN SCHEMA @extschema@ TO part_man';
 END;$$;
 GRANT USAGE ON SCHEMA @extschema@ TO part_man;
 GRANT ALL ON ALL TABLES IN SCHEMA @extschema@ TO part_man;

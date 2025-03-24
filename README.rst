@@ -14,6 +14,9 @@ Spilo is currently evolving: Its creators are working on a Postgres operator tha
 How to Use This Docker Image
 ============================
 
+.. important::
+   We encourage users to build the Docker images themselves from source code using the latest tags to benefit from ongoing improvements and fixes. The team continues to maintain the project and address issues, but does not make regular releases nor publishes latest Docker images.
+
 Spilo's setup assumes that you've correctly configured a load balancer (HAProxy, ELB, Google load balancer) that directs client connections to the master. There are two ways to achieve this: A) if the load balancer relies on the status code to distinguish between the healthy and failed nodes (like ELB), then one needs to configure it to poll the API URL; otherwise, B) you can use callback scripts to change the load balancer configuration dynamically.
 
 **Available container registry and image architectures**

@@ -1,7 +1,6 @@
 CREATE SCHEMA IF NOT EXISTS metric_helpers AUTHORIZATION postgres;
 
-GRANT USAGE ON SCHEMA metric_helpers TO admin;
-GRANT USAGE ON SCHEMA metric_helpers TO robot_zmon;
+GRANT USAGE ON SCHEMA metric_helpers TO admin, robot_zmon;
 
 SET search_path TO metric_helpers;
 
@@ -194,39 +193,40 @@ $$ LANGUAGE sql IMMUTABLE SECURITY DEFINER STRICT;
 
 CREATE OR REPLACE VIEW pg_stat_statements AS SELECT * FROM pg_stat_statements(true);
 
-CREATE FUNCTION get_last_status_active_cronjobs(
-  OUT jobid bigint,
-  OUT database text,
-  OUT command text,
-  OUT status text,
-  OUT return_message text,
-  OUT start_time timestamp with time zone,
-  OUT end_time timestamp with time zone
-  ) RETURNS SETOF record AS
+CREATE OR REPLACE FUNCTION get_nearly_exhausted_sequences(
+    IN  threshold float,
+    OUT schemaname name,
+    OUT sequencename name,
+    OUT seq_percent_used numeric
+ ) RETURNS SETOF record AS
 $_$
-SELECT DISTINCT ON (job_run_details.jobid)
-       job_run_details.jobid,
-       job_run_details.database,
-       job_run_details.command,
-       job_run_details.status,
-       job_run_details.return_message,
-       job_run_details.start_time,
-       job_run_details.end_time
-  FROM job
-  JOIN job_run_details USING (jobid)
- WHERE job.active
- ORDER BY job_run_details.jobid, job_run_details.start_time DESC NULLS LAST;
+SELECT *
+FROM (
+  SELECT 
+    schemaname,
+    sequencename,
+    round(abs(
+      ceil((abs(last_value::numeric - start_value) + 1) / increment_by) / 
+        floor((CASE WHEN increment_by > 0
+                    THEN (max_value::numeric - start_value)
+                    ELSE (start_value::numeric - min_value)
+                    END + 1) / increment_by
+              ) * 100 
+      ), 
+    2) AS seq_percent_used
+  FROM pg_sequences
+  WHERE NOT CYCLE AND last_value IS NOT NULL
+) AS s
+WHERE seq_percent_used >= threshold;
 $_$
-LANGUAGE sql SECURITY DEFINER STRICT SET search_path to 'cron';
+LANGUAGE sql SECURITY DEFINER STRICT SET search_path to 'pg_catalog';
 
-CREATE OR REPLACE VIEW last_status_active_cronjobs AS SELECT * FROM get_last_status_active_cronjobs();
+CREATE OR REPLACE VIEW nearly_exhausted_sequences AS SELECT * FROM get_nearly_exhausted_sequences(0.8);
 
 REVOKE ALL ON ALL TABLES IN SCHEMA metric_helpers FROM public;
-GRANT SELECT ON ALL TABLES IN SCHEMA metric_helpers TO admin;
-GRANT SELECT ON ALL TABLES IN SCHEMA metric_helpers TO robot_zmon;
+GRANT SELECT ON ALL TABLES IN SCHEMA metric_helpers TO admin, robot_zmon;
 
 REVOKE ALL ON ALL FUNCTIONS IN SCHEMA metric_helpers FROM public;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA metric_helpers TO admin;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA metric_helpers TO robot_zmon;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA metric_helpers TO admin, robot_zmon;
 
 RESET search_path;

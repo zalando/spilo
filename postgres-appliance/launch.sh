@@ -34,8 +34,16 @@ fi
 ## Ensure all logfiles exist, most appliances will have
 ## a foreign data wrapper pointing to these files
 for i in $(seq 0 7); do
-    if [ ! -f "${PGLOG}/postgresql-$i.csv" ]; then
-        touch "${PGLOG}/postgresql-$i.csv"
+    if [ "$LOG_SHIP_HOURLY" != "true" ]; then
+        if [ ! -f "${PGLOG}/postgresql-${i}.csv" ]; then
+            touch "${PGLOG}/postgresql-${i}.csv"
+        fi
+    else
+        for h in $(seq -w 0 23); do
+            if [ ! -f "${PGLOG}/postgresql-${i}-${h}.csv" ]; then
+                touch "${PGLOG}/postgresql-${i}-${h}.csv"
+            fi
+        done
     fi
 done
 chown -R postgres: "$PGROOT" "$RW_DIR/certs"

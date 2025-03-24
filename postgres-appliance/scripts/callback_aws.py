@@ -3,10 +3,12 @@
 import boto.ec2
 import boto.utils
 import logging
+import os
 import sys
 import time
 
 logger = logging.getLogger(__name__)
+LEADER_TAG_VALUE = os.environ.get('AWS_LEADER_TAG_VALUE', 'master')
 
 
 def retry(func):
@@ -65,12 +67,12 @@ def main():
 
     ec2 = boto.ec2.connect_to_region(metadata['region'])
 
-    if argc == 5 and role in ('master', 'standby_leader') and action in ('on_start', 'on_role_change'):
+    if argc == 5 and role in ('primary', 'standby_leader') and action in ('on_start', 'on_role_change'):
         associate_address(ec2, sys.argv[1], instance_id)
 
     instance = get_instance(ec2, instance_id)
 
-    tags = {'Role': role}
+    tags = {'Role': LEADER_TAG_VALUE if role == 'primary' else role}
     tag_resource(ec2, instance_id, tags)
 
     tags.update({'Instance': instance_id})
