@@ -268,7 +268,7 @@ bootstrap:
 scope: &scope '{{SCOPE}}'
 restapi:
   listen: ':{{APIPORT}}'
-  connect_address: {{RESTAPI_CONNECT_ADDRESS}}:{{APIPORT}}
+  connect_address: '{{RESTAPI_CONNECT_ADDRESS}}'
   {{#SSL_RESTAPI_CA_FILE}}
   cafile: {{SSL_RESTAPI_CA_FILE}}
   {{/SSL_RESTAPI_CA_FILE}}
@@ -284,7 +284,7 @@ postgresql:
   use_unix_socket_repl: true
   name: '{{instance_data.id}}'
   listen: '*:{{PGPORT}}'
-  connect_address: {{instance_data.ip}}:{{PGPORT}}
+  connect_address: '{{PG_CONNECT_ADDRESS}}'
   data_dir: {{PGDATA}}
   parameters:
     archive_command: {{{postgresql.parameters.archive_command}}}
@@ -696,7 +696,11 @@ def get_placeholders(provider):
     placeholders['postgresql']['parameters']['max_connections'] = min(max(100, int(os_memory_mb/30)), 1000)
 
     placeholders['instance_data'] = get_instance_metadata(provider)
-    placeholders.setdefault('RESTAPI_CONNECT_ADDRESS', placeholders['instance_data']['ip'])
+    restapi_connect_address = format_url(placeholders['instance_data']['ip'], placeholders.get("APIPORT"))
+    placeholders.setdefault('RESTAPI_CONNECT_ADDRESS', restapi_connect_address)
+
+    connect_address = format_url(placeholders['instance_data']['ip'], placeholders.get("PGPORT"))
+    placeholders.setdefault("PG_CONNECT_ADDRESS", connect_address)
 
     placeholders['BGMON_LISTEN_IP'] = get_listen_ip()
 
@@ -716,6 +720,12 @@ def get_placeholders(provider):
         placeholders['SSL_RESTAPI_CA_FILE'] = os.path.join(placeholders['RW_DIR'], 'certs', 'rest-api-ca.crt')
 
     return placeholders
+
+
+def format_url(host, port):
+    if ":" in host:
+        return "[" + host + "]" + ":" + port
+    return host + ":" + port
 
 
 def pystache_render(*args, **kwargs):
