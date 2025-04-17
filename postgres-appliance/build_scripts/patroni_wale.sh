@@ -40,7 +40,7 @@ if [ "$DEMO" != "true" ]; then
     find /usr/share/python-babel-localedata/locale-data -type f ! -name 'en_US*.dat' -delete
 
     pip3 install filechunkio protobuf \
-            'git+https://github.com/zalando-pg/wal-e.git#egg=wal-e[aws,google,swift]' \
+            'git+https://github.com/zalando-pg/wal-e.git@ipv6-imds#egg=wal-e[aws,google,swift]' \
             'git+https://github.com/zalando/pg_view.git@master#egg=pg-view'
 
     # https://github.com/wal-e/wal-e/issues/318
