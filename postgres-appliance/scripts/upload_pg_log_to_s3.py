@@ -26,8 +26,8 @@ def get_file_names():
         prev_interval_number = prev_interval.strftime('%u-%H')
         upload_filename = prev_interval.strftime('%F-%H')
 
-    log_file = os.path.join(os.getenv('PGLOG'), 'postgresql-' + prev_interval_number + '.csv')
-    archived_log_file = os.path.join(os.getenv('LOG_TMPDIR'), upload_filename + '.csv.gz')
+    log_file = os.path.join(os.getenv('PGLOG'), 'postgresql-' + prev_interval_number + '.' + os.getenv('LOG_FILE_EXTENSION'))
+    archived_log_file = os.path.join(os.getenv('LOG_TMPDIR'), upload_filename + '.' + os.getenv('LOG_FILE_EXTENSION') + '.gz')
 
     return log_file, archived_log_file
 

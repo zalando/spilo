@@ -595,6 +595,7 @@ def get_placeholders(provider):
     placeholders.setdefault('LOG_GROUP_BY_DATE', False)
     placeholders.setdefault('LOG_SHIP_HOURLY', '')
     placeholders.setdefault('LOG_SHIP_SCHEDULE', '1 0 * * *')
+    placeholders.setdefault('LOG_FILE_EXTENSION', 'csv')
     placeholders.setdefault('LOG_S3_BUCKET', '')
     placeholders.setdefault('LOG_S3_ENDPOINT', '')
     placeholders.setdefault('LOG_S3_TAGS', '{}')
@@ -802,7 +803,8 @@ def write_log_environment(placeholders):
                 'LOG_S3_KEY',
                 'LOG_S3_BUCKET',
                 'LOG_S3_TAGS',
-                'PGLOG'):
+                'PGLOG',
+                'LOG_FILE_EXTENSION'):
         write_file(log_env[var], os.path.join(log_env['LOG_ENV_DIR'], var), True)
 
 

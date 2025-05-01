@@ -93,6 +93,7 @@ Environment Configuration Settings
 - **LOG_S3_TAGS**: map of key value pairs to be used for tagging files uploaded to S3. Values should be referencing existing environment variables e.g. ``{"ClusterName": "SCOPE", "Namespace": "POD_NAMESPACE"}``
 - **LOG_SHIP_HOURLY**: if true, log rotation in Postgres is set to 1h incl. foreign tables for every hour (schedule `1 */1 * * *`)
 - **LOG_SHIP_SCHEDULE**: cron schedule for shipping compressed logs from ``pg_log`` (``1 0 * * *`` by default)
+- **LOG_FILE_EXTENSION**: (optional) extension of the files in PGDATA/pgroot/pg_log to be shipped to S3 (csv by default)
 - **LOG_ENV_DIR**: directory to store environment variables necessary for log shipping
 - **LOG_TMPDIR**: directory to store temporary compressed daily log files. PGROOT/../tmp by default.
 - **LOG_S3_ENDPOINT**: (optional) S3 Endpoint to use with Boto3
