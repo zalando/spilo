@@ -812,13 +812,13 @@ def write_log_environment(placeholders):
         tags = {}
 
     log_env['LOG_S3_TAGS'] = "&".join(f"{key}={os.getenv(value)}" for key, value in tags.items())
-    # support for older boto3 versions: https://github.com/boto/botocore/pull/2600
-    if ('AWS_EC2_METADATA_SERVICE_ENDPOINT' in log_env
-            and not log_env['AWS_EC2_METADATA_SERVICE_ENDPOINT'].endswith('/')):
-        log_env['AWS_EC2_METADATA_SERVICE_ENDPOINT'] += '/'
+    if log_env.get('AWS_EC2_METADATA_SERVICE_ENDPOINT'):
+        # support for older boto3 versions: https://github.com/boto/botocore/pull/2600
+        if not log_env['AWS_EC2_METADATA_SERVICE_ENDPOINT'].endswith('/'):
+            log_env['AWS_EC2_METADATA_SERVICE_ENDPOINT'] += '/'
         write_file(log_env['AWS_EC2_METADATA_SERVICE_ENDPOINT'],
                    os.path.join(log_env['LOG_ENV_DIR'], 'AWS_EC2_METADATA_SERVICE_ENDPOINT'), True)
-    if 'AWS_EC2_METADATA_SERVICE_ENDPOINT_MODE' in log_env:
+    if log_env.get('AWS_EC2_METADATA_SERVICE_ENDPOINT_MODE'):
         write_file(log_env['AWS_EC2_METADATA_SERVICE_ENDPOINT_MODE'],
                    os.path.join(log_env['LOG_ENV_DIR'], 'AWS_EC2_METADATA_SERVICE_ENDPOINT_MODE'), True)
 
