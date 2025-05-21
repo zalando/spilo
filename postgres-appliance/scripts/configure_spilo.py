@@ -812,9 +812,15 @@ def write_log_environment(placeholders):
         tags = {}
 
     log_env['LOG_S3_TAGS'] = "&".join(f"{key}={os.getenv(value)}" for key, value in tags.items())
-    # support for older boto3 versions: https://github.com/boto/botocore/pull/2600
-    if not log_env['AWS_EC2_METADATA_SERVICE_ENDPOINT'].endswith('/'):
-        log_env['AWS_EC2_METADATA_SERVICE_ENDPOINT'] += '/'
+    if log_env.get('AWS_EC2_METADATA_SERVICE_ENDPOINT'):
+        # support for older boto3 versions: https://github.com/boto/botocore/pull/2600
+        if not log_env['AWS_EC2_METADATA_SERVICE_ENDPOINT'].endswith('/'):
+            log_env['AWS_EC2_METADATA_SERVICE_ENDPOINT'] += '/'
+        write_file(log_env['AWS_EC2_METADATA_SERVICE_ENDPOINT'],
+                   os.path.join(log_env['LOG_ENV_DIR'], 'AWS_EC2_METADATA_SERVICE_ENDPOINT'), True)
+    if log_env.get('AWS_EC2_METADATA_SERVICE_ENDPOINT_MODE'):
+        write_file(log_env['AWS_EC2_METADATA_SERVICE_ENDPOINT_MODE'],
+                   os.path.join(log_env['LOG_ENV_DIR'], 'AWS_EC2_METADATA_SERVICE_ENDPOINT_MODE'), True)
 
     for var in ('LOG_TMPDIR',
                 'LOG_SHIP_HOURLY',
@@ -823,9 +829,7 @@ def write_log_environment(placeholders):
                 'LOG_S3_KEY',
                 'LOG_S3_BUCKET',
                 'LOG_S3_TAGS',
-                'PGLOG',
-                'AWS_EC2_METADATA_SERVICE_ENDPOINT',
-                'AWS_EC2_METADATA_SERVICE_ENDPOINT_MODE',):
+                'PGLOG',):
         write_file(log_env[var], os.path.join(log_env['LOG_ENV_DIR'], var), True)
 
 
