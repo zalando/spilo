@@ -6,4 +6,4 @@ if ! $CHPST true 2> /dev/null; then
 fi
 
 exec 2>&1
-exec $CHPST env -i PGAPPNAME="pgq ticker" /scripts/patroni_wait.sh --role master -- /usr/bin/pgqd /home/postgres/pgq_ticker.ini
+exec $CHPST env -i PGAPPNAME="pgq ticker" /scripts/patroni_wait.sh --role primary -- /usr/bin/pgqd /home/postgres/pgq_ticker.ini

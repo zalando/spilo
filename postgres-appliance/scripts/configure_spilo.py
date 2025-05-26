@@ -22,7 +22,7 @@ import yaml
 import pystache
 import requests
 
-from spilo_commons import RW_DIR, PATRONI_CONFIG_FILE, append_extensions,\
+from spilo_commons import RW_DIR, PATRONI_CONFIG_FILE, append_extensions, \
         get_binary_version, get_bin_dir, is_valid_pg_version, write_file, write_patroni_config
 
 from kubeblocks_hack import prepare
@@ -293,9 +293,19 @@ postgresql:
     logging_collector: 'on'
     log_destination: csvlog
     log_directory: ../pg_log
+    {{#LOG_SHIP_HOURLY}}
+    log_filename: 'postgresql-%u-%H.log'
+    {{/LOG_SHIP_HOURLY}}
+    {{^LOG_SHIP_HOURLY}}
     log_filename: 'postgresql-%u.log'
+    {{/LOG_SHIP_HOURLY}}
     log_file_mode: '0644'
+    {{#LOG_SHIP_HOURLY}}
+    log_rotation_age: '1h'
+    {{/LOG_SHIP_HOURLY}}
+    {{^LOG_SHIP_HOURLY}}
     log_rotation_age: '1d'
+    {{/LOG_SHIP_HOURLY}}
     log_truncate_on_rotation: 'on'
     ssl: 'on'
     {{#SSL_CA_FILE}}
@@ -370,7 +380,7 @@ hstore,hypopg,intarray,ltree,pgcrypto,pgq,pgq_node,pg_trgm,postgres_fdw,tablefun
     threshold_megabytes: {{WALE_BACKUP_THRESHOLD_MEGABYTES}}
     threshold_backup_size_percentage: {{WALE_BACKUP_THRESHOLD_PERCENTAGE}}
     retries: 2
-    no_master: 1
+    no_leader: 1
   {{/USE_WALE}}
   basebackup_fast_xlog:
     command: /scripts/basebackup.sh
@@ -381,7 +391,7 @@ hstore,hypopg,intarray,ltree,pgcrypto,pgq,pgq_node,pg_trgm,postgres_fdw,tablefun
     threshold_megabytes: {{WALE_BACKUP_THRESHOLD_MEGABYTES}}
     threshold_backup_size_percentage: {{WALE_BACKUP_THRESHOLD_PERCENTAGE}}
     retries: 2
-    no_master: 1
+    no_leader: 1
 {{/STANDBY_WITH_WALE}}
 '''
 
@@ -447,8 +457,7 @@ def get_instance_metadata(provider):
         mapping = {}  # Disable multi-url fetch
         url = 'http://169.254.169.254/openstack/latest/meta_data.json'
         openstack_metadata = requests.get(url, timeout=5).json()
-        if 'availability_zone' in openstack_metadata:
-            metadata['zone'] = openstack_metadata['availability_zone']
+        metadata['zone'] = openstack_metadata['availability_zone']
         if not USE_KUBERNETES:
             # Try get IP via OpenStack EC2-compatible API, if can't then fail back to auto-discovered one.
             metadata['id'] = openstack_metadata['uuid']
@@ -569,7 +578,10 @@ def get_placeholders(provider):
     placeholders.setdefault('PAM_OAUTH2', '')
     placeholders.setdefault('CALLBACK_SCRIPT', '')
     placeholders.setdefault('DCS_ENABLE_KUBERNETES_API', '')
+    placeholders.setdefault('AWS_LEADER_TAG_VALUE', 'master')
     placeholders.setdefault('KUBERNETES_ROLE_LABEL', 'spilo-role')
+    placeholders.setdefault('KUBERNETES_LEADER_LABEL_VALUE', 'master')
+    placeholders.setdefault('KUBERNETES_STANDBY_LEADER_LABEL_VALUE', 'master')
     placeholders.setdefault('KUBERNETES_SCOPE_LABEL', 'version')
     placeholders.setdefault('KUBERNETES_LABELS', KUBERNETES_DEFAULT_LABELS)
     placeholders.setdefault('KUBERNETES_USE_CONFIGMAPS', '')
@@ -582,11 +594,19 @@ def get_placeholders(provider):
     placeholders.setdefault('CLONE_TARGET_INCLUSIVE', True)
 
     placeholders.setdefault('LOG_GROUP_BY_DATE', False)
+    placeholders.setdefault('LOG_SHIP_HOURLY', '')
     placeholders.setdefault('LOG_SHIP_SCHEDULE', '1 0 * * *')
     placeholders.setdefault('LOG_S3_BUCKET', '')
     placeholders.setdefault('LOG_S3_ENDPOINT', '')
+    placeholders.setdefault('LOG_S3_TAGS', '{}')
     placeholders.setdefault('LOG_TMPDIR', os.path.abspath(os.path.join(placeholders['PGROOT'], '../tmp')))
     placeholders.setdefault('LOG_BUCKET_SCOPE_SUFFIX', '')
+
+    # only accept true as value or else it will be empty = disabled
+    if placeholders.get('LOG_SHIP_HOURLY', '').lower() == 'true':
+        placeholders['LOG_SHIP_HOURLY'] = 'true'
+    else:
+        placeholders['LOG_SHIP_HOURLY'] = ''
 
     # see comment for wal-e bucket prefix
     placeholders.setdefault('LOG_BUCKET_SCOPE_PREFIX', '{0}-'.format(placeholders['NAMESPACE'])
@@ -773,7 +793,17 @@ def write_log_environment(placeholders):
     if not os.path.exists(log_env['LOG_ENV_DIR']):
         os.makedirs(log_env['LOG_ENV_DIR'])
 
-    for var in ('LOG_TMPDIR', 'LOG_AWS_REGION', 'LOG_S3_ENDPOINT', 'LOG_S3_KEY', 'LOG_S3_BUCKET', 'PGLOG'):
+    tags = json.loads(os.getenv('LOG_S3_TAGS'))
+    log_env['LOG_S3_TAGS'] = "&".join(f"{key}={os.getenv(value)}" for key, value in tags.items())
+
+    for var in ('LOG_TMPDIR',
+                'LOG_SHIP_HOURLY',
+                'LOG_AWS_REGION',
+                'LOG_S3_ENDPOINT',
+                'LOG_S3_KEY',
+                'LOG_S3_BUCKET',
+                'LOG_S3_TAGS',
+                'PGLOG'):
         write_file(log_env[var], os.path.join(log_env['LOG_ENV_DIR'], var), True)
 
 
@@ -1003,8 +1033,12 @@ def write_crontab(placeholders, overwrite):
                    ' "{PGDATA}"').format(**placeholders)]
 
     if bool(placeholders.get('LOG_S3_BUCKET')):
-        lines += [('{LOG_SHIP_SCHEDULE} nice -n 5 envdir "{LOG_ENV_DIR}"' +
-                   ' /scripts/upload_pg_log_to_s3.py').format(**placeholders)]
+        log_dir = placeholders.get('LOG_ENV_DIR')
+        schedule = placeholders.get('LOG_SHIP_SCHEDULE')
+        if placeholders.get('LOG_SHIP_HOURLY') == 'true':
+            schedule = '1 */1 * * *'
+        lines += [('{0} nice -n 5 envdir "{1}"' +
+                   ' /scripts/upload_pg_log_to_s3.py').format(schedule, log_dir)]
 
     lines += yaml.safe_load(placeholders['CRONTAB'])
 

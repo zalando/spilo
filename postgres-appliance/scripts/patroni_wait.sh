@@ -1,6 +1,6 @@
 #!/bin/bash
 
-ROLE=master
+ROLE=primary
 INTERVAL=60
 TIMEOUT=""
 
@@ -17,7 +17,7 @@ Options:
 
     -t, --timeout   Fail after TIMEOUT seconds (default: no timeout)
 
-Waits for ROLE (master or replica). It will check every INTERVAL seconds ($INTERVAL).
+Waits for ROLE (primary or replica). It will check every INTERVAL seconds ($INTERVAL).
 If TIMEOUT is specified, it will stop trying after TIMEOUT seconds.
 
 Executes COMMAND after ROLE has become available. (Default: exit 0)

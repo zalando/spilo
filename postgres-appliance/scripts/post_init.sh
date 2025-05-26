@@ -5,7 +5,11 @@ cd "$(dirname "${BASH_SOURCE[0]}")" || exit 1
 export PGOPTIONS="-c synchronous_commit=local -c search_path=pg_catalog"
 
 PGVER=$(psql -d "$2" -XtAc "SELECT pg_catalog.current_setting('server_version_num')::int/10000")
-RESET_ARGS="oid, oid, bigint"
+if [ "$PGVER" -lt 17 ]; then
+    RESET_ARGS="oid, oid, bigint"
+else
+    RESET_ARGS="oid, oid, bigint, bool"
+fi
 
 (echo "\set ON_ERROR_STOP on"
 echo "DO \$\$
@@ -147,19 +151,61 @@ if [ "$PGVER" -ge 14 ]; then
 fi
 
 # Sunday could be 0 or 7 depending on the format, we just create both
-for i in $(seq 0 7); do
-    echo "CREATE FOREIGN TABLE IF NOT EXISTS public.postgres_log_$i () INHERITS (public.postgres_log) SERVER pglog
-    OPTIONS (filename '../pg_log/postgresql-$i.csv', format 'csv', header 'false');
-GRANT SELECT ON public.postgres_log_$i TO admin;
+LOG_SHIP_HOURLY=$(echo "SELECT text(current_setting('log_rotation_age') = '1h')" | psql -tAX -d postgres 2> /dev/null | tail -n 1)
+if [ "$LOG_SHIP_HOURLY" != "true" ]; then
+    tbl_regex='postgres_log_\d_\d{2}$'
+else
+    tbl_regex='postgres_log_\d$'
+fi
+echo "DO \$\$DECLARE tbl_name TEXT;
+    BEGIN
+    FOR tbl_name IN SELECT 'public' || '.' || quote_ident(relname) FROM pg_class
+                    WHERE relname ~ '${tbl_regex}' AND relnamespace = 'public'::pg_catalog.regnamespace AND relkind = 'f'
+    LOOP
+        IF tbl_name IS NOT NULL THEN
+            EXECUTE format('DROP FOREIGN TABLE IF EXISTS %s CASCADE', tbl_name);
+        END IF;
+    END LOOP;
+END;\$\$;"
 
-CREATE OR REPLACE VIEW public.failed_authentication_$i WITH (security_barrier) AS
-SELECT *
-  FROM public.postgres_log_$i
- WHERE command_tag = 'authentication'
-   AND error_severity = 'FATAL';
-ALTER VIEW public.failed_authentication_$i OWNER TO postgres;
-GRANT SELECT ON TABLE public.failed_authentication_$i TO robot_zmon;
-"
+for i in $(seq 0 7); do
+    if [ "$LOG_SHIP_HOURLY" != "true" ]; then
+        echo "CREATE FOREIGN TABLE IF NOT EXISTS public.postgres_log_${i} () INHERITS (public.postgres_log) SERVER pglog
+        OPTIONS (filename '../pg_log/postgresql-${i}.csv', format 'csv', header 'false');
+        GRANT SELECT ON public.postgres_log_${i} TO admin;
+
+        CREATE OR REPLACE VIEW public.failed_authentication_${i} WITH (security_barrier) AS
+        SELECT *
+          FROM public.postgres_log_${i}
+         WHERE command_tag = 'authentication'
+           AND error_severity = 'FATAL';
+        ALTER VIEW public.failed_authentication_${i} OWNER TO postgres;
+        GRANT SELECT ON TABLE public.failed_authentication_${i} TO robot_zmon;"
+    else
+        daily_log="CREATE OR REPLACE VIEW public.postgres_log_${i} AS\n"
+        daily_auth="CREATE OR REPLACE VIEW public.failed_authentication_${i} WITH (security_barrier) AS\n"
+        daily_union=""
+
+        for h in $(seq -w 0 23); do
+            filter_logs="SELECT * FROM public.postgres_log_${i}_${h} WHERE command_tag = 'authentication' AND error_severity = 'FATAL'"
+
+            echo "CREATE FOREIGN TABLE IF NOT EXISTS public.postgres_log_${i}_${h} () INHERITS (public.postgres_log) SERVER pglog
+            OPTIONS (filename '../pg_log/postgresql-${i}-${h}.csv', format 'csv', header 'false');
+            GRANT SELECT ON public.postgres_log_${i}_${h} TO admin;
+
+            CREATE OR REPLACE VIEW public.failed_authentication_${i}_${h} WITH (security_barrier) AS
+            ${filter_logs};
+            ALTER VIEW public.failed_authentication_${i}_${h} OWNER TO postgres;
+            GRANT SELECT ON TABLE public.failed_authentication_${i}_${h} TO robot_zmon;"
+
+            daily_log="${daily_log}${daily_union}SELECT * FROM public.postgres_log_${i}_${h}\n"
+            daily_auth="${daily_auth}${daily_union}${filter_logs}\n"
+            daily_union="UNION ALL\n"
+        done
+
+        echo -e "${daily_log};"
+        echo -e "${daily_auth};"
+    fi
 done
 
 cat _zmon_schema.dump
@@ -171,15 +217,97 @@ while IFS= read -r db_name; do
     UPGRADE_TIMESCALEDB=$(echo -e "SELECT NULL;\nSELECT default_version != installed_version FROM pg_catalog.pg_available_extensions WHERE name = 'timescaledb'" | psql -tAX -d "${db_name}" 2> /dev/null | tail -n 1)
     if [ "$UPGRADE_TIMESCALEDB" = "t" ]; then
         echo "ALTER EXTENSION timescaledb UPDATE;"
+        IS_VERSION_BELOW_215=$(echo -e "SELECT (installed_version < '2.15')::bool FROM pg_catalog.pg_available_extensions WHERE name = 'timescaledb'" | psql -tAX -d "${db_name}" 2> /dev/null | tail -n 1)
+        if [ "$IS_VERSION_BELOW_215" = "t" ]; then
+            echo """
+                    -- Fix compressed hypertables with FOREIGN KEY constraints that were created with TimescaleDB versions before 2.15.0
+                    CREATE OR REPLACE FUNCTION pg_temp.constraint_columns(regclass, int2[]) RETURNS text[] AS
+                    $$
+                    SELECT array_agg(attname) FROM unnest($2) un(attnum) LEFT JOIN pg_attribute att ON att.attrelid=$1 AND att.attnum = un.attnum;
+                    $$ LANGUAGE SQL SET search_path TO pg_catalog, pg_temp;
+                    DO $$
+                        DECLARE
+                        ht_id int;
+                        ht regclass;
+                        chunk regclass;
+                        con_oid oid;
+                        con_frelid regclass;
+                        con_name text;
+                        con_columns text[];
+                        chunk_id int;
+
+                        BEGIN
+
+                        -- iterate over all hypertables that have foreign key constraints
+                        FOR ht_id, ht in
+                            SELECT
+                            ht.id,
+                            format('%I.%I',ht.schema_name,ht.table_name)::regclass
+                            FROM _timescaledb_catalog.hypertable ht
+                            WHERE
+                            EXISTS (
+                                SELECT FROM pg_constraint con
+                                WHERE
+                                con.contype='f' AND
+                                con.conrelid=format('%I.%I',ht.schema_name,ht.table_name)::regclass
+                            )
+                        LOOP
+                            RAISE NOTICE 'Hypertable % has foreign key constraint', ht;
+
+                            -- iterate over all foreign key constraints on the hypertable
+                            -- and check that they are present on every chunk
+                            FOR con_oid, con_frelid, con_name, con_columns IN
+                            SELECT con.oid, con.confrelid, con.conname, pg_temp.constraint_columns(con.conrelid,con.conkey)
+                            FROM pg_constraint con
+                            WHERE
+                                con.contype='f' AND
+                                con.conrelid=ht
+                            LOOP
+                                RAISE NOTICE 'Checking constraint % %', con_name, con_columns;
+                                -- check that the foreign key constraint is present on the chunk
+
+                                FOR chunk_id, chunk IN
+                                    SELECT
+                                    ch.id,
+                                    format('%I.%I',ch.schema_name,ch.table_name)::regclass
+                                    FROM _timescaledb_catalog.chunk ch
+                                    WHERE
+                                    ch.hypertable_id=ht_id
+                                LOOP
+                                    RAISE NOTICE 'Checking chunk %', chunk;
+                                    IF NOT EXISTS (
+                                    SELECT FROM pg_constraint con
+                                    WHERE
+                                        con.contype='f' AND
+                                        con.conrelid=chunk AND
+                                        con.confrelid=con_frelid  AND
+                                        pg_temp.constraint_columns(con.conrelid,con.conkey) = con_columns
+                                    ) THEN
+                                    RAISE WARNING 'Restoring constraint % on chunk %', con_name, chunk;
+                                    PERFORM _timescaledb_functions.constraint_clone(con_oid, chunk);
+                                    INSERT INTO _timescaledb_catalog.chunk_constraint(chunk_id, dimension_slice_id, constraint_name, hypertable_constraint_name) VALUES (chunk_id, NULL, con_name, con_name);
+                                    END IF;
+
+                                END LOOP;
+                            END LOOP;
+
+                        END LOOP;
+
+                    END
+                    $$;
+
+                    DROP FUNCTION pg_temp.constraint_columns(regclass, int2[]);
+                """
+        fi
     fi
     UPGRADE_TIMESCALEDB_TOOLKIT=$(echo -e "SELECT NULL;\nSELECT default_version != installed_version FROM pg_catalog.pg_available_extensions WHERE name = 'timescaledb_toolkit'" | psql -tAX -d "${db_name}" 2> /dev/null | tail -n 1)
     if [ "$UPGRADE_TIMESCALEDB_TOOLKIT" = "t" ]; then
         echo "ALTER EXTENSION timescaledb_toolkit UPDATE;"
     fi
-    UPGRADE_POSTGIS=$(echo -e "SELECT COUNT(*) FROM pg_catalog.pg_extension WHERE extname = 'postgis'" | psql -tAX -d "${db_name}" 2> /dev/null | tail -n 1)
+    UPGRADE_POSTGIS=$(echo "SELECT COUNT(*) FROM pg_catalog.pg_extension WHERE extname = 'postgis'" | psql -tAX -d "${db_name}" 2> /dev/null | tail -n 1)
     if [ "$UPGRADE_POSTGIS" = "1" ]; then
         # public.postgis_lib_version() is available only if postgis extension is created
-        UPGRADE_POSTGIS=$(echo -e "SELECT extversion != public.postgis_lib_version() FROM pg_catalog.pg_extension WHERE extname = 'postgis'" | psql -tAX -d "${db_name}" 2> /dev/null | tail -n 1)
+        UPGRADE_POSTGIS=$(echo "SELECT extversion != public.postgis_lib_version() FROM pg_catalog.pg_extension WHERE extname = 'postgis'" | psql -tAX -d "${db_name}" 2> /dev/null | tail -n 1)
         if [ "$UPGRADE_POSTGIS" = "t" ]; then
             echo "ALTER EXTENSION postgis UPDATE;"
             echo "SELECT public.postgis_extensions_upgrade();"

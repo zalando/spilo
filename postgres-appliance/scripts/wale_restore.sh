@@ -24,7 +24,7 @@ while getopts ":-:" optchar; do
         threshold_megabytes=*|threshold-megabytes=* )
             THRESHOLD_MEGABYTES=${OPTARG#*=}
             ;;
-        no_master=*|no-master=* )
+        no_leader=*|no-master=* )
             NO_MASTER=${OPTARG#*=}
             ;;
     esac
