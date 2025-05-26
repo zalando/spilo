@@ -320,7 +320,7 @@ postgresql:
     bg_mon.history_buckets: 120
     pg_stat_statements.track_utility: 'off'
     extwlist.extensions: 'btree_gin,btree_gist,citext,extra_window_functions,first_last_agg,hll,\
-hstore,hypopg,intarray,ltree,pgcrypto,pgq,pgq_node,pgvector,pg_trgm,postgres_fdw,roaringbitmap,tablefunc,uuid-ossp'
+hstore,hypopg,intarray,ltree,pgcrypto,pgq,pgq_node,pg_trgm,postgres_fdw,roaringbitmap,tablefunc,uuid-ossp,vector'
     extwlist.custom_path: /scripts
   pg_hba:
     - local   all             all                                   trust
