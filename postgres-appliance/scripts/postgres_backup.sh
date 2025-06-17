@@ -57,13 +57,11 @@ while read -r name last_modified rest; do
     fi
 done < <($WAL_E backup-list 2> /dev/null | sed '0,/^\(backup_\)\?name\s*\(last_\)\?modified\s*/d')
 
-# we want keep at least N backups even if the number of days exceeded
+# we want keep at least N backups even if the number of days exceeded both from wal-e and wal-g
 if [ -n "$BEFORE" ] && [ $LEFT -ge $DAYS_TO_RETAIN ]; then
-    if [[ "$USE_WALG_BACKUP" == "true" ]]; then
-        $WAL_E delete before FIND_FULL "$BEFORE" --confirm
-    else
-        $WAL_E delete --confirm before "$BEFORE"
-    fi
+    log "deleting backups before $BEFORE"
+    wal-g delete before FIND_FULL "$BEFORE" --confirm
+    wal-e delete --confirm before "$BEFORE"
 fi
 
 # push a new base backup
