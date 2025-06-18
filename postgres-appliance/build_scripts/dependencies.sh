@@ -29,9 +29,9 @@ apt-get install -y curl ca-certificates
 mkdir /builddeps/wal-g
 
 if [ "$ARCH" = "amd64" ]; then
-    PKG_NAME='wal-g-pg-ubuntu-20.04-amd64'
+    PKG_NAME='wal-g-pg-ubuntu-22.04-amd64'
 else
-    PKG_NAME='wal-g-pg-ubuntu20.04-aarch64'
+    PKG_NAME='wal-g-pg-ubuntu-22.04-aarch64'
 fi
 
 curl -sL "https://github.com/wal-g/wal-g/releases/download/$WALG_VERSION/$PKG_NAME.tar.gz" \
