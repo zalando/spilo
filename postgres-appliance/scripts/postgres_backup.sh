@@ -45,8 +45,8 @@ else
     # Determine pool size based on CPU count, but cap it at 4 to avoid excessive parallelism
     POOL_SIZE=$(grep -c ^processor /proc/cpuinfo 2>/dev/null || echo 1)
     [ "$POOL_SIZE" -gt 4 ] && POOL_SIZE=4
-    POOL_SIZE=(--pool-size "$POOL_SIZE")
     log "POOL_SIZE set to $POOL_SIZE"
+    POOL_SIZE=(--pool-size "$POOL_SIZE")
 fi
 
 # Initialization
@@ -61,7 +61,7 @@ while read -r name last_modified rest; do
     last_modified=$(date +%s -ud "$last_modified")
     
     # If a backup's age exceeds DAYS_TO_RETAIN, consider it for deletion
-    if [ $(((NOW-last_modified)/86400)) -ge $DAYS_TO_RETAIN ]; then
+    if [ $(((NOW-last_modified)/86400)) -ge "$DAYS_TO_RETAIN" ]; then
         log "Backup $name is old enough for deletion."
         if [ -z "$BEFORE" ] || [ "$last_modified" -gt "$BEFORE_TIME" ]; then
             BEFORE_TIME=$last_modified
@@ -76,7 +76,7 @@ done < <($WAL_E backup-list 2> /dev/null | sed '0,/^\(backup_\)\?name\s*\(last_\
 log "Total backups to retain: $LEFT. Target for deletion is: $BEFORE"
 
 # Ensure a certain number of backups remain, even if their age exceeds DAYS_TO_RETAIN
-if [ -n "$BEFORE" ] && [ $LEFT -ge $BACKUP_NUM_TO_RETAIN ]; then
+if [ -n "$BEFORE" ] && [ $LEFT -ge "$BACKUP_NUM_TO_RETAIN" ]; then
     log "Deleting backups before $BEFORE..."
     # Use appropriate deletion command based on whether wal-g or wal-e is being used
     if [[ "$USE_WALG_BACKUP" == "true" ]]; then
