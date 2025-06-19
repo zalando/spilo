@@ -18,6 +18,7 @@ elif [[ $IN_RECOVERY == "t" ]]; then
     [[ "$WALG_BACKUP_FROM_REPLICA" != "true" ]] && log "Cluster is in recovery, not running backup" && exit 0
 else
     log "ERROR: Recovery state unknown: $IN_RECOVERY" && exit 1
+fi
 
 # Ensure DAYS_TO_RETAIN is set, either externally or from BACKUP_NUM_TO_RETAIN
 if [[ -z $DAYS_TO_RETAIN ]]; then
