@@ -49,7 +49,9 @@ else
     EXTRAS=""
 fi
 
-pip3 install "patroni[kubernetes$EXTRAS]==$PATRONIVERSION"
+# Install custom Patroni with synchronized_standby_slots support
+echo "Installing custom Patroni with synchronized_standby_slots support..."
+pip3 install "git+https://github.com/PavelZaytsev/patroni.git@feature/unique-synchronized-standby-slots#egg=patroni[kubernetes$EXTRAS]"
 
 for d in /usr/local/lib/python3.10 /usr/lib/python3; do
     cd $d/dist-packages
