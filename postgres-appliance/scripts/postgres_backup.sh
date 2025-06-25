@@ -39,32 +39,27 @@ else
     POOL_SIZE=(--pool-size "$POOL_SIZE")
 fi
 
-BEFORE=""
-LEFT=0
-
-NOW=$(date +%s -u)
-readonly NOW
-while read -r name last_modified rest; do
-    last_modified=$(date +%s -ud "$last_modified")
-    if [ $(((NOW-last_modified)/86400)) -ge $DAYS_TO_RETAIN ]; then
-        if [ -z "$BEFORE" ] || [ "$last_modified" -gt "$BEFORE_TIME" ]; then
-            BEFORE_TIME=$last_modified
-            BEFORE=$name
-        fi
-    else
-        # count how many backups will remain after we remove everything up to certain date
-        ((LEFT=LEFT+1))
-    fi
-done < <($WAL_E backup-list 2> /dev/null | sed '0,/^\(backup_\)\?name\s*\(last_\)\?modified\s*/d')
-
-# we want keep at least N backups even if the number of days exceeded both from wal-e and wal-g
-if [ -n "$BEFORE" ] && [ $LEFT -ge $DAYS_TO_RETAIN ]; then
-    log "deleting backups before $BEFORE"
-    wal-g delete before FIND_FULL "$BEFORE" --confirm
-    wal-e delete --confirm before "$BEFORE"
-fi
-
 # push a new base backup
 log "producing a new backup"
 # We reduce the priority of the backup for CPU consumption
-exec nice -n 5 $WAL_E backup-push "$PGDATA" "${POOL_SIZE[@]}"
+nice -n 5 $WAL_E backup-push "$PGDATA" "${POOL_SIZE[@]}"
+
+# Collect all backups and sort them by modification time
+mapfile -t backup_records < <(wal-g backup-list 2>/dev/null |
+    sed '0,/^\(backup_\)\?name\s*\(last_\)\?modified\s*/d' |
+    awk '{ cmd = "date +%s -ud \"" $2 "\""; cmd | getline epoch; close(cmd); print epoch, $1 }' |
+    sort -rn |
+    awk '{ print $2 }'
+    )
+
+# Compute total after collection
+TOTAL=${#backup_records[@]}
+
+# get the date of the BACKUP_NUM_TO_RETAIN-th newest backup
+if [[ $TOTAL -gt $DAYS_TO_RETAIN ]]; then
+    # check the current tool used for backups
+    BEFORE="${backup_records[$DAYS_TO_RETAIN-1]}"
+    wal-g delete before FIND_FULL "$BEFORE" --confirm
+else
+    log "There are only $TOTAL backups, not deleting any"
+fi
