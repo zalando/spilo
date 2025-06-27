@@ -43,9 +43,8 @@ nice -n 5 $WAL_E backup-push "$PGDATA" "${POOL_SIZE[@]}"
 # Collect all backups and sort them by modification time
 mapfile -t backup_records < <(wal-g backup-list 2>/dev/null |
     sed '0,/^\(backup_\)\?name\s*\(last_\)\?modified\s*/d' |
-    awk '{ cmd = "date +%s -ud \"" $2 "\""; cmd | getline epoch; close(cmd); print epoch, $1 }' |
-    sort -rn |
-    awk '{ print $2 }'
+    sort -k2r  | 
+    awk '{ print $1 }'
     )
 
 # Compute total after collection
