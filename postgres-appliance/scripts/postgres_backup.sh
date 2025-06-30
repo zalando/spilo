@@ -57,15 +57,13 @@ TOTAL=${#backup_records[@]}
 BEFORE=""
 NOW=$(date +%s -u)
 readonly NOW
-index=$(( BACKUP_NUM_TO_RETAIN - 1 ))
 
-while [[ $index -lt $TOTAL ]]; do
+for ((index=BACKUP_NUM_TO_RETAIN-1; index<TOTAL; index++)); do
     last_modified=$(date +%s -ud "${backup_records[$index]##* }")
     if (( (NOW - last_modified) / 86400 >= DAYS_TO_RETAIN )); then
         BEFORE="${backup_records[$index]%% *}"
         break
     fi
-    index=$(( index + 1 ))
 done
 
 if [[ -z $BEFORE ]]; then
