@@ -606,8 +606,6 @@ def get_placeholders(provider):
         if name is False:
             logging.warning('Cloning with WAL-G is only possible when CLONE_WALG_*_PREFIX '
                             'or CLONE_WAL_*_BUCKET and CLONE_SCOPE are set.')
-        else:
-            placeholders.setdefault('CLONE_USE_WALG', 'true')
     elif placeholders['CLONE_METHOD'] == 'CLONE_WITH_BASEBACKUP':
         clone_scope = placeholders.get('CLONE_SCOPE')
         if clone_scope and placeholders.get('CLONE_HOST') \
@@ -620,8 +618,7 @@ def get_placeholders(provider):
             logging.warning("Clone method is set to basebackup, but no 'CLONE_SCOPE' "
                             "or 'CLONE_HOST' or 'CLONE_USER' or 'CLONE_PASSWORD' specified")
     else:
-        if set_extended_walg_placeholders(placeholders, 'STANDBY_'):
-            placeholders.setdefault('STANDBY_USE_WALG', 'true')
+        set_extended_walg_placeholders(placeholders, 'STANDBY_')
 
     placeholders.setdefault('STANDBY_WITH_WALG', '')
     placeholders.setdefault('STANDBY_HOST', '')
@@ -941,9 +938,7 @@ def write_walg_environment(placeholders, prefix, overwrite):
     if store_type in ('S3', 'GS') and not walg.get(write_envdir_names[1]):
         walg[write_envdir_names[1]] = walg[prefix_env_name]
 
-    print(">>>>>>>>>>>>> hereeeeee")
     if not os.path.exists(walg['WALG_ENV_DIR']):
-        print(">>>>>>>>>>>>> creating WALG_ENV_DIR")
         os.makedirs(walg['WALG_ENV_DIR'])
 
     walg['WALG_LOG_DESTINATION'] = 'stderr'
