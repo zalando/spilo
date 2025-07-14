@@ -68,15 +68,14 @@ RUN bash base.sh
 # Install wal-g
 COPY --from=dependencies-builder /builddeps/wal-g /usr/local/bin/
 
-COPY build_scripts/patroni_wale.sh build_scripts/compress_build.sh /builddeps/
+COPY build_scripts/patroni.sh build_scripts/compress_build.sh /builddeps/
 
 # Install patroni and wal-e
 ENV PATRONIVERSION=4.0.4
-ENV WALE_VERSION=1.1.1
 
 WORKDIR /
 
-RUN bash /builddeps/patroni_wale.sh
+RUN bash /builddeps/patroni.sh
 
 RUN if [ "$COMPRESS" = "true" ]; then bash /builddeps/compress_build.sh; fi
 
@@ -101,7 +100,7 @@ ENV LC_ALL=en_US.utf-8 \
     RW_DIR=/run \
     DEMO=$DEMO
 
-ENV WALE_ENV_DIR=$RW_DIR/etc/wal-e.d/env \
+ENV WALG_ENV_DIR=$RW_DIR/etc/wal-g.d/env \
     LOG_ENV_DIR=$RW_DIR/etc/log.d/env \
     PGROOT=$PGHOME/pgdata/pgroot
 
