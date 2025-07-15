@@ -375,7 +375,7 @@ hstore,hypopg,intarray,ltree,pgcrypto,pgq,pgq_node,pg_trgm,postgres_fdw,roaringb
     - basebackup_fast_xlog
   {{#USE_WALG}}
   wal_g:
-    command: envdir {{WALG_ENV_DIR}} bash /scripts/wale_restore.sh
+    command: envdir {{WALG_ENV_DIR}} bash /scripts/walg_restore.sh
     threshold_megabytes: {{WALG_BACKUP_THRESHOLD_MEGABYTES}}
     threshold_backup_size_percentage: {{WALG_BACKUP_THRESHOLD_PERCENTAGE}}
     retries: 2
@@ -386,7 +386,7 @@ hstore,hypopg,intarray,ltree,pgcrypto,pgq,pgq_node,pg_trgm,postgres_fdw,roaringb
     retries: 2
 {{#STANDBY_WITH_WALG}}
   bootstrap_standby_with_walg:
-    command: envdir "{{STANDBY_WALG_ENV_DIR}}" bash /scripts/wale_restore.sh
+    command: envdir "{{STANDBY_WALG_ENV_DIR}}" bash /scripts/walg_restore.sh
     threshold_megabytes: {{WALG_BACKUP_THRESHOLD_MEGABYTES}}
     threshold_backup_size_percentage: {{WALG_BACKUP_THRESHOLD_PERCENTAGE}}
     retries: 2
