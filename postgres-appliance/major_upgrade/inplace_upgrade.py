@@ -58,6 +58,7 @@ def update_configs(new_version):
 
         try:
             for name in os.listdir(envdir):
+                # len('WALG__PREFIX') = 12
                 if len(name) > 12 and name.endswith('_PREFIX') and name.startswith('WALG_'):
                     name = os.path.join(envdir, name)
                     try:
