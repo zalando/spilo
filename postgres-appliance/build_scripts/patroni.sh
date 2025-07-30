@@ -26,20 +26,16 @@ if [ "$DEMO" != "true" ]; then
         python3-etcd \
         python3-consul \
         python3-kazoo \
-        python3-boto \
         python3-boto3 \
         python3-botocore \
         python3-cachetools \
-        python3-cffi \
-        python3-gevent \
         python3-pyasn1-modules \
         python3-rsa \
-        python3-s3transfer \
-        python3-swiftclient
+        python3-s3transfer
 
     find /usr/share/python-babel-localedata/locale-data -type f ! -name 'en_US*.dat' -delete
 
-    pip3 install filechunkio protobuf \
+    pip3 install protobuf \
             'git+https://github.com/zalando/pg_view.git@master#egg=pg-view'
 else
     EXTRAS=""
