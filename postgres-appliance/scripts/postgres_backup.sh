@@ -23,20 +23,19 @@ else
     log "ERROR: Recovery state unknown: $IN_RECOVERY" && exit 1
 fi
 
-readonly WAL_G="wal-g"
 [[ -z $WALG_BACKUP_COMPRESSION_METHOD ]] || export WALG_COMPRESSION_METHOD=$WALG_BACKUP_COMPRESSION_METHOD
 export PGHOST=/var/run/postgresql
 
 # push a new base backup
 log "producing a new backup"
 # We reduce the priority of the backup for CPU consumption
-nice -n 5 $WAL_G backup-push "$PGDATA" "${POOL_SIZE[@]}"
+nice -n 5 wal-g backup-push "$PGDATA" "${POOL_SIZE[@]}"
 
 # Collect all backups and sort them by modification time
 mapfile -t backup_records < <(wal-g backup-list 2>/dev/null |
     sed '0,/^\(backup_\)\?name\s*\(last_\)\?modified\s*/d' |
-    sort -k2r  | 
-    awk '{ print $1, $2 }'
+    awk '{ print $1, $2 }' |
+    sort -k2r
     )
 
 # leave at least 2 days base backups and/or 2 backups
