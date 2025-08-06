@@ -180,6 +180,42 @@ if [ "$DEMO" != "true" ]; then
     done
 fi
 
+# install citus
+
+if [ "$(dpkg --print-architecture)" = "arm64" ]; then
+    echo "Citus was not installed as arm64 is not supported"
+else
+    curl https://install.citusdata.com/community/deb.sh | bash
+fi
+            
+for version in $DEB_PG_SUPPORTED_VERSIONS; do
+    CITUS_VERSION=""
+    case $version in
+        17)
+            CITUS_VERSION="$CITUS_PG_17_VERSION"
+            ;;
+        16)
+            CITUS_VERSION="$CITUS_PG_16_VERSION"
+            ;;
+        15)
+            CITUS_VERSION="$CITUS_PG_15_VERSION"
+            ;;
+        14)
+            CITUS_VERSION="$CITUS_PG_14_VERSION"
+            ;;
+        13)
+            CITUS_VERSION="$CITUS_PG_13_VERSION"
+            ;;
+        *)
+            ;;
+    esac
+    if [ "$CITUS_VERSION" != "" ] && [ "$(dpkg --print-architecture)" != "arm64" ]; then
+        apt-get -y install postgresql-"$version"-citus-"$CITUS_VERSION";
+    else
+        echo "Citus was not installed as appropriate version for Postgres $version amd64 was not provided";
+    fi
+done
+
 # make it possible for cron to work without root
 gcc -s -shared -fPIC -o /usr/local/lib/cron_unprivileged.so cron_unprivileged.c
 
