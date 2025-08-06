@@ -175,6 +175,10 @@ def run_clone_from_s3(options):
             envdir = get_clone_envdir()
             with open(os.path.join(envdir, update_envdir), 'w') as f:
                 f.write(env[update_envdir])
+
+        ret = subprocess.call(['chmod', '0700', options.datadir])
+        if ret != 0:
+            raise Exception("Permission adjustment of data dir exited with code {0}".format(ret))
     return 0
 
 
