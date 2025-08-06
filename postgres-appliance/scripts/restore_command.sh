@@ -48,8 +48,8 @@ if [[ -z $WALE_S3_PREFIX ]]; then  # non AWS environment?
     if [[ -f $wale_prefetch_source ]]; then
         exec mv "${wale_prefetch_source}" "${wal_destination}"
     else
-        exec wal-e wal-fetch -p $POOL_SIZE "${wal_filename}" "${wal_destination}"
+        exec wal-e wal-fetch ${POOL_SIZE:+-p $POOL_SIZE} "${wal_filename}" "${wal_destination}"
     fi
 else
-    exec bash /scripts/wal-e-wal-fetch.sh wal-fetch -p $POOL_SIZE "${wal_filename}" "${wal_destination}"
+    exec bash /scripts/wal-e-wal-fetch.sh wal-fetch ${POOL_SIZE:+-p $POOL_SIZE} "${wal_filename}" "${wal_destination}"
 fi
