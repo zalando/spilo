@@ -160,7 +160,7 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
             pg_permissions-${PG_PERMISSIONS_COMMIT} \
             pg_profile-${PG_PROFILE} \
             "${EXTRA_EXTENSIONS[@]}"; do
-        make -C "$n" USE_PGXS=1 clean install-strip
+        make -C "$n" USE_PGXS=1 PG_CONFIG="/usr/lib/postgresql/$version/bin/pg_config" clean install-strip
     done
 done
 
