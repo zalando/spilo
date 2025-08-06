@@ -111,6 +111,7 @@ Environment Configuration Settings
 - **ENABLE_WAL_PATH_COMPAT**: old Spilo images were generating wal path in the backup store using the following template ``/spilo/{WAL_BUCKET_SCOPE_PREFIX}{SCOPE}{WAL_BUCKET_SCOPE_SUFFIX}/wal/``, while new images adding one additional directory (``{PGVERSION}``) to the end. In order to avoid (unlikely) issues with restoring WALs (from S3/GC/and so on) when switching to ``spilo-13`` please set the ``ENABLE_WAL_PATH_COMPAT=true`` when deploying old cluster with ``spilo-13`` for the first time. After that the environment variable could be removed. Change of the WAL path also mean that backups stored in the old location will not be cleaned up automatically.
 - **WALE_DISABLE_S3_SSE**, **WALG_DISABLE_S3_SSE**: by default wal-e/wal-g are configured to encrypt files uploaded to S3. In order to disable it you can set this environment variable to ``true``.
 - **USE_OLD_LOCALES**: whether to use old locales from Ubuntu 18.04 in the Ubuntu 22.04-based image. Default is false.
+- **USE_APPLICATION_NAME_IN_UPGRADE**: whether to use the application name in the upgrade script. Default is false. Usable for usage with service meshs.
 
 wal-g
 -----
