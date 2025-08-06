@@ -35,11 +35,12 @@ USE_KUBERNETES = os.environ.get('KUBERNETES_SERVICE_HOST') is not None
 KUBERNETES_DEFAULT_LABELS = '{"application": "spilo"}'
 PATRONI_DCS = ('kubernetes', 'zookeeper', 'exhibitor', 'consul', 'etcd3', 'etcd')
 AUTO_ENABLE_WALG_RESTORE = ('WAL_S3_BUCKET', 'WALE_S3_PREFIX', 'WALG_S3_PREFIX', 'WALG_AZ_PREFIX', 'WALG_SSH_PREFIX')
+AUTO_ENABLE_PGBACKREST_RESTORE = ()
 WALG_SSH_NAMES = ['WALG_SSH_PREFIX', 'SSH_PRIVATE_KEY_PATH', 'SSH_USERNAME', 'SSH_PORT']
 
 
 def parse_args():
-    sections = ['all', 'patroni', 'pgqd', 'certificate', 'wal-e', 'crontab',
+    sections = ['all', 'patroni', 'pgqd', 'certificate', 'wal-e', 'pgbackrest', 'crontab',
                 'pam-oauth2', 'pgbouncer', 'bootstrap', 'standby-cluster', 'log']
     argp = argparse.ArgumentParser(description='Configures Spilo',
                                    epilog="Choose from the following sections:\n\t{}".format('\n\t'.join(sections)),
@@ -177,11 +178,17 @@ bootstrap:
       {{#STANDBY_WITH_WALE}}
       - bootstrap_standby_with_wale
       {{/STANDBY_WITH_WALE}}
+      {{#STANDBY_WITH_PGBACKREST}}
+      - bootstrap_standby_with_pgbackrest
+      {{/STANDBY_WITH_PGBACKREST}}
       - basebackup_fast_xlog
       {{#STANDBY_WITH_WALE}}
       restore_command: envdir "{{STANDBY_WALE_ENV_DIR}}" timeout "{{WAL_RESTORE_TIMEOUT}}"
         /scripts/restore_command.sh "%f" "%p"
       {{/STANDBY_WITH_WALE}}
+      {{#STANDBY_WITH_PGBACKREST}}
+      restore_command: envdir "{{STANDBY_PGBACKREST_ENV_DIR}}" pgbackrest archive-get %f "%p"
+      {{/STANDBY_WITH_PGBACKREST}}
       {{#STANDBY_HOST}}
       host: {{STANDBY_HOST}}
       {{/STANDBY_HOST}}
@@ -247,6 +254,20 @@ bootstrap:
         recovery_target_inclusive: false
         {{/CLONE_TARGET_INCLUSIVE}}
   {{/CLONE_WITH_WALE}}
+  {{#CLONE_WITH_PGBACKREST}}
+  method: clone_with_pgbackrest
+  clone_with_pgbackrest:
+    command: envdir "{{CLONE_PGBACKREST_ENV_DIR}}" pgbackrest restore --type=time
+      --recovery-target-time="{{CLONE_TARGET_TIME}}"
+      --target-timeline="{{CLONE_TARGET_TIMELINE}}"
+      {{#USE_PAUSE_AT_RECOVERY_TARGET}}
+      --target-action=pause
+      {{/USE_PAUSE_AT_RECOVERY_TARGET}}
+      {{^USE_PAUSE_AT_RECOVERY_TARGET}}
+      --target-action=promote
+      {{/USE_PAUSE_AT_RECOVERY_TARGET}} 
+    keep_existing_recovery_conf: True
+  {{/CLONE_WITH_PGBACKREST}}
   {{#CLONE_WITH_BASEBACKUP}}
   method: clone_with_basebackup
   clone_with_basebackup:
@@ -352,6 +373,10 @@ hstore,hypopg,intarray,ltree,pgcrypto,pgq,pgq_node,pg_trgm,postgres_fdw,roaringb
     restore_command: envdir "{{WALE_ENV_DIR}}" timeout "{{WAL_RESTORE_TIMEOUT}}"
       /scripts/restore_command.sh "%f" "%p"
   {{/USE_WALE}}
+  {{#USE_PGBACKREST}}
+  recovery_conf:
+    restore_command: envdir "{{PGBACKREST_ENV_DIR}}" pgbackrest archive-get %f "%p"
+  {{/USE_PGBACKREST}}
   authentication:
     superuser:
       username: {{PGUSER_SUPERUSER}}
@@ -372,6 +397,9 @@ hstore,hypopg,intarray,ltree,pgcrypto,pgq,pgq_node,pg_trgm,postgres_fdw,roaringb
   {{#USE_WALE}}
     - wal_e
   {{/USE_WALE}}
+  {{#USE_PGBACKREST}}
+    - pgbackrest
+  {{/USE_PGBACKREST}}
     - basebackup_fast_xlog
   {{#USE_WALE}}
   wal_e:
@@ -381,6 +409,14 @@ hstore,hypopg,intarray,ltree,pgcrypto,pgq,pgq_node,pg_trgm,postgres_fdw,roaringb
     retries: 2
     no_leader: 1
   {{/USE_WALE}}
+  {{#USE_PGBACKREST}}
+  pgbackrest:
+    command: envdir {{PGBACKREST_ENV_DIR}} pgbackrest restore --delta
+    threshold_megabytes: {{PGBACKREST_BACKUP_THRESHOLD_MEGABYTES}}
+    threshold_backup_size_percentage: {{PGBACKREST_BACKUP_THRESHOLD_PERCENTAGE}}
+    retries: 2
+    no_leader: 1
+  {{/USE_PGBACKREST}}
   basebackup_fast_xlog:
     command: /scripts/basebackup.sh
     retries: 2
@@ -392,6 +428,14 @@ hstore,hypopg,intarray,ltree,pgcrypto,pgq,pgq_node,pg_trgm,postgres_fdw,roaringb
     retries: 2
     no_leader: 1
 {{/STANDBY_WITH_WALE}}
+{{#STANDBY_WITH_PGBACKREST}}
+  bootstrap_standby_with_pgbackrest:
+    command: envdir "{{STANDBY_PGBACKREST_ENV_DIR}}" pgbackrest restore --delta
+    threshold_megabytes: {{PGBACKREST_BACKUP_THRESHOLD_MEGABYTES}}
+    threshold_backup_size_percentage: {{PGBACKREST_BACKUP_THRESHOLD_PERCENTAGE}}
+    retries: 2
+    no_leader: 1
+{{/STANDBY_WITH_PGBACKREST}}
 '''
 
 
@@ -490,6 +534,21 @@ def set_extended_wale_placeholders(placeholders, prefix):
     return name
 
 
+def set_extended_pgbackrest_placeholders(placeholders, prefix):
+    # TODO: we should verify the provided parameters, but for convenience reasons, we would like to allow the user
+    #   to provide a configuration under /etc/pgbackrest.d/ without having to set all the parameters.
+    if not placeholders.get(prefix + 'PGBACKREST_REPO1_TYPE') and not placeholders.get(prefix + 'PGBACKREST_CONFIG'):
+        return False
+
+    scope = placeholders.get(prefix + 'SCOPE')
+
+
+    dirname = 'env-' + prefix[:-1].lower() + ('-' + scope if scope else '')
+    placeholders[prefix + 'PGBACKREST_ENV_DIR'] = os.path.join(placeholders['RW_DIR'], 'etc', 'pgbackrest.d', dirname)
+    placeholders[prefix + 'WITH_PGBACKREST'] = True
+    return True
+
+
 def set_walg_placeholders(placeholders, prefix=''):
     walg_supported = any(placeholders.get(prefix + n) for n in AUTO_ENABLE_WALG_RESTORE +
                          ('WAL_GS_BUCKET', 'WALE_GS_PREFIX', 'WALG_GS_PREFIX'))
@@ -557,6 +616,8 @@ def get_placeholders(provider):
     placeholders.setdefault('SSL_RESTAPI_PRIVATE_KEY_FILE', '')
     placeholders.setdefault('WALE_BACKUP_THRESHOLD_MEGABYTES', 102400)
     placeholders.setdefault('WALE_BACKUP_THRESHOLD_PERCENTAGE', 30)
+    placeholders.setdefault('PGBACKREST_BACKUP_THRESHOLD_MEGABYTES', 102400)
+    placeholders.setdefault('PGBACKREST_BACKUP_THRESHOLD_PERCENTAGE', 30)
     placeholders.setdefault('INITDB_LOCALE', 'en_US')
     placeholders.setdefault('CLONE_TARGET_TIMELINE', 'latest')
     # if Kubernetes is defined as a DCS, derive the namespace from the POD_NAMESPACE, if not set explicitely.
@@ -570,7 +631,9 @@ def get_placeholders(provider):
     placeholders.setdefault('WAL_BUCKET_SCOPE_SUFFIX', '')
     placeholders.setdefault('WAL_RESTORE_TIMEOUT', '0')
     placeholders.setdefault('WALE_ENV_DIR', os.path.join(placeholders['RW_DIR'], 'etc', 'wal-e.d', 'env'))
+    placeholders.setdefault('PGBACKREST_ENV_DIR', os.path.join(placeholders['RW_DIR'], 'etc', 'pgbackrest.d', 'env'))
     placeholders.setdefault('USE_WALE', False)
+    placeholders.setdefault('USE_PGBACKREST', False)
     cpu_count = str(min(psutil.cpu_count(), 10))
     placeholders.setdefault('WALG_DOWNLOAD_CONCURRENCY', cpu_count)
     placeholders.setdefault('WALG_UPLOAD_CONCURRENCY', cpu_count)
@@ -589,6 +652,7 @@ def get_placeholders(provider):
     placeholders.setdefault('USE_PAUSE_AT_RECOVERY_TARGET', False)
     placeholders.setdefault('CLONE_METHOD', '')
     placeholders.setdefault('CLONE_WITH_WALE', '')
+    placeholders.setdefault('CLONE_WITH_PGBACKREST', '')
     placeholders.setdefault('CLONE_WITH_BASEBACKUP', '')
     placeholders.setdefault('CLONE_TARGET_TIME', '')
     placeholders.setdefault('CLONE_TARGET_INCLUSIVE', True)
@@ -620,6 +684,10 @@ def get_placeholders(provider):
                             'or CLONE_WALG_*_PREFIX or CLONE_WAL_*_BUCKET and CLONE_SCOPE are set.')
         elif name == 'S3':
             placeholders.setdefault('CLONE_USE_WALG', 'true')
+    elif placeholders['CLONE_METHOD'] == 'CLONE_WITH_PGBACKREST':
+        set_extended_pgbackrest_placeholders(placeholders, 'CLONE_')
+        placeholders.setdefault('CLONE_WITH_PGBACKREST', 'true')
+        pass
     elif placeholders['CLONE_METHOD'] == 'CLONE_WITH_BASEBACKUP':
         clone_scope = placeholders.get('CLONE_SCOPE')
         if clone_scope and placeholders.get('CLONE_HOST') \
@@ -634,12 +702,16 @@ def get_placeholders(provider):
     else:
         if set_extended_wale_placeholders(placeholders, 'STANDBY_') == 'S3':
             placeholders.setdefault('STANDBY_USE_WALG', 'true')
+        elif set_extended_pgbackrest_placeholders(placeholders, 'STANDBY_'):
+            pass
 
     placeholders.setdefault('STANDBY_WITH_WALE', '')
+    placeholders.setdefault('STANDBY_WITH_PGBACKREST', '')
     placeholders.setdefault('STANDBY_HOST', '')
     placeholders.setdefault('STANDBY_PORT', '')
     placeholders.setdefault('STANDBY_PRIMARY_SLOT_NAME', '')
-    placeholders.setdefault('STANDBY_CLUSTER', placeholders['STANDBY_WITH_WALE'] or placeholders['STANDBY_HOST'])
+    placeholders.setdefault('STANDBY_CLUSTER', placeholders['STANDBY_WITH_WALE'] or placeholders['STANDBY_HOST']
+                            or placeholders['STANDBY_WITH_PGBACKREST'])
 
     if provider == PROVIDER_AWS and not USE_KUBERNETES:
         # AWS specific callback to tag the instances with roles
@@ -670,9 +742,14 @@ def get_placeholders(provider):
     placeholders.setdefault('postgresql', {})
     placeholders['postgresql'].setdefault('parameters', {})
     placeholders['WALE_BINARY'] = 'wal-g' if placeholders.get('USE_WALG_BACKUP') == 'true' else 'wal-e'
-    placeholders['postgresql']['parameters']['archive_command'] = \
-        'envdir "{WALE_ENV_DIR}" {WALE_BINARY} wal-push "%p"'.format(**placeholders) \
-        if placeholders['USE_WALE'] else '/bin/true'
+    if placeholders['USE_WALE']:
+      placeholders['postgresql']['parameters']['archive_command'] = \
+        'envdir "{WALE_ENV_DIR}" {WALE_BINARY} wal-push "%p"'.format(**placeholders)
+    elif placeholders['USE_PGBACKREST']:
+        placeholders['postgresql']['parameters']['archive_command'] = \
+            'envdir "{PGBACKREST_ENV_DIR}" pgbackrest archive-push %p'.format(**placeholders)
+    else:
+        placeholders['postgresql']['parameters']['archive_command'] = '/bin/true'
 
     cgroup_memory_limit_path = '/sys/fs/cgroup/memory/memory.limit_in_bytes'
     cgroup_v2_memory_limit_path = '/sys/fs/cgroup/memory.max'
@@ -990,6 +1067,73 @@ def update_and_write_wale_configuration(placeholders, prefix, overwrite):
     write_wale_environment(placeholders, prefix, overwrite)
 
 
+def write_pgbackrest_environment(placeholders, prefix, overwrite):
+    s3_names = ['PGBACKREST_REPO1_S3_BUCKET', 'PGBACKREST_REPO1_S3_ENDPOINT', 'PGBACKREST_REPO1_S3_REGION',
+                'PGBACKREST_REPO1_S3_KEY', 'PGBACKREST_REPO1_S3_KEY_SECRET', 'PGBACKREST_REPO1_S3_KEY_TYPE',
+                'PGBACKREST_REPO1_S3_KMS_KEY_ID', 'PGBACKREST_REPO1_S3_ROLE', 'PGBACKREST_REPO1_S3_SSE_CUSTOMER_KEY',
+                'PGBACKREST_REPO1_S3_TOKEN', 'PGBACKREST_REPO1_S3_URI_STYLE']
+    azure_names = ['PGBACKREST_REPO1_AZURE_ACCOUNT', 'PGBACKREST_REPO1_AZURE_CONTAINER', 'PGBACKREST_REPO1_AZURE_ENDPOINT',
+                   'PGBACKREST_REPO1_AZURE_KEY', 'PGBACKREST_REPO1_AZURE_KEY_TYPE', 'PGBACKREST_REPO1_AZURE_URI_STYLE',]
+    gcs_names = ['PGBACKREST_REPO1_GCS_BUCKET', 'PGBACKREST_REPO1_GCS_ENDPOINT', 'PGBACKREST_REPO1_GCS_KEY',
+                 'PGBACKREST_REPO1_GCS_KEY_TYPE']
+    common_names = ['PGBACKREST_PG1_PATH', 'PGBACKREST_STANZA', 'PGBACKREST_REPO1_PATH', 'PGBACKREST_REPO1_TYPE',
+                    'PGBACKREST_SPOOL_PATH', 'PGBACKREST_REPO1_STORAGE_CA_FILE', 'PGBACKREST_REPO1_STORAGE_CA_PATH',
+                    'PGBACKREST_REPO1_STORAGE_PORT', 'PGBACKREST_REPO1_STORAGE_HOST', 'PGBACKREST_REPO1_STORAGE_VERIFY_TLS',
+                    'PGBACKREST_LOCK_PATH', 'PGBACKREST_PG1_PORT']
+
+    pgbackrest = defaultdict(lambda: '')
+    for name in ['PGBACKREST_ENV_DIR'] + common_names + s3_names + azure_names + gcs_names:
+        pgbackrest[name] = placeholders.get(prefix + name, '')
+
+    write_envdir_names : list[str] = []
+    store_type : str = ''
+    if pgbackrest.get('PGBACKREST_REPO1_S3_BUCKET'):
+        store_type = 's3'
+        write_envdir_names = common_names + s3_names
+    elif pgbackrest.get('PGBACKREST_REPO1_AZURE_ACCOUNT'):
+        store_type = 'azure'
+        write_envdir_names = common_names + azure_names
+    elif pgbackrest.get('PGBACKREST_REPO1_GCS_BUCKET'):
+        store_type = 'gcs'
+        write_envdir_names = common_names + gcs_names
+    else:
+        return
+
+    pgbackrest['PGBACKREST_REPO1_TYPE'] = store_type
+
+    if not pgbackrest.get('PGBACKREST_CONFIG') and placeholders.get('PGBACKREST_CONFIG'):
+        pgbackrest['PGBACKREST_CONFIG'] = placeholders['PGBACKREST_CONFIG']
+
+    if not pgbackrest.get('PGBACKREST_PG1_PATH'):
+        pgbackrest['PGBACKREST_PG1_PATH'] = placeholders['PGDATA']
+
+    if not pgbackrest.get('PGBACKREST_STANZA'):
+        pgbackrest['PGBACKREST_STANZA'] = placeholders.get('PGBACKREST_STANZA') or placeholders['SCOPE']
+
+    if not pgbackrest.get('PGBACKREST_REPO1_PATH') and not pgbackrest.get('PGBACKREST_CONFIG'):
+        pgbackrest['PGBACKREST_REPO1_PATH'] = '/pgbackrest'
+
+    if not pgbackrest.get('PGBACKREST_PG1_PORT'):
+        pgbackrest['PGBACKREST_PG1_PORT'] = placeholders['PGPORT']
+
+    if not os.path.exists(pgbackrest['PGBACKREST_ENV_DIR']):
+        os.makedirs(pgbackrest['PGBACKREST_ENV_DIR'])
+
+    if pgbackrest.get('PGBACKREST_SPOOL_PATH'):
+        os.makedirs(pgbackrest['PGBACKREST_SPOOL_PATH'], exist_ok=True)
+        adjust_owner(pgbackrest['PGBACKREST_SPOOL_PATH'], gid=-1)
+        pgbackrest['PGBACKREST_ARCHIVE_ASYNC'] = 'y'
+
+
+    pgbackrest['PGBACKREST_LOCK_PATH'] = '/run/lock'
+
+    for name in write_envdir_names:
+        if pgbackrest.get(name):
+            path = os.path.join(pgbackrest['PGBACKREST_ENV_DIR'], name)
+            write_file(pgbackrest[name], path, overwrite)
+            adjust_owner(path, gid=-1)
+
+
 def write_clone_pgpass(placeholders, overwrite):
     pgpassfile = placeholders['CLONE_PGPASS']
     # pgpass is host:port:database:user:password
@@ -1065,6 +1209,15 @@ def write_crontab(placeholders, overwrite):
         lines += [('{BACKUP_SCHEDULE} envdir "{WALE_ENV_DIR}" /scripts/postgres_backup.sh' +
                    ' "{PGDATA}"').format(**placeholders)]
 
+    if bool(placeholders.get('USE_PGBACKREST')):
+        lines += [('{BACKUP_SCHEDULE} envdir "{PGBACKREST_ENV_DIR}" /scripts/pgbackrest-backup.sh backup' +
+                   ' --type=full').format(**placeholders)]
+        if placeholders.get('INCR_BACKUP_SCHEDULE'):
+            lines += [('{INCR_BACKUP_SCHEDULE} envdir "{PGBACKREST_ENV_DIR}" /scripts/pgbackrest-backup.sh backup' +
+                       ' --type=incr').format(**placeholders)]
+    if placeholders.get('DIFF_BACKUP_SCHEDULE'):
+        lines += [('{DIFF_BACKUP_SCHEDULE} envdir "{PGBACKREST_ENV_DIR}" /scripts/pgbackrest-backup.sh backup' +
+                   ' --type=diff').format(**placeholders)]
     if bool(placeholders.get('LOG_S3_BUCKET')):
         log_dir = placeholders.get('LOG_ENV_DIR')
         schedule = placeholders.get('LOG_SHIP_SCHEDULE')
@@ -1117,6 +1270,22 @@ def write_pgbouncer_configuration(placeholders, overwrite):
 
     link_runit_service(placeholders, 'pgbouncer')
 
+
+def write_backup_wrapper(placeholders, overwrite):
+    contents = '#!/bin/bash\n'
+    if placeholders.get('USE_WALE'):
+        contents += ('/scripts/patroni_wait.sh -t 3600 -- ' +
+                     'envdir {WALE_ENV_DIR} /scripts/postgres_backup.sh {PGDATA}').format(**placeholders)
+    elif placeholders.get('USE_PGBACKREST'):
+        contents += ('/scripts/patroni_wait.sh -t 3600 -- ' +
+                        'envdir {PGBACKREST_ENV_DIR} /scripts/init_pgbackrest.py').format(**placeholders)
+    else:
+        return 1
+
+    # write the wrapper
+    write_file(contents, '{RW_DIR}/backup.sh'.format(**placeholders), overwrite)
+    os.chmod('{RW_DIR}/backup.sh'.format(**placeholders), 0o755)
+    return 0
 
 def main():
     debug = os.environ.get('DEBUG', '') in ['1', 'true', 'TRUE', 'on', 'ON']
@@ -1195,6 +1364,9 @@ def main():
         elif section == 'wal-e':
             if placeholders['USE_WALE']:
                 write_wale_environment(placeholders, '', args['force'])
+        elif section == 'pgbackrest':
+            if placeholders['USE_PGBACKREST']:
+                write_pgbackrest_environment(placeholders, '', args['force'])
         elif section == 'certificate':
             write_certificates(placeholders, args['force'])
             write_restapi_certificates(placeholders, args['force'])
@@ -1207,16 +1379,20 @@ def main():
         elif section == 'bootstrap':
             if placeholders['CLONE_WITH_WALE']:
                 update_and_write_wale_configuration(placeholders, 'CLONE_', args['force'])
+            if placeholders['CLONE_WITH_PGBACKREST']:
+                write_pgbackrest_environment(placeholders, 'CLONE_', args['force'])
             if placeholders['CLONE_WITH_BASEBACKUP']:
                 write_clone_pgpass(placeholders, args['force'])
         elif section == 'standby-cluster':
             if placeholders['STANDBY_WITH_WALE']:
                 update_and_write_wale_configuration(placeholders, 'STANDBY_', args['force'])
+            if placeholders['STANDBY_WITH_PGBACKREST']:
+                write_pgbackrest_environment(placeholders, 'STANDBY_', args['force'])
         else:
             raise Exception('Unknown section: {}'.format(section))
 
     # We will abuse non zero exit code as an indicator for the launch.sh that it should not even try to create a backup
-    sys.exit(int(not placeholders['USE_WALE']))
+    sys.exit(write_backup_wrapper(placeholders, args['force']))
 
 
 def escape_pgpass_value(val):
