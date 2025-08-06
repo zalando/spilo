@@ -96,7 +96,12 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
                 "postgresql-${version}-wal2json"
                 "postgresql-${version}-decoderbufs"
                 "postgresql-${version}-pllua"
-                "postgresql-${version}-pgvector")
+                "postgresql-${version}-pgvector"
+                "postgresql-${version}-roaringbitmap")
+
+        if [ "$version" -ge 14 ]; then
+            EXTRAS+=("postgresql-${version}-pgfaceting")
+        fi
 
         if [ "$WITH_PERL" = "true" ]; then
             EXTRAS+=("postgresql-plperl-${version}")

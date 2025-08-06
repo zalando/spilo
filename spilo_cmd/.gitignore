@@ -1,9 +1,0 @@
-build/
-dist/
-*.egg-info/
-.coverage
-.eggs/
-coverage.xml
-junit.xml
-spilo.yaml
-*/__pycache__

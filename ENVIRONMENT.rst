@@ -106,6 +106,7 @@ Environment Configuration Settings
 - **KUBERNETES_STANDBY_LEADER_LABEL_VALUE**: value of the pod label if Postgres role is standby_leader when running on Kubernetes. Default is 'master'.
 - **KUBERNETES_SCOPE_LABEL**: name of the label containing cluster name. Default is 'version'.
 - **KUBERNETES_LABELS**: a JSON describing names and values of other labels used by Patroni on Kubernetes to locate its metadata. Default is '{"application": "spilo"}'.
+- **KUBERNETES_BOOTSTRAP_LABELS**: a JSON describing names and values of labels used by Patroni as ``kubernetes.bootstrap_labels``. Default is empty.
 - **INITDB_LOCALE**: database cluster's default UTF-8 locale (en_US by default)
 - **ENABLE_WAL_PATH_COMPAT**: old Spilo images were generating wal path in the backup store using the following template ``/spilo/{WAL_BUCKET_SCOPE_PREFIX}{SCOPE}{WAL_BUCKET_SCOPE_SUFFIX}/wal/``, while new images adding one additional directory (``{PGVERSION}``) to the end. In order to avoid (unlikely) issues with restoring WALs (from S3/GC/and so on) when switching to ``spilo-13`` please set the ``ENABLE_WAL_PATH_COMPAT=true`` when deploying old cluster with ``spilo-13`` for the first time. After that the environment variable could be removed. Change of the WAL path also mean that backups stored in the old location will not be cleaned up automatically.
 - **WALE_DISABLE_S3_SSE**, **WALG_DISABLE_S3_SSE**: by default wal-e/wal-g are configured to encrypt files uploaded to S3. In order to disable it you can set this environment variable to ``true``.
