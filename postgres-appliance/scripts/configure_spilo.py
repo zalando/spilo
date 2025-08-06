@@ -268,7 +268,7 @@ bootstrap:
 scope: &scope '{{SCOPE}}'
 restapi:
   listen: ':{{APIPORT}}'
-  connect_address: {{RESTAPI_CONNECT_ADDRESS}}:{{APIPORT}}
+  connect_address: '{{RESTAPI_CONNECT_ADDRESS}}'
   {{#SSL_RESTAPI_CA_FILE}}
   cafile: {{SSL_RESTAPI_CA_FILE}}
   {{/SSL_RESTAPI_CA_FILE}}
@@ -284,7 +284,7 @@ postgresql:
   use_unix_socket_repl: true
   name: '{{instance_data.id}}'
   listen: '*:{{PGPORT}}'
-  connect_address: {{instance_data.ip}}:{{PGPORT}}
+  connect_address: '{{PG_CONNECT_ADDRESS}}'
   data_dir: {{PGDATA}}
   parameters:
     archive_command: {{{postgresql.parameters.archive_command}}}
@@ -320,7 +320,7 @@ postgresql:
     bg_mon.history_buckets: 120
     pg_stat_statements.track_utility: 'off'
     extwlist.extensions: 'btree_gin,btree_gist,citext,extra_window_functions,first_last_agg,hll,\
-hstore,hypopg,intarray,ltree,pgcrypto,pgq,pgq_node,pg_trgm,postgres_fdw,tablefunc,uuid-ossp'
+hstore,hypopg,intarray,ltree,pgcrypto,pgq,pgq_node,pg_trgm,postgres_fdw,roaringbitmap,tablefunc,uuid-ossp,vector'
     extwlist.custom_path: /scripts
   pg_hba:
     - local   all             all                                   trust
@@ -585,6 +585,7 @@ def get_placeholders(provider):
     placeholders.setdefault('KUBERNETES_LABELS', KUBERNETES_DEFAULT_LABELS)
     placeholders.setdefault('KUBERNETES_USE_CONFIGMAPS', '')
     placeholders.setdefault('KUBERNETES_BYPASS_API_SERVICE', 'true')
+    placeholders.setdefault('KUBERNETES_BOOTSTRAP_LABELS', '{}')
     placeholders.setdefault('USE_PAUSE_AT_RECOVERY_TARGET', False)
     placeholders.setdefault('CLONE_METHOD', '')
     placeholders.setdefault('CLONE_WITH_WALE', '')
@@ -696,7 +697,11 @@ def get_placeholders(provider):
     placeholders['postgresql']['parameters']['max_connections'] = min(max(100, int(os_memory_mb/30)), 1000)
 
     placeholders['instance_data'] = get_instance_metadata(provider)
-    placeholders.setdefault('RESTAPI_CONNECT_ADDRESS', placeholders['instance_data']['ip'])
+    restapi_connect_address = format_url(placeholders['instance_data']['ip'], placeholders.get("APIPORT"))
+    placeholders.setdefault('RESTAPI_CONNECT_ADDRESS', restapi_connect_address)
+
+    connect_address = format_url(placeholders['instance_data']['ip'], placeholders.get("PGPORT"))
+    placeholders.setdefault("PG_CONNECT_ADDRESS", connect_address)
 
     placeholders['BGMON_LISTEN_IP'] = get_listen_ip()
 
@@ -716,6 +721,12 @@ def get_placeholders(provider):
         placeholders['SSL_RESTAPI_CA_FILE'] = os.path.join(placeholders['RW_DIR'], 'certs', 'rest-api-ca.crt')
 
     return placeholders
+
+
+def format_url(host, port):
+    if ":" in host:
+        return "[" + host + "]" + ":" + port
+    return host + ":" + port
 
 
 def pystache_render(*args, **kwargs):
@@ -741,13 +752,15 @@ def get_dcs_config(config, placeholders):
 
     if USE_KUBERNETES and placeholders.get('DCS_ENABLE_KUBERNETES_API'):
         config = {'kubernetes': dcs_configs['kubernetes']}
-        try:
-            kubernetes_labels = json.loads(config['kubernetes'].get('labels'))
-        except (TypeError, ValueError) as e:
-            logging.warning("could not parse kubernetes labels as a JSON: %r, "
-                            "reverting to the default: %s", e, KUBERNETES_DEFAULT_LABELS)
-            kubernetes_labels = json.loads(KUBERNETES_DEFAULT_LABELS)
-        config['kubernetes']['labels'] = kubernetes_labels
+
+        for param, default_val in (('labels', KUBERNETES_DEFAULT_LABELS), ('bootstrap_labels', '{}')):
+            try:
+                kubernetes_labels = json.loads(config['kubernetes'].get(param))
+            except (TypeError, ValueError) as e:
+                logging.warning("could not parse kubernetes %s as a JSON: %r, "
+                                "reverting to the default: %s", param, e, default_val)
+                kubernetes_labels = json.loads(default_val)
+            config['kubernetes'][param] = kubernetes_labels
 
         if not config['kubernetes'].pop('use_configmaps'):
             config['kubernetes'].update({'use_endpoints': True,
@@ -792,8 +805,22 @@ def write_log_environment(placeholders):
     if not os.path.exists(log_env['LOG_ENV_DIR']):
         os.makedirs(log_env['LOG_ENV_DIR'])
 
-    tags = json.loads(os.getenv('LOG_S3_TAGS'))
+    try:
+        tags = json.loads(os.getenv('LOG_S3_TAGS'))
+    except (TypeError, ValueError) as e:
+        logging.warning("could not parse LOG_S3_TAGS as a JSON: %r, reverting to the default empty dict", e)
+        tags = {}
+
     log_env['LOG_S3_TAGS'] = "&".join(f"{key}={os.getenv(value)}" for key, value in tags.items())
+    if log_env.get('AWS_EC2_METADATA_SERVICE_ENDPOINT'):
+        # support for older boto3 versions: https://github.com/boto/botocore/pull/2600
+        if not log_env['AWS_EC2_METADATA_SERVICE_ENDPOINT'].endswith('/'):
+            log_env['AWS_EC2_METADATA_SERVICE_ENDPOINT'] += '/'
+        write_file(log_env['AWS_EC2_METADATA_SERVICE_ENDPOINT'],
+                   os.path.join(log_env['LOG_ENV_DIR'], 'AWS_EC2_METADATA_SERVICE_ENDPOINT'), True)
+    if log_env.get('AWS_EC2_METADATA_SERVICE_ENDPOINT_MODE'):
+        write_file(log_env['AWS_EC2_METADATA_SERVICE_ENDPOINT_MODE'],
+                   os.path.join(log_env['LOG_ENV_DIR'], 'AWS_EC2_METADATA_SERVICE_ENDPOINT_MODE'), True)
 
     for var in ('LOG_TMPDIR',
                 'LOG_SHIP_HOURLY',
@@ -802,7 +829,7 @@ def write_log_environment(placeholders):
                 'LOG_S3_KEY',
                 'LOG_S3_BUCKET',
                 'LOG_S3_TAGS',
-                'PGLOG'):
+                'PGLOG',):
         write_file(log_env[var], os.path.join(log_env['LOG_ENV_DIR'], var), True)
 
 
@@ -829,6 +856,7 @@ def write_wale_environment(placeholders, prefix, overwrite):
                   'WALG_LIBSODIUM_KEY', 'WALG_LIBSODIUM_KEY_PATH', 'WALG_LIBSODIUM_KEY_TRANSFORM',
                   'WALG_PGP_KEY', 'WALG_PGP_KEY_PATH', 'WALG_PGP_KEY_PASSPHRASE',
                   'no_proxy', 'http_proxy', 'https_proxy']
+    aws_imds_names = ['AWS_EC2_METADATA_SERVICE_ENDPOINT', 'AWS_EC2_METADATA_SERVICE_ENDPOINT_MODE']
 
     wale = defaultdict(lambda: '')
     for name in ['PGVERSION', 'PGPORT', 'WALE_ENV_DIR', 'SCOPE', 'WAL_BUCKET_SCOPE_PREFIX', 'WAL_BUCKET_SCOPE_SUFFIX',
@@ -883,7 +911,13 @@ def write_wale_environment(placeholders, prefix, overwrite):
 
         if wale.get('USE_WALG_BACKUP') and wale.get('WALG_DISABLE_S3_SSE') != 'true' and not wale.get('WALG_S3_SSE'):
             wale['WALG_S3_SSE'] = 'AES256'
-        write_envdir_names = s3_names + walg_names
+
+        # write IMDS env vars for any prefix if defined
+        for name in aws_imds_names:
+            if placeholders.get(name):
+                wale[name] = placeholders.get(name)
+
+        write_envdir_names = s3_names + walg_names + aws_imds_names
     elif wale.get('WAL_GCS_BUCKET') or wale.get('WAL_GS_BUCKET') or\
             wale.get('WALE_GCS_PREFIX') or wale.get('WALE_GS_PREFIX') or wale.get('WALG_GS_PREFIX'):
         if wale.get('WALE_GCS_PREFIX'):

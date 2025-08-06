@@ -29,8 +29,7 @@ pipeline:
       # create a Buildkit builder with CDP specific configuration
       docker buildx create --config /etc/cdp-buildkitd.toml --driver-opt network=host --bootstrap --use
 
-      # single platform build for PR images!
-      docker buildx build --platform "linux/amd64" \
+      docker buildx build --platform "linux/amd64,linux/arm64" \
                           --build-arg PGVERSION="$PGVERSION" \
                           --build-arg BASE_IMAGE="$BASE_IMAGE" \
                           --build-arg PGOLDVERSIONS="14 15 16" \
