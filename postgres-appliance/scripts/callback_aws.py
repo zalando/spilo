@@ -13,7 +13,7 @@ LEADER_TAG_VALUE = os.environ.get('AWS_LEADER_TAG_VALUE', 'master')
 
 def get_instance_metadata():
     response = requests.put(
-        url='http://169.254.169.254/latest/api/token', # AWS EC2 metadata service endpoint to get a token
+        url='http://169.254.169.254/latest/api/token',  # AWS EC2 metadata service endpoint to get a token
         headers={'X-aws-ec2-metadata-token-ttl-seconds': '60'}
     )
     token = response.text
