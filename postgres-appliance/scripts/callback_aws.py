@@ -13,12 +13,12 @@ LEADER_TAG_VALUE = os.environ.get('AWS_LEADER_TAG_VALUE', 'master')
 
 def get_instance_metadata():
     response = requests.put(
-        url='http://169.254.169.254/latest/api/token',
+        url='http://169.254.169.254/latest/api/token', # AWS EC2 metadata service endpoint to get a token
         headers={'X-aws-ec2-metadata-token-ttl-seconds': '60'}
     )
     token = response.text
     instance_identity = requests.get(
-        url='http://169.254.169.254/latest/dynamic/instance-identity/document',
+        url='http://169.254.169.254/latest/dynamic/instance-identity/document', # AWS EC2 metadata service endpoint to get instance identity document
         headers={'X-aws-ec2-metadata-token': token}
     )
     return instance_identity.json()
@@ -63,12 +63,12 @@ def main():
     )
     ec2 = boto3.client('ec2', config=config)
 
-    if argc == 5 and role in ('master', 'standby_leader') and action in ('on_start', 'on_role_change'):
+    if argc == 5 and role in ('primary', 'standby_leader') and action in ('on_start', 'on_role_change'):
         associate_address(ec2, sys.argv[1], instance_id)
 
     instance = get_instance(ec2, instance_id)
 
-    tags = [{'Key': 'Role', 'Value': role}]
+    tags = [{'Key': 'Role', 'Value': LEADER_TAG_VALUE if role == 'primary' else role}]
     tag_resource(ec2, instance_id, tags)
 
     tags.append({'Key': 'Instance', 'Value': instance_id})
@@ -79,10 +79,7 @@ def main():
             tags_to_update = tags
         else:
             for attachment in v['Attachments']:
-                if attachment['Device'] == instance.get('RootDeviceName'):
-                    volume_device = 'root'
-                else:
-                    volume_device = 'data'
+                volume_device = 'root' if attachment['Device'] == instance.get('RootDeviceName') else 'data'
                 tags_to_update = tags + [{'Key': 'Name', 'Value': 'spilo_{}_{}'.format(cluster, volume_device)}]
 
         tag_resource(ec2, v.get('VolumeId'), tags_to_update)

@@ -29,7 +29,7 @@ export PGHOST=/var/run/postgresql
 # push a new base backup
 log "producing a new backup"
 # We reduce the priority of the backup for CPU consumption
-nice -n 5 wal-g backup-push "$PGDATA" "${POOL_SIZE[@]}"
+nice -n 5 wal-g backup-push "$PGDATA"
 
 # Collect all backups and sort them by modification time
 mapfile -t backup_records < <(wal-g backup-list 2>/dev/null |

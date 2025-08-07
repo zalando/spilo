@@ -109,12 +109,13 @@ Environment Configuration Settings
 - **KUBERNETES_BOOTSTRAP_LABELS**: a JSON describing names and values of labels used by Patroni as ``kubernetes.bootstrap_labels``. Default is empty.
 - **INITDB_LOCALE**: database cluster's default UTF-8 locale (en_US by default)
 - **ENABLE_WAL_PATH_COMPAT**: old Spilo images were generating wal path in the backup store using the following template ``/spilo/{WAL_BUCKET_SCOPE_PREFIX}{SCOPE}{WAL_BUCKET_SCOPE_SUFFIX}/wal/``, while new images adding one additional directory (``{PGVERSION}``) to the end. In order to avoid (unlikely) issues with restoring WALs (from S3/GC/and so on) when switching to ``spilo-13`` please set the ``ENABLE_WAL_PATH_COMPAT=true`` when deploying old cluster with ``spilo-13`` for the first time. After that the environment variable could be removed. Change of the WAL path also mean that backups stored in the old location will not be cleaned up automatically.
-- **WALG_DISABLE_S3_SSE**: by default wal-g are configured to encrypt files uploaded to S3. In order to disable it you can set this environment variable to ``true``.
+- **WALG_DISABLE_S3_SSE**: by default wal-g is configured to encrypt files uploaded to S3. In order to disable it you can set this environment variable to ``true``.
 - **USE_OLD_LOCALES**: whether to use old locales from Ubuntu 18.04 in the Ubuntu 22.04-based image. Default is false.
 
 wal-g
 -----
 
+wal-g is used everywhere in Spilo to perform backups and restore from them.
 - **WALG_DELTA_MAX_STEPS**, **WALG_DELTA_ORIGIN**, **WALG_DOWNLOAD_CONCURRENCY**, **WALG_UPLOAD_CONCURRENCY**, **WALG_UPLOAD_DISK_CONCURRENCY**, **WALG_DISK_RATE_LIMIT**, **WALG_NETWORK_RATE_LIMIT**, **WALG_COMPRESSION_METHOD**, **WALG_BACKUP_COMPRESSION_METHOD**, **WALG_BACKUP_FROM_REPLICA**, **WALG_SENTINEL_USER_DATA**, **WALG_PREVENT_WAL_OVERWRITE**: (optional) configuration options for wal-g.
 - **WALG_S3_CA_CERT_FILE**: (optional) TLS CA certificate for wal-g (see [wal-g configuration](https://github.com/wal-g/wal-g#configuration))
 - **WALG_SSH_PREFIX**: (optional) the ssh prefix to store WAL backups at in the format ssh://host.example.com/path/to/backups/ See `Wal-g <https://github.com/wal-g/wal-g#configuration>`__ documentation for details.
