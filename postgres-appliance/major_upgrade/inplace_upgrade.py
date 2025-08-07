@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 RSYNC_PORT = 5432
 
 
-def patch_wale_prefix(value, new_version):
+def patch_walg_prefix(value, new_version):
     from spilo_commons import is_valid_pg_version
 
     if '/spilo/' in value and '/wal/' in value:  # path crafted in the configure_spilo.py?
@@ -51,20 +51,20 @@ def update_configs(new_version):
 
     write_patroni_config(config, True)
 
-    # update wal-e/wal-g envdir files
+    # update wal-g envdir files
     restore_command = shlex.split(config['postgresql'].get('recovery_conf', {}).get('restore_command', ''))
     if len(restore_command) > 6 and restore_command[0] == 'envdir':
         envdir = restore_command[1]
 
         try:
             for name in os.listdir(envdir):
-                # len('WALE__PREFIX') = 12
-                if len(name) > 12 and name.endswith('_PREFIX') and name[:5] in ('WALE_', 'WALG_'):
+                # len('WALG__PREFIX') = 12
+                if len(name) > 12 and name.endswith('_PREFIX') and name.startswith('WALG_'):
                     name = os.path.join(envdir, name)
                     try:
                         with open(name) as f:
                             value = f.read().strip()
-                        new_value = patch_wale_prefix(value, new_version)
+                        new_value = patch_walg_prefix(value, new_version)
                         if new_value != value:
                             write_file(new_value, name, True)
                     except Exception as e:
