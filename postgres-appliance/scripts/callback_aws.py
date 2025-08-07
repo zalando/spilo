@@ -18,7 +18,7 @@ def get_instance_metadata():
     )
     token = response.text
     instance_identity = requests.get(
-        url='http://169.254.169.254/latest/dynamic/instance-identity/document', # AWS EC2 metadata service endpoint to get instance identity document
+        url='http://169.254.169.254/latest/dynamic/instance-identity/document',
         headers={'X-aws-ec2-metadata-token': token}
     )
     return instance_identity.json()
