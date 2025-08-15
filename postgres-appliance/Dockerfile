@@ -58,7 +58,7 @@ ENV POSTGIS_VERSION=3.5 \
     PG_MON_COMMIT=ead1de70794ed62ca1e34d4022f6165ff36e9a91 \
     SET_USER=REL4_1_0 \
     PLPROFILER=REL4_2_5 \
-    PG_PROFILE=4.7 \
+    PG_PROFILE=4.10 \
     PAM_OAUTH2=v1.0.1 \
     PG_PERMISSIONS_COMMIT=f4b7c18676fa64236a1c8e28d34a35764e4a70e2
 
@@ -71,7 +71,7 @@ COPY --from=dependencies-builder /builddeps/wal-g /usr/local/bin/
 COPY build_scripts/patroni_wale.sh build_scripts/compress_build.sh /builddeps/
 
 # Install patroni and wal-e
-ENV PATRONIVERSION=4.0.4
+ENV PATRONIVERSION=4.0.6
 ENV WALE_VERSION=1.1.1
 
 WORKDIR /
