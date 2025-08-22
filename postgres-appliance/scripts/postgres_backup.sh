@@ -23,7 +23,7 @@ else
     log "ERROR: Recovery state unknown: $IN_RECOVERY" && exit 1
 fi
 
-[[ -z $WALG_BACKUP_COMPRESSION_METHOD ]] || export WALG_COMPRESSION_METHOD=$WALG_BACKUP_COMPRESSION_METHOD
+export WALG_COMPRESSION_METHOD="${WALG_BACKUP_COMPRESSION_METHOD:-$WALE_BACKUP_COMPRESSION_METHOD}"
 export PGHOST=/var/run/postgresql
 
 # push a new base backup

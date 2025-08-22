@@ -54,7 +54,7 @@ function wait_backup() {
 
     # speed up backup creation
     local backup_starter_pid
-    backup_starter_pid=$(docker exec "$container" pgrep -f '/bin/bash /scripts/patroni_wait.sh -t 3600 -- envdir /run/etc/wal-g.d/env /scripts/postgres_backup.sh')
+    backup_starter_pid=$(docker exec "$container" pgrep -f '/bin/bash /scripts/patroni_wait.sh -t 3600 -- envdir /run/etc/wal-e.d/env /scripts/postgres_backup.sh')
     if [ -n "$backup_starter_pid" ]; then
         docker exec "$container" pkill -P "$backup_starter_pid" -f 'sleep 60'
     fi
@@ -66,7 +66,7 @@ function wait_backup() {
     docker_exec -i "$1" "psql -U postgres -c CHECKPOINT" > /dev/null 2>&1
 
     while true; do
-        count=$(docker_exec "$container" "envdir /run/etc/wal-g.d/env wal-g backup-list" | grep -c ^base)
+        count=$(docker_exec "$container" "envdir /run/etc/wal-e.d/env wal-e backup-list" | grep -c ^base)
         if [[ "$count" -gt 0 ]]; then
             return
         fi
@@ -136,8 +136,8 @@ function test_successful_inplace_upgrade_to_14() {
 }
 
 function test_envdir_suffix() {
-    docker_exec "$1" "cat /run/etc/wal-g.d/env/WALG_S3_PREFIX" | grep -q "$2$" \
-        && docker_exec "$1" "cat /run/etc/wal-g.d/env/WALG_S3_PREFIX" | grep -q "$2$"
+    docker_exec "$1" "cat /run/etc/wal-e.d/env/WALG_S3_PREFIX" | grep -q "$2$" \
+        && docker_exec "$1" "cat /run/etc/wal-e.d/env/WALG_S3_PREFIX" | grep -q "$2$"
 }
 
 function test_envdir_updated_to_x() {

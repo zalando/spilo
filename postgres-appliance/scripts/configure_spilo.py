@@ -496,7 +496,7 @@ def set_extended_walg_placeholders(placeholders, prefix):
         return False
     scope = placeholders.get(prefix + 'SCOPE')
     dirname = 'env-' + prefix[:-1].lower() + ('-' + scope if scope else '')
-    placeholders[prefix + 'WALG_ENV_DIR'] = os.path.join(placeholders['RW_DIR'], 'etc', 'wal-g.d', dirname)
+    placeholders[prefix + 'WALG_ENV_DIR'] = os.path.join(placeholders['RW_DIR'], 'etc', 'wal-e.d', dirname)
     placeholders[prefix + 'WITH_WALG'] = True
     return name
 
@@ -533,7 +533,7 @@ def get_placeholders(provider):
     placeholders.setdefault('BACKUP_NUM_TO_RETAIN', '5')
     placeholders.setdefault('CRONTAB', '[]')
     placeholders.setdefault('PGROOT', os.path.join(placeholders['PGHOME'], 'pgroot'))
-    placeholders.setdefault('WALG_TMPDIR', os.path.abspath(os.path.join(placeholders['PGROOT'], '../tmp')))
+    placeholders.setdefault('WALG_TMPDIR', placeholders.get('WALE_TMPDIR', os.path.abspath(os.path.join(placeholders['PGROOT'], '../tmp'))))
     placeholders.setdefault('PGDATA', os.path.join(placeholders['PGROOT'], 'pgdata'))
     placeholders.setdefault('HUMAN_ROLE', 'zalandos')
     placeholders.setdefault('PGUSER_STANDBY', 'standby')
@@ -556,8 +556,8 @@ def get_placeholders(provider):
     placeholders.setdefault('SSL_RESTAPI_CA_FILE', '')
     placeholders.setdefault('SSL_RESTAPI_CERTIFICATE_FILE', '')
     placeholders.setdefault('SSL_RESTAPI_PRIVATE_KEY_FILE', '')
-    placeholders.setdefault('WALG_BACKUP_THRESHOLD_MEGABYTES', 102400)
-    placeholders.setdefault('WALG_BACKUP_THRESHOLD_PERCENTAGE', 30)
+    placeholders.setdefault('WALG_BACKUP_THRESHOLD_MEGABYTES', placeholders.get('WALE_BACKUP_THRESHOLD_MEGABYTES', 102400))
+    placeholders.setdefault('WALG_BACKUP_THRESHOLD_PERCENTAGE', placeholders.get('WALE_BACKUP_THRESHOLD_PERCENTAGE', 30))
     placeholders.setdefault('INITDB_LOCALE', 'en_US')
     placeholders.setdefault('CLONE_TARGET_TIMELINE', 'latest')
     # if Kubernetes is defined as a DCS, derive the namespace from the POD_NAMESPACE, if not set explicitely.
@@ -570,10 +570,10 @@ def get_placeholders(provider):
                             if placeholders['NAMESPACE'] not in ('default', '') else '')
     placeholders.setdefault('WAL_BUCKET_SCOPE_SUFFIX', '')
     placeholders.setdefault('WAL_RESTORE_TIMEOUT', '0')
-    placeholders.setdefault('WALG_ENV_DIR', os.path.join(placeholders['RW_DIR'], 'etc', 'wal-g.d', 'env'))
+    placeholders.setdefault('WALG_ENV_DIR', placeholders.get('WALE_ENV_DIR', os.path.join(placeholders['RW_DIR'], 'etc', 'wal-e.d', 'env')))
     cpu_count = str(min(psutil.cpu_count(), 10))
-    placeholders.setdefault('WALG_DOWNLOAD_CONCURRENCY', cpu_count)
-    placeholders.setdefault('WALG_UPLOAD_CONCURRENCY', cpu_count)
+    placeholders.setdefault('WALG_DOWNLOAD_CONCURRENCY', placeholders.get('WALE_DOWNLOAD_CONCURRENCY', cpu_count))
+    placeholders.setdefault('WALG_UPLOAD_CONCURRENCY', placeholders.get('WALE_UPLOAD_CONCURRENCY', cpu_count))
     placeholders.setdefault('PAM_OAUTH2', '')
     placeholders.setdefault('CALLBACK_SCRIPT', '')
     placeholders.setdefault('DCS_ENABLE_KUBERNETES_API', '')
@@ -587,8 +587,11 @@ def get_placeholders(provider):
     placeholders.setdefault('KUBERNETES_BYPASS_API_SERVICE', 'true')
     placeholders.setdefault('KUBERNETES_BOOTSTRAP_LABELS', '{}')
     placeholders.setdefault('USE_PAUSE_AT_RECOVERY_TARGET', False)
-    placeholders.setdefault('CLONE_METHOD', '')
-    placeholders.setdefault('CLONE_WITH_WALG', '')
+    placeholders["CLONE_METHOD"] = (
+        "CLONE_WITH_WALG" if placeholders.setdefault("CLONE_METHOD", "") == "CLONE_WITH_WALE"
+        else placeholders["CLONE_METHOD"]
+    )
+    placeholders.setdefault('CLONE_WITH_WALG', placeholders.get('CLONE_WITH_WALE', ''))
     placeholders.setdefault('CLONE_WITH_BASEBACKUP', '')
     placeholders.setdefault('CLONE_TARGET_TIME', '')
     placeholders.setdefault('CLONE_TARGET_INCLUSIVE', True)
@@ -631,7 +634,7 @@ def get_placeholders(provider):
     else:
         set_extended_walg_placeholders(placeholders, 'STANDBY_')
 
-    placeholders.setdefault('STANDBY_WITH_WALG', '')
+    placeholders.setdefault('STANDBY_WITH_WALG', placeholders.get('STANDBY_WITH_WALE', ''))
     placeholders.setdefault('STANDBY_HOST', '')
     placeholders.setdefault('STANDBY_PORT', '')
     placeholders.setdefault('STANDBY_PRIMARY_SLOT_NAME', '')
@@ -645,7 +648,8 @@ def get_placeholders(provider):
 
     # check if we have enough parameters to enable WAL-G
     placeholders['USE_WALG'] = any(placeholders.get(n) for n in AUTO_ENABLE_WALG_RESTORE +
-                                   ('WAL_SWIFT_BUCKET', 'WAL_GCS_BUCKET', 'WAL_GS_BUCKET', 'WALG_GS_PREFIX'))
+                                   ('WAL_SWIFT_BUCKET', 'WAL_GCS_BUCKET', 'WAL_GS_BUCKET', 'WALG_GS_PREFIX') +
+                                   ('WALE_GS_PREFIX', 'WALE_S3_PREFIX', 'WALE_AZ_PREFIX', 'WALE_SSH_PREFIX'))
 
     if placeholders.get('WALG_BACKUP_FROM_REPLICA'):
         placeholders['WALG_BACKUP_FROM_REPLICA'] = str(placeholders['WALG_BACKUP_FROM_REPLICA']).lower()
@@ -851,7 +855,10 @@ def write_walg_environment(placeholders, prefix, overwrite):
                  'WAL_S3_BUCKET', 'WAL_GCS_BUCKET', 'WAL_GS_BUCKET', 'WAL_SWIFT_BUCKET', 'BACKUP_NUM_TO_RETAIN',
                  'ENABLE_WAL_PATH_COMPAT'] + s3_names + swift_names + gs_names + walg_names + azure_names + \
             azure_auth_names + ssh_names:
-        walg[name] = placeholders.get(prefix + name, '')
+        if "WALG" in name: # check if it is set as WALE_
+            walg[name] = placeholders.get(prefix + name, placeholders.get(prefix + name.replace("WALG", "WALE"), ''))
+        else:
+            walg[name] = placeholders.get(prefix + name, '')
 
     if walg.get('WAL_S3_BUCKET') or walg.get('WALG_S3_PREFIX'):
         walg_endpoint = walg.pop('WALG_S3_ENDPOINT', None)

@@ -100,7 +100,7 @@ ENV LC_ALL=en_US.utf-8 \
     RW_DIR=/run \
     DEMO=$DEMO
 
-ENV WALG_ENV_DIR=$RW_DIR/etc/wal-g.d/env \
+ENV WALG_ENV_DIR=$RW_DIR/etc/wal-e.d/env \
     LOG_ENV_DIR=$RW_DIR/etc/log.d/env \
     PGROOT=$PGHOME/pgdata/pgroot
 
