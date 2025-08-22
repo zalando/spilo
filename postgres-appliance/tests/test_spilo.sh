@@ -66,7 +66,7 @@ function wait_backup() {
     docker_exec -i "$1" "psql -U postgres -c CHECKPOINT" > /dev/null 2>&1
 
     while true; do
-        count=$(docker_exec "$container" "envdir /run/etc/wal-e.d/env wal-e backup-list" | grep -c ^base)
+        count=$(docker_exec "$container" "envdir /run/etc/wal-e.d/env wal-g backup-list" | grep -c ^base)
         if [[ "$count" -gt 0 ]]; then
             return
         fi

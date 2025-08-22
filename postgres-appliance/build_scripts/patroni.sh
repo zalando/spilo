@@ -1,8 +1,8 @@
 #!/bin/bash
 
-## -------------------------
-## Install patroni and wal-e
-## -------------------------
+## ----------------
+## Install patroni
+## ----------------
 
 export DEBIAN_FRONTEND=noninteractive
 
