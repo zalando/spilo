@@ -70,7 +70,7 @@ COPY --from=dependencies-builder /builddeps/wal-g /usr/local/bin/
 
 COPY build_scripts/patroni.sh build_scripts/compress_build.sh /builddeps/
 
-# Install patroni and wal-e
+# Install patroni
 ENV PATRONIVERSION=4.0.6
 
 WORKDIR /
