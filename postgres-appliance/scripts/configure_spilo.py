@@ -524,10 +524,16 @@ def get_listen_ip():
 
 
 def get_placeholders(provider):
-    placeholders = {
-        (key.replace("WALE", "WALG") if "WALE" in key else key): value
-        for key, value in os.environ.items()
-    }
+    placeholders = {}
+    for key, value in os.environ.items():
+        if "WALE" in key:
+            new_key = key.replace("WALE", "WALG")
+            if new_key in os.environ:
+                # skip, because a real WALG env already exists
+                continue
+            placeholders[new_key] = value
+        else:
+            placeholders[key] = value
 
     placeholders.setdefault('PGHOME', os.path.expanduser('~'))
     placeholders.setdefault('APIPORT', '8008')
@@ -589,10 +595,7 @@ def get_placeholders(provider):
     placeholders.setdefault('KUBERNETES_BYPASS_API_SERVICE', 'true')
     placeholders.setdefault('KUBERNETES_BOOTSTRAP_LABELS', '{}')
     placeholders.setdefault('USE_PAUSE_AT_RECOVERY_TARGET', False)
-    placeholders["CLONE_METHOD"] = (
-        "CLONE_WITH_WALG" if placeholders.setdefault("CLONE_METHOD", "") == "CLONE_WITH_WALE"
-        else placeholders["CLONE_METHOD"]
-    )
+    placeholders.setdefault('CLONE_METHOD', '').replace('WALE', 'WALG')
     placeholders.setdefault('CLONE_WITH_WALG', '')
     placeholders.setdefault('CLONE_WITH_BASEBACKUP', '')
     placeholders.setdefault('CLONE_TARGET_TIME', '')
