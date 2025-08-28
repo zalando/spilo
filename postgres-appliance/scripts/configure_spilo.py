@@ -595,7 +595,7 @@ def get_placeholders(provider):
     placeholders.setdefault('KUBERNETES_BYPASS_API_SERVICE', 'true')
     placeholders.setdefault('KUBERNETES_BOOTSTRAP_LABELS', '{}')
     placeholders.setdefault('USE_PAUSE_AT_RECOVERY_TARGET', False)
-    placeholders.setdefault('CLONE_METHOD', '').replace('WALE', 'WALG')
+    placeholders.setdefault('CLONE_METHOD', '')
     placeholders.setdefault('CLONE_WITH_WALG', '')
     placeholders.setdefault('CLONE_WITH_BASEBACKUP', '')
     placeholders.setdefault('CLONE_TARGET_TIME', '')
@@ -619,6 +619,7 @@ def get_placeholders(provider):
     placeholders.setdefault('LOG_BUCKET_SCOPE_PREFIX', '{0}-'.format(placeholders['NAMESPACE'])
                             if placeholders['NAMESPACE'] not in ('default', '') else '')
 
+    placeholders['CLONE_METHOD'] = placeholders['CLONE_METHOD'].replace('WALE', 'WALG')  # backwards compatibility
     if placeholders['CLONE_METHOD'] == 'CLONE_WITH_WALG':
         # modify placeholders and take care of error cases
         name = set_extended_walg_placeholders(placeholders, 'CLONE_')
