@@ -175,7 +175,7 @@ bootstrap:
     standby_cluster:
       create_replica_methods:
       {{#STANDBY_WITH_WALG}}
-      - bootstrap_standby_with_walg
+      - bootstrap_standby_with_wale
       {{/STANDBY_WITH_WALG}}
       - basebackup_fast_xlog
       {{#STANDBY_WITH_WALG}}
@@ -385,7 +385,7 @@ hstore,hypopg,intarray,ltree,pgcrypto,pgq,pgq_node,pg_trgm,postgres_fdw,roaringb
     command: /scripts/basebackup.sh
     retries: 2
 {{#STANDBY_WITH_WALG}}
-  bootstrap_standby_with_walg:
+  bootstrap_standby_with_wale:
     command: envdir "{{STANDBY_WALG_ENV_DIR}}" bash /scripts/walg_restore.sh
     threshold_megabytes: {{WALG_BACKUP_THRESHOLD_MEGABYTES}}
     threshold_backup_size_percentage: {{WALG_BACKUP_THRESHOLD_PERCENTAGE}}
