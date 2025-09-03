@@ -527,7 +527,7 @@ def get_placeholders(provider):
     placeholders = {}
     for key, value in os.environ.items():
         if "WALE" in key:
-            new_key = key.replace("WALE", "WALG")
+            new_key = key.replace("WALE", "WALG")  # backward compatibility
             if new_key in os.environ:
                 # skip, because a real WALG env already exists
                 continue
@@ -616,6 +616,7 @@ def get_placeholders(provider):
     else:
         placeholders['LOG_SHIP_HOURLY'] = ''
 
+    # use namespaces to set WAL bucket prefix scope naming the folder namespace-clustername for non-default namespace
     placeholders.setdefault('LOG_BUCKET_SCOPE_PREFIX', '{0}-'.format(placeholders['NAMESPACE'])
                             if placeholders['NAMESPACE'] not in ('default', '') else '')
 
@@ -654,7 +655,7 @@ def get_placeholders(provider):
 
     # check if we have enough parameters to enable WAL-G
     placeholders['USE_WALG'] = any(placeholders.get(n) for n in AUTO_ENABLE_WALG_RESTORE +
-                                   ('WAL_SWIFT_BUCKET', 'WAL_GCS_BUCKET', 'WAL_GS_BUCKET', 'WALG_GS_PREFIX'))
+                                   ('WAL_SWIFT_BUCKET', 'WAL_GS_BUCKET', 'WALG_GS_PREFIX'))
 
     if placeholders.get('WALG_BACKUP_FROM_REPLICA'):
         placeholders['WALG_BACKUP_FROM_REPLICA'] = str(placeholders['WALG_BACKUP_FROM_REPLICA']).lower()
@@ -857,7 +858,7 @@ def write_walg_environment(placeholders, prefix, overwrite):
 
     walg = defaultdict(lambda: '')
     for name in ['PGVERSION', 'PGPORT', 'WALG_ENV_DIR', 'SCOPE', 'WAL_BUCKET_SCOPE_PREFIX', 'WAL_BUCKET_SCOPE_SUFFIX',
-                 'WAL_S3_BUCKET', 'WAL_GCS_BUCKET', 'WAL_GS_BUCKET', 'WAL_SWIFT_BUCKET', 'BACKUP_NUM_TO_RETAIN',
+                 'WAL_S3_BUCKET', 'WAL_GS_BUCKET', 'WAL_SWIFT_BUCKET', 'BACKUP_NUM_TO_RETAIN',
                  'ENABLE_WAL_PATH_COMPAT'] + s3_names + swift_names + gs_names + walg_names + azure_names + \
             azure_auth_names + ssh_names:
         walg[name] = placeholders.get(prefix + name, '')
@@ -910,12 +911,9 @@ def write_walg_environment(placeholders, prefix, overwrite):
                 walg[name] = placeholders.get(name)
 
         write_envdir_names = s3_names + walg_names + aws_imds_names
-    elif walg.get('WAL_GCS_BUCKET') or walg.get('WAL_GS_BUCKET') or\
-            walg.get('WALG_GS_PREFIX'):
-        if walg.get('WAL_GCS_BUCKET'):
-            walg['WAL_GS_BUCKET'] = walg['WAL_GCS_BUCKET']
+    elif walg.get('WAL_GS_BUCKET') or walg.get('WALG_GS_PREFIX'):
         write_envdir_names = gs_names + walg_names
-    elif walg.get('WAL_SWIFT_BUCKET'):
+    elif walg.get('WAL_SWIFT_BUCKET') or walg.get('WALG_SWIFT_BUCKET'):
         write_envdir_names = swift_names
     elif walg.get("WALG_AZ_PREFIX"):
         azure_auth = []

@@ -136,8 +136,7 @@ function test_successful_inplace_upgrade_to_14() {
 }
 
 function test_envdir_suffix() {
-    docker_exec "$1" "cat /run/etc/wal-e.d/env/WALG_S3_PREFIX" | grep -q "$2$" \
-        && docker_exec "$1" "cat /run/etc/wal-e.d/env/WALG_S3_PREFIX" | grep -q "$2$"
+    docker_exec "$1" "cat /run/etc/wal-e.d/env/WALG_S3_PREFIX" | grep -q "$2$"
 }
 
 function test_envdir_updated_to_x() {

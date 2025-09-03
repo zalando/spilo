@@ -116,7 +116,8 @@ wal-g
 -----
 
 wal-g is used everywhere in Spilo to perform backups and restore from them. **Support for wal-e has been removed**.
-For backward compatibility, Spilo will still recognize environment variables containing **WALE**.
+Backward compatibility is ensured for environment variables containing **WALE**, the env-dir layout, and bootstrap method names.
+This allows existing configurations and clusters to continue working without requiring immediate changes.
 Regardless of which variable is set, all backups and restores will be performed using wal-g.
 However, if both **WALE** and **WALG** variables are present, the latter will take precedence.
 - **WALG_DELTA_MAX_STEPS**, **WALG_DELTA_ORIGIN**, **WALG_DOWNLOAD_CONCURRENCY**, **WALG_UPLOAD_CONCURRENCY**, **WALG_UPLOAD_DISK_CONCURRENCY**, **WALG_DISK_RATE_LIMIT**, **WALG_NETWORK_RATE_LIMIT**, **WALG_COMPRESSION_METHOD**, **WALG_BACKUP_COMPRESSION_METHOD**, **WALG_BACKUP_FROM_REPLICA**, **WALG_SENTINEL_USER_DATA**, **WALG_PREVENT_WAL_OVERWRITE**: (optional) configuration options for wal-g.

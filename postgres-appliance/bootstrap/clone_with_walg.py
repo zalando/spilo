@@ -119,6 +119,7 @@ def get_possible_versions():
 
 def get_walg_environments(env):
     prefix = 'WALG_'
+    # len('WALG_PREFIX') = 12
     names = [name for name in env.keys() if name.endswith('_PREFIX') and name.startswith(prefix) and len(name) > 12]
     if len(names) != 1:
         raise Exception('Found find {0} {1}*_PREFIX environment variables, expected 1'
