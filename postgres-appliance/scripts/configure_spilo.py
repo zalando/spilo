@@ -578,8 +578,8 @@ def get_placeholders(provider):
                             if placeholders['NAMESPACE'] not in ('default', '') else '')
     placeholders.setdefault('WAL_BUCKET_SCOPE_SUFFIX', '')
     placeholders.setdefault('WAL_RESTORE_TIMEOUT', '0')
-    # the env dir path is still called "wal-e.d" for backwards compatibility: many existing deployments, scripts, or manifests
-    # expect this path, even though wal-e itself is not used (wal-g reads env vars from here too)
+    # the env dir path is still called "wal-e.d" for backwards compatibility: many existing deployments, scripts,
+    # or manifests expect this path, even though wal-e itself is not used (wal-g reads env vars from here too)
     placeholders.setdefault('WALG_ENV_DIR', os.path.join(placeholders['RW_DIR'], 'etc', 'wal-e.d', 'env'))
     cpu_count = str(min(psutil.cpu_count(), 10))
     placeholders.setdefault('WALG_DOWNLOAD_CONCURRENCY', cpu_count)
