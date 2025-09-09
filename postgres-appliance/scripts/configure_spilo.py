@@ -578,6 +578,8 @@ def get_placeholders(provider):
                             if placeholders['NAMESPACE'] not in ('default', '') else '')
     placeholders.setdefault('WAL_BUCKET_SCOPE_SUFFIX', '')
     placeholders.setdefault('WAL_RESTORE_TIMEOUT', '0')
+    # the env dir path is still called "wal-e.d" for backwards compatibility: many existing deployments, scripts, or manifests
+    # expect this path, even though wal-e itself is not used (wal-g reads env vars from here too)
     placeholders.setdefault('WALG_ENV_DIR', os.path.join(placeholders['RW_DIR'], 'etc', 'wal-e.d', 'env'))
     cpu_count = str(min(psutil.cpu_count(), 10))
     placeholders.setdefault('WALG_DOWNLOAD_CONCURRENCY', cpu_count)
@@ -667,9 +669,8 @@ def get_placeholders(provider):
 
     placeholders.setdefault('postgresql', {})
     placeholders['postgresql'].setdefault('parameters', {})
-    placeholders['WALG_BINARY'] = 'wal-g'
     placeholders['postgresql']['parameters']['archive_command'] = \
-        'envdir "{WALG_ENV_DIR}" {WALG_BINARY} wal-push "%p"'.format(**placeholders) \
+        'envdir "{WALG_ENV_DIR}" wal-g wal-push "%p"'.format(**placeholders) \
         if placeholders['USE_WALG'] else '/bin/true'
 
     cgroup_memory_limit_path = '/sys/fs/cgroup/memory/memory.limit_in_bytes'
@@ -1180,7 +1181,8 @@ def main():
             if bool(placeholders.get('LOG_S3_BUCKET')):
                 write_log_environment(placeholders)
         elif section == 'wal-g':
-            write_walg_environment(placeholders, '', args['force'])
+            if placeholders['USE_WALG']:
+                write_walg_environment(placeholders, '', args['force'])
         elif section == 'certificate':
             write_certificates(placeholders, args['force'])
             write_restapi_certificates(placeholders, args['force'])
