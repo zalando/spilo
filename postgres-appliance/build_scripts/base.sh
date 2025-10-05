@@ -51,7 +51,7 @@ if [ "$WITH_PERL" != "true" ]; then
     equivs-build perl
 fi
 
-curl -sL "https://github.com/zalando-pg/bg_mon/archive/$BG_MON_COMMIT.tar.gz" | tar xz
+curl -sL "https://github.com/CyberDem0n/bg_mon/archive/$BG_MON_COMMIT.tar.gz" | tar xz
 curl -sL "https://github.com/zalando-pg/pg_auth_mon/archive/$PG_AUTH_MON_COMMIT.tar.gz" | tar xz
 curl -sL "https://github.com/cybertec-postgresql/pg_permissions/archive/$PG_PERMISSIONS_COMMIT.tar.gz" | tar xz
 curl -sL "https://github.com/zubkov-andrei/pg_profile/archive/$PG_PROFILE.tar.gz" | tar xz
@@ -78,17 +78,11 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
                 "postgresql-${version}-dirtyread"
                 "postgresql-${version}-extra-window-functions"
                 "postgresql-${version}-first-last-agg"
-                "postgresql-${version}-hll"
                 "postgresql-${version}-hypopg"
-                "postgresql-${version}-partman"
                 "postgresql-${version}-plproxy"
                 "postgresql-${version}-pgaudit"
-                "postgresql-${version}-pldebugger"
-                "postgresql-${version}-pglogical"
-                "postgresql-${version}-pglogical-ticker"
                 "postgresql-${version}-plpgsql-check"
                 "postgresql-${version}-pg-checksums"
-                "postgresql-${version}-pgl-ddl-deploy"
                 "postgresql-${version}-pgq-node"
                 "postgresql-${version}-postgis-${POSTGIS_VERSION%.*}"
                 "postgresql-${version}-postgis-${POSTGIS_VERSION%.*}-scripts"
@@ -97,10 +91,16 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
                 "postgresql-${version}-decoderbufs"
                 "postgresql-${version}-pllua"
                 "postgresql-${version}-pgvector"
-                "postgresql-${version}-roaringbitmap")
+                "postgresql-${version}-roaringbitmap"
+                "postgresql-${version}-pgfaceting")
 
-        if [ "$version" -ge 14 ]; then
-            EXTRAS+=("postgresql-${version}-pgfaceting")
+        if [ "$version" != "18" ]; then
+            EXTRAS+=("postgresql-${version}-hll"
+                     "postgresql-${version}-partman"
+                     "postgresql-${version}-pldebugger"
+                     "postgresql-${version}-pglogical"
+                     "postgresql-${version}-pglogical-ticker"
+                     "postgresql-${version}-pgl-ddl-deploy")
         fi
 
         if [ "$WITH_PERL" = "true" ]; then
@@ -109,10 +109,13 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
 
     fi
 
-    if [ "${TIMESCALEDB_APACHE_ONLY}" = "true" ]; then
-        EXTRAS+=("timescaledb-2-oss-postgresql-${version}")
-    else
-        EXTRAS+=("timescaledb-2-postgresql-${version}")
+    if [ "$version" != "18" ]; then
+        if [ "${TIMESCALEDB_APACHE_ONLY}" = "true" ]; then
+            EXTRAS+=("timescaledb-2-oss-postgresql-${version}")
+        else
+            EXTRAS+=("timescaledb-2-postgresql-${version}")
+        fi
+        EXTRAS+=("postgresql-${version}-pg-stat-kcache")
     fi
 
     # Install PostgreSQL binaries, contrib, plproxy and multiple pl's
@@ -123,35 +126,41 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
         "postgresql-plpython3-${version}" \
         "postgresql-server-dev-${version}" \
         "postgresql-${version}-pgq3" \
-        "postgresql-${version}-pg-stat-kcache" \
         "${EXTRAS[@]}"
 
     # Clean up timescaledb versions except the last 5 minor versions
-    exclude_patterns=()
-    versions=$(find "/usr/lib/postgresql/$version/lib/" -name 'timescaledb-2.*.so' | sed -rn 's/.*timescaledb-([1-9]+\.[0-9]+\.[0-9]+)\.so$/\1/p' | sort -rV)
-    latest_minor_versions=$(echo "$versions" | awk -F. '{print $1"."$2}' | uniq | head -n 5)
-    for minor in $latest_minor_versions; do
-        for full_version in $(echo "$versions" | grep "^$minor"); do
-            exclude_patterns+=(! -name timescaledb-"${full_version}".so)
-            exclude_patterns+=(! -name timescaledb-tsl-"${full_version}".so)
+    if [ "$version" != "18" ]; then
+        exclude_patterns=()
+        versions=$(find "/usr/lib/postgresql/$version/lib/" -name 'timescaledb-2.*.so' | sed -rn 's/.*timescaledb-([1-9]+\.[0-9]+\.[0-9]+)\.so$/\1/p' | sort -rV)
+        latest_minor_versions=$(echo "$versions" | awk -F. '{print $1"."$2}' | uniq | head -n 5)
+        for minor in $latest_minor_versions; do
+            for full_version in $(echo "$versions" | grep "^$minor"); do
+                exclude_patterns+=(! -name timescaledb-"${full_version}".so)
+                exclude_patterns+=(! -name timescaledb-tsl-"${full_version}".so)
+            done
         done
-    done
-    find "/usr/lib/postgresql/$version/lib/" \( -name 'timescaledb-2.*.so' -o -name 'timescaledb-tsl-2.*.so' \) "${exclude_patterns[@]}" -delete
+        find "/usr/lib/postgresql/$version/lib/" \( -name 'timescaledb-2.*.so' -o -name 'timescaledb-tsl-2.*.so' \) "${exclude_patterns[@]}" -delete
+    fi
 
     # Install 3rd party stuff
 
-    if [ "${TIMESCALEDB_APACHE_ONLY}" != "true" ] && [ "${TIMESCALEDB_TOOLKIT}" = "true" ]; then
-        apt-get update
-        if [ "$(apt-cache search --names-only "^timescaledb-toolkit-postgresql-${version}$" | wc -l)" -eq 1 ]; then
-            apt-get install "timescaledb-toolkit-postgresql-$version"
-        else
-            echo "Skipping timescaledb-toolkit-postgresql-$version as it's not found in the repository"
+    if [ "$version" != "18" ]; then
+        if [ "${TIMESCALEDB_APACHE_ONLY}" != "true" ] && [ "${TIMESCALEDB_TOOLKIT}" = "true" ]; then
+            apt-get update
+            if [ "$(apt-cache search --names-only "^timescaledb-toolkit-postgresql-${version}$" | wc -l)" -eq 1 ]; then
+                apt-get install "timescaledb-toolkit-postgresql-$version"
+            else
+                echo "Skipping timescaledb-toolkit-postgresql-$version as it's not found in the repository"
+            fi
         fi
     fi
 
     EXTRA_EXTENSIONS=()
     if [ "$DEMO" != "true" ]; then
-        EXTRA_EXTENSIONS+=("plprofiler" "pg_mon-${PG_MON_COMMIT}")
+        EXTRA_EXTENSIONS+=("plprofiler")
+        if [ "$version" != "18" ]; then
+            EXTRA_EXTENSIONS+=("pg_mon-${PG_MON_COMMIT}")
+        fi
     fi
 
     for n in bg_mon-${BG_MON_COMMIT} \
