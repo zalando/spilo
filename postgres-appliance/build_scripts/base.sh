@@ -157,10 +157,7 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
 
     EXTRA_EXTENSIONS=()
     if [ "$DEMO" != "true" ]; then
-        EXTRA_EXTENSIONS+=("plprofiler")
-        if [ "$version" != "18" ]; then
-            EXTRA_EXTENSIONS+=("pg_mon-${PG_MON_COMMIT}")
-        fi
+        EXTRA_EXTENSIONS+=("plprofiler" "pg_mon-${PG_MON_COMMIT}")
     fi
 
     for n in bg_mon-${BG_MON_COMMIT} \
