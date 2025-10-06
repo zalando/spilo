@@ -166,8 +166,14 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
             pg_permissions-${PG_PERMISSIONS_COMMIT} \
             pg_profile-${PG_PROFILE} \
             "${EXTRA_EXTENSIONS[@]}"; do
-        make -C "$n" USE_PGXS=1 clean install-strip
+        PATH="/usr/lib/postgresql/$version/bin:$PATH" make -C "$n" USE_PGXS=1 clean
+        PATH="/usr/lib/postgresql/$version/bin:$PATH" make -C "$n" USE_PGXS=1 install-strip
     done
+
+    if [ "$version" == "18" ]; then
+        git clone https://github.com/powa-team/pg_stat_kcache.git
+        PATH="/usr/lib/postgresql/$version/bin:$PATH" make -C pg_stat_kcache install-strip
+    fi
 done
 
 apt-get install -y skytools3-ticker pgbouncer

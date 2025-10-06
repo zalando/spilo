@@ -14,7 +14,7 @@ LIB_DIR = '/usr/lib/postgresql'
 extensions = {
     'timescaledb':    (9.6, 17, True,  True),
     'pg_cron':        (9.5, 18, True,  False),
-    'pg_stat_kcache': (9.4, 17, True,  False),
+    'pg_stat_kcache': (9.4, 18, True,  False),
     'pg_partman':     (9.4, 17, False, True)
 }
 if os.environ.get('ENABLE_PG_MON') == 'true':
