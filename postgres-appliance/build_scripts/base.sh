@@ -78,9 +78,13 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
                 "postgresql-${version}-dirtyread"
                 "postgresql-${version}-extra-window-functions"
                 "postgresql-${version}-first-last-agg"
+                "postgresql-${version}-hll"
                 "postgresql-${version}-hypopg"
+                "postgresql-${version}-partman"
                 "postgresql-${version}-plproxy"
                 "postgresql-${version}-pgaudit"
+                "postgresql-${version}-pldebugger"
+                "postgresql-${version}-pglogical"
                 "postgresql-${version}-plpgsql-check"
                 "postgresql-${version}-pg-checksums"
                 "postgresql-${version}-pgq-node"
@@ -95,12 +99,8 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
                 "postgresql-${version}-pgfaceting")
 
         if [ "$version" != "18" ]; then
-            EXTRAS+=("postgresql-${version}-hll"
-                     "postgresql-${version}-partman"
-                     "postgresql-${version}-pldebugger"
-                     "postgresql-${version}-pglogical"
-                     "postgresql-${version}-pglogical-ticker"
-                     "postgresql-${version}-pgl-ddl-deploy")
+            EXTRAS+=("postgresql-${version}-pgl-ddl-deploy"
+                    "postgresql-${version}-pglogical-ticker")
         fi
 
         if [ "$WITH_PERL" = "true" ]; then
@@ -115,7 +115,6 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
         else
             EXTRAS+=("timescaledb-2-postgresql-${version}")
         fi
-        EXTRAS+=("postgresql-${version}-pg-stat-kcache")
     fi
 
     # Install PostgreSQL binaries, contrib, plproxy and multiple pl's
@@ -126,6 +125,7 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
         "postgresql-plpython3-${version}" \
         "postgresql-server-dev-${version}" \
         "postgresql-${version}-pgq3" \
+        "postgresql-${version}-pg-stat-kcache" \
         "${EXTRAS[@]}"
 
     # Clean up timescaledb versions except the last 5 minor versions
@@ -169,11 +169,6 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
         PATH="/usr/lib/postgresql/$version/bin:$PATH" make -C "$n" USE_PGXS=1 clean
         PATH="/usr/lib/postgresql/$version/bin:$PATH" make -C "$n" USE_PGXS=1 install-strip
     done
-
-    if [ "$version" == "18" ]; then
-        git clone https://github.com/powa-team/pg_stat_kcache.git
-        PATH="/usr/lib/postgresql/$version/bin:$PATH" make -C pg_stat_kcache install-strip
-    fi
 done
 
 apt-get install -y skytools3-ticker pgbouncer
