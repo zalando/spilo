@@ -108,7 +108,7 @@ function wait_all_streaming() {
 function wait_zero_lag() {
     local repl_count=${2:-2}
     log_info "Waiting for all replicas to catch up with WAL replay..."
-    wait_query "$1" "SELECT COUNT(*) FROM pg_stat_replication WHERE application_name LIKE 'spilo_' AND pg_catalog.pg_wal_lsn_diff(pg_catalog.pg_current_wal_lsn(), COALESCE(replay_lsn, '0/0')) < 17*1024*1024" "$repl_count"
+    wait_query "$1" "SELECT COUNT(*) FROM pg_stat_replication WHERE application_name LIKE 'spilo_' AND pg_catalog.pg_wal_lsn_diff(pg_catalog.pg_current_wal_lsn(), COALESCE(replay_lsn, '0/0')) < 16*1024*1024" "$repl_count"
 }
 
 function create_schema() {
