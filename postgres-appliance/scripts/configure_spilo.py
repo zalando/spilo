@@ -836,7 +836,8 @@ def write_walg_environment(placeholders, prefix, overwrite):
     s3_names = ['WALG_S3_PREFIX', 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY',
                 'WALG_S3_ENDPOINT', 'AWS_ENDPOINT', 'AWS_REGION', 'AWS_INSTANCE_PROFILE',
                 'WALG_S3_SSE_KMS_ID', 'WALG_S3_SSE', 'WALG_DISABLE_S3_SSE', 'AWS_S3_FORCE_PATH_STYLE', 'AWS_ROLE_ARN',
-                'AWS_WEB_IDENTITY_TOKEN_FILE', 'AWS_STS_REGIONAL_ENDPOINTS']
+                'AWS_WEB_IDENTITY_TOKEN_FILE', 'AWS_STS_REGIONAL_ENDPOINTS',
+                'AWS_CONTAINER_CREDENTIALS_FULL_URI', 'AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE']
     azure_names = ['WALG_AZ_PREFIX', 'AZURE_STORAGE_ACCOUNT',  'WALG_AZURE_BUFFER_SIZE', 'WALG_AZURE_MAX_BUFFERS',
                    'AZURE_ENVIRONMENT_NAME']
     azure_auth_names = ['AZURE_STORAGE_ACCESS_KEY', 'AZURE_STORAGE_SAS_TOKEN', 'AZURE_CLIENT_ID',
@@ -900,7 +901,8 @@ def write_walg_environment(placeholders, prefix, overwrite):
         else:
             walg['AWS_REGION'] = aws_region
 
-        if not (walg.get('AWS_SECRET_ACCESS_KEY') and walg.get('AWS_ACCESS_KEY_ID')):
+        # Only defaults to instance profile if neither the secret token or the pod identity variables are absent
+        if not (walg.get('AWS_SECRET_ACCESS_KEY') and walg.get('AWS_ACCESS_KEY_ID')) and not (walg.get('AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE')):
             walg['AWS_INSTANCE_PROFILE'] = 'true'
 
         if walg.get('WALG_DISABLE_S3_SSE') != 'true' and not walg.get('WALG_S3_SSE'):
