@@ -126,10 +126,32 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
         "postgresql-${version}-pg-stat-kcache" \
         "${EXTRAS[@]}"
 
-    # Clean up timescaledb versions except the last 5 minor versions
+    # Clean up timescaledb versions - keep at least 5 minor versions, but ensure compatibility with the lowest/oldest PG version (where possible)
+
     exclude_patterns=()
     versions=$(find "/usr/lib/postgresql/$version/lib/" -name 'timescaledb-2.*.so' | sed -rn 's/.*timescaledb-([1-9]+\.[0-9]+\.[0-9]+)\.so$/\1/p' | sort -rV)
-    latest_minor_versions=$(echo "$versions" | awk -F. '{print $1"."$2}' | uniq | head -n 5)
+    
+    # Calculate the number of versions dynamically based on the lowest PG version's latest minor
+    num_versions=5
+    if [ -n "$first_latest_minor" ]; then
+        minor_versions=$(echo "$versions" | awk -F. '{print $1"."$2}' | uniq)
+        position=0
+        found=0
+        while IFS= read -r minor; do
+            position=$((position + 1))
+            if [ "$minor" = "$first_latest_minor" ]; then
+                found=1
+                break
+            fi
+        done <<< "$minor_versions"
+        
+        # if found, keep max(5, position) versions (so all versions have at least 1 version in common with lowest PG version)
+        if [ $found -eq 1 ] && [ $position -gt $num_versions ]; then
+            num_versions=$position
+        fi
+    fi
+    
+    latest_minor_versions=$(echo "$versions" | awk -F. '{print $1"."$2}' | uniq | head -n "$num_versions")
     for minor in $latest_minor_versions; do
         for full_version in $(echo "$versions" | grep "^$minor"); do
             exclude_patterns+=(! -name timescaledb-"${full_version}".so)
@@ -137,6 +159,11 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
         done
     done
     find "/usr/lib/postgresql/$version/lib/" \( -name 'timescaledb-2.*.so' -o -name 'timescaledb-tsl-2.*.so' \) "${exclude_patterns[@]}" -delete
+
+    # Save the latest minor version from the first PG version
+    if [ -z "$first_latest_minor" ]; then
+        first_latest_minor=$(echo "$latest_minor_versions" | head -n 1)
+    fi
 
     # Install 3rd party stuff
 
