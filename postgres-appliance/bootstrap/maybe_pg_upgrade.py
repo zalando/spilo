@@ -103,7 +103,7 @@ def main():
     except Exception as e:
         logger.error('Failed to update extensions: %r', e)
 
-    upgrade.analyze()
+    upgrade.analyze(bin_version)
 
 
 def call_maybe_pg_upgrade():
