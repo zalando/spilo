@@ -95,6 +95,11 @@ else
     receivewal_pid=$(cat "$WAL_FAST/receivewal.pid")
 fi
 
+PGVER=$(psql -d "$CONNSTR" -tAc "SELECT pg_catalog.current_setting('server_version_num')::int/10000" || echo 0)
+if [[ $PGVER -ge 15 ]]; then
+    PG_BASEBACKUP_OPTS+=("--compress=server-lz4")
+fi
+
 ATTEMPT=0
 while [[ $((ATTEMPT++)) -le $RETRIES ]]; do
     pg_basebackup --pgdata="${DATA_DIR}" "${PG_BASEBACKUP_OPTS[@]}" --dbname="${CONNSTR}" &
