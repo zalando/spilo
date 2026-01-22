@@ -139,16 +139,12 @@ CREATE TABLE IF NOT EXISTS public.postgres_log (
     query_pos integer,
     location text,
     application_name text,
+    backend_type text,
+    leader_pid integer,
+    query_id bigint,
     CONSTRAINT postgres_log_check CHECK (false) NO INHERIT
 );
 GRANT SELECT ON public.postgres_log TO admin;"
-if [ "$PGVER" -ge 13 ]; then
-    echo "ALTER TABLE public.postgres_log ADD COLUMN IF NOT EXISTS backend_type text;"
-fi
-if [ "$PGVER" -ge 14 ]; then
-    echo "ALTER TABLE public.postgres_log ADD COLUMN IF NOT EXISTS leader_pid integer;"
-    echo "ALTER TABLE public.postgres_log ADD COLUMN IF NOT EXISTS query_id bigint;"
-fi
 
 # Sunday could be 0 or 7 depending on the format, we just create both
 LOG_SHIP_HOURLY=$(echo "SELECT text(current_setting('log_rotation_age') = '1h')" | psql -tAX -d postgres 2> /dev/null | tail -n 1)

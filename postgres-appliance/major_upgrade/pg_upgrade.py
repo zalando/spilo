@@ -268,9 +268,12 @@ class _PostgresqlUpgrade(Postgresql):
         return self.pg_upgrade() and self.restore_shared_preload_libraries()\
                  and self.switch_pgdata() and self.cleanup_old_pgdata()
 
-    def analyze(self, in_stages=False):
-        vacuumdb_args = ['--analyze-in-stages'] if in_stages else []
-        logger.info('Rebuilding statistics (vacuumdb%s)', (' ' + vacuumdb_args[0] if in_stages else ''))
+    def analyze(self, version, in_stages=False):
+        vacuumdb_args = []
+        if in_stages:
+            vacuumdb_args = ['--analyze-in-stages'] if int(version) < 18 else ['--analyze-in-stages',
+                                                                               '--missing-stats-only']
+        logger.info('Rebuilding statistics (vacuumdb%s)', (' ' + ' '.join(vacuumdb_args) if in_stages else ''))
         if 'username' in self.config.superuser:
             vacuumdb_args += ['-U', self.config.superuser['username']]
         vacuumdb_args += ['-Z', '-j']
