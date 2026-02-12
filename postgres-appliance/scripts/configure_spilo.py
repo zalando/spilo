@@ -396,7 +396,7 @@ hstore,hypopg,intarray,ltree,pgcrypto,pgq,pgq_node,pg_trgm,postgres_fdw,roaringb
 
 
 def get_provider():
-    provider = os.environ.get('SPILO_PROVIDER')
+    provider = os.environ.get('SPILO_PROVIDER', PROVIDER_LOCAL)
     if provider:
         if provider in {PROVIDER_AWS, PROVIDER_GOOGLE, PROVIDER_OPENSTACK, PROVIDER_LOCAL}:
             return provider
