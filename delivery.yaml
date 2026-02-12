@@ -44,6 +44,8 @@ pipeline:
   when:
     - event: push
       branch: trigger
+    - event: push
+      branch: dev-18  # TODO: remove once merged to master
   timeout: 10h
   vm_config:
     type: linux
