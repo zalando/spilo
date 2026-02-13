@@ -207,8 +207,9 @@ class _PostgresqlUpgrade(Postgresql):
         locale = self.query("SELECT datcollate FROM pg_database WHERE datname='template1';")[0][0]
         encoding = self.query('SHOW server_encoding')[0][0]
         initdb_config = [{'locale': locale}, {'encoding': encoding}]
-        if self.query("SELECT current_setting('data_checksums')::bool")[0][0]:
-            initdb_config.append('data-checksums')
+        checksums_enabled = self.query("SELECT current_setting('data_checksums')::bool")[0][0]
+        if checksums_enabled == (int(version) < 18):
+            initdb_config.append('data-checksums' if checksums_enabled else 'no-data-checksums')
 
         logger.info('initdb config: %s', initdb_config)
 
