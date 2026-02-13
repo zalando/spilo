@@ -396,7 +396,7 @@ hstore,hypopg,intarray,ltree,pgcrypto,pgq,pgq_node,pg_trgm,postgres_fdw,roaringb
 
 
 def get_provider():
-    provider = os.environ.get('SPILO_PROVIDER', PROVIDER_LOCAL)
+    provider = os.environ.get('SPILO_PROVIDER')
     if provider:
         if provider in {PROVIDER_AWS, PROVIDER_GOOGLE, PROVIDER_OPENSTACK, PROVIDER_LOCAL}:
             return provider
@@ -411,18 +411,23 @@ def get_provider():
         logging.info("Figuring out my environment (Google? AWS? Openstack? Local?)")
         response = requests.put(
             url='http://169.254.169.254/latest/api/token',
-            headers={'X-aws-ec2-metadata-token-ttl-seconds': '60'}
+            headers={'X-aws-ec2-metadata-token-ttl-seconds': '60'},
+            timeout=2
         )
+        if not response.ok:
+            logging.info("Failed to get IMDS token (status %s), assuming local Docker setup", response.status_code)
+            return PROVIDER_LOCAL
         token = response.text
         r = requests.get(
             url='http://169.254.169.254',
-            headers={'X-aws-ec2-metadata-token': token}
+            headers={'X-aws-ec2-metadata-token': token},
+            timeout=2
         )
         if r.headers.get('Metadata-Flavor', '') == 'Google':
             return PROVIDER_GOOGLE
         else:
             # accessible on Openstack, will fail on AWS
-            r = requests.get('http://169.254.169.254/openstack/latest/meta_data.json')
+            r = requests.get('http://169.254.169.254/openstack/latest/meta_data.json', timeout=2)
             if r.ok:
                 # make sure the response is parsable - https://github.com/Azure/aad-pod-identity/issues/943 and
                 # https://github.com/zalando/spilo/issues/542
@@ -432,7 +437,8 @@ def get_provider():
             # is accessible from both AWS and Openstack, Possiblity of misidentification if previous try fails
             r = requests.get(
                 url='http://169.254.169.254/latest/meta-data/ami-id',
-                headers={'X-aws-ec2-metadata-token': token}
+                headers={'X-aws-ec2-metadata-token': token},
+                timeout=2
             )
             return PROVIDER_AWS if r.ok else PROVIDER_UNSUPPORTED
     except (requests.exceptions.ConnectTimeout, requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout):
