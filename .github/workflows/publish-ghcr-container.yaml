@@ -3,8 +3,6 @@ on:
   push:
     tags:
       - '*'
-    branches:
-      - dev-18
 
 env:
   REGISTRY: ghcr.io
@@ -37,11 +35,7 @@ jobs:
       working-directory: postgres-appliance
       run: |
         PGVERSION=$(sed -n 's/^ARG PGVERSION=\([1-9][0-9]*\).*$/\1/p' Dockerfile)
-        if [[ "${{ github.ref }}" == "refs/heads/dev-18" ]]; then
-          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-$PGVERSION-dev:${GITHUB_SHA::8}"
-        else
-          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-$PGVERSION:${GITHUB_REF/refs\/tags\//}"
-        fi
+        IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-$PGVERSION:${GITHUB_REF/refs\/tags\//}"
         echo "NAME=$IMAGE" >> $GITHUB_OUTPUT
 
     - name: Set up QEMU
