@@ -53,9 +53,7 @@ fi
 
 curl -sL "https://github.com/zalando-pg/bg_mon/archive/$BG_MON_COMMIT.tar.gz" | tar xz
 curl -sL "https://github.com/zalando-pg/pg_auth_mon/archive/$PG_AUTH_MON_COMMIT.tar.gz" | tar xz
-curl -sL "https://github.com/cybertec-postgresql/pg_permissions/archive/$PG_PERMISSIONS_COMMIT.tar.gz" | tar xz
 curl -sL "https://github.com/zubkov-andrei/pg_profile/archive/$PG_PROFILE.tar.gz" | tar xz
-git clone -b "$SET_USER" https://github.com/pgaudit/set_user.git
 
 apt-get install -y \
     postgresql-common \
@@ -124,6 +122,8 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
         "postgresql-server-dev-${version}" \
         "postgresql-${version}-pgq3" \
         "postgresql-${version}-pg-stat-kcache" \
+        "postgresql-${version}-pg-permissions" \
+        "postgresql-${version}-set-user" \
         "${EXTRAS[@]}"
 
     # Clean up timescaledb versions - keep at least 5 minor versions, but ensure compatibility with the lowest/oldest PG version (where possible)
@@ -183,8 +183,6 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
 
     for n in bg_mon-${BG_MON_COMMIT} \
             pg_auth_mon-${PG_AUTH_MON_COMMIT} \
-            set_user \
-            pg_permissions-${PG_PERMISSIONS_COMMIT} \
             pg_profile-${PG_PROFILE} \
             "${EXTRA_EXTENSIONS[@]}"; do
         PATH="/usr/lib/postgresql/$version/bin:$PATH" make -C "$n" USE_PGXS=1 clean
