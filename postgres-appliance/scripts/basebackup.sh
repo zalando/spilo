@@ -99,8 +99,6 @@ else
     receivewal_pid=$(cat "$WAL_FAST/receivewal.pid")
 fi
 
-echo "CONNSTR: $CONNSTR"
-
 PGVER=$(psql "$CONNSTR" -tAc "SELECT pg_catalog.current_setting('server_version_num')::int/10000" || echo 0)
 if [[ $PGVER -ge 15 ]]; then
     PG_BASEBACKUP_OPTS+=("--compress=server-lz4")
