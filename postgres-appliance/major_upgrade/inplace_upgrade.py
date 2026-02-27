@@ -717,6 +717,7 @@ def rsync_replica(config, desired_version, primary_ip, pid):
 
     env = os.environ.copy()
     env['RSYNC_PASSWORD'] = postgresql.config.replication['password']
+    primary_ip = f'[{primary_ip}]' if ':' in primary_ip else primary_ip
     if subprocess.call(['rsync', '--archive', '--delete', '--hard-links', '--size-only', '--omit-dir-times',
                         '--no-inc-recursive', '--include=/data/***', '--include=/data_old/***',
                         '--exclude=/data/pg_xlog/*', '--exclude=/data_old/pg_xlog/*',
