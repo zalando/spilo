@@ -987,7 +987,12 @@ def update_and_write_walg_configuration(placeholders, prefix, overwrite):
 def write_clone_pgpass(placeholders, overwrite):
     pgpassfile = placeholders['CLONE_PGPASS']
     # pgpass is host:port:database:user:password
-    r = {'host': escape_pgpass_value(placeholders['CLONE_HOST']),
+    clone_host = escape_pgpass_value(placeholders['CLONE_HOST'])
+    # IPv6 addresses contain colons which conflict with the pgpass delimiter;
+    # wrap them in brackets so libpq can parse the host field correctly.
+    if ':' in str(clone_host):
+        clone_host = f'[{clone_host}]'
+    r = {'host': clone_host,
          'port': placeholders['CLONE_PORT'],
          'database': '*',
          'user': escape_pgpass_value(placeholders['CLONE_USER']),
