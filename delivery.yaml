@@ -43,7 +43,7 @@ pipeline:
   type: script
   when:
     - event: push
-      branch: dev-18  # TODO: change to master once merged
+      branch: trigger
   timeout: 10h
   vm_config:
     type: linux
