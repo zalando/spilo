@@ -40,7 +40,7 @@ def perform_pitr(postgresql, cluster_version, bin_version, config):
     except Exception:
         logs = tail_postgres_logs()
         # Spilo has no other locales except en_EN.UTF-8, therefore we are safe here.
-        if int(cluster_version) >= 13 and 'recovery ended before configured recovery target was reached' in logs:
+        if 'recovery ended before configured recovery target was reached' in logs:
             # Starting from version 13 Postgres stopped promoting when recovery target wasn't reached.
             # In order to improve the user experience we reset all possible recovery targets and retry.
             recovery_conf = config[config['method']].get('recovery_conf', {})
@@ -103,7 +103,7 @@ def main():
     except Exception as e:
         logger.error('Failed to update extensions: %r', e)
 
-    upgrade.analyze()
+    upgrade.analyze(bin_version)
 
 
 def call_maybe_pg_upgrade():

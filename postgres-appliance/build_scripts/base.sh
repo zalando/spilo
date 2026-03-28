@@ -51,7 +51,7 @@ if [ "$WITH_PERL" != "true" ]; then
     equivs-build perl
 fi
 
-curl -sL "https://github.com/zalando-pg/bg_mon/archive/$BG_MON_COMMIT.tar.gz" | tar xz
+curl -sL "https://github.com/CyberDem0n/bg_mon/archive/$BG_MON_COMMIT.tar.gz" | tar xz
 curl -sL "https://github.com/zalando-pg/pg_auth_mon/archive/$PG_AUTH_MON_COMMIT.tar.gz" | tar xz
 curl -sL "https://github.com/zubkov-andrei/pg_profile/archive/$PG_PROFILE.tar.gz" | tar xz
 
@@ -83,10 +83,8 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
                 "postgresql-${version}-pgaudit"
                 "postgresql-${version}-pldebugger"
                 "postgresql-${version}-pglogical"
-                "postgresql-${version}-pglogical-ticker"
                 "postgresql-${version}-plpgsql-check"
                 "postgresql-${version}-pg-checksums"
-                "postgresql-${version}-pgl-ddl-deploy"
                 "postgresql-${version}-pgq-node"
                 "postgresql-${version}-postgis-${POSTGIS_VERSION%.*}"
                 "postgresql-${version}-postgis-${POSTGIS_VERSION%.*}-scripts"
@@ -95,10 +93,12 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
                 "postgresql-${version}-decoderbufs"
                 "postgresql-${version}-pllua"
                 "postgresql-${version}-pgvector"
-                "postgresql-${version}-roaringbitmap")
+                "postgresql-${version}-roaringbitmap"
+                "postgresql-${version}-pgfaceting")
 
-        if [ "$version" -ge 14 ]; then
-            EXTRAS+=("postgresql-${version}-pgfaceting")
+        if [ "$version" != "18" ]; then
+            EXTRAS+=("postgresql-${version}-pgl-ddl-deploy"
+                    "postgresql-${version}-pglogical-ticker")
         fi
 
         if [ "$WITH_PERL" = "true" ]; then
