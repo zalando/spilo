@@ -14,7 +14,7 @@ KUBE_NAMESPACE_FILENAME = KUBE_SERVICE_DIR + 'namespace'
 KUBE_TOKEN_FILENAME = KUBE_SERVICE_DIR + 'token'
 KUBE_CA_CERT = KUBE_SERVICE_DIR + 'ca.crt'
 
-KUBE_API_URL = 'https://kubernetes.default.svc.cluster.local/api/v1/namespaces'
+KUBE_API_URL = os.environ.get('KUBERNETES_SERVICE_HOST', 'https://kubernetes.default.svc.cluster.local') + '/api/v1/namespaces'
 
 logger = logging.getLogger(__name__)
 
