@@ -51,11 +51,9 @@ if [ "$WITH_PERL" != "true" ]; then
     equivs-build perl
 fi
 
-curl -sL "https://github.com/zalando-pg/bg_mon/archive/$BG_MON_COMMIT.tar.gz" | tar xz
+curl -sL "https://github.com/CyberDem0n/bg_mon/archive/$BG_MON_COMMIT.tar.gz" | tar xz
 curl -sL "https://github.com/zalando-pg/pg_auth_mon/archive/$PG_AUTH_MON_COMMIT.tar.gz" | tar xz
-curl -sL "https://github.com/cybertec-postgresql/pg_permissions/archive/$PG_PERMISSIONS_COMMIT.tar.gz" | tar xz
 curl -sL "https://github.com/zubkov-andrei/pg_profile/archive/$PG_PROFILE.tar.gz" | tar xz
-git clone -b "$SET_USER" https://github.com/pgaudit/set_user.git
 
 apt-get install -y \
     postgresql-common \
@@ -85,10 +83,8 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
                 "postgresql-${version}-pgaudit"
                 "postgresql-${version}-pldebugger"
                 "postgresql-${version}-pglogical"
-                "postgresql-${version}-pglogical-ticker"
                 "postgresql-${version}-plpgsql-check"
                 "postgresql-${version}-pg-checksums"
-                "postgresql-${version}-pgl-ddl-deploy"
                 "postgresql-${version}-pgq-node"
                 "postgresql-${version}-postgis-${POSTGIS_VERSION%.*}"
                 "postgresql-${version}-postgis-${POSTGIS_VERSION%.*}-scripts"
@@ -97,10 +93,12 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
                 "postgresql-${version}-decoderbufs"
                 "postgresql-${version}-pllua"
                 "postgresql-${version}-pgvector"
-                "postgresql-${version}-roaringbitmap")
+                "postgresql-${version}-roaringbitmap"
+                "postgresql-${version}-pgfaceting")
 
-        if [ "$version" -ge 14 ]; then
-            EXTRAS+=("postgresql-${version}-pgfaceting")
+        if [ "$version" != "18" ]; then
+            EXTRAS+=("postgresql-${version}-pgl-ddl-deploy"
+                    "postgresql-${version}-pglogical-ticker")
         fi
 
         if [ "$WITH_PERL" = "true" ]; then
@@ -124,12 +122,36 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
         "postgresql-server-dev-${version}" \
         "postgresql-${version}-pgq3" \
         "postgresql-${version}-pg-stat-kcache" \
+        "postgresql-${version}-pg-permissions" \
+        "postgresql-${version}-set-user" \
         "${EXTRAS[@]}"
 
-    # Clean up timescaledb versions except the last 5 minor versions
+    # Clean up timescaledb versions - keep at least 5 minor versions, but ensure compatibility with the lowest/oldest PG version (where possible)
+
     exclude_patterns=()
     versions=$(find "/usr/lib/postgresql/$version/lib/" -name 'timescaledb-2.*.so' | sed -rn 's/.*timescaledb-([1-9]+\.[0-9]+\.[0-9]+)\.so$/\1/p' | sort -rV)
-    latest_minor_versions=$(echo "$versions" | awk -F. '{print $1"."$2}' | uniq | head -n 5)
+    
+    # Calculate the number of versions dynamically based on the lowest PG version's latest minor
+    num_versions=5
+    if [ -n "$first_latest_minor" ]; then
+        minor_versions=$(echo "$versions" | awk -F. '{print $1"."$2}' | uniq)
+        position=0
+        found=0
+        while IFS= read -r minor; do
+            position=$((position + 1))
+            if [ "$minor" = "$first_latest_minor" ]; then
+                found=1
+                break
+            fi
+        done <<< "$minor_versions"
+        
+        # if found, keep max(5, position) versions (so all versions have at least 1 version in common with lowest PG version)
+        if [ $found -eq 1 ] && [ $position -gt $num_versions ]; then
+            num_versions=$position
+        fi
+    fi
+    
+    latest_minor_versions=$(echo "$versions" | awk -F. '{print $1"."$2}' | uniq | head -n "$num_versions")
     for minor in $latest_minor_versions; do
         for full_version in $(echo "$versions" | grep "^$minor"); do
             exclude_patterns+=(! -name timescaledb-"${full_version}".so)
@@ -137,6 +159,11 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
         done
     done
     find "/usr/lib/postgresql/$version/lib/" \( -name 'timescaledb-2.*.so' -o -name 'timescaledb-tsl-2.*.so' \) "${exclude_patterns[@]}" -delete
+
+    # Save the latest minor version from the first PG version
+    if [ -z "$first_latest_minor" ]; then
+        first_latest_minor=$(echo "$latest_minor_versions" | head -n 1)
+    fi
 
     # Install 3rd party stuff
 
@@ -156,11 +183,10 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
 
     for n in bg_mon-${BG_MON_COMMIT} \
             pg_auth_mon-${PG_AUTH_MON_COMMIT} \
-            set_user \
-            pg_permissions-${PG_PERMISSIONS_COMMIT} \
             pg_profile-${PG_PROFILE} \
             "${EXTRA_EXTENSIONS[@]}"; do
-        make -C "$n" USE_PGXS=1 clean install-strip
+        PATH="/usr/lib/postgresql/$version/bin:$PATH" make -C "$n" USE_PGXS=1 clean
+        PATH="/usr/lib/postgresql/$version/bin:$PATH" make -C "$n" USE_PGXS=1 install-strip
     done
 done
 

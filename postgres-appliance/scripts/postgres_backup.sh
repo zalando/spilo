@@ -23,23 +23,13 @@ else
     log "ERROR: Recovery state unknown: $IN_RECOVERY" && exit 1
 fi
 
-if [[ "$USE_WALG_BACKUP" == "true" ]]; then
-    readonly WAL_E="wal-g"
-    [[ -z $WALG_BACKUP_COMPRESSION_METHOD ]] || export WALG_COMPRESSION_METHOD=$WALG_BACKUP_COMPRESSION_METHOD
-    export PGHOST=/var/run/postgresql
-else
-    readonly WAL_E="wal-e"
-
-    # Ensure we don't have more workes than CPU's
-    POOL_SIZE=$(grep -c ^processor /proc/cpuinfo 2>/dev/null || 1)
-    [ "$POOL_SIZE" -gt 4 ] && POOL_SIZE=4
-    POOL_SIZE=(--pool-size "$POOL_SIZE")
-fi
+export WALG_COMPRESSION_METHOD="${WALG_BACKUP_COMPRESSION_METHOD:-$WALE_BACKUP_COMPRESSION_METHOD}"
+export PGHOST=/var/run/postgresql
 
 # push a new base backup
 log "producing a new backup"
 # We reduce the priority of the backup for CPU consumption
-nice -n 5 $WAL_E backup-push "$PGDATA" "${POOL_SIZE[@]}"
+nice -n 5 wal-g backup-push "$PGDATA"
 
 # Collect all backups and sort them by modification time
 mapfile -t backup_records < <(wal-g backup-list 2>/dev/null |

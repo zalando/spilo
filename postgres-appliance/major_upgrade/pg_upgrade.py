@@ -207,8 +207,9 @@ class _PostgresqlUpgrade(Postgresql):
         locale = self.query("SELECT datcollate FROM pg_database WHERE datname='template1';")[0][0]
         encoding = self.query('SHOW server_encoding')[0][0]
         initdb_config = [{'locale': locale}, {'encoding': encoding}]
-        if self.query("SELECT current_setting('data_checksums')::bool")[0][0]:
-            initdb_config.append('data-checksums')
+        checksums_enabled = self.query("SELECT current_setting('data_checksums')::bool")[0][0]
+        if checksums_enabled == (int(version) < 18):
+            initdb_config.append('data-checksums' if checksums_enabled else 'no-data-checksums')
 
         logger.info('initdb config: %s', initdb_config)
 
@@ -268,9 +269,12 @@ class _PostgresqlUpgrade(Postgresql):
         return self.pg_upgrade() and self.restore_shared_preload_libraries()\
                  and self.switch_pgdata() and self.cleanup_old_pgdata()
 
-    def analyze(self, in_stages=False):
-        vacuumdb_args = ['--analyze-in-stages'] if in_stages else []
-        logger.info('Rebuilding statistics (vacuumdb%s)', (' ' + vacuumdb_args[0] if in_stages else ''))
+    def analyze(self, version, in_stages=False):
+        vacuumdb_args = []
+        if in_stages:
+            vacuumdb_args = ['--analyze-in-stages'] if int(version) < 18 else ['--analyze-in-stages',
+                                                                               '--missing-stats-only']
+        logger.info('Rebuilding statistics (vacuumdb%s)', (' ' + ' '.join(vacuumdb_args) if in_stages else ''))
         if 'username' in self.config.superuser:
             vacuumdb_args += ['-U', self.config.superuser['username']]
         vacuumdb_args += ['-Z', '-j']

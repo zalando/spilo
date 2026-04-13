@@ -33,8 +33,7 @@ services:
             AWS_ENDPOINT: &aws_endpoint 'http://minio:9000'
             AWS_S3_FORCE_PATH_STYLE: &aws_s3_force_path_style 'true'
             WAL_S3_BUCKET: &bucket testbucket
-#            USE_WALG: 'true'  # wal-e is used and tested by default, wal-g is used automatically for restore in case of S3
-            WALE_DISABLE_S3_SSE: &wale_disable_s3_sse 'true'
+            WALG_DISABLE_S3_SSE: &walg_disable_s3_sse 'true'
             ETCDCTL_ENDPOINTS: http://etcd:2379
             ETCD3_HOST: "etcd:2379"
             SCOPE: demo
@@ -51,14 +50,14 @@ services:
               postgresql:
                 parameters:
                   shared_buffers: 32MB
-            PGVERSION: '13'
+            PGVERSION: '14'
             # Just to test upgrade with clone. Without CLONE_SCOPE they don't work
             CLONE_WAL_S3_BUCKET: *bucket
             CLONE_AWS_ACCESS_KEY_ID: *access_key
             CLONE_AWS_SECRET_ACCESS_KEY: *secret_key
             CLONE_AWS_ENDPOINT: *aws_endpoint
             CLONE_AWS_S3_FORCE_PATH_STYLE: *aws_s3_force_path_style
-            CLONE_WALE_DISABLE_S3_SSE: *wale_disable_s3_sse
+            CLONE_WALG_DISABLE_S3_SSE: *walg_disable_s3_sse
         hostname: spilo1
         container_name: demo-spilo1
 

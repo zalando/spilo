@@ -1,54 +1,43 @@
 #!/usr/bin/env python
 
-import boto.ec2
-import boto.utils
+from botocore.config import Config
+import boto3
 import logging
 import os
 import sys
-import time
+import requests
 
 logger = logging.getLogger(__name__)
 LEADER_TAG_VALUE = os.environ.get('AWS_LEADER_TAG_VALUE', 'master')
 
 
-def retry(func):
-    def wrapped(*args, **kwargs):
-        count = 0
-        while True:
-            try:
-                return func(*args, **kwargs)
-            except boto.exception.BotoServerError as e:
-                if count >= 10 or str(e.error_code) not in ('Throttling', 'RequestLimitExceeded'):
-                    raise
-                logger.info('Throttling AWS API requests...')
-                time.sleep(2 ** count * 0.5)
-                count += 1
-
-    return wrapped
-
-
 def get_instance_metadata():
-    return boto.utils.get_instance_identity()['document']
+    response = requests.put(
+        url='http://169.254.169.254/latest/api/token',  # AWS EC2 metadata service endpoint to get a token
+        headers={'X-aws-ec2-metadata-token-ttl-seconds': '60'}
+    )
+    token = response.text
+    instance_identity = requests.get(
+        url='http://169.254.169.254/latest/dynamic/instance-identity/document',
+        headers={'X-aws-ec2-metadata-token': token}
+    )
+    return instance_identity.json()
 
 
-@retry
 def associate_address(ec2, allocation_id, instance_id):
-    return ec2.associate_address(instance_id=instance_id, allocation_id=allocation_id, allow_reassociation=True)
+    return ec2.associate_address(InstanceId=instance_id, AllocationId=allocation_id, AllowReassociation=True)
 
 
-@retry
 def tag_resource(ec2, resource_id, tags):
-    return ec2.create_tags([resource_id], tags)
+    return ec2.create_tags(Resources=[resource_id], Tags=tags)
 
 
-@retry
 def list_volumes(ec2, instance_id):
-    return ec2.get_all_volumes(filters={'attachment.instance-id': instance_id})
+    return ec2.describe_volumes(Filters=[{'Name': 'attachment.instance-id', 'Values': [instance_id]}])
 
 
-@retry
 def get_instance(ec2, instance_id):
-    return ec2.get_only_instances([instance_id])[0]
+    return ec2.describe_instances(InstanceIds=[instance_id])['Reservations'][0]['Instances'][0]
 
 
 def main():
@@ -65,30 +54,35 @@ def main():
 
     instance_id = metadata['instanceId']
 
-    ec2 = boto.ec2.connect_to_region(metadata['region'])
+    config = Config(
+        region_name=metadata['region'],
+        retries={
+            'max_attempts': 10,
+            'mode': 'standard'
+        }
+    )
+    ec2 = boto3.client('ec2', config=config)
 
     if argc == 5 and role in ('primary', 'standby_leader') and action in ('on_start', 'on_role_change'):
         associate_address(ec2, sys.argv[1], instance_id)
 
     instance = get_instance(ec2, instance_id)
 
-    tags = {'Role': LEADER_TAG_VALUE if role == 'primary' else role}
+    tags = [{'Key': 'Role', 'Value': LEADER_TAG_VALUE if role == 'primary' else role}]
     tag_resource(ec2, instance_id, tags)
 
-    tags.update({'Instance': instance_id})
+    tags.append({'Key': 'Instance', 'Value': instance_id})
 
     volumes = list_volumes(ec2, instance_id)
-    for v in volumes:
-        if 'Name' in v.tags:
+    for v in volumes['Volumes']:
+        if any(tag['Key'] == 'Name' for tag in v.get('Tags', [])):
             tags_to_update = tags
         else:
-            if v.attach_data.device == instance.root_device_name:
-                volume_device = 'root'
-            else:
-                volume_device = 'data'
-            tags_to_update = dict(tags, Name='spilo_{}_{}'.format(cluster, volume_device))
+            for attachment in v['Attachments']:
+                volume_device = 'root' if attachment['Device'] == instance.get('RootDeviceName') else 'data'
+                tags_to_update = tags + [{'Key': 'Name', 'Value': 'spilo_{}_{}'.format(cluster, volume_device)}]
 
-        tag_resource(ec2, v.id, tags_to_update)
+        tag_resource(ec2, v.get('VolumeId'), tags_to_update)
 
 
 if __name__ == '__main__':
