@@ -38,6 +38,7 @@ services:
             ETCD3_HOST: "etcd:2379"
             SCOPE: demo
             ENABLE_PG_MON: 'true'
+            ENABLE_PG_TEXTSEARCH: 'true'
             SPILO_CONFIGURATION: |
               bootstrap:
                 dcs:
