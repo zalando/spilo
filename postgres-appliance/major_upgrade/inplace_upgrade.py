@@ -172,13 +172,15 @@ class InplaceUpgrade(object):
         """
         self.replica_connections = {}
         streaming = {a: l for a, l in self.postgresql.query(
-            ("SELECT client_addr, pg_catalog.pg_{0}_{1}_diff(pg_catalog.pg_current_{0}_{1}(),"
+            ("SELECT client_addr, application_name, pg_catalog.pg_{0}_{1}_diff(pg_catalog.pg_current_{0}_{1}(),"
              " COALESCE(replay_{1}, '0/0'))::bigint FROM pg_catalog.pg_stat_replication")
             .format(self.postgresql.wal_name, self.postgresql.lsn_name))}
 
         def ensure_replica_state(member):
             ip = member.conn_kwargs().get('host')
             lag = streaming.get(ip)
+            if os.getenv('USE_APPLICATION_NAME_IN_UPGRADE'):
+                lag = streaming.get(member.name)
             if lag is None:
                 return logger.error('Member %s is not streaming from the primary', member.name)
             if lag > 16*1024*1024:
