@@ -19,8 +19,6 @@ rm -fr /etc/cron.??*
 truncate --size 0 /etc/crontab
 
 if [ "$DEMO" != "true" ]; then
-    # Required for wal-e
-    apt-get install -y pv lzop
     # install etcdctl
     ETCDVERSION=3.3.27
     curl -L https://github.com/coreos/etcd/releases/download/v${ETCDVERSION}/etcd-v${ETCDVERSION}-linux-"$(dpkg --print-architecture)".tar.gz \

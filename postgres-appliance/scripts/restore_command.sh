@@ -5,14 +5,14 @@ if [[ "$ENABLE_WAL_PATH_COMPAT" = "true" ]]; then
     bash "$(readlink -f "${BASH_SOURCE[0]}")" "$@"
     exitcode=$?
     [[ $exitcode = 0 ]] && exit 0
-    for wale_env in $(printenv -0 | tr '\n' ' ' | sed 's/\x00/\n/g' | sed -n 's/^\(WAL[EG]_[^=][^=]*_PREFIX\)=.*$/\1/p'); do
-        suffix=$(basename "${!wale_env}")
+    for walg_env in $(printenv -0 | tr '\n' ' ' | sed 's/\x00/\n/g' | sed -n 's/^\(WALG_[^=][^=]*_PREFIX\)=.*$/\1/p'); do
+        suffix=$(basename "${!walg_env}")
         if [[ -x "/usr/lib/postgresql/$suffix/bin/postgres" ]]; then
-            prefix=$(dirname "${!wale_env}")
+            prefix=$(dirname "${!walg_env}")
             if [[ $prefix =~ /spilo/ ]] && [[ $prefix =~ /wal$ ]]; then
-                printf -v "$wale_env" "%s" "$prefix"
+                printf -v "$walg_env" "%s" "$prefix"
                 # shellcheck disable=SC2163
-                export "$wale_env"
+                export "$walg_env"
                 changed_env=true
             fi
         fi
@@ -34,22 +34,6 @@ readonly wal_fast_source
 
 if [[ "$wal_destination" =~ /$wal_filename$ ]]; then  # Patroni fetching missing files for pg_rewind
     export WALG_DOWNLOAD_CONCURRENCY=1
-    POOL_SIZE=0
-else
-    POOL_SIZE=$WALG_DOWNLOAD_CONCURRENCY
 fi
 
-[[ "$USE_WALG_RESTORE" == "true" ]] && exec wal-g wal-fetch "${wal_filename}" "${wal_destination}"
-
-[[ $POOL_SIZE -gt 8 ]] && POOL_SIZE=8
-
-if [[ -z $WALE_S3_PREFIX ]]; then  # non AWS environment?
-    readonly wale_prefetch_source=${wal_dir}/.wal-e/prefetch/${wal_filename}
-    if [[ -f $wale_prefetch_source ]]; then
-        exec mv "${wale_prefetch_source}" "${wal_destination}"
-    else
-        exec wal-e wal-fetch -p $POOL_SIZE "${wal_filename}" "${wal_destination}"
-    fi
-else
-    exec bash /scripts/wal-e-wal-fetch.sh wal-fetch -p $POOL_SIZE "${wal_filename}" "${wal_destination}"
-fi
+exec wal-g wal-fetch "${wal_filename}" "${wal_destination}"

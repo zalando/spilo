@@ -19,6 +19,10 @@ done
 
 [[ -z $DATA_DIR || -z "$CONNSTR" || ! $RETRIES =~ ^[1-9]$ ]] && exit 1
 
+if [[ ! $CONNSTR =~ dbname= ]]; then
+    CONNSTR="${CONNSTR} dbname=postgres"
+fi
+
 if which pg_receivewal &> /dev/null; then
     PG_RECEIVEWAL=pg_receivewal
     PG_BASEBACKUP_OPTS=(-X none)
@@ -93,6 +97,11 @@ if flock -x -n 9; then
     echo $receivewal_pid > "$WAL_FAST/receivewal.pid"
 else
     receivewal_pid=$(cat "$WAL_FAST/receivewal.pid")
+fi
+
+PGVER=$(psql "$CONNSTR" -tAc "SELECT pg_catalog.current_setting('server_version_num')::int/10000" || echo 0)
+if [[ $PGVER -ge 15 ]]; then
+    PG_BASEBACKUP_OPTS+=("--compress=server-lz4")
 fi
 
 ATTEMPT=0

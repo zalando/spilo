@@ -33,16 +33,11 @@ done
 [[ -z $DATA_DIR ]] && exit 1
 [[ -z $NO_MASTER && -z "$CONNSTR" ]] && exit 1
 
-if [[ "$USE_WALG_RESTORE" == "true" ]]; then
-    readonly WAL_E="wal-g"
-else
-    readonly WAL_E="wal-e"
-fi
 
 ATTEMPT=0
 server_version="-1"
 while true; do
-    [[ -z $wal_segment_backup_start ]] && wal_segment_backup_start=$($WAL_E backup-list 2> /dev/null \
+    [[ -z $wal_segment_backup_start ]] && wal_segment_backup_start=$(wal-g backup-list 2> /dev/null \
         | sed '0,/^\(backup_\)\?name\s*\(last_\)\?modified\s*/d' | sort -bk2 | tail -n1 | awk '{print $3;}' | sed 's/_.*$//')
 
     [[ -n "$CONNSTR" && $server_version == "-1" ]] && server_version=$(psql -d "$CONNSTR" -tAc 'show server_version_num' 2> /dev/null || echo "-1")
@@ -84,7 +79,7 @@ fi
 
 ATTEMPT=0
 while true; do
-    if $WAL_E backup-fetch "$DATA_DIR" LATEST; then
+    if wal-g backup-fetch "$DATA_DIR" LATEST; then
         version=$(<"$DATA_DIR/PG_VERSION")
         [[ "$version" =~ \. ]] && wal_name=xlog || wal_name=wal
         readonly wal_dir=$DATA_DIR/pg_$wal_name

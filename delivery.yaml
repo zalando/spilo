@@ -3,7 +3,8 @@ allow_concurrent_steps: true
 
 build_env: &BUILD_ENV
   BASE_IMAGE: container-registry.zalando.net/library/ubuntu-22.04
-  PGVERSION: 17
+  PGVERSION: 18
+  PGOLDVERSIONS: "16 17"
   MULTI_ARCH_REGISTRY: container-registry-test.zalando.net/acid
 
 pipeline:
@@ -29,11 +30,10 @@ pipeline:
       # create a Buildkit builder with CDP specific configuration
       docker buildx create --config /etc/cdp-buildkitd.toml --driver-opt network=host --bootstrap --use
 
-      # single platform build for PR images!
-      docker buildx build --platform "linux/amd64" \
+      docker buildx build --platform "linux/amd64,linux/arm64" \
                           --build-arg PGVERSION="$PGVERSION" \
                           --build-arg BASE_IMAGE="$BASE_IMAGE" \
-                          --build-arg PGOLDVERSIONS="14 15 16" \
+                          --build-arg PGOLDVERSIONS="$PGOLDVERSIONS" \
                           -t "$ECR_TEST_IMAGE" \
                           --push .
 
@@ -62,7 +62,7 @@ pipeline:
       docker buildx build --platform "linux/amd64,linux/arm64" \
                           --build-arg PGVERSION="$PGVERSION" \
                           --build-arg BASE_IMAGE="$BASE_IMAGE" \
-                          --build-arg PGOLDVERSIONS="14 15 16" \
+                          --build-arg PGOLDVERSIONS="$PGOLDVERSIONS" \
                           -t "$ECR_TEST_IMAGE" \
                           --push .
       cdp-promote-image "$ECR_TEST_IMAGE"
@@ -93,7 +93,7 @@ pipeline:
       docker buildx build --platform "linux/amd64,linux/arm64" \
                           --build-arg PGVERSION="$PGVERSION" \
                           --build-arg BASE_IMAGE="$BASE_IMAGE" \
-                          --build-arg PGOLDVERSIONS="14 15 16" \
+                          --build-arg PGOLDVERSIONS="$PGOLDVERSIONS" \
                           -t "$ECR_TEST_IMAGE" \
                           --push .
       cdp-promote-image "$ECR_TEST_IMAGE"

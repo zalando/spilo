@@ -25,7 +25,7 @@ def read_configuration():
     parser.add_argument('--recovery-target-time',
                         help='the timestamp up to which recovery will proceed (including time zone)',
                         dest='recovery_target_time_string')
-    parser.add_argument('--dry-run', action='store_true', help='find a matching backup and build the wal-e '
+    parser.add_argument('--dry-run', action='store_true', help='find a matching backup and build the wal-g.'
                         'command to fetch that backup without running it')
     args = parser.parse_args()
 
@@ -40,8 +40,8 @@ def read_configuration():
     return options(args.scope, args.datadir, recovery_target_time, args.dry_run)
 
 
-def build_wale_command(command, datadir=None, backup=None):
-    cmd = ['wal-g' if os.getenv('USE_WALG_RESTORE') == 'true' else 'wal-e'] + [command]
+def build_walg_command(command, datadir=None, backup=None):
+    cmd = ['wal-g', command]
     if command == 'backup-fetch':
         if datadir is None or backup is None:
             raise Exception("backup-fetch requires datadir and backup arguments")
@@ -79,7 +79,7 @@ def choose_backup(backup_list, recovery_target_time):
 
 
 def list_backups(env):
-    backup_list_cmd = build_wale_command('backup-list')
+    backup_list_cmd = build_walg_command('backup-list')
     output = subprocess.check_output(backup_list_cmd, env=env)
     reader = csv.DictReader(fix_output(output), dialect='excel-tab')
     return list(reader)
@@ -89,7 +89,7 @@ def get_clone_envdir():
     from spilo_commons import get_patroni_config
 
     config = get_patroni_config()
-    restore_command = shlex.split(config['bootstrap']['clone_with_wale']['recovery_conf']['restore_command'])
+    restore_command = shlex.split(config['bootstrap']['clone_with_walg']['recovery_conf']['restore_command'])
     if len(restore_command) > 4 and restore_command[0] == 'envdir':
         return restore_command[1]
     raise Exception('Failed to find clone envdir')
@@ -117,10 +117,9 @@ def get_possible_versions():
     return [ver for _, ver in sorted(versions.items(), reverse=True)]
 
 
-def get_wale_environments(env):
-    use_walg = env.get('USE_WALG_RESTORE') == 'true'
-    prefix = 'WALG_' if use_walg else 'WALE_'
-    # len('WALE__PREFIX') = 12
+def get_walg_environments(env):
+    prefix = 'WALG_'
+    # len('WALG_PREFIX') = 12
     names = [name for name in env.keys() if name.endswith('_PREFIX') and name.startswith(prefix) and len(name) > 12]
     if len(names) != 1:
         raise Exception('Found find {0} {1}*_PREFIX environment variables, expected 1'
@@ -141,7 +140,7 @@ def get_wale_environments(env):
 
 def find_backup(recovery_target_time, env):
     old_value = None
-    for name, value in get_wale_environments(env):
+    for name, value in get_walg_environments(env):
         logger.info('Trying %s for clone', value)
         if not old_value:
             old_value = env[name]
@@ -164,12 +163,12 @@ def run_clone_from_s3(options):
 
     backup_name, update_envdir = find_backup(options.recovery_target_time, env)
 
-    backup_fetch_cmd = build_wale_command('backup-fetch', options.datadir, backup_name)
+    backup_fetch_cmd = build_walg_command('backup-fetch', options.datadir, backup_name)
     logger.info("cloning cluster %s using %s", options.name, ' '.join(backup_fetch_cmd))
     if not options.dry_run:
         ret = subprocess.call(backup_fetch_cmd, env=env)
         if ret != 0:
-            raise Exception("wal-e backup-fetch exited with exit code {0}".format(ret))
+            raise Exception("wal-g backup-fetch exited with exit code {0}".format(ret))
 
         if update_envdir:  # We need to update file in the clone envdir or restore_command will fail!
             envdir = get_clone_envdir()
