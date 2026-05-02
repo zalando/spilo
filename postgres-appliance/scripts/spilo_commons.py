@@ -20,6 +20,9 @@ extensions = {
 if os.environ.get('ENABLE_PG_MON') == 'true':
     extensions['pg_mon'] = (11,  18, True,  False)
 
+if os.environ.get('ENABLE_PG_TEXTSEARCH') == 'true':
+    extensions['pg_textsearch'] = (17, 18, True, True)
+
 
 def adjust_extensions(old, version, extwlist=False):
     ret = []
