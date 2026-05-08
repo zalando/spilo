@@ -3,7 +3,7 @@ Configuration items specific to Spilo are listed here.
 ### Docker image
 The Docker image containing Patroni and AWS-specific code which constitutes Spilo.
 
-Example: `registry.opensource.zalan.do/acid/spilo-9.4:0.76-p1`
+Example: `ghcr.io/zalando/spilo-18:4.1-p2`
 
 ### Postgres WAL S3 bucket
 The location to store the `pg_basebackup` and the archived WAL-files of the PostgreSQL cluster.
