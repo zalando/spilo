@@ -56,6 +56,6 @@ This is a three step process:
     * Wait for the new replica to be available and replicating
     * Repeat for other replica(s)
 * [Failover Spilo](/admin-guide/failover)
-* After succesfull fail over: Terminate the previous master
+* After successful fail over: Terminate the previous master
 
 All newly launched EC2 instances will now be using the updated Taupage AMI.
