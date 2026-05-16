@@ -6,7 +6,7 @@ source ../test_utils.sh
 
 TEST_CONTAINER_NAME='spilo-test'
 TEST_IMAGE=(
-    'registry.opensource.zalan.do/acid/spilo-cdp-14'
+    'ghcr.io/zalando/spilo-18:4.1-p2'
     'spilo'
 )
 
