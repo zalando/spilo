@@ -41,7 +41,7 @@ else
     EXTRAS=""
 fi
 
-pip3 install "patroni[kubernetes$EXTRAS]==$PATRONIVERSION"
+pip3 install "patroni[kubernetes$EXTRAS] @ git+https://github.com/patroni/patroni.git@master"
 
 for d in /usr/local/lib/python3.10 /usr/lib/python3; do
     cd $d/dist-packages

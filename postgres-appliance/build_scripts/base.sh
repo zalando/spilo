@@ -76,56 +76,66 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
         EXTRAS=("postgresql-pltcl-${version}"
                 "postgresql-${version}-dirtyread"
                 "postgresql-${version}-extra-window-functions"
-                "postgresql-${version}-first-last-agg"
                 "postgresql-${version}-hll"
-                "postgresql-${version}-hypopg"
                 "postgresql-${version}-partman"
-                "postgresql-${version}-plproxy"
-                "postgresql-${version}-pgaudit"
-                "postgresql-${version}-pldebugger"
-                "postgresql-${version}-pglogical"
                 "postgresql-${version}-plpgsql-check"
-                "postgresql-${version}-pg-checksums"
-                "postgresql-${version}-pgq-node"
                 "postgresql-${version}-postgis-${POSTGIS_VERSION%.*}"
                 "postgresql-${version}-postgis-${POSTGIS_VERSION%.*}-scripts"
-                "postgresql-${version}-repack"
-                "postgresql-${version}-wal2json"
-                "postgresql-${version}-decoderbufs"
-                "postgresql-${version}-pllua"
-                "postgresql-${version}-pgvector"
-                "postgresql-${version}-roaringbitmap"
-                "postgresql-${version}-pgfaceting")
+                "postgresql-${version}-repack")
 
-        if [ "$version" != "18" ]; then
+        if [ "$version" -lt 18 ]; then
             EXTRAS+=("postgresql-${version}-pgl-ddl-deploy"
                     "postgresql-${version}-pglogical-ticker")
         fi
 
-        if [ "$WITH_PERL" = "true" ]; then
-            EXTRAS+=("postgresql-plperl-${version}")
+        if [ "$version" -lt 19 ]; then
+            EXTRAS+=("postgresql-pltcl-${version}"
+                    "postgresql-${version}-first-last-agg"
+                    "postgresql-${version}-hypopg"
+                    "postgresql-${version}-plproxy"
+                    "postgresql-${version}-pgaudit"
+                    "postgresql-${version}-pldebugger"
+                    "postgresql-${version}-pglogical"
+                    "postgresql-${version}-pg-checksums"
+                    "postgresql-${version}-pgq-node"
+                    "postgresql-${version}-wal2json"
+                    "postgresql-${version}-decoderbufs"
+                    "postgresql-${version}-pllua"
+                    "postgresql-${version}-pgvector"
+                    "postgresql-${version}-roaringbitmap"
+                    "postgresql-${version}-pgfaceting")
+        fi
+
+            if [ "$WITH_PERL" = "true" ]; then
+                EXTRAS+=("postgresql-plperl-${version}")
         fi
 
     fi
 
-    if [ "${TIMESCALEDB_APACHE_ONLY}" = "true" ]; then
-        EXTRAS+=("timescaledb-2-oss-postgresql-${version}")
-    else
-        EXTRAS+=("timescaledb-2-postgresql-${version}")
+    if [ "$version" -lt 19 ]; then
+        if [ "${TIMESCALEDB_APACHE_ONLY}" = "true" ]; then
+            EXTRAS+=("timescaledb-2-oss-postgresql-${version}")
+        else
+            EXTRAS+=("timescaledb-2-postgresql-${version}")
+        fi
     fi
 
     # Install PostgreSQL binaries, contrib, plproxy and multiple pl's
     apt-get install --allow-downgrades -y \
-        "postgresql-${version}-cron" \
         "postgresql-contrib-${version}" \
         "postgresql-${version}-pgextwlist" \
         "postgresql-plpython3-${version}" \
         "postgresql-server-dev-${version}" \
-        "postgresql-${version}-pgq3" \
-        "postgresql-${version}-pg-stat-kcache" \
         "postgresql-${version}-pg-permissions" \
         "postgresql-${version}-set-user" \
         "${EXTRAS[@]}"
+
+    if [ "$version" -lt 19 ]; then
+        apt-get install --allow-downgrades -y \
+            "postgresql-${version}-cron" \
+            "postgresql-${version}-pgq3" \
+            "postgresql-${version}-pg-stat-kcache"
+    fi
 
     # Clean up timescaledb versions - keep at least 5 minor versions, but ensure compatibility with the lowest/oldest PG version (where possible)
 
@@ -179,15 +189,21 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
 
     EXTRA_EXTENSIONS=()
     if [ "$DEMO" != "true" ]; then
-        EXTRA_EXTENSIONS+=("plprofiler" "pg_mon-${PG_MON_COMMIT}")
-        if [ "$version" -ge 17 ]; then
-            EXTRA_EXTENSIONS+=("pg_textsearch")
+        if [ "$version" -lt 19 ]; then
+            EXTRA_EXTENSIONS+=("plprofiler")
+            if [ "$version" -ge 17 ]; then
+                EXTRA_EXTENSIONS+=("pg_textsearch")
+            fi
         fi
+        EXTRA_EXTENSIONS+=("pg_mon-${PG_MON_COMMIT}")
     fi
 
+    if [ "$version" -lt 19 ]; then
+        EXTRA_EXTENSIONS+=("pg_profile-${PG_PROFILE}")
+    fi
+    EXTRA_EXTENSIONS+=("pg_auth_mon-${PG_AUTH_MON_COMMIT}")
+
     for n in bg_mon-${BG_MON_COMMIT} \
-            pg_auth_mon-${PG_AUTH_MON_COMMIT} \
-            pg_profile-${PG_PROFILE} \
             "${EXTRA_EXTENSIONS[@]}"; do
         PATH="/usr/lib/postgresql/$version/bin:$PATH" make -C "$n" USE_PGXS=1 clean
         PATH="/usr/lib/postgresql/$version/bin:$PATH" make -C "$n" USE_PGXS=1 install-strip
@@ -207,6 +223,23 @@ if [ "$DEMO" != "true" ]; then
     for version in $DEB_PG_SUPPORTED_VERSIONS; do
         # create postgis symlinks to make it possible to perform update
         ln -s "postgis-${POSTGIS_VERSION%.*}.so" "/usr/lib/postgresql/${version}/lib/postgis-2.5.so"
+    done
+fi
+
+if [ "$version" -eq 19 ]; then
+    # build and install missing packages
+    for pkg in cron; do
+        apt-get source postgresql-18-${pkg}
+        cd $(ls -d *${pkg%?}*-*/)
+        if [ -f ../$pkg.patch ]; then patch -p1 < ../$pkg.patch; fi
+        pg_buildext updatecontrol
+        DEB_BUILD_OPTIONS=nocheck debuild -b -uc -us -d
+        cd ..
+        for version in $DEB_PG_SUPPORTED_VERSIONS; do
+            for deb in postgresql-${version}-${pkg}_*.deb; do
+                if [ -f $deb ]; then dpkg -i $deb; fi;
+            done;
+        done;
     done
 fi
 

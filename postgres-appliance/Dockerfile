@@ -1,5 +1,5 @@
 ARG BASE_IMAGE=ubuntu:22.04
-ARG PGVERSION=18
+ARG PGVERSION=19
 ARG DEMO=false
 ARG COMPRESS=false
 ARG ADDITIONAL_LOCALES=
@@ -40,26 +40,27 @@ COPY --from=ubuntu-18 /usr/lib/locale/locale-archive /usr/lib/locale/locale-arch
 
 COPY cron_unprivileged.c /builddeps/
 COPY build_scripts/base.sh /builddeps/
+COPY patches/*.patch /builddeps/
 COPY --from=dependencies-builder /builddeps/*.deb /builddeps/
 
 ARG PGVERSION
 ARG TIMESCALEDB_APACHE_ONLY=true
 ARG TIMESCALEDB_TOOLKIT=true
 ARG COMPRESS
-ARG PGOLDVERSIONS="14 15 16 17"
+ARG PGOLDVERSIONS="15 16 17 18"
 ARG WITH_PERL=false
 
 ARG DEB_PG_SUPPORTED_VERSIONS="$PGOLDVERSIONS $PGVERSION"
 
 # Install PostgreSQL, extensions and contribs
 ENV POSTGIS_VERSION=3.6 \
-    BG_MON_COMMIT=a73c6bcd10dfdf9feaf5eabab7eb6b12d167680d \
-    PG_AUTH_MON_COMMIT=fe099eef7662cbc85b0b79191f47f52f1e96b779 \
-    PG_MON_COMMIT=88ac7b58348aa061c814982defc170644f368f39 \
+    BG_MON_COMMIT=794f0ea14031880e195a9bdc52d2209a33f1bd56 \
+    PG_AUTH_MON_COMMIT=b7e3f440205414610fd60e402d4f16c4cd59a683 \
+    PG_MON_COMMIT=7b924e2a2d0095b72f4d11de262180c6cbd2c9f1 \
     PLPROFILER=REL4_2_5 \
     PG_PROFILE=4.11 \
     PAM_OAUTH2=v1.0.1 \
-    PG_TEXTSEARCH=v1.0.0
+    PG_TEXTSEARCH=v1.3.0
 
 WORKDIR /builddeps
 RUN bash base.sh
@@ -70,7 +71,7 @@ COPY --from=dependencies-builder /builddeps/wal-g /usr/local/bin/
 COPY build_scripts/patroni.sh build_scripts/compress_build.sh /builddeps/
 
 # Install patroni
-ENV PATRONIVERSION=4.1.0
+ENV PATRONIVERSION=4.1.3
 
 WORKDIR /
 
