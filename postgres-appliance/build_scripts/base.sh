@@ -228,19 +228,18 @@ fi
 
 if [ "$version" -eq 19 ]; then
     # build and install missing packages
-    for pkg in cron; do
-        apt-get source postgresql-18-${pkg}
-        cd $(ls -d *${pkg%?}*-*/)
-        if [ -f ../$pkg.patch ]; then patch -p1 < ../$pkg.patch; fi
-        pg_buildext updatecontrol
-        DEB_BUILD_OPTIONS=nocheck debuild -b -uc -us -d
-        cd ..
-        for version in $DEB_PG_SUPPORTED_VERSIONS; do
-            for deb in postgresql-${version}-${pkg}_*.deb; do
-                if [ -f $deb ]; then dpkg -i $deb; fi;
-            done;
+    pkg=cron
+    apt-get source postgresql-18-${pkg}
+    cd "$(ls -d ./*${pkg%?}*-*/)"
+    if [ -f ../$pkg.patch ]; then patch -p1 < ../$pkg.patch; fi
+    pg_buildext updatecontrol
+    DEB_BUILD_OPTIONS=nocheck debuild -b -uc -us -d
+    cd ..
+    for version in $DEB_PG_SUPPORTED_VERSIONS; do
+        for deb in "postgresql-${version}-${pkg}"_*.deb; do
+            if [ -f "$deb" ]; then dpkg -i "$deb"; fi;
         done;
-    done
+    done;
 fi
 
 # make it possible for cron to work without root
@@ -306,7 +305,7 @@ if [ "$DEMO" != "true" ]; then
 
         for e in pgq pgq_node plproxy address_standardizer address_standardizer_data_us; do
             orig=$(basename "$(find . -maxdepth 1 -type f -name "$e--*--*.sql" | head -n1)")
-            if [ "x$orig" != "x" ]; then
+            if [ -n "$orig" ]; then
                 for f in "$e"--*--*.sql; do
                     if [ "$f" != "$orig" ] && [ ! -L "$f" ] && diff "$f" "$orig" > /dev/null; then
                         echo "creating symlink $f -> $orig"
