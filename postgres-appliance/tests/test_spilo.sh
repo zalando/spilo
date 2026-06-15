@@ -366,7 +366,7 @@ function test_spilo() {
     wait_backup "$basebackup_container"
 
     # TEST SUITE 1
-    # run_test test_pg_upgrade_to_19_check_failed "$container"  # pg_upgrade --check complains about timescaledb
+    run_test test_pg_upgrade_to_19_check_failed "$container"  # pg_upgrade --check complains about timescaledb
 
     wait_backup "$container"
 
