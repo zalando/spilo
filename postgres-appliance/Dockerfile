@@ -40,7 +40,6 @@ COPY --from=ubuntu-18 /usr/lib/locale/locale-archive /usr/lib/locale/locale-arch
 
 COPY cron_unprivileged.c /builddeps/
 COPY build_scripts/base.sh /builddeps/
-COPY patches/*.patch /builddeps/
 COPY --from=dependencies-builder /builddeps/*.deb /builddeps/
 
 ARG PGVERSION
@@ -58,7 +57,7 @@ ENV POSTGIS_VERSION=3.6 \
     PG_AUTH_MON_COMMIT=b7e3f440205414610fd60e402d4f16c4cd59a683 \
     PG_MON_COMMIT=7b924e2a2d0095b72f4d11de262180c6cbd2c9f1 \
     PLPROFILER=REL4_2_5 \
-    PG_PROFILE=4.11 \
+    PG_PROFILE=4.14 \
     PAM_OAUTH2=v1.0.1 \
     PG_TEXTSEARCH=v1.3.0
 
