@@ -79,6 +79,7 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
                 "postgresql-${version}-hll"
                 "postgresql-${version}-hypopg"
                 "postgresql-${version}-partman"
+                "postgresql-${version}-plproxy"
                 "postgresql-${version}-pgaudit"
                 "postgresql-${version}-plpgsql-check"
                 "postgresql-${version}-postgis-${POSTGIS_VERSION%.*}"
@@ -94,7 +95,6 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
 
         if [ "$version" -lt 19 ]; then
             EXTRAS+=("postgresql-${version}-first-last-agg"
-                    "postgresql-${version}-plproxy"
                     "postgresql-${version}-pldebugger"
                     "postgresql-${version}-pglogical"
                     "postgresql-${version}-pg-checksums"
