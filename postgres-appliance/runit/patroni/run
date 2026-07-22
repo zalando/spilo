@@ -28,5 +28,8 @@ for E in $(printenv -0 | tr '\n' ' ' | sed 's/\x00/\n/g' | grep -vE '^(KUBERNETE
     unset $E
 done
 
+export MALLOC_ARENA_MAX=1
+export PG_MALLOC_ARENA_MAX=
+
 exec 2>&1
 exec $CHRT $CHPST env HOME=/home/postgres patroni /home/postgres/postgres.yml
