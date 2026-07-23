@@ -529,6 +529,23 @@ def get_listen_ip():
     return info[0][4][0]
 
 
+def set_password_from_file(placeholders, password_keys):
+    for password_key in password_keys:
+        if placeholders.get(password_key):
+            continue
+
+        password_file_key = password_key + '_FILE'
+        password_file = placeholders.get(password_file_key)
+        if not password_file:
+            continue
+
+        try:
+            with open(password_file) as f:
+                placeholders[password_key] = f.read().rstrip('\r\n')
+        except Exception as e:
+            raise ValueError('Failed to read {0}: {1}'.format(password_file_key, e))
+
+
 def get_placeholders(provider):
     placeholders = {}
     for key, value in os.environ.items():
@@ -540,6 +557,9 @@ def get_placeholders(provider):
             placeholders[new_key] = value
         else:
             placeholders[key] = value
+
+    set_password_from_file(placeholders, ('ETCD_PASSWORD', 'ETCD3_PASSWORD',
+                                          'PGPASSWORD_STANDBY', 'PGPASSWORD_ADMIN', 'PGPASSWORD_SUPERUSER'))
 
     placeholders.setdefault('PGHOME', os.path.expanduser('~'))
     placeholders.setdefault('APIPORT', '8008')
