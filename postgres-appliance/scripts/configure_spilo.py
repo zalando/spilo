@@ -965,9 +965,6 @@ def write_walg_environment(placeholders, prefix, overwrite):
         bucket_path = '/spilo/{WAL_BUCKET_SCOPE_PREFIX}{SCOPE}{WAL_BUCKET_SCOPE_SUFFIX}/wal/{PGVERSION}'.format(**walg)
         prefix_template = '{0}://{{WAL_{1}_BUCKET}}{2}'.format(store_type.lower(), store_type, bucket_path)
         walg[prefix_env_name] = prefix_template.format(**walg)
-    # Set WALG_*_PREFIX for future compatibility
-    if store_type in ('S3', 'GS') and not walg.get(write_envdir_names[1]):
-        walg[write_envdir_names[1]] = walg[prefix_env_name]
 
     if not os.path.exists(walg['WALG_ENV_DIR']):
         os.makedirs(walg['WALG_ENV_DIR'])
