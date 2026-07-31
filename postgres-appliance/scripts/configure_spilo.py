@@ -917,6 +917,12 @@ def write_walg_environment(placeholders, prefix, overwrite):
             if placeholders.get(name):
                 walg[name] = placeholders.get(name)
 
+        # fall back to bare IRSA vars if prefixed versions are not set
+        irsa_names = ['AWS_ROLE_ARN', 'AWS_WEB_IDENTITY_TOKEN_FILE', 'AWS_STS_REGIONAL_ENDPOINTS']
+        for name in irsa_names:
+            if not walg.get(name) and placeholders.get(name):
+                walg[name] = placeholders.get(name)
+
         write_envdir_names = s3_names + walg_names + aws_imds_names
     elif walg.get('WAL_GS_BUCKET') or walg.get('WALG_GS_PREFIX'):
         write_envdir_names = gs_names + walg_names
