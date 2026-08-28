@@ -177,10 +177,13 @@ bootstrap:
       {{#STANDBY_WITH_WALG}}
       - bootstrap_standby_with_wale
       {{/STANDBY_WITH_WALG}}
-      - basebackup_fast_xlog
+      - basebackup_fast_xlog_standby
       {{#STANDBY_WITH_WALG}}
       restore_command: envdir "{{STANDBY_WALG_ENV_DIR}}" timeout "{{WAL_RESTORE_TIMEOUT}}"
         /scripts/restore_command.sh "%f" "%p"
+      {{/STANDBY_WITH_WALG}}
+      {{^STANDBY_WITH_WALG}}
+      restore_command: env WAL_FAST_ONLY=true /scripts/restore_command.sh "%f" "%p"
       {{/STANDBY_WITH_WALG}}
       {{#STANDBY_HOST}}
       host: {{STANDBY_HOST}}
@@ -384,6 +387,13 @@ hstore,hypopg,intarray,ltree,pgcrypto,pgq,pgq_node,pg_trgm,postgres_fdw,roaringb
   basebackup_fast_xlog:
     command: /scripts/basebackup.sh
     retries: 2
+  basebackup_fast_xlog_standby:
+    command: /scripts/basebackup.sh
+    retries: 2
+    keep_wal_fast: 1
+    {{#STANDBY_PRIMARY_SLOT_NAME}}
+    primary_slot_name: {{STANDBY_PRIMARY_SLOT_NAME}}
+    {{/STANDBY_PRIMARY_SLOT_NAME}}
 {{#STANDBY_WITH_WALG}}
   bootstrap_standby_with_wale:
     command: envdir "{{STANDBY_WALG_ENV_DIR}}" bash /scripts/walg_restore.sh
