@@ -921,7 +921,7 @@ def write_walg_environment(placeholders, prefix, overwrite):
                 walg[name] = placeholders.get(name)
 
         # fall back to bare IRSA vars if prefixed versions are not set
-        irsa_names = ['AWS_ROLE_ARN', 'AWS_WEB_IDENTITY_TOKEN_FILE', 'AWS_STS_REGIONAL_ENDPOINTS']
+        irsa_names = ['AWS_ROLE_ARN', 'AWS_WEB_IDENTITY_TOKEN_FILE', 'AWS_STS_REGIONAL_ENDPOINTS', 'AWS_REGION']
         for name in irsa_names:
             if not walg.get(name) and placeholders.get(name):
                 walg[name] = placeholders.get(name)
