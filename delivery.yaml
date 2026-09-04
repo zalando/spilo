@@ -3,8 +3,8 @@ allow_concurrent_steps: true
 
 build_env: &BUILD_ENV
   BASE_IMAGE: container-registry.zalando.net/library/ubuntu-22.04
-  PGVERSION: 18
-  PGOLDVERSIONS: "16 17"
+  PGVERSION: 19
+  PGOLDVERSIONS: "17 18"
   MULTI_ARCH_REGISTRY: container-registry-test.zalando.net/acid
 
 pipeline:
