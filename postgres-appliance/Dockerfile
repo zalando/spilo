@@ -70,7 +70,7 @@ COPY --from=dependencies-builder /builddeps/wal-g /usr/local/bin/
 COPY build_scripts/patroni.sh build_scripts/compress_build.sh /builddeps/
 
 # Install patroni
-ENV PATRONIVERSION=4.1.4
+ENV PATRONIVERSION=4.1.5
 
 WORKDIR /
 
