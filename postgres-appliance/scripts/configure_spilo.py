@@ -896,9 +896,12 @@ def write_walg_environment(placeholders, prefix, overwrite):
             if aws_region:
                 walg['AWS_REGION'] = aws_region
         elif not aws_region:
-            # try to determine region from the endpoint or bucket name
-            name = walg.get('WAL_S3_BUCKET') or walg.get('WALG_S3_PREFIX')
-            match = re.search(r'.*(\w{2}-\w+-\d)-.*', name)
+            # try to determine region from the bucket name
+            prefix = walg.get('WAL_S3_BUCKET') or walg.get('WALG_S3_PREFIX') or ''
+            # extract bucket name only to avoid false matches on path segments (e.g. /wal/ suffix)
+            bucket_match = re.match(r'^(?:s3://)?([^/]+)', prefix)
+            name = bucket_match.group(1) if bucket_match else prefix
+            match = re.search(r'(\w{2}-\w+-\d)-', name)
             if match:
                 aws_region = match.group(1)
             else:
@@ -919,7 +922,7 @@ def write_walg_environment(placeholders, prefix, overwrite):
                 walg[name] = placeholders.get(name)
 
         # fall back to bare IRSA vars if prefixed versions are not set
-        irsa_names = ['AWS_ROLE_ARN', 'AWS_WEB_IDENTITY_TOKEN_FILE', 'AWS_STS_REGIONAL_ENDPOINTS']
+        irsa_names = ['AWS_ROLE_ARN', 'AWS_WEB_IDENTITY_TOKEN_FILE', 'AWS_STS_REGIONAL_ENDPOINTS', 'AWS_REGION']
         for name in irsa_names:
             if not walg.get(name) and placeholders.get(name):
                 walg[name] = placeholders.get(name)
@@ -966,9 +969,6 @@ def write_walg_environment(placeholders, prefix, overwrite):
         bucket_path = '/spilo/{WAL_BUCKET_SCOPE_PREFIX}{SCOPE}{WAL_BUCKET_SCOPE_SUFFIX}/wal/{PGVERSION}'.format(**walg)
         prefix_template = '{0}://{{WAL_{1}_BUCKET}}{2}'.format(store_type.lower(), store_type, bucket_path)
         walg[prefix_env_name] = prefix_template.format(**walg)
-    # Set WALG_*_PREFIX for future compatibility
-    if store_type in ('S3', 'GS') and not walg.get(write_envdir_names[1]):
-        walg[write_envdir_names[1]] = walg[prefix_env_name]
 
     if not os.path.exists(walg['WALG_ENV_DIR']):
         os.makedirs(walg['WALG_ENV_DIR'])
