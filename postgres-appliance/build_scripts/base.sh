@@ -83,11 +83,13 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
                 "postgresql-${version}-pgaudit"
                 "postgresql-${version}-pglogical"
                 "postgresql-${version}-plpgsql-check"
+                "postgresql-${version}-pg-checksums"
                 "postgresql-${version}-postgis-${POSTGIS_VERSION%.*}"
                 "postgresql-${version}-postgis-${POSTGIS_VERSION%.*}-scripts"
                 "postgresql-${version}-repack"
                 "postgresql-${version}-pgvector"
-                "postgresql-${version}-roaringbitmap")
+                "postgresql-${version}-roaringbitmap"
+                "postgresql-${version}-pgfaceting")
 
         if [ "$version" -lt 18 ]; then
             EXTRAS+=("postgresql-${version}-pgl-ddl-deploy"
@@ -97,12 +99,10 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
         if [ "$version" -lt 19 ]; then
             EXTRAS+=("postgresql-${version}-first-last-agg"
                     "postgresql-${version}-pldebugger"
-                    "postgresql-${version}-pg-checksums"
                     "postgresql-${version}-pgq-node"
                     "postgresql-${version}-wal2json"
                     "postgresql-${version}-decoderbufs"
-                    "postgresql-${version}-pllua"
-                    "postgresql-${version}-pgfaceting")
+                    "postgresql-${version}-pllua")
         fi
 
             if [ "$WITH_PERL" = "true" ]; then
