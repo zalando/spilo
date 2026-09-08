@@ -322,6 +322,7 @@ postgresql:
     extwlist.extensions: 'btree_gin,btree_gist,citext,extra_window_functions,first_last_agg,hll,\
 hstore,hypopg,intarray,ltree,pgcrypto,pgq,pgq_node,pg_trgm,postgres_fdw,roaringbitmap,tablefunc,uuid-ossp,vector'
     extwlist.custom_path: /scripts
+    output_plugin_libraries: 'pgoutput, test_decoding, pglogical_output, wal2json, decoderbufs'
   pg_hba:
     - local   all             all                                   trust
     {{#PAM_OAUTH2}}
