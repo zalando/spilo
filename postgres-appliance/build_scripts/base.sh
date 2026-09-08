@@ -76,42 +76,47 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
         EXTRAS=("postgresql-pltcl-${version}"
                 "postgresql-${version}-dirtyread"
                 "postgresql-${version}-extra-window-functions"
-                "postgresql-${version}-first-last-agg"
                 "postgresql-${version}-hll"
                 "postgresql-${version}-hypopg"
                 "postgresql-${version}-partman"
                 "postgresql-${version}-plproxy"
                 "postgresql-${version}-pgaudit"
-                "postgresql-${version}-pldebugger"
                 "postgresql-${version}-pglogical"
                 "postgresql-${version}-plpgsql-check"
                 "postgresql-${version}-pg-checksums"
-                "postgresql-${version}-pgq-node"
                 "postgresql-${version}-postgis-${POSTGIS_VERSION%.*}"
                 "postgresql-${version}-postgis-${POSTGIS_VERSION%.*}-scripts"
                 "postgresql-${version}-repack"
-                "postgresql-${version}-wal2json"
-                "postgresql-${version}-decoderbufs"
-                "postgresql-${version}-pllua"
                 "postgresql-${version}-pgvector"
                 "postgresql-${version}-roaringbitmap"
                 "postgresql-${version}-pgfaceting")
 
-        if [ "$version" != "18" ]; then
+        if [ "$version" -lt 18 ]; then
             EXTRAS+=("postgresql-${version}-pgl-ddl-deploy"
                     "postgresql-${version}-pglogical-ticker")
         fi
 
-        if [ "$WITH_PERL" = "true" ]; then
-            EXTRAS+=("postgresql-plperl-${version}")
+        if [ "$version" -lt 19 ]; then
+            EXTRAS+=("postgresql-${version}-first-last-agg"
+                    "postgresql-${version}-pldebugger"
+                    "postgresql-${version}-pgq-node"
+                    "postgresql-${version}-wal2json"
+                    "postgresql-${version}-decoderbufs"
+                    "postgresql-${version}-pllua")
+        fi
+
+            if [ "$WITH_PERL" = "true" ]; then
+                EXTRAS+=("postgresql-plperl-${version}")
         fi
 
     fi
 
-    if [ "${TIMESCALEDB_APACHE_ONLY}" = "true" ]; then
-        EXTRAS+=("timescaledb-2-oss-postgresql-${version}")
-    else
-        EXTRAS+=("timescaledb-2-postgresql-${version}")
+    if [ "$version" -lt 19 ]; then
+        if [ "${TIMESCALEDB_APACHE_ONLY}" = "true" ]; then
+            EXTRAS+=("timescaledb-2-oss-postgresql-${version}")
+        else
+            EXTRAS+=("timescaledb-2-postgresql-${version}")
+        fi
     fi
 
     # Install PostgreSQL binaries, contrib, plproxy and multiple pl's
@@ -121,11 +126,15 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
         "postgresql-${version}-pgextwlist" \
         "postgresql-plpython3-${version}" \
         "postgresql-server-dev-${version}" \
-        "postgresql-${version}-pgq3" \
         "postgresql-${version}-pg-stat-kcache" \
         "postgresql-${version}-pg-permissions" \
         "postgresql-${version}-set-user" \
         "${EXTRAS[@]}"
+
+    if [ "$version" -lt 19 ]; then
+        apt-get install --allow-downgrades -y \
+            "postgresql-${version}-pgq3"
+    fi
 
     # Clean up timescaledb versions - keep at least 5 minor versions, but ensure compatibility with the lowest/oldest PG version (where possible)
 
@@ -179,10 +188,13 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
 
     EXTRA_EXTENSIONS=()
     if [ "$DEMO" != "true" ]; then
-        EXTRA_EXTENSIONS+=("plprofiler" "pg_mon-${PG_MON_COMMIT}")
-        if [ "$version" -ge 17 ]; then
-            EXTRA_EXTENSIONS+=("pg_textsearch")
+        if [ "$version" -lt 19 ]; then
+            EXTRA_EXTENSIONS+=("plprofiler")
+            if [ "$version" -ge 17 ]; then
+                EXTRA_EXTENSIONS+=("pg_textsearch")
+            fi
         fi
+        EXTRA_EXTENSIONS+=("pg_mon-${PG_MON_COMMIT}")
     fi
 
     for n in bg_mon-${BG_MON_COMMIT} \
@@ -273,7 +285,7 @@ if [ "$DEMO" != "true" ]; then
 
         for e in pgq pgq_node plproxy address_standardizer address_standardizer_data_us; do
             orig=$(basename "$(find . -maxdepth 1 -type f -name "$e--*--*.sql" | head -n1)")
-            if [ "x$orig" != "x" ]; then
+            if [ -n "$orig" ]; then
                 for f in "$e"--*--*.sql; do
                     if [ "$f" != "$orig" ] && [ ! -L "$f" ] && diff "$f" "$orig" > /dev/null; then
                         echo "creating symlink $f -> $orig"
