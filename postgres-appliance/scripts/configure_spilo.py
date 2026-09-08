@@ -896,10 +896,10 @@ def write_walg_environment(placeholders, prefix, overwrite):
                 walg['AWS_REGION'] = aws_region
         elif not aws_region:
             # try to determine region from the bucket name
-            prefix = walg.get('WAL_S3_BUCKET') or walg.get('WALG_S3_PREFIX') or ''
+            bucket_or_prefix = walg.get('WAL_S3_BUCKET') or walg.get('WALG_S3_PREFIX') or ''
             # extract bucket name only to avoid false matches on path segments (e.g. /wal/ suffix)
-            bucket_match = re.match(r'^(?:s3://)?([^/]+)', prefix)
-            name = bucket_match.group(1) if bucket_match else prefix
+            bucket_match = re.match(r'^(?:s3://)?([^/]+)', bucket_or_prefix)
+            name = bucket_match.group(1) if bucket_match else bucket_or_prefix
             match = re.search(r'(\w{2}-\w+-\d)-', name)
             if match:
                 aws_region = match.group(1)
