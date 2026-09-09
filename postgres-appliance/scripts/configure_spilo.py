@@ -322,6 +322,7 @@ postgresql:
     extwlist.extensions: 'btree_gin,btree_gist,citext,extra_window_functions,first_last_agg,hll,\
 hstore,hypopg,intarray,ltree,pgcrypto,pgq,pgq_node,pg_trgm,postgres_fdw,roaringbitmap,tablefunc,uuid-ossp,vector'
     extwlist.custom_path: /scripts
+    output_plugin_libraries: 'pgoutput, test_decoding, pglogical_output, wal2json, decoderbufs'
   pg_hba:
     - local   all             all                                   trust
     {{#PAM_OAUTH2}}
@@ -895,9 +896,12 @@ def write_walg_environment(placeholders, prefix, overwrite):
             if aws_region:
                 walg['AWS_REGION'] = aws_region
         elif not aws_region:
-            # try to determine region from the endpoint or bucket name
-            name = walg.get('WAL_S3_BUCKET') or walg.get('WALG_S3_PREFIX')
-            match = re.search(r'.*(\w{2}-\w+-\d)-.*', name)
+            # try to determine region from the bucket name
+            bucket_or_prefix = walg.get('WAL_S3_BUCKET') or walg.get('WALG_S3_PREFIX') or ''
+            # extract bucket name only to avoid false matches on path segments (e.g. /wal/ suffix)
+            bucket_match = re.match(r'^(?:s3://)?([^/]+)', bucket_or_prefix)
+            name = bucket_match.group(1) if bucket_match else bucket_or_prefix
+            match = re.search(r'(\w{2}-\w+-\d)-', name)
             if match:
                 aws_region = match.group(1)
             else:
@@ -918,7 +922,7 @@ def write_walg_environment(placeholders, prefix, overwrite):
                 walg[name] = placeholders.get(name)
 
         # fall back to bare IRSA vars if prefixed versions are not set
-        irsa_names = ['AWS_ROLE_ARN', 'AWS_WEB_IDENTITY_TOKEN_FILE', 'AWS_STS_REGIONAL_ENDPOINTS']
+        irsa_names = ['AWS_ROLE_ARN', 'AWS_WEB_IDENTITY_TOKEN_FILE', 'AWS_STS_REGIONAL_ENDPOINTS', 'AWS_REGION']
         for name in irsa_names:
             if not walg.get(name) and placeholders.get(name):
                 walg[name] = placeholders.get(name)
