@@ -29,7 +29,7 @@ How to Build This Docker Image
 
     $ cd postgres-appliance
 
-    $ docker build --tag $YOUR_TAG .
+    $ docker buildx build --platform linux/amd64 -t quay.io/vqcomms/spilo_postgres:<VERSION> . 
 
 
 There are a few build arguments defined in the Dockerfile and it is possible to change them by specifying ``--build-arg`` arguments:
