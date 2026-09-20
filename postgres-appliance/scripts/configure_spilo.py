@@ -260,7 +260,7 @@ bootstrap:
   {{#USE_ADMIN}}
   users:
     {{PGUSER_ADMIN}}:
-      password: {{PGPASSWORD_ADMIN}}
+      password: '{{PGPASSWORD_ADMIN}}'
       options:
         - createrole
         - createdb
