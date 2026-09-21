@@ -9,6 +9,10 @@ Environment Configuration Settings
 - **ETCD_CACERT**: Etcd CA certificate. If present it will enable validation.
 - **ETCD_CERT**: Etcd client certificate.
 - **ETCD_KEY**: Etcd client certificate key. Can be empty if the key is part of certificate.
+- **ETCD_USER**: Etcd client username.
+- **ETCD_PASSWORD**: Etcd client password. Takes precedence over ``ETCD_PASSWORD_FILE`` when both are set.
+- **ETCD_PASSWORD_FILE**: Etcd client password file. The file content is used as Patroni etcd password when
+  ``ETCD_PASSWORD`` is not set.
 - **PGHOME**: filesystem path where to put PostgreSQL home directory (/home/postgres by default)
 - **APIPORT**: TCP port to Patroni API connections (8008 by default)
 - **BACKUP_SCHEDULE**: cron schedule for doing backups via WAL-G ('00 01 * * *' by default)
@@ -19,14 +23,20 @@ Environment Configuration Settings
 - **PGDATA**: location of PostgreSQL data directory, by default PGROOT/pgdata.
 - **PGUSER_STANDBY**: username for the replication user, 'standby' by default.
 - **PGPASSWORD_STANDBY**: a password for the replication user, 'standby' by default.
+- **PGPASSWORD_STANDBY_FILE**: password file for ``PGPASSWORD_STANDBY``. Used when
+  ``PGPASSWORD_STANDBY`` is not set.
 - **STANDBY_HOST**: hostname or IP address of the primary to stream from.
 - **STANDBY_PORT**: TCP port on which the primary is listening for connections. Patroni will use "5432" if not set.
 - **STANDBY_PRIMARY_SLOT_NAME**: replication slot to use on the primary.
 - **PGUSER_ADMIN**: username for the default admin user, 'admin' by default.
 - **PGPASSWORD_ADMIN**: a password for the default admin user, 'cola' by default.
+- **PGPASSWORD_ADMIN_FILE**: password file for ``PGPASSWORD_ADMIN``. Used when
+  ``PGPASSWORD_ADMIN`` is not set.
 - **USE_ADMIN**: whether to use the admin user or not.
 - **PGUSER_SUPERUSER**: username for the superuser, 'postgres' by default.
 - **PGPASSWORD_SUPERUSER**: a password for the superuser, 'zalando' by default
+- **PGPASSWORD_SUPERUSER_FILE**: password file for ``PGPASSWORD_SUPERUSER``. Used when
+  ``PGPASSWORD_SUPERUSER`` is not set.
 - **ALLOW_NOSSL**: set to allow clients to connect without SSL enabled.
 - **PGPORT**: port PostgreSQL listens to for client connections, 5432 by default
 - **PGVERSION**: Specifies the version of postgreSQL to reference in the bin_dir variable (/usr/lib/postgresql/PGVERSION/bin) if postgresql.bin_dir wasn't set in SPILO_CONFIGURATION
