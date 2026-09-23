@@ -94,8 +94,12 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
                 "postgresql-${version}-decoderbufs"
                 "postgresql-${version}-pllua"
                 "postgresql-${version}-pgvector"
-                "postgresql-${version}-roaringbitmap"
-                "postgresql-${version}-pgfaceting")
+                "postgresql-${version}-roaringbitmap")
+
+        # pgfaceting only available for PG >= 14
+        if [ "$version" -ge 14 ]; then
+            EXTRAS+=("postgresql-${version}-pgfaceting")
+        fi
 
         if [ "$version" != "18" ]; then
             EXTRAS+=("postgresql-${version}-pgl-ddl-deploy"
