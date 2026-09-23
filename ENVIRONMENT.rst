@@ -83,6 +83,7 @@ Environment Configuration Settings
 - **SSH_USERNAME**: (optional) the username for WAL backups.
 - **SSH_PORT**: (optional) the ssh port for WAL backups.
 - **SSH_PRIVATE_KEY_PATH**: (optional) the path to the private key used for WAL backups.
+- **SSH_PASSWORD**: (optional) the ssh password for WAL backups. **WARNING: You should instead use SSH_PRIVATE_KEY_PATH when your SSH server (WALG_SSH_PREFIX) is exposed to the internet.**
 - **AZURE_STORAGE_ACCOUNT**: (optional) the azure storage account to use for WAL backups.
 - **AZURE_STORAGE_ACCESS_KEY**: (optional) the access key for the azure storage account used for WAL backups.
 - **AZURE_CLIENT_ID**: (optional) Client (application) ID of the Service Principal
