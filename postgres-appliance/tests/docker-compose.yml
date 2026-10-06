@@ -4,16 +4,16 @@ networks:
     demo:
 
 services:
-    minio:
-        image: minio/minio:RELEASE.2021-09-03T03-56-13Z
+    seaweedfs:
+        image: chrislusf/seaweedfs:4.48
         networks: [ demo ]
         environment:
-            MINIO_ACCESS_KEY: &access_key Eeghei0uVej1Wea8mato
-            MINIO_SECRET_KEY: &secret_key lecheidohbah7aThohziezah3iev7ima4eeXu9gu
-        hostname: minio
-        container_name: demo-minio
-        entrypoint: sh
-        command: -c 'mkdir -p /export/testbucket && /usr/bin/minio server /export'
+            AWS_ACCESS_KEY_ID: &access_key Eeghei0uVej1Wea8mato
+            AWS_SECRET_ACCESS_KEY: &secret_key lecheidohbah7aThohziezah3iev7ima4eeXu9gu
+            S3_BUCKET: &bucket testbucket
+        hostname: seaweedfs
+        container_name: demo-seaweedfs
+        command: mini -dir=/data -s3.port=9000
 
     etcd:
         image: ${SPILO_TEST_IMAGE:-spilo}
@@ -23,16 +23,16 @@ services:
         command: "sh -c 'export ETCD_UNSUPPORTED_ARCH=$$(dpkg --print-architecture) && exec etcd -name etcd1 -listen-client-urls http://0.0.0.0:2379 -advertise-client-urls http://$$(hostname --ip-address):2379'"
 
     spilo1: &spilo
-        depends_on: [ minio ]
+        depends_on: [ seaweedfs ]
         image: ${SPILO_TEST_IMAGE:-spilo}
         networks: [ demo ]
         environment:
             SPILO_PROVIDER: 'local'
             AWS_ACCESS_KEY_ID: *access_key
             AWS_SECRET_ACCESS_KEY: *secret_key
-            AWS_ENDPOINT: &aws_endpoint 'http://minio:9000'
+            AWS_ENDPOINT: &aws_endpoint 'http://seaweedfs:9000'
             AWS_S3_FORCE_PATH_STYLE: &aws_s3_force_path_style 'true'
-            WAL_S3_BUCKET: &bucket testbucket
+            WAL_S3_BUCKET: *bucket
             WALG_DISABLE_S3_SSE: &walg_disable_s3_sse 'true'
             ETCDCTL_ENDPOINTS: http://etcd:2379
             ETCD3_HOST: "etcd:2379"
