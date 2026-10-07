@@ -32,12 +32,7 @@ DECLARE
     pw text;
 BEGIN
     SELECT user_management.random_password(20) INTO pw;
-    PERFORM 1 FROM pg_roles WHERE rolname = username;
-    IF FOUND THEN
-        EXECUTE format($$ ALTER ROLE %I WITH PASSWORD %L $$, username, pw);
-    ELSE
-        EXECUTE format($$ CREATE USER %I WITH PASSWORD %L $$, username, pw);
-    END IF;
+    EXECUTE format($$ CREATE USER %I WITH PASSWORD %L $$, username, pw);
     RETURN pw;
 END
 $function$
@@ -47,7 +42,28 @@ REVOKE ALL ON FUNCTION create_application_user(text) FROM public;
 GRANT EXECUTE ON FUNCTION create_application_user(text) TO admin;
 
 COMMENT ON FUNCTION create_application_user(text) IS 'Creates a user that can login, sets the password to a strong random one,
-which is then returned. If the user already exists, its password is updated.';
+which is then returned.';
+
+
+CREATE OR REPLACE FUNCTION alter_application_user(username text)
+ RETURNS text
+ LANGUAGE plpgsql
+AS $function$
+DECLARE
+    pw text;
+BEGIN
+    SELECT user_management.random_password(20) INTO pw;
+    EXECUTE format($$ ALTER ROLE %I WITH PASSWORD %L $$, username, pw);
+    RETURN pw;
+END
+$function$
+SECURITY DEFINER SET search_path to 'pg_catalog';
+
+REVOKE ALL ON FUNCTION alter_application_user(text) FROM public;
+GRANT EXECUTE ON FUNCTION alter_application_user(text) TO admin;
+
+COMMENT ON FUNCTION alter_application_user(text) IS 'Sets the password of an existing user to a strong random one,
+which is then returned.';
 
 
 
