@@ -87,7 +87,7 @@ spec:
           value: | ## https://github.com/zalando/patroni#yaml-configuration
             bootstrap:
               initdb:
-                - auth-host: md5
+                - auth-host: scram-sha-256
                 - auth-local: trust
         - name: POD_IP
           valueFrom:
