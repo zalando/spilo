@@ -32,7 +32,12 @@ DECLARE
     pw text;
 BEGIN
     SELECT user_management.random_password(20) INTO pw;
-    EXECUTE format($$ CREATE USER %I WITH PASSWORD %L $$, username, pw);
+    PERFORM 1 FROM pg_roles WHERE rolname = username;
+    IF FOUND THEN
+        EXECUTE format($$ ALTER ROLE %I WITH PASSWORD %L $$, username, pw);
+    ELSE
+        EXECUTE format($$ CREATE USER %I WITH PASSWORD %L $$, username, pw);
+    END IF;
     RETURN pw;
 END
 $function$
@@ -42,7 +47,7 @@ REVOKE ALL ON FUNCTION create_application_user(text) FROM public;
 GRANT EXECUTE ON FUNCTION create_application_user(text) TO admin;
 
 COMMENT ON FUNCTION create_application_user(text) IS 'Creates a user that can login, sets the password to a strong random one,
-which is then returned';
+which is then returned. If the user already exists, its password is updated.';
 
 
 
