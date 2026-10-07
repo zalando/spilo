@@ -828,9 +828,9 @@ def write_log_environment(placeholders):
         write_file(log_env['AWS_EC2_METADATA_SERVICE_ENDPOINT_MODE'],
                    os.path.join(log_env['LOG_ENV_DIR'], 'AWS_EC2_METADATA_SERVICE_ENDPOINT_MODE'), True)
     # when using AWS EKS IRSA additional variables need to be added to log env
-    for var in ('AWS_ROLE_ARN', 'AWS_WEB_IDENTITY_TOKEN_FILE', 'AWS_STS_REGIONAL_ENDPOINTS'):
-        if log_env.get(var):
-            write_file(log_env[var], os.path.join(log_env['LOG_ENV_DIR'], var), True)
+    for irsa_var in ('AWS_ROLE_ARN', 'AWS_WEB_IDENTITY_TOKEN_FILE', 'AWS_STS_REGIONAL_ENDPOINTS'):
+        if log_env.get(irsa_var):
+            write_file(log_env[irsa_var], os.path.join(log_env['LOG_ENV_DIR'], irsa_var), True)
 
     for var in ('LOG_TMPDIR',
                 'LOG_SHIP_HOURLY',
