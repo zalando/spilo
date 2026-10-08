@@ -45,7 +45,7 @@ COMMENT ON FUNCTION create_application_user(text) IS 'Creates a user that can lo
 which is then returned.';
 
 
-CREATE OR REPLACE FUNCTION alter_application_user(username text)
+CREATE OR REPLACE FUNCTION alter_application_user_password(username text)
  RETURNS text
  LANGUAGE plpgsql
 AS $function$
@@ -59,10 +59,10 @@ END
 $function$
 SECURITY DEFINER SET search_path to 'pg_catalog';
 
-REVOKE ALL ON FUNCTION alter_application_user(text) FROM public;
-GRANT EXECUTE ON FUNCTION alter_application_user(text) TO admin;
+REVOKE ALL ON FUNCTION alter_application_user_password(text) FROM public;
+GRANT EXECUTE ON FUNCTION alter_application_user_password(text) TO admin;
 
-COMMENT ON FUNCTION alter_application_user(text) IS 'Sets the password of an existing user to a strong random one,
+COMMENT ON FUNCTION alter_application_user_password(text) IS 'Sets the password of an existing user to a strong random one,
 which is then returned.';
 
 
