@@ -8,11 +8,11 @@ import re
 import os
 from json.decoder import JSONDecodeError
 
-import psutil
 import socket
 import subprocess
 import sys
 import pwd
+import math
 
 from copy import deepcopy
 from six.moves.urllib_parse import urlparse
@@ -530,6 +530,43 @@ def get_listen_ip():
     return info[0][4][0]
 
 
+def get_cpu_count() -> int:
+    """
+    Returns the number of CPUs available to the current process,
+    respecting cgroup limits (Docker/Kubernetes) and process affinity.
+    """
+    limit = None
+    # Try Cgroup v2
+    try:
+        with open("/sys/fs/cgroup/cpu.max", "r") as f:
+            quota, period = f.read().split()
+            if quota != "max":
+                limit = float(quota) / float(period)
+    except (FileNotFoundError, ValueError, OSError):
+        pass
+    # Try Cgroup v1 (if v2 failed)
+    if limit is None:
+        try:
+            with open("/sys/fs/cgroup/cpu/cpu.cfs_quota_us", "r") as f_q:
+                with open("/sys/fs/cgroup/cpu/cpu.cfs_period_us", "r") as f_p:
+                    q, p = int(f_q.read()), int(f_p.read())
+                    if q > 0 and p > 0:
+                        limit = q / p
+        except (FileNotFoundError, ValueError, OSError):
+            pass
+    # Fallback: Process Affinity
+    if limit is None:
+        try:
+            limit = len(os.sched_getaffinity(0))
+        except (AttributeError, NotImplementedError, OSError):
+            pass
+    # Fallback: Physical Count
+    if limit is None:
+        limit = os.cpu_count() or 1
+
+    return max(1, math.ceil(limit))
+
+
 def get_placeholders(provider):
     placeholders = {}
     for key, value in os.environ.items():
@@ -588,7 +625,7 @@ def get_placeholders(provider):
     # the env dir path is still called "wal-e.d" for backwards compatibility: many existing deployments, scripts,
     # or manifests expect this path, even though wal-e itself is not used (wal-g reads env vars from here too)
     placeholders.setdefault('WALG_ENV_DIR', os.path.join(placeholders['RW_DIR'], 'etc', 'wal-e.d', 'env'))
-    cpu_count = str(min(psutil.cpu_count(), 10))
+    cpu_count = str(min(get_cpu_count(), 10))
     placeholders.setdefault('WALG_DOWNLOAD_CONCURRENCY', cpu_count)
     placeholders.setdefault('WALG_UPLOAD_CONCURRENCY', cpu_count)
     placeholders.setdefault('PAM_OAUTH2', '')
