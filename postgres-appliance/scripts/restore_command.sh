@@ -32,6 +32,8 @@ readonly wal_fast_source
 
 [[ -f $wal_fast_source ]] && exec mv "${wal_fast_source}" "${wal_destination}"
 
+[[ "$WAL_FAST_ONLY" == "true" ]] && exit 1
+
 if [[ "$wal_destination" =~ /$wal_filename$ ]]; then  # Patroni fetching missing files for pg_rewind
     export WALG_DOWNLOAD_CONCURRENCY=1
 fi
