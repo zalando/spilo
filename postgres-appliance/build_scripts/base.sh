@@ -5,8 +5,9 @@
 ## -------------------------------------------
 
 export DEBIAN_FRONTEND=noninteractive
-MAKEFLAGS="-j $(grep -c ^processor /proc/cpuinfo)"
-export MAKEFLAGS
+CMAKE_BUILD_PARALLEL_LEVEL=$(grep -c ^processor /proc/cpuinfo)
+MAKEFLAGS="-j $CMAKE_BUILD_PARALLEL_LEVEL"
+export MAKEFLAGS CMAKE_BUILD_PARALLEL_LEVEL
 
 set -ex
 sed -i 's/^#\s*\(deb.*universe\)$/\1/g' /etc/apt/sources.list
@@ -26,6 +27,8 @@ else
                     libcurl4-openssl-dev
                     libicu-dev
                     libc-ares-dev
+                    liblz4-dev
+                    ninja-build
                     pandoc
                     pkg-config)
     apt-get install -y "${BUILD_PACKAGES[@]}" libcurl4
@@ -38,6 +41,21 @@ else
     git clone -b "$PLPROFILER" https://github.com/bigsql/plprofiler.git
     git clone -b "$PG_TEXTSEARCH" https://github.com/timescale/pg_textsearch.git
     curl -sL "https://github.com/zalando-pg/pg_mon/archive/$PG_MON_COMMIT.tar.gz" | tar xz
+
+    # pg_duckdb: internal builds supply the library; OSS builds it from source on first make
+    git clone -b "$PG_DUCKDB" --depth 1 --recurse-submodules --shallow-submodules https://github.com/duckdb/pg_duckdb.git
+    if [ "$LIBDUCKDB_IMAGE" != "shared-libs-source" ]; then
+        prebuilt_libduckdb=/builddeps/libduckdb.so
+        if [ ! -s "$prebuilt_libduckdb" ]; then
+            echo "Missing prebuilt libduckdb: $prebuilt_libduckdb" >&2
+            exit 1
+        fi
+        libduckdb_dir=pg_duckdb/third_party/duckdb/build/release/src
+        mkdir -p "$libduckdb_dir"
+        cp "$prebuilt_libduckdb" "$libduckdb_dir/libduckdb.so"
+        # must be newer than the submodule HEAD so make doesn't try to rebuild duckdb
+        touch "$libduckdb_dir/libduckdb.so"
+    fi
 
     for p in python3-keyring python3-docutils ieee-data; do
         version=$(apt-cache show $p | sed -n 's/^Version: //p' | sort -rV | head -n 1)
@@ -192,6 +210,11 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
         PATH="/usr/lib/postgresql/$version/bin:$PATH" make -C "$n" USE_PGXS=1 clean
         PATH="/usr/lib/postgresql/$version/bin:$PATH" make -C "$n" USE_PGXS=1 install-strip
     done
+
+    if [ "$DEMO" != "true" ]; then
+        make -C pg_duckdb PG_CONFIG="/usr/lib/postgresql/$version/bin/pg_config" clean
+        make -C pg_duckdb PG_CONFIG="/usr/lib/postgresql/$version/bin/pg_config" install-strip
+    fi
 done
 
 apt-get install -y skytools3-ticker pgbouncer
@@ -207,6 +230,10 @@ if [ "$DEMO" != "true" ]; then
     for version in $DEB_PG_SUPPORTED_VERSIONS; do
         # create postgis symlinks to make it possible to perform update
         ln -s "postgis-${POSTGIS_VERSION%.*}.so" "/usr/lib/postgresql/${version}/lib/postgis-2.5.so"
+
+        if [ "$version" != "$PGVERSION" ]; then
+            ln -sf "../../$PGVERSION/lib/libduckdb.so" "/usr/lib/postgresql/${version}/lib/libduckdb.so"
+        fi
     done
 fi
 

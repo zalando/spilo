@@ -3,6 +3,12 @@ ARG PGVERSION=18
 ARG DEMO=false
 ARG COMPRESS=false
 ARG ADDITIONAL_LOCALES=
+ARG LIBDUCKDB_IMAGE=shared-libs-source
+
+FROM $BASE_IMAGE as shared-libs-source
+RUN touch /libduckdb.so
+
+FROM $LIBDUCKDB_IMAGE as shared-libs
 
 
 FROM ubuntu:18.04 as ubuntu-18
@@ -40,6 +46,7 @@ COPY --from=ubuntu-18 /usr/lib/locale/locale-archive /usr/lib/locale/locale-arch
 
 COPY cron_unprivileged.c /builddeps/
 COPY build_scripts/base.sh /builddeps/
+COPY --from=shared-libs /libduckdb.so /builddeps/libduckdb.so
 COPY --from=dependencies-builder /builddeps/*.deb /builddeps/
 
 ARG PGVERSION
@@ -48,6 +55,7 @@ ARG TIMESCALEDB_TOOLKIT=true
 ARG COMPRESS
 ARG PGOLDVERSIONS="14 15 16 17"
 ARG WITH_PERL=false
+ARG LIBDUCKDB_IMAGE
 
 ARG DEB_PG_SUPPORTED_VERSIONS="$PGOLDVERSIONS $PGVERSION"
 
@@ -59,7 +67,8 @@ ENV POSTGIS_VERSION=3.6 \
     PLPROFILER=REL4_2_5 \
     PG_PROFILE=4.15 \
     PAM_OAUTH2=v1.0.1 \
-    PG_TEXTSEARCH=v1.3.1
+    PG_TEXTSEARCH=v1.3.1 \
+    PG_DUCKDB=v1.1.1
 
 WORKDIR /builddeps
 RUN bash base.sh
