@@ -19,7 +19,7 @@ pipeline:
   timeout: 10h
   vm_config:
     type: linux
-    size: large
+    size: extra_large
   commands:
   - desc: Tag and push spilo-cdp image without promotion
     cmd: |
