@@ -813,18 +813,36 @@ def get_dcs_config(config, placeholders):
     return config
 
 
+def get_aws_region_from_bucket(bucket):
+    bucket_name = urlparse(bucket if '://' in bucket else 's3://' + bucket).hostname or ''
+    if not bucket_name:
+        return ''
+
+    try:
+        from botocore.session import get_session
+    except ImportError:
+        logging.warning('Could not load AWS region catalog to validate bucket region')
+        return ''
+
+    session = get_session()
+    regions = {region for partition in session.get_available_partitions()
+               for region in session.get_available_regions('s3', partition_name=partition)}
+    for region in sorted(regions, key=len, reverse=True):
+        if re.search(r'(?<![a-z0-9]){}(?![a-z0-9])'.format(re.escape(region)), bucket_name):
+            return region
+    return ''
+
+
 def write_log_environment(placeholders):
     log_env = defaultdict(lambda: '')
     log_env.update(placeholders)
 
     aws_region = log_env.get('AWS_REGION') or log_env.get('AWS_DEFAULT_REGION')
     if not aws_region:
-        bucket = log_env['LOG_S3_BUCKET']
-        bucket_name = urlparse(bucket if '://' in bucket else 's3://' + bucket).hostname or ''
-        match = re.search(r'(?:^|[.-])([a-z]{2}(?:-[a-z]+)+-\d+)(?:[.-]|$)', bucket_name)
-        if not match:
+        aws_region = get_aws_region_from_bucket(log_env['LOG_S3_BUCKET'])
+        if not aws_region:
             match = re.fullmatch(r'([a-z]{2}(?:-[a-z]+)+-\d+)[a-z]', placeholders['instance_data']['zone'])
-        aws_region = match.group(1) if match else ''
+            aws_region = match.group(1) if match else ''
     log_env['LOG_AWS_REGION'] = aws_region
 
     log_s3_key = 'spilo/{LOG_BUCKET_SCOPE_PREFIX}{SCOPE}{LOG_BUCKET_SCOPE_SUFFIX}/log/'.format(**log_env)
@@ -933,11 +951,10 @@ def write_walg_environment(placeholders, prefix, overwrite):
                 walg['AWS_REGION'] = aws_region
         elif not aws_region:
             bucket = walg.get('WAL_S3_BUCKET') or walg.get('WALG_S3_PREFIX') or ''
-            bucket_name = urlparse(bucket if '://' in bucket else 's3://' + bucket).hostname or ''
-            match = re.search(r'(?:^|[.-])([a-z]{2}(?:-[a-z]+)+-\d+)(?:[.-]|$)', bucket_name)
-            if not match:
+            aws_region = get_aws_region_from_bucket(bucket)
+            if not aws_region:
                 match = re.fullmatch(r'([a-z]{2}(?:-[a-z]+)+-\d+)[a-z]', placeholders['instance_data']['zone'])
-            aws_region = match.group(1) if match else ''
+                aws_region = match.group(1) if match else ''
             walg['AWS_REGION'] = aws_region
         else:
             walg['AWS_REGION'] = aws_region
