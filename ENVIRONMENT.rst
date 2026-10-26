@@ -54,7 +54,17 @@ Environment Configuration Settings
 - **WAL_S3_BUCKET**: (optional) name of the S3 bucket used for WAL-G base backups.
 - **AWS_ACCESS_KEY_ID**: (optional) aws access key
 - **AWS_SECRET_ACCESS_KEY**: (optional) aws secret key
-- **AWS_REGION**: (optional) region of S3 bucket
+- **AWS_REGION**, **AWS_DEFAULT_REGION**: (optional) region of the S3 bucket; AWS_REGION takes precedence.
+  For cloning and standby backups, CLONE_AWS_REGION and STANDBY_AWS_REGION override the unprefixed values.
+  Explicit regions take precedence over bucket-name and availability-zone inference. Set a region explicitly
+  when instance metadata is unavailable; Spilo does not derive a region from its local metadata fallback.
+- **SPILO_PROVIDER**: (optional) explicitly select aws, google, openstack, or local instead of probing metadata.
+- **AWS_EC2_METADATA_DISABLED**: set to true to skip AWS instance metadata requests and disable AWS SDK
+  metadata fallback. This does not identify the provider; set SPILO_PROVIDER explicitly
+  if needed. This setting is propagated to WAL-G and log-shipping environments.
+- **NO_GCE_CHECK**: set to true to skip Google Cloud metadata detection and Spilo's Google instance
+  metadata requests. This flag is used by Google's authentication library for GCE detection.
+  Provider-specific flags do not suppress probes for other providers. Failed metadata requests are logged and retain fallback values.
 - **AWS_ENDPOINT**: (optional) in format 'https://s3.AWS_REGION.amazonaws.com:443', if not specified will be calculated from AWS_REGION
 - **AWS_ROLE_ARN**, **AWS_WEB_IDENTITY_TOKEN_FILE**, **AWS_STS_REGIONAL_ENDPOINTS** (optional) `AWS EKS IRSA <https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html>`__ auth configuration for log file shipping and `wal-g` to access S3. Usually these variables are automatically set by the AWS EKS.
 - **WALG_S3_ENDPOINT** or **WALE_S3_ENDPOINT**: (optional) in format 'https+path://s3.AWS_REGION.amazonaws.com:443', if not specified will be calculated from AWS_ENDPOINT or AWS_REGION

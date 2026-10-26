@@ -53,7 +53,7 @@ def upload_to_s3(local_file_path):
     s3 = boto3.resource(
         service_name="s3",
         endpoint_url=os.getenv('LOG_S3_ENDPOINT'),
-        region_name=os.getenv('LOG_AWS_REGION')
+        region_name=os.getenv('LOG_AWS_REGION') or None
     )
 
     bucket_name = os.getenv('LOG_S3_BUCKET')
