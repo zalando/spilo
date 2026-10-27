@@ -21,6 +21,7 @@ from collections import defaultdict
 import yaml
 import pystache
 import requests
+from urllib3.exceptions import MaxRetryError
 
 from spilo_commons import RW_DIR, PATRONI_CONFIG_FILE, append_extensions, \
         get_binary_version, get_bin_dir, is_valid_pg_version, write_file, write_patroni_config
@@ -396,6 +397,11 @@ hstore,hypopg,intarray,ltree,pgcrypto,pgq,pgq_node,pg_trgm,postgres_fdw,roaringb
 '''
 
 
+def metadata_disabled(provider):
+    name = {PROVIDER_AWS: 'AWS_EC2_METADATA_DISABLED', PROVIDER_GOOGLE: 'NO_GCE_CHECK'}.get(provider)
+    return bool(name and os.environ.get(name, '').lower() == 'true')
+
+
 def get_provider():
     provider = os.environ.get('SPILO_PROVIDER')
     if provider:
@@ -408,46 +414,36 @@ def get_provider():
     if os.environ.get('DEVELOP', '').lower() in ['1', 'true', 'on']:
         return PROVIDER_LOCAL
 
-    try:
-        logging.info("Figuring out my environment (Google? AWS? Openstack? Local?)")
-        response = requests.put(
-            url='http://169.254.169.254/latest/api/token',
-            headers={'X-aws-ec2-metadata-token-ttl-seconds': '60'},
-            timeout=2
-        )
-        if not response.ok:
-            logging.info("Failed to get IMDS token (status %s), assuming local Docker setup", response.status_code)
-            return PROVIDER_LOCAL
-        token = response.text
-        r = requests.get(
-            url='http://169.254.169.254',
-            headers={'X-aws-ec2-metadata-token': token},
-            timeout=2
-        )
-        if r.headers.get('Metadata-Flavor', '') == 'Google':
-            return PROVIDER_GOOGLE
-        else:
-            # accessible on Openstack, will fail on AWS
-            r = requests.get('http://169.254.169.254/openstack/latest/meta_data.json', timeout=2)
-            if r.ok:
-                # make sure the response is parsable - https://github.com/Azure/aad-pod-identity/issues/943 and
-                # https://github.com/zalando/spilo/issues/542
-                r.json()
-                return PROVIDER_OPENSTACK
+    logging.info("Figuring out my environment (Google? AWS? Openstack? Local?)")
+    for provider in (PROVIDER_GOOGLE, PROVIDER_OPENSTACK, PROVIDER_AWS):
+        if metadata_disabled(provider):
+            logging.info('Skipping %s metadata detection because it is disabled', provider)
+            continue
+        try:
+            if provider == PROVIDER_GOOGLE:
+                response = requests.get('http://169.254.169.254',
+                                        headers={'Metadata-Flavor': 'Google'}, timeout=2)
+                response.raise_for_status()
+                if response.headers.get('Metadata-Flavor') == 'Google':
+                    return provider
+            elif provider == PROVIDER_OPENSTACK:
+                response = requests.get('http://169.254.169.254/openstack/latest/meta_data.json', timeout=2)
+                response.raise_for_status()
+                if isinstance(response.json(), dict):
+                    return provider
+            else:
+                response = requests.put('http://169.254.169.254/latest/api/token',
+                                        headers={'X-aws-ec2-metadata-token-ttl-seconds': '60'}, timeout=2)
+                response.raise_for_status()
+                response = requests.get('http://169.254.169.254/latest/meta-data/ami-id',
+                                        headers={'X-aws-ec2-metadata-token': response.text}, timeout=2)
+                response.raise_for_status()
+                return provider
+        except (requests.exceptions.RequestException, MaxRetryError, JSONDecodeError) as e:
+            logging.info('Could not detect %s from instance metadata: %s', provider, e)
 
-            # is accessible from both AWS and Openstack, Possiblity of misidentification if previous try fails
-            r = requests.get(
-                url='http://169.254.169.254/latest/meta-data/ami-id',
-                headers={'X-aws-ec2-metadata-token': token},
-                timeout=2
-            )
-            return PROVIDER_AWS if r.ok else PROVIDER_UNSUPPORTED
-    except (requests.exceptions.ConnectTimeout, requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout):
-        logging.info("Could not connect to 169.254.169.254, assuming local Docker setup")
-        return PROVIDER_LOCAL
-    except JSONDecodeError:
-        logging.info("Could not parse response from 169.254.169.254, assuming local Docker setup")
-        return PROVIDER_LOCAL
+    logging.info('No cloud provider detected from metadata, assuming local Docker setup')
+    return PROVIDER_LOCAL
 
 
 def get_instance_metadata(provider):
@@ -458,6 +454,10 @@ def get_instance_metadata(provider):
     if USE_KUBERNETES:
         metadata['ip'] = os.environ.get('POD_IP', metadata['ip'])
 
+    if metadata_disabled(provider):
+        logging.info('Skipping %s instance metadata because it is disabled', provider)
+        return metadata
+
     headers = {}
     if provider == PROVIDER_GOOGLE:
         headers['Metadata-Flavor'] = 'Google'
@@ -466,6 +466,15 @@ def get_instance_metadata(provider):
         if not USE_KUBERNETES:
             mapping.update({'id': 'id'})
     elif provider == PROVIDER_AWS:
+        try:
+            response = requests.put(
+                'http://169.254.169.254/latest/api/token',
+                headers={'X-aws-ec2-metadata-token-ttl-seconds': '60'}, timeout=2)
+            response.raise_for_status()
+            headers['X-aws-ec2-metadata-token'] = response.text
+        except (requests.exceptions.RequestException, MaxRetryError) as e:
+            logging.warning('Could not fetch IMDS token, keeping default instance metadata: %s', e)
+            return metadata
         url = 'http://169.254.169.254/latest/meta-data'
         mapping = {'zone': 'placement/availability-zone'}
         if not USE_KUBERNETES:
@@ -473,21 +482,37 @@ def get_instance_metadata(provider):
     elif provider == PROVIDER_OPENSTACK:
         mapping = {}  # Disable multi-url fetch
         url = 'http://169.254.169.254/openstack/latest/meta_data.json'
-        openstack_metadata = requests.get(url, timeout=5).json()
-        metadata['zone'] = openstack_metadata['availability_zone']
+        try:
+            response = requests.get(url, timeout=5)
+            response.raise_for_status()
+            openstack_metadata = response.json()
+            if not isinstance(openstack_metadata, dict):
+                raise ValueError('Expected an OpenStack metadata object')
+        except (requests.exceptions.RequestException, MaxRetryError, ValueError) as e:
+            logging.warning('Could not fetch OpenStack metadata, keeping default instance metadata: %s', e)
+            return metadata
+        metadata['zone'] = openstack_metadata.get('availability_zone') or metadata['zone']
         if not USE_KUBERNETES:
             # Try get IP via OpenStack EC2-compatible API, if can't then fail back to auto-discovered one.
-            metadata['id'] = openstack_metadata['uuid']
+            metadata['id'] = openstack_metadata.get('uuid') or metadata['id']
             url = 'http://169.254.169.254/2009-04-04/meta-data'
-            r = requests.get(url)
-            if r.ok:
+            try:
+                response = requests.get(url, timeout=2)
+                response.raise_for_status()
                 mapping.update({'ip': 'local-ipv4', 'id': 'instance-id'})
+            except (requests.exceptions.RequestException, MaxRetryError) as e:
+                logging.warning('Could not fetch OpenStack EC2-compatible metadata, keeping discovered values: %s', e)
     else:
         logging.info("No meta-data available for this provider")
         return metadata
 
     for k, v in mapping.items():
-        metadata[k] = requests.get('{}/{}'.format(url, v or k), timeout=2, headers=headers).text
+        try:
+            response = requests.get('{}/{}'.format(url, v or k), timeout=2, headers=headers)
+            response.raise_for_status()
+            metadata[k] = response.text
+        except (requests.exceptions.RequestException, MaxRetryError) as e:
+            logging.warning('Could not fetch instance metadata for %s, keeping default value: %s', k, e)
 
     return metadata
 
@@ -788,14 +813,36 @@ def get_dcs_config(config, placeholders):
     return config
 
 
+def get_aws_region_from_bucket(bucket):
+    bucket_name = urlparse(bucket if '://' in bucket else 's3://' + bucket).hostname or ''
+    if not bucket_name:
+        return ''
+
+    try:
+        from botocore.session import get_session
+    except ImportError:
+        logging.warning('Could not load AWS region catalog to validate bucket region')
+        return ''
+
+    session = get_session()
+    regions = {region for partition in session.get_available_partitions()
+               for region in session.get_available_regions('s3', partition_name=partition)}
+    for region in sorted(regions, key=len, reverse=True):
+        if re.search(r'(?<![a-z0-9]){}(?![a-z0-9])'.format(re.escape(region)), bucket_name):
+            return region
+    return ''
+
+
 def write_log_environment(placeholders):
     log_env = defaultdict(lambda: '')
     log_env.update(placeholders)
 
-    aws_region = log_env.get('AWS_REGION')
+    aws_region = log_env.get('AWS_REGION') or log_env.get('AWS_DEFAULT_REGION')
     if not aws_region:
-        aws_region = placeholders['instance_data']['zone'][:-1]
-
+        aws_region = get_aws_region_from_bucket(log_env['LOG_S3_BUCKET'])
+        if not aws_region:
+            match = re.fullmatch(r'([a-z]{2}(?:-[a-z]+)+-\d+)[a-z]', placeholders['instance_data']['zone'])
+            aws_region = match.group(1) if match else ''
     log_env['LOG_AWS_REGION'] = aws_region
 
     log_s3_key = 'spilo/{LOG_BUCKET_SCOPE_PREFIX}{SCOPE}{LOG_BUCKET_SCOPE_SUFFIX}/log/'.format(**log_env)
@@ -828,7 +875,8 @@ def write_log_environment(placeholders):
         write_file(log_env['AWS_EC2_METADATA_SERVICE_ENDPOINT_MODE'],
                    os.path.join(log_env['LOG_ENV_DIR'], 'AWS_EC2_METADATA_SERVICE_ENDPOINT_MODE'), True)
     # when using AWS EKS IRSA additional variables need to be added to log env
-    for irsa_var in ('AWS_ROLE_ARN', 'AWS_WEB_IDENTITY_TOKEN_FILE', 'AWS_STS_REGIONAL_ENDPOINTS'):
+    for irsa_var in ('AWS_ROLE_ARN', 'AWS_WEB_IDENTITY_TOKEN_FILE', 'AWS_STS_REGIONAL_ENDPOINTS',
+                     'AWS_EC2_METADATA_DISABLED'):
         if log_env.get(irsa_var):
             write_file(log_env[irsa_var], os.path.join(log_env['LOG_ENV_DIR'], irsa_var), True)
 
@@ -845,7 +893,7 @@ def write_log_environment(placeholders):
 
 def write_walg_environment(placeholders, prefix, overwrite):
     s3_names = ['WALG_S3_PREFIX', 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY',
-                'WALG_S3_ENDPOINT', 'AWS_ENDPOINT', 'AWS_REGION', 'AWS_INSTANCE_PROFILE',
+                'WALG_S3_ENDPOINT', 'AWS_ENDPOINT', 'AWS_REGION',
                 'WALG_S3_SSE_KMS_ID', 'WALG_S3_SSE', 'WALG_DISABLE_S3_SSE', 'AWS_S3_FORCE_PATH_STYLE', 'AWS_ROLE_ARN',
                 'AWS_WEB_IDENTITY_TOKEN_FILE', 'AWS_STS_REGIONAL_ENDPOINTS']
     azure_names = ['WALG_AZ_PREFIX', 'AZURE_STORAGE_ACCOUNT',  'WALG_AZURE_BUFFER_SIZE', 'WALG_AZURE_MAX_BUFFERS',
@@ -866,7 +914,8 @@ def write_walg_environment(placeholders, prefix, overwrite):
                   'WALG_LIBSODIUM_KEY', 'WALG_LIBSODIUM_KEY_PATH', 'WALG_LIBSODIUM_KEY_TRANSFORM',
                   'WALG_PGP_KEY', 'WALG_PGP_KEY_PATH', 'WALG_PGP_KEY_PASSPHRASE',
                   'no_proxy', 'http_proxy', 'https_proxy']
-    aws_imds_names = ['AWS_EC2_METADATA_SERVICE_ENDPOINT', 'AWS_EC2_METADATA_SERVICE_ENDPOINT_MODE']
+    aws_imds_names = ['AWS_EC2_METADATA_SERVICE_ENDPOINT', 'AWS_EC2_METADATA_SERVICE_ENDPOINT_MODE',
+                      'AWS_EC2_METADATA_DISABLED']
 
     walg = defaultdict(lambda: '')
     for name in ['PGVERSION', 'PGPORT', 'WALG_ENV_DIR', 'SCOPE', 'WAL_BUCKET_SCOPE_PREFIX', 'WAL_BUCKET_SCOPE_SUFFIX',
@@ -878,7 +927,8 @@ def write_walg_environment(placeholders, prefix, overwrite):
     if walg.get('WAL_S3_BUCKET') or walg.get('WALG_S3_PREFIX'):
         walg_endpoint = walg.pop('WALG_S3_ENDPOINT', None)
         aws_endpoint = walg.pop('AWS_ENDPOINT', None)
-        aws_region = walg.pop('AWS_REGION', None)
+        aws_region = walg.pop('AWS_REGION', None) or placeholders.get('AWS_REGION') or \
+            placeholders.get('AWS_DEFAULT_REGION')
 
         # for S3-compatible storage we want to specify WALG_S3_ENDPOINT and AWS_ENDPOINT, but not AWS_REGION
         if aws_endpoint or walg_endpoint:
@@ -900,22 +950,14 @@ def write_walg_environment(placeholders, prefix, overwrite):
             if aws_region:
                 walg['AWS_REGION'] = aws_region
         elif not aws_region:
-            # try to determine region from the bucket name
-            bucket_or_prefix = walg.get('WAL_S3_BUCKET') or walg.get('WALG_S3_PREFIX') or ''
-            # extract bucket name only to avoid false matches on path segments (e.g. /wal/ suffix)
-            bucket_match = re.match(r'^(?:s3://)?([^/]+)', bucket_or_prefix)
-            name = bucket_match.group(1) if bucket_match else bucket_or_prefix
-            match = re.search(r'(\w{2}-\w+-\d)-', name)
-            if match:
-                aws_region = match.group(1)
-            else:
-                aws_region = placeholders['instance_data']['zone'][:-1]
+            bucket = walg.get('WAL_S3_BUCKET') or walg.get('WALG_S3_PREFIX') or ''
+            aws_region = get_aws_region_from_bucket(bucket)
+            if not aws_region:
+                match = re.fullmatch(r'([a-z]{2}(?:-[a-z]+)+-\d+)[a-z]', placeholders['instance_data']['zone'])
+                aws_region = match.group(1) if match else ''
             walg['AWS_REGION'] = aws_region
         else:
             walg['AWS_REGION'] = aws_region
-
-        if not (walg.get('AWS_SECRET_ACCESS_KEY') and walg.get('AWS_ACCESS_KEY_ID')):
-            walg['AWS_INSTANCE_PROFILE'] = 'true'
 
         if walg.get('WALG_DISABLE_S3_SSE') != 'true' and not walg.get('WALG_S3_SSE'):
             walg['WALG_S3_SSE'] = 'AES256'
@@ -926,7 +968,7 @@ def write_walg_environment(placeholders, prefix, overwrite):
                 walg[name] = placeholders.get(name)
 
         # fall back to bare IRSA vars if prefixed versions are not set
-        irsa_names = ['AWS_ROLE_ARN', 'AWS_WEB_IDENTITY_TOKEN_FILE', 'AWS_STS_REGIONAL_ENDPOINTS', 'AWS_REGION']
+        irsa_names = ['AWS_ROLE_ARN', 'AWS_WEB_IDENTITY_TOKEN_FILE', 'AWS_STS_REGIONAL_ENDPOINTS']
         for name in irsa_names:
             if not walg.get(name) and placeholders.get(name):
                 walg[name] = placeholders.get(name)
