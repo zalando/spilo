@@ -6,6 +6,7 @@ build_env: &BUILD_ENV
   PGVERSION: 18
   PGOLDVERSIONS: "16 17"
   MULTI_ARCH_REGISTRY: container-registry-test.zalando.net/acid
+  LIBDUCKDB_IMAGE: container-registry.zalando.net/acid/pg-shared-libs-libduckdb:main-2
 
 pipeline:
 - id: push-spilo-cdp-pr
@@ -18,7 +19,7 @@ pipeline:
   timeout: 10h
   vm_config:
     type: linux
-    size: large
+    size: extra_large
   commands:
   - desc: Tag and push spilo-cdp image without promotion
     cmd: |
@@ -34,6 +35,7 @@ pipeline:
                           --build-arg PGVERSION="$PGVERSION" \
                           --build-arg BASE_IMAGE="$BASE_IMAGE" \
                           --build-arg PGOLDVERSIONS="$PGOLDVERSIONS" \
+                          --build-arg LIBDUCKDB_IMAGE="$LIBDUCKDB_IMAGE" \
                           -t "$ECR_TEST_IMAGE" \
                           --push .
 
@@ -63,6 +65,7 @@ pipeline:
                           --build-arg PGVERSION="$PGVERSION" \
                           --build-arg BASE_IMAGE="$BASE_IMAGE" \
                           --build-arg PGOLDVERSIONS="$PGOLDVERSIONS" \
+                          --build-arg LIBDUCKDB_IMAGE="$LIBDUCKDB_IMAGE" \
                           -t "$ECR_TEST_IMAGE" \
                           --push .
       cdp-promote-image "$ECR_TEST_IMAGE"
@@ -94,6 +97,7 @@ pipeline:
                           --build-arg PGVERSION="$PGVERSION" \
                           --build-arg BASE_IMAGE="$BASE_IMAGE" \
                           --build-arg PGOLDVERSIONS="$PGOLDVERSIONS" \
+                          --build-arg LIBDUCKDB_IMAGE="$LIBDUCKDB_IMAGE" \
                           -t "$ECR_TEST_IMAGE" \
                           --push .
       cdp-promote-image "$ECR_TEST_IMAGE"
