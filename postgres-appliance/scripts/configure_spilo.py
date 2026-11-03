@@ -1153,6 +1153,21 @@ def write_pam_oauth2_configuration(placeholders, overwrite):
     write_file(pam_oauth2_config, '/etc/pam.d/postgresql', overwrite)
 
 
+def get_log_destination(value, version):
+    destinations = []
+    for name in value.split(','):
+        name = name.strip()
+        if name == 'jsonlog' and version < 15:
+            logging.warning('jsonlog is supported only starting from PostgreSQL 15, ignoring it')
+        elif name and name not in destinations:
+            destinations.append(name)
+    # csvlog files are used by the postgres_log foreign tables and log shipping to S3
+    if 'csvlog' not in destinations:
+        logging.warning('csvlog is required by Spilo, adding it to log_destination')
+        destinations.insert(0, 'csvlog')
+    return ','.join(destinations)
+
+
 def write_pgbouncer_configuration(placeholders, overwrite):
     pgbouncer_config = placeholders.get('PGBOUNCER_CONFIGURATION')
     if not pgbouncer_config:
@@ -1221,6 +1236,9 @@ def main():
     if 'extwlist.extensions' not in user_config.get('postgresql', {}).get('parameters', {}):
         config['postgresql']['parameters']['extwlist.extensions'] =\
                 append_extensions(config['postgresql']['parameters']['extwlist.extensions'], version, True)
+    if placeholders.get('LOG_DESTINATION'):
+        config['postgresql']['parameters']['log_destination'] =\
+                get_log_destination(placeholders['LOG_DESTINATION'], version)
 
     # Ensure replication is available
     if 'pg_hba' in config['bootstrap'] and not any(['replication' in i for i in config['bootstrap']['pg_hba']]):
