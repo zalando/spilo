@@ -7,7 +7,7 @@ source ../test_utils.sh
 TEST_CONTAINER_NAME='spilo-test'
 # pairs of (image, USE_OLD_LOCALES) which must produce the same collation order:
 # - Ubuntu 18.04 locales in the old (22.04-based) and in the new image
-# - default locales of the old (22.04-based) image and Ubuntu 22.04 locales in the new image
+# - default locales of the old (22.04-based) and of the new (26.04-based) image
 TEST_IMAGE=(
     'ghcr.io/zalando/spilo-18:4.1-p2'
     'spilo'
@@ -18,7 +18,7 @@ TEST_LOCALES=(
     'true'
     'true'
     'false'
-    '22'
+    'false'
 )
 
 function main() {
@@ -43,7 +43,7 @@ function main() {
     done
 
     diff -u output0.txt output1.txt > /dev/null || { echo "Outputs with Ubuntu 18.04 locales are different!"; exit 1; }
-    diff -u output2.txt output3.txt > /dev/null || { echo "Outputs with Ubuntu 22.04 locales are different!"; exit 1; }
+    diff -u output2.txt output3.txt > /dev/null || { echo "Outputs with default locales are different!"; exit 1; }
     rm -f output0.txt output1.txt output2.txt output3.txt
 }
 

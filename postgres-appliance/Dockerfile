@@ -14,15 +14,6 @@ COPY build_scripts/locales.sh /builddeps/
 RUN bash /builddeps/locales.sh
 
 
-FROM ubuntu:22.04 as ubuntu-22
-
-ARG ADDITIONAL_LOCALES
-
-COPY build_scripts/locales.sh /builddeps/
-
-RUN bash /builddeps/locales.sh
-
-
 FROM $BASE_IMAGE as dependencies-builder
 
 ARG DEMO
@@ -46,7 +37,6 @@ COPY build_scripts/prepare.sh build_scripts/locales.sh /builddeps/
 RUN bash /builddeps/prepare.sh
 
 COPY --from=ubuntu-18 /usr/lib/locale/locale-archive /usr/lib/locale/locale-archive.18
-COPY --from=ubuntu-22 /usr/lib/locale/locale-archive /usr/lib/locale/locale-archive.22
 
 COPY cron_unprivileged.c /builddeps/
 COPY build_scripts/base.sh /builddeps/
