@@ -14,6 +14,7 @@ Environment Configuration Settings
 - **BACKUP_SCHEDULE**: cron schedule for doing backups via WAL-G ('00 01 * * *' by default)
 - **CLONE_TARGET_TIMELINE**: timeline id of the backup for restore, 'latest' by default.
 - **CRONTAB**: anything that you want to run periodically as a cron job (empty by default)
+- **ENABLE_PGAUDITLOGTOFILE**: if set to ``true``, ``pgaudit`` and ``pgauditlogtofile`` are added to ``shared_preload_libraries``. ``CREATE EXTENSION pgaudit; CREATE EXTENSION pgauditlogtofile;`` still has to be executed in the ``postgres`` database. Default is empty.
 - **PGROOT**: a directory where we put the pgdata (by default /home/postgres/pgroot). One may adjust it to point to the mount point of the persistent volume, such as EBS.
 - **WALE_TMPDIR** or **WALG_TMPDIR**: directory to store WAL-G temporary files. PGROOT/../tmp by default, make sure it has a few GBs of free space.
 - **PGDATA**: location of PostgreSQL data directory, by default PGROOT/pgdata.
