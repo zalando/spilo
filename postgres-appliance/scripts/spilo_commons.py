@@ -34,6 +34,10 @@ def adjust_extensions(old, version, extwlist=False):
     return ','.join(ret)
 
 
+def is_library_installed(name, version):
+    return os.path.exists(os.path.join(LIB_DIR, '{0:g}'.format(version), 'lib', name + '.so'))
+
+
 def append_extensions(old, version, extwlist=False):
     extwlist = 3 if extwlist else 2
     ret = []
@@ -41,6 +45,9 @@ def append_extensions(old, version, extwlist=False):
     def maybe_append(name):
         value = extensions.get(name)
         if name not in ret and (value is None or value[0] <= version <= value[1] and value[extwlist]):
+            # some extensions (e.g. timescaledb) are not packaged for all major versions
+            if value and extwlist == 2 and not is_library_installed(name, version):
+                return logger.warning('%s is not installed for PostgreSQL %s, skipping it', name, version)
             ret.append(name)
 
     for name in old.split(','):

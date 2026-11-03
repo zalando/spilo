@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=ubuntu:22.04
+ARG BASE_IMAGE=ubuntu:26.04
 ARG PGVERSION=18
 ARG DEMO=false
 ARG COMPRESS=false
@@ -6,6 +6,15 @@ ARG ADDITIONAL_LOCALES=
 
 
 FROM ubuntu:18.04 as ubuntu-18
+
+ARG ADDITIONAL_LOCALES
+
+COPY build_scripts/locales.sh /builddeps/
+
+RUN bash /builddeps/locales.sh
+
+
+FROM ubuntu:22.04 as ubuntu-22
 
 ARG ADDITIONAL_LOCALES
 
@@ -37,6 +46,7 @@ COPY build_scripts/prepare.sh build_scripts/locales.sh /builddeps/
 RUN bash /builddeps/prepare.sh
 
 COPY --from=ubuntu-18 /usr/lib/locale/locale-archive /usr/lib/locale/locale-archive.18
+COPY --from=ubuntu-22 /usr/lib/locale/locale-archive /usr/lib/locale/locale-archive.22
 
 COPY cron_unprivileged.c /builddeps/
 COPY build_scripts/base.sh /builddeps/

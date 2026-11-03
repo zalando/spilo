@@ -28,7 +28,7 @@ else
                     libc-ares-dev
                     pandoc
                     pkg-config)
-    apt-get install -y "${BUILD_PACKAGES[@]}" libcurl4
+    apt-get install -y "${BUILD_PACKAGES[@]}" libcurl4t64
 
     # install pam_oauth2.so
     git clone -b "$PAM_OAUTH2" --recurse-submodules https://github.com/zalando-pg/pam-oauth2.git
@@ -62,7 +62,7 @@ apt-get install -y \
     libevent-pthreads-2.1 \
     brotli \
     libbrotli1 \
-    python3.10 \
+    python3 \
     python3-psycopg2
 
 # forbid creation of a main cluster when package is installed
@@ -97,10 +97,14 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
                 "postgresql-${version}-roaringbitmap"
                 "postgresql-${version}-pgfaceting")
 
-        if [ "$version" != "18" ]; then
-            EXTRAS+=("postgresql-${version}-pgl-ddl-deploy"
-                    "postgresql-${version}-pglogical-ticker")
-        fi
+        # not packaged for all PostgreSQL versions and distributions
+        for p in "postgresql-${version}-pgl-ddl-deploy" "postgresql-${version}-pglogical-ticker"; do
+            if apt-cache show "$p" > /dev/null 2>&1; then
+                EXTRAS+=("$p")
+            else
+                echo "Skipping $p as it's not found in the repository"
+            fi
+        done
 
         if [ "$WITH_PERL" = "true" ]; then
             EXTRAS+=("postgresql-plperl-${version}")
@@ -109,9 +113,15 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
     fi
 
     if [ "${TIMESCALEDB_APACHE_ONLY}" = "true" ]; then
-        EXTRAS+=("timescaledb-2-oss-postgresql-${version}")
+        timescaledb="timescaledb-2-oss-postgresql-${version}"
     else
-        EXTRAS+=("timescaledb-2-postgresql-${version}")
+        timescaledb="timescaledb-2-postgresql-${version}"
+    fi
+    # timescaledb is not packaged for old PostgreSQL versions on new distributions
+    if apt-cache show "$timescaledb" > /dev/null 2>&1; then
+        EXTRAS+=("$timescaledb")
+    else
+        echo "Skipping $timescaledb as it's not found in the repository"
     fi
 
     # Install PostgreSQL binaries, contrib, plproxy and multiple pl's
@@ -194,7 +204,7 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
     done
 done
 
-apt-get install -y skytools3-ticker pgbouncer
+apt-get install -y pgqd pgbouncer
 
 sed -i "s/ main.*$/ main/g" /etc/apt/sources.list.d/pgdg.list
 apt-get update
