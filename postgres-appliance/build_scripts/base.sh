@@ -21,6 +21,8 @@ if [ "$DEMO" = "true" ]; then
     apt-get install -y "${BUILD_PACKAGES[@]}"
 else
     BUILD_PACKAGES+=(zlib1g-dev
+                    liblz4-dev
+                    libzstd-dev
                     libprotobuf-c-dev
                     libpam0g-dev
                     libcurl4-openssl-dev
@@ -37,6 +39,7 @@ else
     # prepare 3rd sources
     git clone -b "$PLPROFILER" https://github.com/bigsql/plprofiler.git
     git clone -b "$PG_TEXTSEARCH" https://github.com/timescale/pg_textsearch.git
+    git clone -b "$PGAUDITLOGTOFILE" https://github.com/fmbiete/pgauditlogtofile.git
     curl -sL "https://github.com/zalando-pg/pg_mon/archive/$PG_MON_COMMIT.tar.gz" | tar xz
 
     for p in python3-keyring python3-docutils ieee-data; do
@@ -179,7 +182,7 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
 
     EXTRA_EXTENSIONS=()
     if [ "$DEMO" != "true" ]; then
-        EXTRA_EXTENSIONS+=("plprofiler" "pg_mon-${PG_MON_COMMIT}")
+        EXTRA_EXTENSIONS+=("plprofiler" "pg_mon-${PG_MON_COMMIT}" "pgauditlogtofile")
         if [ "$version" -ge 17 ]; then
             EXTRA_EXTENSIONS+=("pg_textsearch")
         fi

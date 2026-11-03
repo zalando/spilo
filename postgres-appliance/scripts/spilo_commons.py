@@ -23,6 +23,11 @@ if os.environ.get('ENABLE_PG_MON') == 'true':
 if os.environ.get('ENABLE_PG_TEXTSEARCH') == 'true':
     extensions['pg_textsearch'] = (17, 18, True, True)
 
+# pgauditlogtofile must be loaded after pgaudit
+if os.environ.get('ENABLE_PGAUDITLOGTOFILE') == 'true':
+    extensions['pgaudit'] = (14, 18, True, False)
+    extensions['pgauditlogtofile'] = (14, 18, True, False)
+
 
 def adjust_extensions(old, version, extwlist=False):
     ret = []
