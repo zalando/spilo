@@ -21,6 +21,8 @@ if [ "$DEMO" = "true" ]; then
     apt-get install -y "${BUILD_PACKAGES[@]}"
 else
     BUILD_PACKAGES+=(zlib1g-dev
+                    liblz4-dev
+                    libzstd-dev
                     libprotobuf-c-dev
                     libpam0g-dev
                     libcurl4-openssl-dev
