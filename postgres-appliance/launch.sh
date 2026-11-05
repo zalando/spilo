@@ -21,7 +21,7 @@ sysctl -w vm.dirty_bytes=134217728 > /dev/null 2>&1
 if [ "$USE_OLD_LOCALES" = "true" ]; then
     ln -snf /usr/lib/locale/locale-archive.18 /run/locale-archive
 else
-    ln -snf /usr/lib/locale/locale-archive.22 /run/locale-archive
+    ln -snf /usr/lib/locale/locale-archive.26 /run/locale-archive
 fi
 
 mkdir -p "$PGLOG" "$PGDATA" "$RW_DIR/postgresql" "$RW_DIR/tmp" "$RW_DIR/certs"

@@ -28,10 +28,11 @@ apt-get install -y curl ca-certificates
 
 mkdir /builddeps/wal-g
 
+# there are no wal-g builds for 26.04 yet, the 24.04 ones work fine
 if [ "$ARCH" = "amd64" ]; then
-    PKG_NAME='wal-g-pg-22.04-amd64'
+    PKG_NAME='wal-g-pg-24.04-amd64'
 else
-    PKG_NAME='wal-g-pg-22.04-aarch64'
+    PKG_NAME='wal-g-pg-24.04-aarch64'
 fi
 
 curl -sL "https://github.com/wal-g/wal-g/releases/download/$WALG_VERSION/$PKG_NAME.tar.gz" \

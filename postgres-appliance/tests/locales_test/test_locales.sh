@@ -5,19 +5,30 @@ cd "$(dirname "${BASH_SOURCE[0]}")" || exit 1
 source ../test_utils.sh
 
 TEST_CONTAINER_NAME='spilo-test'
+# pairs of (image, USE_OLD_LOCALES) which must produce the same collation order:
+# - Ubuntu 18.04 locales in the old (22.04-based) and in the new image
+# - default locales of the old (22.04-based) and of the new (26.04-based) image
 TEST_IMAGE=(
     'ghcr.io/zalando/spilo-18:4.1-p2'
     'spilo'
+    'ghcr.io/zalando/spilo-18:4.1-p2'
+    'spilo'
+)
+TEST_LOCALES=(
+    'true'
+    'true'
+    'false'
+    'false'
 )
 
 function main() {
-    for i in 0 1; do
+    for i in 0 1 2 3; do
         rm_container "$TEST_CONTAINER_NAME"
         docker run --rm -d --privileged \
                 --name "$TEST_CONTAINER_NAME" \
                 -v "$PWD":/home/postgres/tests \
-                -e SPILO_PROVIDER=local -e USE_OLD_LOCALES=true \
-                "${TEST_IMAGE[$i]}"  #USE_OLD_LOCALES takes no effect for cdp-14
+                -e SPILO_PROVIDER=local -e USE_OLD_LOCALES="${TEST_LOCALES[$i]}" \
+                "${TEST_IMAGE[$i]}"
         attempts=0
         while ! docker exec -i spilo-test su postgres -c "pg_isready"; do
             if [[ "$attempts" -ge 15 ]]; then
@@ -31,8 +42,9 @@ function main() {
         docker exec "$TEST_CONTAINER_NAME" mv "/home/postgres/output${i}.txt" "/home/postgres/tests"
     done
 
-    diff -u output0.txt output1.txt > /dev/null || (echo "Outputs are different!" && exit 1)
-    rm -f output0.txt output1.txt
+    diff -u output0.txt output1.txt > /dev/null || { echo "Outputs with Ubuntu 18.04 locales are different!"; exit 1; }
+    diff -u output2.txt output3.txt > /dev/null || { echo "Outputs with default locales are different!"; exit 1; }
+    rm -f output0.txt output1.txt output2.txt output3.txt
 }
 
 trap 'rm_container $TEST_CONTAINER_NAME' QUIT TERM EXIT
