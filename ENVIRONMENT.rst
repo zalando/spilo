@@ -31,6 +31,7 @@ Environment Configuration Settings
 - **PGPORT**: port PostgreSQL listens to for client connections, 5432 by default
 - **PGVERSION**: Specifies the version of postgreSQL to reference in the bin_dir variable (/usr/lib/postgresql/PGVERSION/bin) if postgresql.bin_dir wasn't set in SPILO_CONFIGURATION
 - **SCOPE**: cluster name, multiple Spilos belonging to the same cluster must have identical scope.
+- **PATRONI_TAGS**: a JSON object with Patroni `tags <https://patroni.readthedocs.io/en/latest/yaml_configuration.html#tags>`__ of the instance, e.g. ``{"nofailover": false, "failover_priority": 1, "nosync": false, "datacenter": "dc1"}``. Custom tags are shown in the ``Tags`` column of ``patronictl list``. Values from ``PATRONI_TAGS`` take precedence over tags from ``SPILO_CONFIGURATION``. Default is empty.
 - **SSL_CA_FILE**: path to the SSL CA certificate file inside the container (by default: '')
 - **SSL_CRL_FILE**: path to the SSL Certificate Revocation List file inside the container (by default: '')
 - **SSL_CERTIFICATE_FILE**: path to the SSL certificate file inside the container (by default /run/certs/server.crt), Spilo will generate one if not present.
