@@ -267,6 +267,10 @@ bootstrap:
         - createdb
   {{/USE_ADMIN}}
 scope: &scope '{{SCOPE}}'
+{{#DATACENTER}}
+tags:
+  datacenter: '{{DATACENTER}}'
+{{/DATACENTER}}
 restapi:
   listen: ':{{APIPORT}}'
   connect_address: '{{RESTAPI_CONNECT_ADDRESS}}'
@@ -587,6 +591,7 @@ def get_placeholders(provider):
     placeholders.setdefault('BGMON_LISTEN_IP', '0.0.0.0')
     placeholders.setdefault('PGPORT', '5432')
     placeholders.setdefault('SCOPE', 'dummy')
+    placeholders.setdefault('DATACENTER', '')
     placeholders.setdefault('RW_DIR', RW_DIR)
     placeholders.setdefault('SSL_TEST_RELOAD', 'SSL_PRIVATE_KEY_FILE' in os.environ)
     placeholders.setdefault('SSL_CA_FILE', '')
