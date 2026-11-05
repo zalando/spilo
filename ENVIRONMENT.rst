@@ -67,6 +67,7 @@ Environment Configuration Settings
   Provider-specific flags do not suppress probes for other providers. Failed metadata requests are logged and retain fallback values.
 - **AWS_ENDPOINT**: (optional) in format 'https://s3.AWS_REGION.amazonaws.com:443', if not specified will be calculated from AWS_REGION
 - **AWS_ROLE_ARN**, **AWS_WEB_IDENTITY_TOKEN_FILE**, **AWS_STS_REGIONAL_ENDPOINTS** (optional) `AWS EKS IRSA <https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html>`__ auth configuration for log file shipping and `wal-g` to access S3. Usually these variables are automatically set by the AWS EKS.
+- **AWS_CONTAINER_CREDENTIALS_FULL_URI**, **AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE** (optional) `AWS EKS Pod Identity <https://docs.aws.amazon.com/eks/latest/userguide/pod-identities.html>`__ auth configuration for log file shipping and `wal-g` to access S3, also used for the clone and standby sources when the ``CLONE_`` / ``STANDBY_`` prefixed versions are not set. Usually these variables are automatically set by the AWS EKS.
 - **WALG_S3_ENDPOINT** or **WALE_S3_ENDPOINT**: (optional) in format 'https+path://s3.AWS_REGION.amazonaws.com:443', if not specified will be calculated from AWS_ENDPOINT or AWS_REGION
 - **WALG_S3_PREFIX** or **WALE_S3_PREFIX**: (optional) the full path to the backup location on S3 in the format s3://bucket-name/very/long/path. If not specified Spilo will generate it from WAL_S3_BUCKET.
 - **WAL_GS_BUCKET**: ditto for the Google Cloud Storage (WAL-G supports both S3 and GCS).
