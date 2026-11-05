@@ -37,6 +37,8 @@ KUBERNETES_DEFAULT_LABELS = '{"application": "spilo"}'
 PATRONI_DCS = ('kubernetes', 'zookeeper', 'exhibitor', 'consul', 'etcd3', 'etcd')
 AUTO_ENABLE_WALG_RESTORE = ('WAL_S3_BUCKET', 'WALG_S3_PREFIX', 'WALG_AZ_PREFIX', 'WALG_SSH_PREFIX')
 WALG_SSH_NAMES = ['WALG_SSH_PREFIX', 'SSH_PRIVATE_KEY_PATH', 'SSH_USERNAME', 'SSH_PORT']
+# set by the EKS Pod Identity webhook
+AWS_POD_IDENTITY_NAMES = ('AWS_CONTAINER_CREDENTIALS_FULL_URI', 'AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE')
 
 
 def parse_args():
@@ -874,9 +876,9 @@ def write_log_environment(placeholders):
     if log_env.get('AWS_EC2_METADATA_SERVICE_ENDPOINT_MODE'):
         write_file(log_env['AWS_EC2_METADATA_SERVICE_ENDPOINT_MODE'],
                    os.path.join(log_env['LOG_ENV_DIR'], 'AWS_EC2_METADATA_SERVICE_ENDPOINT_MODE'), True)
-    # when using AWS EKS IRSA additional variables need to be added to log env
+    # when using AWS EKS IRSA or EKS Pod Identity additional variables need to be added to log env
     for irsa_var in ('AWS_ROLE_ARN', 'AWS_WEB_IDENTITY_TOKEN_FILE', 'AWS_STS_REGIONAL_ENDPOINTS',
-                     'AWS_EC2_METADATA_DISABLED'):
+                     'AWS_EC2_METADATA_DISABLED') + AWS_POD_IDENTITY_NAMES:
         if log_env.get(irsa_var):
             write_file(log_env[irsa_var], os.path.join(log_env['LOG_ENV_DIR'], irsa_var), True)
 
@@ -895,7 +897,7 @@ def write_walg_environment(placeholders, prefix, overwrite):
     s3_names = ['WALG_S3_PREFIX', 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY',
                 'WALG_S3_ENDPOINT', 'AWS_ENDPOINT', 'AWS_REGION',
                 'WALG_S3_SSE_KMS_ID', 'WALG_S3_SSE', 'WALG_DISABLE_S3_SSE', 'AWS_S3_FORCE_PATH_STYLE', 'AWS_ROLE_ARN',
-                'AWS_WEB_IDENTITY_TOKEN_FILE', 'AWS_STS_REGIONAL_ENDPOINTS']
+                'AWS_WEB_IDENTITY_TOKEN_FILE', 'AWS_STS_REGIONAL_ENDPOINTS'] + list(AWS_POD_IDENTITY_NAMES)
     azure_names = ['WALG_AZ_PREFIX', 'AZURE_STORAGE_ACCOUNT',  'WALG_AZURE_BUFFER_SIZE', 'WALG_AZURE_MAX_BUFFERS',
                    'AZURE_ENVIRONMENT_NAME']
     azure_auth_names = ['AZURE_STORAGE_ACCESS_KEY', 'AZURE_STORAGE_SAS_TOKEN', 'AZURE_CLIENT_ID',
@@ -967,8 +969,9 @@ def write_walg_environment(placeholders, prefix, overwrite):
             if placeholders.get(name):
                 walg[name] = placeholders.get(name)
 
-        # fall back to bare IRSA vars if prefixed versions are not set
-        irsa_names = ['AWS_ROLE_ARN', 'AWS_WEB_IDENTITY_TOKEN_FILE', 'AWS_STS_REGIONAL_ENDPOINTS']
+        # fall back to bare IRSA / EKS Pod Identity vars if prefixed versions are not set
+        irsa_names = ['AWS_ROLE_ARN', 'AWS_WEB_IDENTITY_TOKEN_FILE', 'AWS_STS_REGIONAL_ENDPOINTS'] + \
+            list(AWS_POD_IDENTITY_NAMES)
         for name in irsa_names:
             if not walg.get(name) and placeholders.get(name):
                 walg[name] = placeholders.get(name)
