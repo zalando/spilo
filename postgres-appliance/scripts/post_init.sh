@@ -127,8 +127,7 @@ DROP SERVER IF EXISTS pglog CASCADE;
 
 CREATE EXTENSION IF NOT EXISTS log_fdw SCHEMA public;
 ALTER EXTENSION log_fdw UPDATE;
-CREATE SERVER pglog FOREIGN DATA WRAPPER log_fdw;
-GRANT USAGE ON FOREIGN SERVER pglog TO admin, robot_zmon;"
+CREATE SERVER pglog FOREIGN DATA WRAPPER log_fdw;"
 
 echo "SET search_path TO public, pg_catalog;"
 
