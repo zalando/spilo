@@ -107,26 +107,10 @@ REVOKE USAGE ON SCHEMA cron FROM admin;
 GRANT USAGE ON SCHEMA cron TO cron_admin;
 
 -- Remove objects from the legacy file_fdw log setup before creating log_fdw replacements.
-DO \$\$DECLARE tbl_name TEXT;
-    BEGIN
-    FOR tbl_name IN SELECT relname FROM pg_class
-                    WHERE relname ~ '^postgres_log_[0-7](_(0[0-9]|1[0-9]|2[0-3]))?$'
-                      AND relnamespace = 'public'::pg_catalog.regnamespace AND relkind = 'f'
-    LOOP
-        EXECUTE format('DROP FOREIGN TABLE IF EXISTS public.%I CASCADE', tbl_name);
-    END LOOP;
-    FOR tbl_name IN SELECT relname FROM pg_class
-                    WHERE relname ~ '^(postgres_log|failed_authentication)_[0-7](_(0[0-9]|1[0-9]|2[0-3]))?$'
-                      AND relnamespace = 'public'::pg_catalog.regnamespace AND relkind = 'v'
-    LOOP
-        EXECUTE format('DROP VIEW IF EXISTS public.%I CASCADE', tbl_name);
-    END LOOP;
-    DROP TABLE IF EXISTS public.postgres_log CASCADE;
-END;\$\$;
-CREATE EXTENSION IF NOT EXISTS log_fdw SCHEMA public;
-ALTER EXTENSION log_fdw UPDATE;
 DO \$\$
 DECLARE
+    tbl_name TEXT;
+    tbl_kind TEXT;
     server_fdw name;
 BEGIN
     SELECT w.fdwname INTO server_fdw
@@ -134,13 +118,35 @@ BEGIN
       JOIN pg_catalog.pg_foreign_data_wrapper w ON w.oid = s.srvfdw
      WHERE s.srvname = 'pglog';
 
-    IF NOT FOUND THEN
-        CREATE SERVER pglog FOREIGN DATA WRAPPER log_fdw;
-    ELSIF server_fdw <> 'log_fdw' THEN
-        DROP SERVER pglog CASCADE;
-        CREATE SERVER pglog FOREIGN DATA WRAPPER log_fdw;
+    IF NOT FOUND OR server_fdw <> 'log_fdw' THEN
+        FOR tbl_name IN SELECT relname FROM pg_class
+                        WHERE relname ~ '^postgres_log_[0-7](_(0[0-9]|1[0-9]|2[0-3]))?$'
+                          AND relnamespace = 'public'::pg_catalog.regnamespace AND relkind = 'f'
+        LOOP
+            EXECUTE format('DROP FOREIGN TABLE IF EXISTS public.%I CASCADE', tbl_name);
+        END LOOP;
+        FOR tbl_name IN SELECT relname FROM pg_class
+                        WHERE relname ~ '^(postgres_log|failed_authentication)_[0-7](_(0[0-9]|1[0-9]|2[0-3]))?$'
+                          AND relnamespace = 'public'::pg_catalog.regnamespace AND relkind = 'v'
+        LOOP
+            EXECUTE format('DROP VIEW IF EXISTS public.%I CASCADE', tbl_name);
+        END LOOP;
+        SELECT relkind::text INTO tbl_kind
+          FROM pg_class
+         WHERE oid = to_regclass('public.postgres_log');
+        IF tbl_kind = 'v' THEN
+            DROP VIEW public.postgres_log CASCADE;
+        ELSIF tbl_kind IN ('r', 'p') THEN
+            DROP TABLE public.postgres_log CASCADE;
+        END IF;
+        IF server_fdw IS NOT NULL THEN
+            DROP SERVER pglog CASCADE;
+        END IF;
     END IF;
-END;\$\$;"
+END;\$\$;
+CREATE EXTENSION IF NOT EXISTS log_fdw SCHEMA public;
+ALTER EXTENSION log_fdw UPDATE;
+CREATE SERVER IF NOT EXISTS pglog FOREIGN DATA WRAPPER log_fdw;"
 
 echo "SET search_path TO public, pg_catalog;"
 
