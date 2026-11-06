@@ -89,6 +89,7 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
                 "postgresql-${version}-postgis-${POSTGIS_VERSION%.*}"
                 "postgresql-${version}-postgis-${POSTGIS_VERSION%.*}-scripts"
                 "postgresql-${version}-repack"
+                "postgresql-${version}-wal2json"
                 "postgresql-${version}-pgvector"
                 "postgresql-${version}-roaringbitmap"
                 "postgresql-${version}-pgfaceting")
@@ -102,7 +103,6 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
             EXTRAS+=("postgresql-${version}-first-last-agg"
                     "postgresql-${version}-pldebugger"
                     "postgresql-${version}-pgq-node"
-                    "postgresql-${version}-wal2json"
                     "postgresql-${version}-decoderbufs"
                     "postgresql-${version}-pllua")
         fi
