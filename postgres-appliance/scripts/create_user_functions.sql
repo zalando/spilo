@@ -42,7 +42,28 @@ REVOKE ALL ON FUNCTION create_application_user(text) FROM public;
 GRANT EXECUTE ON FUNCTION create_application_user(text) TO admin;
 
 COMMENT ON FUNCTION create_application_user(text) IS 'Creates a user that can login, sets the password to a strong random one,
-which is then returned';
+which is then returned.';
+
+
+CREATE OR REPLACE FUNCTION alter_application_user_password(username text)
+ RETURNS text
+ LANGUAGE plpgsql
+AS $function$
+DECLARE
+    pw text;
+BEGIN
+    SELECT user_management.random_password(20) INTO pw;
+    EXECUTE format($$ ALTER ROLE %I WITH PASSWORD %L $$, username, pw);
+    RETURN pw;
+END
+$function$
+SECURITY DEFINER SET search_path to 'pg_catalog';
+
+REVOKE ALL ON FUNCTION alter_application_user_password(text) FROM public;
+GRANT EXECUTE ON FUNCTION alter_application_user_password(text) TO admin;
+
+COMMENT ON FUNCTION alter_application_user_password(text) IS 'Sets the password of an existing user to a strong random one,
+which is then returned.';
 
 
 

@@ -54,8 +54,19 @@ Environment Configuration Settings
 - **WAL_S3_BUCKET**: (optional) name of the S3 bucket used for WAL-G base backups.
 - **AWS_ACCESS_KEY_ID**: (optional) aws access key
 - **AWS_SECRET_ACCESS_KEY**: (optional) aws secret key
-- **AWS_REGION**: (optional) region of S3 bucket
+- **AWS_REGION**, **AWS_DEFAULT_REGION**: (optional) region of the S3 bucket; AWS_REGION takes precedence.
+  For cloning and standby backups, CLONE_AWS_REGION and STANDBY_AWS_REGION override the unprefixed values.
+  Explicit regions take precedence over bucket-name and availability-zone inference. Set a region explicitly
+  when instance metadata is unavailable; Spilo does not derive a region from its local metadata fallback.
+- **SPILO_PROVIDER**: (optional) explicitly select aws, google, openstack, or local instead of probing metadata.
+- **AWS_EC2_METADATA_DISABLED**: set to true to skip AWS instance metadata requests and disable AWS SDK
+  metadata fallback. This does not identify the provider; set SPILO_PROVIDER explicitly
+  if needed. This setting is propagated to WAL-G and log-shipping environments.
+- **NO_GCE_CHECK**: set to true to skip Google Cloud metadata detection and Spilo's Google instance
+  metadata requests. This flag is used by Google's authentication library for GCE detection.
+  Provider-specific flags do not suppress probes for other providers. Failed metadata requests are logged and retain fallback values.
 - **AWS_ENDPOINT**: (optional) in format 'https://s3.AWS_REGION.amazonaws.com:443', if not specified will be calculated from AWS_REGION
+- **AWS_ROLE_ARN**, **AWS_WEB_IDENTITY_TOKEN_FILE**, **AWS_STS_REGIONAL_ENDPOINTS** (optional) `AWS EKS IRSA <https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html>`__ auth configuration for log file shipping and `wal-g` to access S3. Usually these variables are automatically set by the AWS EKS.
 - **WALG_S3_ENDPOINT** or **WALE_S3_ENDPOINT**: (optional) in format 'https+path://s3.AWS_REGION.amazonaws.com:443', if not specified will be calculated from AWS_ENDPOINT or AWS_REGION
 - **WALG_S3_PREFIX** or **WALE_S3_PREFIX**: (optional) the full path to the backup location on S3 in the format s3://bucket-name/very/long/path. If not specified Spilo will generate it from WAL_S3_BUCKET.
 - **WAL_GS_BUCKET**: ditto for the Google Cloud Storage (WAL-G supports both S3 and GCS).
@@ -125,7 +136,6 @@ However, if both **WALE** and **WALG** variables are present, the latter will ta
 - **WALG_SSH_PREFIX**: (optional) the ssh prefix to store WAL backups at in the format ssh://host.example.com/path/to/backups/ See `Wal-g <https://github.com/wal-g/wal-g#configuration>`__ documentation for details.
 - **WALG_LIBSODIUM_KEY**, **WALG_LIBSODIUM_KEY_PATH**, **WALG_LIBSODIUM_KEY_TRANSFORM**, **WALG_PGP_KEY**, **WALG_PGP_KEY_PATH**, **WALG_PGP_KEY_PASSPHRASE** (optional) wal-g encryption properties (see [wal-g encryption](https://github.com/wal-g/wal-g#encryption))
 - **http_proxy**, **https_proxy**, **no_proxy** (optional) HTTP(S) proxy configuration for `wal-g` to access S3. While http_proxy and https_proxy take a proxy URL, no_proxy takes a comma separated list of exceptions. Both are following a de-facto standard, see the [`wget`](https://www.gnu.org/software/wget/manual/html_node/Proxies.html) documentation.
-- **AWS_ROLE_ARN**, **AWS_WEB_IDENTITY_TOKEN_FILE**, **AWS_STS_REGIONAL_ENDPOINTS** (optional) `AWS EKS IRSA <https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html>`__ auth configuration for `wal-g` to access S3. Usually these variables are automatically set by the AWS EKS. Only `wal-g` supports AWS EKS IRSA feature.
 
 Azure Specific WAL-G Configuration
 `````

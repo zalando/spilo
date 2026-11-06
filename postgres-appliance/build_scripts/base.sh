@@ -68,6 +68,8 @@ apt-get install -y \
 # forbid creation of a main cluster when package is installed
 sed -ri 's/#(create_main_cluster) .*$/\1 = false/' /etc/postgresql-common/createcluster.conf
 
+git clone -b "$LOG_FDW_VERSION" https://github.com/aws/postgresql-logfdw.git
+
 for version in $DEB_PG_SUPPORTED_VERSIONS; do
     sed -i "s/ main.*$/ main $version/g" /etc/apt/sources.list.d/pgdg.list
     apt-get update
@@ -204,6 +206,9 @@ for version in $DEB_PG_SUPPORTED_VERSIONS; do
         PATH="/usr/lib/postgresql/$version/bin:$PATH" make -C "$n" USE_PGXS=1 clean
         PATH="/usr/lib/postgresql/$version/bin:$PATH" make -C "$n" USE_PGXS=1 install-strip
     done
+
+    PATH="/usr/lib/postgresql/$version/bin:$PATH" make -C postgresql-logfdw USE_PGXS=1 clean
+    PATH="/usr/lib/postgresql/$version/bin:$PATH" make -C postgresql-logfdw USE_PGXS=1 install-strip
 done
 
 apt-get install -y skytools3-ticker pgbouncer

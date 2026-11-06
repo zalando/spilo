@@ -106,45 +106,49 @@ GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA cron TO cron_admin;
 REVOKE USAGE ON SCHEMA cron FROM admin;
 GRANT USAGE ON SCHEMA cron TO cron_admin;
 
-CREATE EXTENSION IF NOT EXISTS file_fdw SCHEMA public;
+-- Remove objects from the legacy file_fdw log setup before creating log_fdw replacements.
 DO \$\$
+DECLARE
+    tbl_name TEXT;
+    tbl_kind TEXT;
+    server_fdw name;
 BEGIN
-    PERFORM * FROM pg_catalog.pg_foreign_server WHERE srvname = 'pglog';
-    IF NOT FOUND THEN
-        CREATE SERVER pglog FOREIGN DATA WRAPPER file_fdw;
+    SELECT w.fdwname INTO server_fdw
+      FROM pg_catalog.pg_foreign_server s
+      JOIN pg_catalog.pg_foreign_data_wrapper w ON w.oid = s.srvfdw
+     WHERE s.srvname = 'pglog';
+
+    IF NOT FOUND OR server_fdw <> 'log_fdw' THEN
+        FOR tbl_name IN SELECT relname FROM pg_class
+                        WHERE relname ~ '^postgres_log_[0-7](_(0[0-9]|1[0-9]|2[0-3]))?$'
+                          AND relnamespace = 'public'::pg_catalog.regnamespace AND relkind = 'f'
+        LOOP
+            EXECUTE format('DROP FOREIGN TABLE IF EXISTS public.%I CASCADE', tbl_name);
+        END LOOP;
+        FOR tbl_name IN SELECT relname FROM pg_class
+                        WHERE relname ~ '^(postgres_log|failed_authentication)_[0-7](_(0[0-9]|1[0-9]|2[0-3]))?$'
+                          AND relnamespace = 'public'::pg_catalog.regnamespace AND relkind = 'v'
+        LOOP
+            EXECUTE format('DROP VIEW IF EXISTS public.%I CASCADE', tbl_name);
+        END LOOP;
+        SELECT relkind::text INTO tbl_kind
+          FROM pg_class
+         WHERE oid = to_regclass('public.postgres_log');
+        IF tbl_kind = 'v' THEN
+            DROP VIEW public.postgres_log CASCADE;
+        ELSIF tbl_kind IN ('r', 'p') THEN
+            DROP TABLE public.postgres_log CASCADE;
+        END IF;
+        IF server_fdw IS NOT NULL THEN
+            DROP SERVER pglog CASCADE;
+        END IF;
     END IF;
 END;\$\$;
+CREATE EXTENSION IF NOT EXISTS log_fdw SCHEMA public;
+ALTER EXTENSION log_fdw UPDATE;
+CREATE SERVER IF NOT EXISTS pglog FOREIGN DATA WRAPPER log_fdw;"
 
-CREATE TABLE IF NOT EXISTS public.postgres_log (
-    log_time timestamp(3) with time zone,
-    user_name text,
-    database_name text,
-    process_id integer,
-    connection_from text,
-    session_id text NOT NULL,
-    session_line_num bigint NOT NULL,
-    command_tag text,
-    session_start_time timestamp with time zone,
-    virtual_transaction_id text,
-    transaction_id bigint,
-    error_severity text,
-    sql_state_code text,
-    message text,
-    detail text,
-    hint text,
-    internal_query text,
-    internal_query_pos integer,
-    context text,
-    query text,
-    query_pos integer,
-    location text,
-    application_name text,
-    backend_type text,
-    leader_pid integer,
-    query_id bigint,
-    CONSTRAINT postgres_log_check CHECK (false) NO INHERIT
-);
-GRANT SELECT ON public.postgres_log TO admin;"
+echo "SET search_path TO public, pg_catalog;"
 
 # Sunday could be 0 or 7 depending on the format, we just create both
 LOG_SHIP_HOURLY=$(echo "SELECT text(current_setting('log_rotation_age') = '1h')" | psql -tAX -d postgres 2> /dev/null | tail -n 1)
@@ -164,10 +168,11 @@ echo "DO \$\$DECLARE tbl_name TEXT;
     END LOOP;
 END;\$\$;"
 
+global_log="CREATE OR REPLACE VIEW public.postgres_log AS\n"
+global_union=""
 for i in $(seq 0 7); do
     if [ "$LOG_SHIP_HOURLY" != "true" ]; then
-        echo "CREATE FOREIGN TABLE IF NOT EXISTS public.postgres_log_${i} () INHERITS (public.postgres_log) SERVER pglog
-        OPTIONS (filename '../pg_log/postgresql-${i}.csv', format 'csv', header 'false');
+        echo "SELECT public.create_foreign_table_for_log_file('postgres_log_${i}', 'pglog', 'postgresql-${i}.csv', true);
         GRANT SELECT ON public.postgres_log_${i} TO admin;
 
         CREATE OR REPLACE VIEW public.failed_authentication_${i} WITH (security_barrier) AS
@@ -185,8 +190,7 @@ for i in $(seq 0 7); do
         for h in $(seq -w 0 23); do
             filter_logs="SELECT * FROM public.postgres_log_${i}_${h} WHERE command_tag = 'authentication' AND error_severity = 'FATAL'"
 
-            echo "CREATE FOREIGN TABLE IF NOT EXISTS public.postgres_log_${i}_${h} () INHERITS (public.postgres_log) SERVER pglog
-            OPTIONS (filename '../pg_log/postgresql-${i}-${h}.csv', format 'csv', header 'false');
+            echo "SELECT public.create_foreign_table_for_log_file('postgres_log_${i}_${h}', 'pglog', 'postgresql-${i}-${h}.csv', true);
             GRANT SELECT ON public.postgres_log_${i}_${h} TO admin;
 
             CREATE OR REPLACE VIEW public.failed_authentication_${i}_${h} WITH (security_barrier) AS
@@ -202,7 +206,15 @@ for i in $(seq 0 7); do
         echo -e "${daily_log};"
         echo -e "${daily_auth};"
     fi
+
+    global_log="${global_log}${global_union}SELECT * FROM public.postgres_log_${i}\n"
+    global_union="UNION ALL\n"
 done
+
+echo -e "${global_log};"
+echo "GRANT SELECT ON public.postgres_log TO admin;"
+
+echo "RESET search_path;"
 
 cat _zmon_schema.dump
 
