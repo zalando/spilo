@@ -123,11 +123,24 @@ DO \$\$DECLARE tbl_name TEXT;
     END LOOP;
     DROP TABLE IF EXISTS public.postgres_log CASCADE;
 END;\$\$;
-DROP SERVER IF EXISTS pglog CASCADE;
-
 CREATE EXTENSION IF NOT EXISTS log_fdw SCHEMA public;
 ALTER EXTENSION log_fdw UPDATE;
-CREATE SERVER pglog FOREIGN DATA WRAPPER log_fdw;"
+DO \$\$
+DECLARE
+    server_fdw name;
+BEGIN
+    SELECT w.fdwname INTO server_fdw
+      FROM pg_catalog.pg_foreign_server s
+      JOIN pg_catalog.pg_foreign_data_wrapper w ON w.oid = s.srvfdw
+     WHERE s.srvname = 'pglog';
+
+    IF NOT FOUND THEN
+        CREATE SERVER pglog FOREIGN DATA WRAPPER log_fdw;
+    ELSIF server_fdw <> 'log_fdw' THEN
+        DROP SERVER pglog CASCADE;
+        CREATE SERVER pglog FOREIGN DATA WRAPPER log_fdw;
+    END IF;
+END;\$\$;"
 
 echo "SET search_path TO public, pg_catalog;"
 
