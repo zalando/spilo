@@ -46,7 +46,8 @@ else
     done
 fi
 
-if [ "$WITH_PERL" != "true" ]; then
+# pgbadger is a perl script, so it needs the real perl instead of the dummy package
+if [ "$WITH_PERL" != "true" ] && [ "$WITH_PGBADGER" != "true" ]; then
     version=$(apt-cache show perl | sed -n 's/^Version: //p' | sort -rV | head -n 1)
     printf "Priority: standard\nStandards-Version: 3.9.8\nPackage: perl\nMulti-Arch: allowed\nReplaces: perl-base, perl-modules\nVersion: %s\nDescription: perl" "$version" > perl
     equivs-build perl
@@ -64,6 +65,13 @@ apt-get install -y \
     libbrotli1 \
     python3.10 \
     python3-psycopg2
+
+if [ "$WITH_PGBADGER" = "true" ]; then
+    # Text::CSV_XS is required by pgbadger to parse csvlog
+    apt-get install -y perl libtext-csv-xs-perl
+    curl -sL "https://github.com/darold/pgbadger/archive/$PGBADGER.tar.gz" | tar xz
+    install -m 755 "pgbadger-${PGBADGER#v}/pgbadger" /usr/local/bin/pgbadger
+fi
 
 # forbid creation of a main cluster when package is installed
 sed -ri 's/#(create_main_cluster) .*$/\1 = false/' /etc/postgresql-common/createcluster.conf
@@ -226,10 +234,12 @@ if [ "$WITH_PERL" != "true" ] || [ "$DEMO" != "true" ]; then
 fi
 
 # Remove unnecessary packages
+PURGE_PACKAGES=(libdpkg-perl)
+if [ "$WITH_PGBADGER" != "true" ]; then
+    PURGE_PACKAGES+=("libperl5.*" "perl-modules-5.*")
+fi
 apt-get purge -y \
-                libdpkg-perl \
-                libperl5.* \
-                perl-modules-5.* \
+                "${PURGE_PACKAGES[@]}" \
                 postgresql \
                 postgresql-all \
                 postgresql-server-dev-* \
