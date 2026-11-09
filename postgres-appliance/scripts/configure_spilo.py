@@ -813,6 +813,21 @@ def get_dcs_config(config, placeholders):
     return config
 
 
+def get_patroni_tags(placeholders):
+    tags = placeholders.get('PATRONI_TAGS')
+    if not tags:
+        return {}
+    try:
+        tags = json.loads(tags)
+    except ValueError as e:
+        logging.warning('could not parse PATRONI_TAGS as a JSON: %r, ignoring it', e)
+        return {}
+    if not isinstance(tags, dict):
+        logging.warning('PATRONI_TAGS should contain a JSON object, yet it is a %s, ignoring it', type(tags))
+        return {}
+    return tags
+
+
 def get_aws_region_from_bucket(bucket):
     bucket_name = urlparse(bucket if '://' in bucket else 's3://' + bucket).hostname or ''
     if not bucket_name:
@@ -1192,6 +1207,10 @@ def main():
 
     user_config_copy = deepcopy(user_config)
     config = deep_update(user_config_copy, config)
+
+    tags = get_patroni_tags(placeholders)
+    if tags:
+        config.setdefault('tags', {}).update(tags)
 
     if provider == PROVIDER_LOCAL and not any(1 for key in config.keys() if key in PATRONI_DCS):
         link_runit_service(placeholders, 'etcd')
