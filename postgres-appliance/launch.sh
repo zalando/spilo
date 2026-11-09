@@ -25,7 +25,7 @@ else
 fi
 
 mkdir -p "$PGLOG" "$PGDATA" "$RW_DIR/postgresql" "$RW_DIR/tmp" "$RW_DIR/certs"
-if [ "$(id -u)" -ne 0 ]; then
+if [ "$(id -u)" -ne 0 ] && [ "$(id -u)" -ne "$(id -u postgres)" ]; then
     sed -e "s/^postgres:x:[^:]*:[^:]*:/postgres:x:$(id -u):$(id -g):/" /etc/passwd > "$RW_DIR/tmp/passwd"
     cat "$RW_DIR/tmp/passwd" > /etc/passwd
     rm "$RW_DIR/tmp/passwd"
