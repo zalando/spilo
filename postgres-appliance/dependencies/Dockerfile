@@ -1,14 +1,15 @@
-FROM ubuntu:22.04
+FROM ubuntu:26.04
 
 LABEL maintainer="Alexander Kukushkin <alexander.kukushkin@zalando.de>"
 
 ENV SOURCES="gdal"
-ENV PACKAGES="libgdal30"
+ENV PACKAGES="libgdal38"
+ENV DEB_BUILD_OPTIONS="nocheck"
 
 RUN export DEBIAN_FRONTEND=noninteractive \
     && echo 'APT::Install-Recommends "0";' > /etc/apt/apt.conf.d/01norecommend \
     && echo 'APT::Install-Suggests "0";' >> /etc/apt/apt.conf.d/01norecommend \
-    && sed -i 's/^# deb-src/deb-src/' /etc/apt/sources.list \
+    && sed -i 's/^Types: deb$/Types: deb deb-src/' /etc/apt/sources.list.d/ubuntu.sources \
     && apt-get update \
     && apt-get install -y devscripts equivs \
     && mk-build-deps $SOURCES \

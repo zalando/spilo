@@ -27,12 +27,12 @@ fi
 
 # Dirty hack for smooth migration of existing dbs
 bash /builddeps/locales.sh
-mv /usr/lib/locale/locale-archive /usr/lib/locale/locale-archive.22
+mv /usr/lib/locale/locale-archive /usr/lib/locale/locale-archive.26
 ln -s /run/locale-archive /usr/lib/locale/locale-archive
-ln -s /usr/lib/locale/locale-archive.22 /run/locale-archive
+ln -s /usr/lib/locale/locale-archive.26 /run/locale-archive
 
 # Add PGDG repositories
-DISTRIB_CODENAME=$(sed -n 's/DISTRIB_CODENAME=//p' /etc/lsb-release)
+DISTRIB_CODENAME=$(sed -n 's/^VERSION_CODENAME=//p' /etc/os-release)
 for t in deb deb-src; do
     echo "$t http://apt.postgresql.org/pub/repos/apt/ ${DISTRIB_CODENAME}-pgdg main" >> /etc/apt/sources.list.d/pgdg.list
 done

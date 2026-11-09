@@ -5,6 +5,8 @@
 ## ----------------
 
 export DEBIAN_FRONTEND=noninteractive
+# the system python is "externally managed" (PEP 668), but the image is the only user of it
+export PIP_BREAK_SYSTEM_PACKAGES=1
 
 set -ex
 
@@ -33,7 +35,9 @@ if [ "$DEMO" != "true" ]; then
         python3-rsa \
         python3-s3transfer
 
-    find /usr/share/python-babel-localedata/locale-data -type f ! -name 'en_US*.dat' -delete
+    if [ -d /usr/share/python-babel-localedata/locale-data ]; then
+        find /usr/share/python-babel-localedata/locale-data -type f ! -name 'en_US*.dat' -delete
+    fi
 
     pip3 install protobuf \
             'git+https://github.com/zalando/pg_view.git@master#egg=pg-view'
@@ -43,8 +47,8 @@ fi
 
 pip3 install "patroni[kubernetes$EXTRAS]==$PATRONIVERSION"
 
-for d in /usr/local/lib/python3.10 /usr/lib/python3; do
-    cd $d/dist-packages
+for d in /usr/local/lib/python3.* /usr/lib/python3; do
+    cd "$d"/dist-packages
     find . -type d -name tests -print0 | xargs -0 rm -fr
     find . -type f -name 'test_*.py*' -delete
 done
