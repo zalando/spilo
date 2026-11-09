@@ -103,6 +103,7 @@ Environment Configuration Settings
 - **LOG_S3_BUCKET**: path to the S3 bucket used for PostgreSQL daily log files (i.e. foobar, without `s3://` prefix). Spilo will add `/spilo/{LOG_BUCKET_SCOPE_PREFIX}{SCOPE}{LOG_BUCKET_SCOPE_SUFFIX}/log/` to that path. Logs are shipped if this variable is set.
 - **LOG_S3_TAGS**: map of key value pairs to be used for tagging files uploaded to S3. Values should be referencing existing environment variables e.g. ``{"ClusterName": "SCOPE", "Namespace": "POD_NAMESPACE"}``
 - **LOG_SHIP_HOURLY**: if true, log rotation in Postgres is set to 1h incl. foreign tables for every hour (schedule `1 */1 * * *`)
+- **LOG_DESTINATION**: comma-separated list of PostgreSQL ``log_destination`` values, e.g. ``csvlog,jsonlog`` to additionally write logs in JSON format (``*.json`` files in ``pg_log``) for log collectors such as Vector, Fluent Bit or Promtail. ``csvlog`` is always kept, because the ``postgres_log`` foreign tables and log shipping to S3 rely on it; ``jsonlog`` is ignored for PostgreSQL older than 15. Default is ``csvlog``.
 - **LOG_SHIP_SCHEDULE**: cron schedule for shipping compressed logs from ``pg_log`` (``1 0 * * *`` by default)
 - **LOG_ENV_DIR**: directory to store environment variables necessary for log shipping
 - **LOG_TMPDIR**: directory to store temporary compressed daily log files. PGROOT/../tmp by default.
