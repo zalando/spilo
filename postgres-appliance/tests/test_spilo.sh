@@ -267,11 +267,16 @@ function verify_hourly_log_rotation() {
 # TEST SUITE 5 - Replica bootstrap with wal-g
 # TEST SUITE 6 - Major upgrade 15->16 after clone with basebackup
 # TEST SUITE 7 - Hourly log rotation
+function test_post_init_database_names() {
+    docker_exec -i "$1" "bash" < test_post_init.sh
+}
+
 function test_spilo() {
     # TEST SUITE 1
     local container=$1
 
     run_test test_envdir_suffix "$container" 14
+    run_test test_post_init_database_names "$container"
 
     log_info "[TS1] Testing wrong upgrade setups"
     run_test test_inplace_upgrade_wrong_version "$container"
