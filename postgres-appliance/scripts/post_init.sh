@@ -218,14 +218,19 @@ echo "RESET search_path;"
 
 cat _zmon_schema.dump
 
-while IFS= read -r db_name; do
-    echo "\c ${db_name}"
+# Keep SQL identifiers separate from libpq database names.
+while IFS= read -r -d '' db_ident && IFS= read -r -d '' db_name; do
+    echo "\c ${db_ident}"
+    # Escape a single libpq value so names cannot become connection options.
+    db_conninfo=${db_name//\\/\\\\}
+    db_conninfo=${db_conninfo//\'/\\\'}
+    db_conninfo="dbname='${db_conninfo}'"
     # In case if timescaledb binary is missing the first query fails with the error
     # ERROR:  could not access file "$libdir/timescaledb-$OLD_VERSION": No such file or directory
-    UPGRADE_TIMESCALEDB=$(echo -e "SELECT NULL;\nSELECT default_version != installed_version FROM pg_catalog.pg_available_extensions WHERE name = 'timescaledb'" | psql -tAX -d "${db_name}" 2> /dev/null | tail -n 1)
+    UPGRADE_TIMESCALEDB=$(echo -e "SELECT NULL;\nSELECT default_version != installed_version FROM pg_catalog.pg_available_extensions WHERE name = 'timescaledb'" | psql -tAX -d "${db_conninfo}" 2> /dev/null | tail -n 1)
     if [ "$UPGRADE_TIMESCALEDB" = "t" ]; then
         echo "ALTER EXTENSION timescaledb UPDATE;"
-        IS_VERSION_BELOW_215=$(echo -e "SELECT (installed_version < '2.15')::bool FROM pg_catalog.pg_available_extensions WHERE name = 'timescaledb'" | psql -tAX -d "${db_name}" 2> /dev/null | tail -n 1)
+        IS_VERSION_BELOW_215=$(echo -e "SELECT (installed_version < '2.15')::bool FROM pg_catalog.pg_available_extensions WHERE name = 'timescaledb'" | psql -tAX -d "${db_conninfo}" 2> /dev/null | tail -n 1)
         if [ "$IS_VERSION_BELOW_215" = "t" ]; then
             echo """
                     -- Fix compressed hypertables with FOREIGN KEY constraints that were created with TimescaleDB versions before 2.15.0
@@ -308,14 +313,14 @@ while IFS= read -r db_name; do
                 """
         fi
     fi
-    UPGRADE_TIMESCALEDB_TOOLKIT=$(echo -e "SELECT NULL;\nSELECT default_version != installed_version FROM pg_catalog.pg_available_extensions WHERE name = 'timescaledb_toolkit'" | psql -tAX -d "${db_name}" 2> /dev/null | tail -n 1)
+    UPGRADE_TIMESCALEDB_TOOLKIT=$(echo -e "SELECT NULL;\nSELECT default_version != installed_version FROM pg_catalog.pg_available_extensions WHERE name = 'timescaledb_toolkit'" | psql -tAX -d "${db_conninfo}" 2> /dev/null | tail -n 1)
     if [ "$UPGRADE_TIMESCALEDB_TOOLKIT" = "t" ]; then
         echo "ALTER EXTENSION timescaledb_toolkit UPDATE;"
     fi
-    UPGRADE_POSTGIS=$(echo "SELECT COUNT(*) FROM pg_catalog.pg_extension WHERE extname = 'postgis'" | psql -tAX -d "${db_name}" 2> /dev/null | tail -n 1)
+    UPGRADE_POSTGIS=$(echo "SELECT COUNT(*) FROM pg_catalog.pg_extension WHERE extname = 'postgis'" | psql -tAX -d "${db_conninfo}" 2> /dev/null | tail -n 1)
     if [ "$UPGRADE_POSTGIS" = "1" ]; then
         # public.postgis_lib_version() is available only if postgis extension is created
-        UPGRADE_POSTGIS=$(echo "SELECT extversion != public.postgis_lib_version() FROM pg_catalog.pg_extension WHERE extname = 'postgis'" | psql -tAX -d "${db_name}" 2> /dev/null | tail -n 1)
+        UPGRADE_POSTGIS=$(echo "SELECT extversion != public.postgis_lib_version() FROM pg_catalog.pg_extension WHERE extname = 'postgis'" | psql -tAX -d "${db_conninfo}" 2> /dev/null | tail -n 1)
         if [ "$UPGRADE_POSTGIS" = "t" ]; then
             echo "ALTER EXTENSION postgis UPDATE;"
             echo "SELECT public.postgis_extensions_upgrade();"
@@ -331,5 +336,5 @@ GRANT EXECUTE ON FUNCTION public.pg_stat_statements_reset($RESET_ARGS) TO admin;
     echo "GRANT EXECUTE ON FUNCTION pg_catalog.pg_switch_wal() TO admin;"
     if [ "$ENABLE_PG_MON" = "true" ]; then echo "CREATE EXTENSION IF NOT EXISTS pg_mon SCHEMA public;"; fi
     cat metric_helpers.sql
-done < <(psql -d "$2" -tAc 'select pg_catalog.quote_ident(datname) from pg_catalog.pg_database where datallowconn')
+done < <(psql -d "$2" -tA -z -0 -c 'select pg_catalog.quote_ident(datname), datname from pg_catalog.pg_database where datallowconn')
 ) | psql -Xd "$2"
