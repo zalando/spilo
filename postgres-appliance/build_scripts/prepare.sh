@@ -4,6 +4,14 @@ export DEBIAN_FRONTEND=noninteractive
 
 echo -e 'APT::Install-Recommends "0";\nAPT::Install-Suggests "0";' > /etc/apt/apt.conf.d/01norecommend
 
+# Create the postgres user with the well-known Spilo UID/GID (101/103) before installing any package.
+# postgresql-common >= 294 creates it with systemd-sysusers and pulls in systemd, whose own system users
+# would otherwise take 101/103 first and leave postgres at 997, breaking existing volumes owned by 101
+# and the postgres-operator defaults (spilo_runasuser: 101, spilo_fsgroup: 103).
+groupadd --system --gid 103 postgres
+useradd --system --uid 101 --gid 103 --no-create-home --home-dir /var/lib/postgresql \
+        --shell /bin/bash --comment "PostgreSQL administrator" postgres
+
 apt-get update
 apt-get -y upgrade
 apt-get install -y curl ca-certificates less locales jq vim-tiny gnupg1 cron runit dumb-init libcap2-bin rsync sysstat gpg
