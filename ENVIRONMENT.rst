@@ -9,14 +9,14 @@ Environment Configuration Settings
 - **ETCD_CACERT**: Etcd CA certificate. If present it will enable validation.
 - **ETCD_CERT**: Etcd client certificate.
 - **ETCD_KEY**: Etcd client certificate key. Can be empty if the key is part of certificate.
-- **PGHOME**: filesystem path where to put PostgreSQL home directory (/home/postgres by default)
 - **APIPORT**: TCP port to Patroni API connections (8008 by default)
 - **BACKUP_SCHEDULE**: cron schedule for doing backups via WAL-G ('00 01 * * *' by default)
 - **CLONE_TARGET_TIMELINE**: timeline id of the backup for restore, 'latest' by default.
 - **CRONTAB**: anything that you want to run periodically as a cron job (empty by default)
-- **PGROOT**: a directory where we put the pgdata (by default /home/postgres/pgroot). One may adjust it to point to the mount point of the persistent volume, such as EBS.
+- **PGHOME**: filesystem path where to put PostgreSQL home directory (/home/postgres by default). Only docker-build-time env var!
+- **PGROOT**: a directory where we put the pgdata (by default PGHOME/pgdata/pgroot). One may adjust it to point to the mount point of the persistent volume, such as EBS. Only docker-build-time env var!
+- **PGDATA**: location of PostgreSQL data directory, by default PGROOT/data. Only docker-build-time env var!
 - **WALE_TMPDIR** or **WALG_TMPDIR**: directory to store WAL-G temporary files. PGROOT/../tmp by default, make sure it has a few GBs of free space.
-- **PGDATA**: location of PostgreSQL data directory, by default PGROOT/pgdata.
 - **PGUSER_STANDBY**: username for the replication user, 'standby' by default.
 - **PGPASSWORD_STANDBY**: a password for the replication user, 'standby' by default.
 - **STANDBY_HOST**: hostname or IP address of the primary to stream from.
