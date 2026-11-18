@@ -1137,6 +1137,12 @@ def write_crontab(placeholders, overwrite):
         setup_crontab('root', root_lines)
 
 
+def get_pgaudit_parameters(placeholders):
+    # PGAUDIT_LOG=ddl,role -> pgaudit.log: 'ddl,role'
+    return {'pgaudit.' + name[len('PGAUDIT_'):].lower(): value
+            for name, value in placeholders.items() if name.startswith('PGAUDIT_') and value}
+
+
 def write_pam_oauth2_configuration(placeholders, overwrite):
     pam_oauth2_args = placeholders.get('PAM_OAUTH2') or ''
     t = pam_oauth2_args.split()
@@ -1196,6 +1202,8 @@ def main():
     if provider == PROVIDER_LOCAL and not any(1 for key in config.keys() if key in PATRONI_DCS):
         link_runit_service(placeholders, 'etcd')
         config['etcd'] = {'host': '127.0.0.1:2379'}
+
+    config['postgresql']['parameters'].update(get_pgaudit_parameters(placeholders))
 
     pgdata = config['postgresql']['data_dir']
     version_file = os.path.join(pgdata, 'PG_VERSION')
