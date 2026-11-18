@@ -1,6 +1,8 @@
 #!/bin/bash
 
 RETRIES=2
+SLOT_NAME=""
+KEEP_WAL_FAST=""
 
 while getopts ":-:" optchar; do
     [[ "${optchar}" == "-" ]] || continue
@@ -13,6 +15,12 @@ while getopts ":-:" optchar; do
             ;;
         retries=* )
             RETRIES=${OPTARG#*=}
+            ;;
+        primary_slot_name=* )
+            SLOT_NAME=${OPTARG#*=}
+            ;;
+        keep_wal_fast=* )
+            KEEP_WAL_FAST=${OPTARG#*=}
             ;;
     esac
 done
@@ -59,15 +67,17 @@ function start_receivewal() {
     [ -z "$SEGMENT" ] && exit 1
 
     # run pg_receivewal until postgres will not start streaming
-    (
-        while ! pgrep -cf 'wal {0,1}receiver( process){0,1}\s+streaming' > /dev/null; do
-            # exit if pg_receivewal is not running
-            kill -0 $receivewal_pid && sleep 1 || exit
-        done
+    if [[ $KEEP_WAL_FAST != 1 ]]; then
+        (
+            while ! pgrep -cf 'wal {0,1}receiver( process){0,1}\s+streaming' > /dev/null; do
+                # exit if pg_receivewal is not running
+                kill -0 $receivewal_pid && sleep 1 || exit
+            done
 
-        kill $receivewal_pid && sleep 1
-        rm -f "${WAL_FAST:?}"/*
-    )&
+            kill $receivewal_pid && sleep 1
+            rm -f "${WAL_FAST:?}"/*
+        )&
+    fi
 
     # calculate the name of previous segment
     timeline=${SEGMENT:0:8}
@@ -86,7 +96,12 @@ function start_receivewal() {
     # therefore we will "precreate" previous file and pg_receivewal will start fetching the next one
     dd if=/dev/zero of="$WAL_FAST/$SEGMENT" bs=16k count=1k
 
-    exec $PG_RECEIVEWAL --directory="$WAL_FAST" --dbname="$CONNSTR"
+    PG_RECEIVEWAL_ARGS=(--directory="$WAL_FAST" --dbname="$CONNSTR")
+    if [[ -n "$SLOT_NAME" ]]; then
+        PG_RECEIVEWAL_ARGS+=(--slot="$SLOT_NAME")
+    fi
+
+    exec "$PG_RECEIVEWAL" "${PG_RECEIVEWAL_ARGS[@]}"
 }
 
 # make sure that there is only one receivewal running
@@ -111,6 +126,10 @@ while [[ $((ATTEMPT++)) -le $RETRIES ]]; do
     wait $basebackup_pid
     EXITCODE=$?
     if [[ $EXITCODE == 0 ]]; then
+        if [[ -n $receivewal_pid && $KEEP_WAL_FAST == 1 ]]; then
+            kill "$receivewal_pid"
+            wait "$receivewal_pid" 2>/dev/null || true
+        fi
         break
     elif [[ $ATTEMPT -le $RETRIES ]]; then
         sleep $((ATTEMPT*10))
