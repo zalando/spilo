@@ -9,6 +9,7 @@ import os
 from json.decoder import JSONDecodeError
 
 import psutil
+import shutil
 import socket
 import subprocess
 import sys
@@ -555,6 +556,44 @@ def get_listen_ip():
     return info[0][4][0]
 
 
+def get_memory_limit_mb():
+    cgroup_memory_limit_path = '/sys/fs/cgroup/memory/memory.limit_in_bytes'
+    cgroup_v2_memory_limit_path = '/sys/fs/cgroup/memory.max'
+
+    if os.path.exists(cgroup_memory_limit_path):
+        with open(cgroup_memory_limit_path) as f:
+            os_memory_mb = int(f.read()) / 1048576
+    elif os.path.exists(cgroup_v2_memory_limit_path):
+        with open(cgroup_v2_memory_limit_path) as f:
+            try:
+                os_memory_mb = int(f.read()) / 1048576
+            except Exception:  # string literal "max" is a possible value
+                os_memory_mb = 0x7FFFFFFFFFF
+    else:
+        os_memory_mb = sys.maxsize
+    return min(os_memory_mb, os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES') / 1048576)
+
+
+def get_cpu_limit():
+    # the cpu quota of the container (e.g. resources.limits.cpu on Kubernetes) if any, otherwise all cpus of the host
+    try:
+        if os.path.exists('/sys/fs/cgroup/cpu.max'):  # cgroup v2: "max 100000" or "<quota> <period>"
+            with open('/sys/fs/cgroup/cpu.max') as f:
+                quota, period = f.read().split()
+            if quota != 'max':
+                return int(quota) / int(period)
+        elif os.path.exists('/sys/fs/cgroup/cpu/cpu.cfs_quota_us'):  # cgroup v1, -1 means no quota
+            with open('/sys/fs/cgroup/cpu/cpu.cfs_quota_us') as f:
+                quota = int(f.read())
+            with open('/sys/fs/cgroup/cpu/cpu.cfs_period_us') as f:
+                period = int(f.read())
+            if quota > 0:
+                return quota / period
+    except Exception as e:
+        logging.warning('Failed to read the cpu quota: %r', e)
+    return psutil.cpu_count()
+
+
 def get_placeholders(provider):
     placeholders = {}
     for key, value in os.environ.items():
@@ -705,21 +744,7 @@ def get_placeholders(provider):
         'envdir "{WALG_ENV_DIR}" wal-g wal-push "%p"'.format(**placeholders) \
         if placeholders['USE_WALG'] else '/bin/true'
 
-    cgroup_memory_limit_path = '/sys/fs/cgroup/memory/memory.limit_in_bytes'
-    cgroup_v2_memory_limit_path = '/sys/fs/cgroup/memory.max'
-
-    if os.path.exists(cgroup_memory_limit_path):
-        with open(cgroup_memory_limit_path) as f:
-            os_memory_mb = int(f.read()) / 1048576
-    elif os.path.exists(cgroup_v2_memory_limit_path):
-        with open(cgroup_v2_memory_limit_path) as f:
-            try:
-                os_memory_mb = int(f.read()) / 1048576
-            except Exception:  # string literal "max" is a possible value
-                os_memory_mb = 0x7FFFFFFFFFF
-    else:
-        os_memory_mb = sys.maxsize
-    os_memory_mb = min(os_memory_mb, os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES') / 1048576)
+    os_memory_mb = get_memory_limit_mb()
 
     # Depending on environment we take 1/4 or 1/5 of the memory, expressed in full MB's
     sb_ratio = 5 if USE_KUBERNETES else 4
@@ -752,6 +777,27 @@ def get_placeholders(provider):
         placeholders['SSL_RESTAPI_CA_FILE'] = os.path.join(placeholders['RW_DIR'], 'certs', 'rest-api-ca.crt')
 
     return placeholders
+
+
+def format_size(mb):
+    return '{0:g}GB'.format(round(mb / 1024.0, 1)) if mb >= 1024 else '{0}MB'.format(int(mb))
+
+
+def get_resource_tags(config, placeholders):
+    cpu = round(get_cpu_limit(), 2)
+    tags = {'cpu': int(cpu) if cpu == int(cpu) else cpu,
+            'memory': format_size(get_memory_limit_mb()),
+            'shared_buffers': str(config['postgresql']['parameters']['shared_buffers'])}
+
+    # size of the volume with PGDATA
+    path = placeholders['PGROOT']
+    while not os.path.exists(path) and path != os.path.dirname(path):
+        path = os.path.dirname(path)
+    try:
+        tags['disk'] = format_size(shutil.disk_usage(path).total / 1048576)
+    except OSError as e:
+        logging.warning('Failed to get size of the volume %s: %r', path, e)
+    return tags
 
 
 def format_url(host, port):
@@ -1227,6 +1273,11 @@ def main():
         rep_hba = 'hostssl replication {} all md5'.\
             format(config['postgresql']['authentication']['replication']['username'])
         config['bootstrap']['pg_hba'].insert(0, rep_hba)
+
+    if str(placeholders.get('PATRONI_RESOURCE_TAGS')).lower() == 'true':
+        # tags explicitly set in SPILO_CONFIGURATION take precedence
+        for name, value in get_resource_tags(config, placeholders).items():
+            config.setdefault('tags', {}).setdefault(name, value)
 
     for section in args['sections']:
         logging.info('Configuring %s', section)

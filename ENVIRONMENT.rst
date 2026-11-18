@@ -11,6 +11,7 @@ Environment Configuration Settings
 - **ETCD_KEY**: Etcd client certificate key. Can be empty if the key is part of certificate.
 - **PGHOME**: filesystem path where to put PostgreSQL home directory (/home/postgres by default)
 - **APIPORT**: TCP port to Patroni API connections (8008 by default)
+- **PATRONI_RESOURCE_TAGS**: if set to ``true``, resources of the instance are published as Patroni tags and shown in the ``Tags`` column of ``patronictl list`` for every member of the cluster: ``cpu`` (the cpu quota of the container, e.g. ``resources.limits.cpu`` on Kubernetes, or all cpus of the host), ``memory`` (the memory limit of the container or the host memory), ``disk`` (size of the volume with ``PGROOT``) and ``shared_buffers``. The values are calculated when the container starts. Tags explicitly set in ``SPILO_CONFIGURATION`` take precedence. Default is empty.
 - **BACKUP_SCHEDULE**: cron schedule for doing backups via WAL-G ('00 01 * * *' by default)
 - **CLONE_TARGET_TIMELINE**: timeline id of the backup for restore, 'latest' by default.
 - **CRONTAB**: anything that you want to run periodically as a cron job (empty by default)
